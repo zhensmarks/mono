@@ -32,6 +32,59 @@ function saveSettingsData(settings) {
 }
 
 
+// ==== SAVE MASTER CONFIG ====
+// Sumber: %APPDATA%\BMachine.v2\save_master_config.json (jalur yang sama dipakai BMachine),
+// fallback %APPDATA%\BMachine\ lalu Folder.userData. Diatur dari
+// BMachine -> Pengaturan -> Script Manager -> SAVE MASTER.
+function masterConfigCandidates() {
+    var out = [];
+    try {
+        var ad = $.getenv("APPDATA");
+        if (ad) {
+            out.push(ad + "/BMachine.v2/save_master_config.json");
+            out.push(ad + "/BMachine/save_master_config.json");
+        }
+    } catch (e) { }
+    try { out.push(Folder.userData + "/save_master_config.json"); } catch (e2) { }
+    return out;
+}
+function loadMasterConfig() {
+    var paths = masterConfigCandidates();
+    for (var i = 0; i < paths.length; i++) {
+        var f = new File(paths[i]);
+        if (!f.exists) continue;
+        try {
+            f.open("r");
+            var txt = f.read();
+            f.close();
+            var obj = eval("(" + txt + ")");
+            if (obj && typeof obj === "object") return obj;
+        } catch (e) { try { f.close(); } catch (x) { } }
+    }
+    return null;
+}
+var MASTER_CFG = loadMasterConfig();
+// Langkah otomatis AKTIF kalau key tidak ada, supaya perilaku lama tidak berubah.
+function stepOn(name) {
+    try {
+        if (!MASTER_CFG || !MASTER_CFG.steps) return true;
+        var v = MASTER_CFG.steps[name];
+        if (typeof v === "undefined" || v === null) return true;
+        if (v === false) return false;
+        var s = String(v).toLowerCase();
+        return !(s === "false" || s === "0" || s === "off" || s === "no");
+    } catch (e) { return true; }
+}
+function masterRedaksiFromConfig() {
+    try {
+        if (MASTER_CFG && MASTER_CFG.redaksi && MASTER_CFG.redaksi.constructor === Array && MASTER_CFG.redaksi.length > 0) {
+            return MASTER_CFG.redaksi.join("\n");
+        }
+    } catch (e) { }
+    return null;
+}
+// ==== /SAVE MASTER CONFIG ====
+
 function loadAdvancedPresets(){var f=new File(Folder.userData+"/save_master_presets.json");if(!f.exists)return[];try{f.open("r");var d=eval("("+f.read()+")");f.close();return d&&d.presets&&d.presets.constructor===Array?d.presets:[];}catch(e){try{f.close();}catch(x){}return[];}}
 function saveAdvancedPresets(p){var f=new File(Folder.userData+"/save_master_presets.json");try{f.open("w");f.write(({presets:p}).toSource());f.close();return true;}catch(e){try{f.close();}catch(x){}return false;}}
 function isBatchEnabled(value){return value==="all"||value===true||String(value).toLowerCase()==="true"||String(value)==="1"||String(value).toLowerCase()==="on";}
@@ -41,12 +94,12 @@ function showAdvancedMode(){
  var name=dlg.add("edittext",undefined,"");var row=dlg.add("group");row.orientation="row";var master=row.add("checkbox",undefined,"Save PSD");master.value=true;var jpg=row.add("checkbox",undefined,"JPG");var png=row.add("checkbox",undefined,"PNG");var action=dlg.add("checkbox",undefined,"Run anti ramijud action");action.value=true;var keep=dlg.add("checkbox",undefined,"Keep source open");keep.value=true;var batch=dlg.add("checkbox",undefined,"Batch: all open documents");batch.value=false;
  var pr=dlg.add("group");pr.orientation="row";pr.add("statictext",undefined,"Export folder (blank = source)");var path=pr.add("edittext",undefined,"");path.preferredSize.width=145;var browse=pr.add("button",undefined,"Browse");var buttons=dlg.add("group");buttons.orientation="row";buttons.alignment="center";var save=buttons.add("button",undefined,"Save / Edit");var run=buttons.add("button",undefined,"Run Current");var cancel=buttons.add("button",undefined,"Cancel");
  function conf(){return{name:name.text,saveMaster:master.value,exportJpg:jpg.value,exportPng:png.value,processAction:action.value,keepOpen:keep.value,batch:batch.value,path:path.text};}
- function execute(c){if(!c.saveMaster&&!c.exportJpg&&!c.exportPng){alert("Aktifkan minimal satu proses.");return;}var f=(c.path?String(c.path):"").replace(/^\s+|\s+$/g,"");var isAbs=f.indexOf(":")>=0||f.charAt(0)==="/";if(f&&isAbs&&!new Folder(f).exists){alert("Folder export tidak ditemukan.");return;}dlg.close(1);runAdvancedMode({saveMaster:!!c.saveMaster,exportJpg:!!c.exportJpg,exportPng:!!c.exportPng,processAction:!!c.processAction,keepOpen:!!c.keepOpen,batch:isBatchEnabled(c.batch),path:f});}
+ function execute(c){if(!c.saveMaster&&!c.exportJpg&&!c.exportPng){alert("Aktifkan minimal satu proses.");return;}var f=(c.path?String(c.path):"").replace(/^\s+|\s+$/g,"");var isAbs=f.indexOf(":")>=0||f.charAt(0)==="/";if(f&&isAbs&&!new Folder(f).exists){alert("Folder export tidak ditemukan.");return;}dlg.close(1);runAdvancedMode({saveMaster:!!c.saveMaster,exportJpg:!!c.exportJpg,exportPng:!!c.exportPng,processAction:!!c.processAction,keepOpen:!!c.keepOpen,batch:stepOn("batchAllDocs")&&isBatchEnabled(c.batch),path:f});}
  function populate(){while(area.children.length)area.remove(area.children[0]);var r=null;for(var i=0;i<presets.length;i++){if(i%3===0){r=area.add("group");r.orientation="row";}var item=r.add("group");item.orientation="row";item.spacing=1;var b=item.add("button",undefined,presets[i].name);b.preferredSize=[88,25];b.idx=i;b.onClick=function(){var c=presets[this.idx];if(typeof c.batch==="undefined")c.batch=false;execute(c);};var x=item.add("button",undefined,"X");x.preferredSize=[18,25];x.idx=i;x.helpTip="Hapus preset";x.onClick=function(){var idx=this.idx;if(!confirm("Hapus preset '"+presets[idx].name+"'?"))return;presets.splice(idx,1);if(!saveAdvancedPresets(presets)){alert("Gagal menghapus preset.");return;}populate();};}if(!presets.length)area.add("statictext",undefined,"Belum ada preset tersimpan.");area.layout.layout(true);panel.layout.layout(true);dlg.layout.layout(true);dlg.update();}
  populate();browse.onClick=function(){var f=Folder.selectDialog("Pilih folder export");if(f)path.text=decodeURI(f.fsName);};function savePreset(){var c=conf(),n=c.name.replace(/^\s+|\s+$/g,"");if(!n){alert("Isi nama preset.");return;}c.name=n;var i=-1;for(var j=0;j<presets.length;j++)if(presets[j].name===n)i=j;if(i<0)presets.push(c);else presets[i]=c;if(!saveAdvancedPresets(presets)){alert("Gagal menyimpan preset.");return;}populate();area.layout.layout(true);panel.layout.layout(true);dlg.layout.layout(true);dlg.layout.resize();dlg.update();}save.onClick=savePreset; run.onClick=function(){execute(conf());};cancel.onClick=function(){dlg.close(0);};dlg.onClose=function(){var s=loadSettings();s.advancedX=dlg.location.x;s.advancedY=dlg.location.y;saveSettingsData(s);return true;};if(pos.advancedX>0&&pos.advancedY>0)dlg.location=[pos.advancedX,pos.advancedY];else dlg.center();dlg.show();
 }
 function runAdvancedMode(c){
- var docNames=[];var batchMode=isBatchEnabled(c.batch);
+ var docNames=[];var batchMode=stepOn("batchAllDocs")&&isBatchEnabled(c.batch);
  if(batchMode){for(var i=0;i<app.documents.length;i++)docNames.push(app.documents[i].name);}
  else if(app.activeDocument)docNames.push(app.activeDocument.name);
  var ok=[],fail=[],stop=false,requested=false;
@@ -143,7 +196,7 @@ function runAdvancedMode(c){
       dup=d.duplicate(base+"_advanced_png");app.activeDocument=dup;
       try{dup.artLayers.add();}catch(exAdd){}
       try{executeAction(stringIDToTypeID("mergeVisible"),undefined,DialogModes.NO);}catch(exMerge){}
-      if(!requested&&c.processAction)try{app.doAction("anti ramijud","starter pack");}catch(ex){}
+      if(!requested&&c.processAction&&stepOn("antiRamijud"))try{app.doAction("anti ramijud","starter pack");}catch(ex){}
       if(!requested)savePNG(dup,exportFolder.fsName+"/"+base+".png");
       dup.close(SaveOptions.DONOTSAVECHANGES);dup=null;app.activeDocument=d;
      }
@@ -151,7 +204,7 @@ function runAdvancedMode(c){
      // --- JPG: tidak mendukung alpha, flatten tetap dipakai (sama seperti mode JPG) ---
      if(c.exportJpg){
       dup=d.duplicate(base+"_advanced_jpg");app.activeDocument=dup;dup.flatten();
-      if(!requested&&c.processAction)try{app.doAction("anti ramijud","starter pack");}catch(ex){}
+      if(!requested&&c.processAction&&stepOn("antiRamijud"))try{app.doAction("anti ramijud","starter pack");}catch(ex){}
       if(!requested)saveJPG(dup,exportFolder.fsName+"/"+base+".jpg",12);
       dup.close(SaveOptions.DONOTSAVECHANGES);dup=null;app.activeDocument=d;
      }
@@ -185,22 +238,27 @@ function main() {
 
     var settings = loadSettings();
 
-    // ========== File Pengaturan Redaksi ==========
+    // ========== Daftar Kalimat Terlarang (Redaksi) ==========
+    // Sumber utama: save_master_config.json dari BMachine -> SAVE MASTER.
+    // File lama bmachine_fendi_redaksi.txt tetap dipakai kalau config belum punya daftar.
     var settingFile = new File(Folder.userData + "/bmachine_fendi_redaksi.txt");
     var defaultText = "TK DELAPAN MATA AIR\nTAAM AISYAH MIFTAHUL KHAER\nJL. BIMA NO. 10 RT. 04 RW. 04  KEL. ARJUNA KEC. CICENDO\nJl. Sari Endah No. 7A Gegerkalong Hilir Bandung\nJl. Sari Endah No.7A, Sukarasa, Kec. Sukasari Kota Bandung, Jaw";
-    var currentRedaksi = defaultText;
-    if (settingFile.exists) {
-        try {
-            settingFile.open("r");
-            currentRedaksi = settingFile.read();
-            settingFile.close();
-        } catch(e){}
-    } else {
-        try {
-            settingFile.open("w");
-            settingFile.write(defaultText);
-            settingFile.close();
-        } catch(e){}
+    var configRedaksi = masterRedaksiFromConfig();
+    var currentRedaksi = configRedaksi !== null ? configRedaksi : defaultText;
+    if (configRedaksi === null) {
+        if (settingFile.exists) {
+            try {
+                settingFile.open("r");
+                currentRedaksi = settingFile.read();
+                settingFile.close();
+            } catch(e){}
+        } else {
+            try {
+                settingFile.open("w");
+                settingFile.write(defaultText);
+                settingFile.close();
+            } catch(e){}
+        }
     }
 
     // === DIALOG UTAMA ===
@@ -511,7 +569,7 @@ function main() {
             }
 
             // === CEK REDAKSI ===
-            var resCheck = runTextCheckOnDocs(docsToProcess, currentRedaksi);
+            var resCheck = stepOn("redaksiCheck") ? runTextCheckOnDocs(docsToProcess, currentRedaksi) : { ok: true, hit: false };
             if (!resCheck.ok) {
                 showScrollableAlert("Peringatan Cek Redaksi", resCheck.msg);
                 return;
@@ -548,7 +606,7 @@ function main() {
                         app.activeDocument = dupDoc;
                         dupDoc.artLayers.add();
                         dupDoc.flatten();
-                        try { app.doAction("anti ramijud", "starter pack"); } catch (e) { }
+                        if (stepOn("antiRamijud")) try { app.doAction("anti ramijud", "starter pack"); } catch (e) { }
                         saveJPG(dupDoc, docPath + "/" + baseName + ".jpg", JPG_QUALITY);
                         dupDoc.close(SaveOptions.DONOTSAVECHANGES);
                     } else if (selChoice == 2) {
@@ -556,7 +614,7 @@ function main() {
                         app.activeDocument = dupDoc;
                         dupDoc.artLayers.add();
                         executeAction(stringIDToTypeID("mergeVisible"), undefined, DialogModes.NO);
-                        try { app.doAction("anti ramijud", "starter pack"); } catch (e) { }
+                        if (stepOn("antiRamijud")) try { app.doAction("anti ramijud", "starter pack"); } catch (e) { }
                         savePNG(dupDoc, docPath + "/" + baseName + ".png");
                         dupDoc.close(SaveOptions.DONOTSAVECHANGES);
                     }
@@ -564,11 +622,11 @@ function main() {
                     // 3. Crop pas foto (2x3 / 4x6)
                     if (isPasMode) {
                         app.activeDocument = doc;
-                        if (selChoice == 3 || selChoice == 5) {
+                        if ((selChoice == 3 || selChoice == 5) && stepOn("crop2x3")) {
                             var folder2x3 = createFolderIfNotExist(docPath + "/2x3");
                             createCroppedVersion(doc, folder2x3, 2, 3, JPG_QUALITY);
                         }
-                        if (selChoice == 4 || selChoice == 5) {
+                        if ((selChoice == 4 || selChoice == 5) && stepOn("crop4x6")) {
                             var folder4x6 = createFolderIfNotExist(docPath + "/4x6");
                             createCroppedVersion(doc, folder4x6, 4, 6, JPG_QUALITY);
                         }
@@ -576,7 +634,7 @@ function main() {
 
                     // 4. Tutup dokumen asli
                     app.activeDocument = doc;
-                    doc.close(SaveOptions.DONOTSAVECHANGES);
+                    if (stepOn("closeAfterSave")) doc.close(SaveOptions.DONOTSAVECHANGES);
                     successList.push(docName);
 
                 } catch (e) {
@@ -601,7 +659,7 @@ function main() {
             allOpenDocs.push(app.documents[i]);
         }
         
-        var resCheck = runTextCheckOnDocs(allOpenDocs, currentRedaksi);
+        var resCheck = stepOn("redaksiCheck") ? runTextCheckOnDocs(allOpenDocs, currentRedaksi) : { ok: true, hit: false };
         if (!resCheck.ok) {
             showScrollableAlert("Peringatan Cek Redaksi", resCheck.msg);
             return;
@@ -679,7 +737,7 @@ function main() {
                 }
                 
                 // Tutup dokumen setelah selesai diexport
-                doc.close(SaveOptions.DONOTSAVECHANGES);
+                if (stepOn("closeAfterSave")) doc.close(SaveOptions.DONOTSAVECHANGES);
                 
                 if (res.cancelled) {
                     allDetails.push("--- PROSES DIBATALKAN OLEH USER (ESC) ---");
@@ -801,7 +859,7 @@ function main() {
                     } else {
                         // Hanya Save PSD
                         doc.save();
-                        doc.close(SaveOptions.DONOTSAVECHANGES);
+                        if (stepOn("closeAfterSave")) doc.close(SaveOptions.DONOTSAVECHANGES);
                         successList.push(baseName + " (PSD Updated)");
                         continue; // Skip rest of loop
                     }
@@ -825,7 +883,7 @@ function main() {
 
                 // Action 'anti ramijud' (Skip if Only JPG/Folder mode)
                 if (!MODE_ONLY_JPG && !MODE_JPG_FOLDER && !MODE_PNG_FOLDER) {
-                    try { app.doAction("anti ramijud", "starter pack"); } catch (e) { }
+                    if (stepOn("antiRamijud")) try { app.doAction("anti ramijud", "starter pack"); } catch (e) { }
                 }
 
                 if (MODE_PAS) {
@@ -835,11 +893,11 @@ function main() {
                     dupDoc.close(SaveOptions.DONOTSAVECHANGES);
                     dupDoc = null;
 
-                    if (pasModeSub == 2 || pasModeSub == 4) { // 2x3
+                    if ((pasModeSub == 2 || pasModeSub == 4) && stepOn("crop2x3")) { // 2x3
                         var folder2x3 = createFolderIfNotExist(baseOutputFolder + "/2x3");
                         if (createCroppedVersion(doc, folder2x3, 2, 3, JPG_QUALITY)) success2x3++;
                     }
-                    if (pasModeSub == 3 || pasModeSub == 4) { // 4x6
+                    if ((pasModeSub == 3 || pasModeSub == 4) && stepOn("crop4x6")) { // 4x6
                         var folder4x6 = createFolderIfNotExist(baseOutputFolder + "/4x6");
                         if (createCroppedVersion(doc, folder4x6, 4, 6, JPG_QUALITY)) success4x6++;
                     }
@@ -878,7 +936,7 @@ function main() {
                 executeAction(stringIDToTypeID("mergeVisible"), undefined, DialogModes.NO);
 
                 if (!MODE_PNG_FOLDER) {
-                    try { app.doAction("anti ramijud", "starter pack"); } catch (e) { }
+                    if (stepOn("antiRamijud")) try { app.doAction("anti ramijud", "starter pack"); } catch (e) { }
                 }
 
                 savePNG(dupDoc, docPath + "/" + baseName + ".png");
@@ -903,7 +961,7 @@ function main() {
             }
 
             // C. Close Original
-            if (!MODE_KEEP_OPEN) {
+            if (!MODE_KEEP_OPEN && stepOn("closeAfterSave")) {
                 doc.close(SaveOptions.DONOTSAVECHANGES);
             }
 
@@ -1060,7 +1118,7 @@ function exportArtboards(sourceDoc, isPng, quality, schedule, repeatByName) {
             // 4. Paste the copied pixels
             newDoc.paste();
             newDoc.flatten();
-            try { app.doAction("anti ramijud", "starter pack"); } catch (e) {}
+            if (stepOn("antiRamijud")) try { app.doAction("anti ramijud", "starter pack"); } catch (e) {}
             var safeName = abName.replace(new RegExp('[\\\\/:*?"<>|]', 'g'), "_");
             // Determine if this artboard is marked as repeat (checked)
             var isRepeat = false;

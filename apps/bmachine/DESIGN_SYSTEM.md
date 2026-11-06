@@ -614,3 +614,61 @@ di tab BATCH. Field itu wajib ikut.
 DILARANG:
 - Memakai ikon mata untuk hal lain (itu jalur visibilitas BATCH, bukan editor nama/ikon).
 - Menampilkan tombol mata saat mode edit (kolom sudah dipakai Cancel/Save Changes).
+
+---
+
+## 29. Tab SAVE MASTER (pengaturan `save_master.jsx`)
+
+Script Manager punya tiga tab: MASTER SCRIPT / RADIAL MENU / **SAVE MASTER**. Tab ini mengatur
+"langkah otomatis" yang dijalankan `Scripts/Action/save_master.jsx` saat Save, plus daftar
+kalimat terlarang (redaksi).
+
+**Satu file untuk semua orang.** Data disimpan HANYA di
+`%APPDATA%\BMachine.v2\save_master_config.json` — file yang sama dibaca JSX lewat
+`$.getenv("APPDATA")`. Jangan menaruh nilai yang sama di dua tempat (DB, JSON lain, atau XAML).
+
+Struktur file (kunci harus persis, JSX membacanya apa adanya):
+
+```json
+{
+  "version": 1,
+  "steps": {
+    "antiRamijud": true, "redaksiCheck": true, "closeAfterSave": true,
+    "crop2x3": true, "crop4x6": true, "batchAllDocs": true
+  },
+  "redaksi": ["TK DELAPAN MATA AIR"]
+}
+```
+
+| Kunci | Langkah yang dimatikan | Letak gate di JSX |
+|---|---|---|
+| `antiRamijud` | `app.doAction("anti ramijud", "starter pack")` | 7 titik (advanced + semua mode export) |
+| `redaksiCheck` | pemeriksaan layer teks vs daftar kalimat terlarang | 2 titik (dokumen terpilih & semua dokumen) |
+| `closeAfterSave` | `doc.close()` otomatis setelah save | 4 titik |
+| `crop2x3` / `crop4x6` | versi crop pas foto | 4 titik |
+| `batchAllDocs` | "Batch: all open documents" | `execute()` & `runAdvancedMode()` |
+
+Aturan yang mengikat:
+
+- **Default AKTIF kalau kunci tidak ada.** `stepOn(name)` mengembalikan `true` untuk kunci yang
+  hilang, dan JSX menganggap config rusak/tak terbaca sebagai "semua aktif". Config yang salah
+  tidak boleh memblokir kerja orang. Nilai `false`/`"false"`/`"0"`/`"off"`/`"no"` semuanya = mati.
+- **Pilihan output per-save TIDAK diatur di sini.** PSD / JPG / PNG / pas foto tetap dipilih user
+  di dialog Photoshop; tab ini hanya mematikan langkah OTOMATIS. Jangan tambahkan tombol yang
+  menduplikasi checkbox dialog.
+- **Redaksi satu sumber:** config `redaksi[]` menang; file lama
+  `Folder.userData/bmachine_fendi_redaksi.txt` hanya dibaca kalau config belum punya daftar
+  (kompatibilitas, jangan dihapus). Satu kalimat per baris; baris kosong dibuang; pencocokan di
+  JSX = **sama persis** (case-insensitive) lalu layer ditandai merah dan save dibatalkan.
+- **Path config jangan diganti ke folder `Scripts/`** — folder itu ditimpa saat update aplikasi,
+  jadi pengaturan user akan hilang.
+
+**Uji tanpa Photoshop:** `references/save-master-cfg-harness.js` di skill
+`bmachine-save-master-settings` memuat blok config ASLI dari file JSX (bukan salinan) dengan stub
+`File`/`Folder`/`$` dan memeriksa `stepOn`/`masterRedaksiFromConfig`.
+
+DILARANG:
+- Menulis ulang `save_master_settings.json` (posisi dialog milik Photoshop, `Folder.userData`) dari
+  sisi C# — itu ruang Photoshop, bukan BMachine.
+- Menambah kunci baru tanpa menambah gate di JSX DAN baris toggle di tab ini; kunci tanpa gate
+  hanya jadi janji kosong di UI.
