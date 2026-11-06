@@ -875,7 +875,7 @@
                                                         PointerReleased="OnHamburgerPointerReleased"
                                                         PointerCaptureLost="OnHamburgerPointerCaptureLost">
                                                     <Grid>
-                                                        <Grid ColumnDefinitions="Auto, *, Auto">
+                                                        <Grid ColumnDefinitions="Auto, *, Auto, Auto">
                                                         <Border Grid.Column="0" Width="32" Height="32" CornerRadius="{DynamicResource RadiusSm}" Margin="0,0,12,0"
                                                                 Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="1" ClipToBounds="True" VerticalAlignment="Top">
                                                              <Panel>
@@ -924,7 +924,21 @@
                                                                 <Button Content="Save Changes" Command="{Binding SaveRenameCommand}" Classes="Action" FontSize="12" Height="30" Padding="12,0"/>
                                                             </StackPanel>
                                                         </Grid>
-                                                        <Button Grid.Column="2" Command="{Binding ToggleEditCommand}" Classes="Clear" IsVisible="{Binding !IsEditing}" Margin="8,0,0,0" ToolTip.Tip="Edit Script">
+                                                        <!-- Ikon mata: tombol ini tampil atau tidak di tab BATCH -->
+                                                        <Button Grid.Column="2" Classes="Clear" IsVisible="{Binding !IsEditing}" Margin="8,0,0,0"
+                                                                Command="{Binding DataContext.ToggleBatchVisibilityCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}"
+                                                                ToolTip.Tip="Tampilkan / sembunyikan tombol ini di tab BATCH">
+                                                            <Panel>
+                                                                <PathIcon Data="{StaticResource IconEye}" Width="14" Height="14"
+                                                                          Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                          IsVisible="{Binding IsShownInBatch}"/>
+                                                                <PathIcon Data="{StaticResource IconEyeOff}" Width="14" Height="14"
+                                                                          Foreground="{DynamicResource TextFaintBrush}"
+                                                                          IsVisible="{Binding !IsShownInBatch}"/>
+                                                            </Panel>
+                                                        </Button>
+                                                        <Button Grid.Column="3" Command="{Binding ToggleEditCommand}" Classes="Clear" IsVisible="{Binding !IsEditing}" Margin="8,0,0,0" ToolTip.Tip="Edit Script">
                                                             <PathIcon Data="{StaticResource IconEdit}" Width="14" Height="14" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                                         </Button>
                                                         </Grid>

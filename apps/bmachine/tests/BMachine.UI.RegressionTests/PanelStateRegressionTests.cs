@@ -354,4 +354,26 @@ public class NavigationVisualRegressionTests
         Assert.Contains("MemberDisplay", vm);
         Assert.Contains(".Select(MemberDisplay)", vm);
     }
+    [Fact]
+    public void MasterScriptRowHasEyeToggleForBatchTabVisibility()
+    {
+        var view = ReadRepoFile("apps/bmachine/src/BMachine.UI/Views/SettingsView.axaml");
+        var settings = ReadRepoFile("apps/bmachine/src/BMachine.UI/ViewModels/SettingsViewModel.cs");
+        var batch = ReadRepoFile("apps/bmachine/src/BMachine.UI/ViewModels/BatchViewModel.cs");
+
+        // Tombol ikon mata di baris MASTER SCRIPT, per skrip (CommandParameter = item).
+        Assert.Contains("ToggleBatchVisibilityCommand", view);
+        Assert.Contains("IsShownInBatch", view);
+        Assert.Contains("IconEye}" , view);
+        Assert.Contains("IconEyeOff}" , view);
+        Assert.Contains("CommandParameter=\"{Binding}\"", view);
+
+        // Perintahnya menyimpan status ke scripts.json (key enabled) dan memberi tahu Batch.
+        Assert.Contains("private void ToggleBatchVisibility(ScriptItem? item)", settings);
+        Assert.Contains("cfg.Enabled = shown;", settings);
+        Assert.Contains("IsShownInBatch = config.Enabled", settings);
+
+        // Baris tombol tab BATCH menghormati status itu.
+        Assert.Contains("if (hasAlias && !config!.Enabled) continue;", batch);
+    }
 }

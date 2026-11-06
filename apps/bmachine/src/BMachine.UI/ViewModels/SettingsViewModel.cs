@@ -3345,7 +3345,8 @@ public partial class SettingsViewModel : ObservableObject
                     OriginalName = filename,
                     FullPath = f,
                     Type = Path.GetExtension(f).TrimStart('.').ToUpper(),
-                    PickIconFunc = PickIconAsync 
+                    PickIconFunc = PickIconAsync,
+                    IsShownInBatch = config.Enabled
                 };
                 
                 item.OnSaveRequested += (newName, newCode, newIcon) => 
@@ -3353,11 +3354,15 @@ public partial class SettingsViewModel : ObservableObject
                     if (!string.IsNullOrWhiteSpace(newName))
                     {
                         var currentOrder = _scriptAliases.ContainsKey(item.OriginalName) ? _scriptAliases[item.OriginalName].Order : 0;
+                        // Enabled (status ikon mata di MASTER SCRIPT) harus ikut terbawa;
+                        // tanpa ini, mengganti nama skrip akan memunculkannya lagi di tab BATCH.
+                        var currentEnabled = !_scriptAliases.ContainsKey(item.OriginalName) || _scriptAliases[item.OriginalName].Enabled;
                         var newConfig = new ScriptConfig { 
                             Name = newName, 
                             Code = newCode, 
                             IconKey = newIcon,
-                            Order = currentOrder 
+                            Order = currentOrder,
+                            Enabled = currentEnabled 
                         };
                         _scriptAliases[item.OriginalName] = newConfig;
                         item.Name = newName; item.ShortCode = newCode; item.IconKey = newIcon;
@@ -3423,6 +3428,40 @@ public partial class SettingsViewModel : ObservableObject
         }
 
         SaveMetadata();
+    }
+
+    /// <summary>
+    /// Ikon mata di daftar MASTER SCRIPT: tentukan apakah skrip master muncul sebagai
+    /// tombol di tab BATCH. Tersimpan sebagai "enabled" di scripts.json (key = nama file),
+    /// dan langsung dikirim ke BatchViewModel lewat ScriptOrderChangedMessage supaya
+    /// baris tombol di-build ulang tanpa perlu restart aplikasi.
+    /// </summary>
+    [RelayCommand]
+    private void ToggleBatchVisibility(ScriptItem? item)
+    {
+        if (item == null || string.IsNullOrWhiteSpace(item.OriginalName)) return;
+
+        bool shown = !item.IsShownInBatch;
+        item.IsShownInBatch = shown;
+
+        var cfg = _scriptAliases.TryGetValue(item.OriginalName, out var existing)
+            ? existing
+            : new ScriptConfig
+            {
+                Name = item.Name,
+                Code = item.ShortCode,
+                IconKey = item.IconKey,
+                Order = 9999
+            };
+        cfg.Enabled = shown;
+        _scriptAliases[item.OriginalName] = cfg;
+
+        SaveMetadata();   // tulis scripts.json + beri tahu BatchViewModel
+
+        StatusMessage = shown
+            ? $"{item.Name} ditampilkan di tab BATCH."
+            : $"{item.Name} disembunyikan dari tab BATCH.";
+        IsStatusVisible = true;
     }
 
     [RelayCommand]
@@ -3761,6 +3800,10 @@ public partial class ScriptItem : ObservableObject
     // External Picker Function
     public Func<Task<string?>>? PickIconFunc { get; set; }
     
+    // Ikon mata di daftar MASTER SCRIPT: tampil atau tidak di tab BATCH.
+    // Nilainya disimpan sebagai "enabled" di scripts.json (key = nama file).
+    [ObservableProperty] private bool _isShownInBatch = true;
+
     // Editing Logic
     [ObservableProperty] private bool _isEditing;
     [ObservableProperty] private string _editName = "";

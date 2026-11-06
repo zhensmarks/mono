@@ -570,3 +570,42 @@ DILARANG:
   Pakai `RelativeSource={RelativeSource AncestorType=UserControl}` + `CommandParameter="{Binding}"`.
 - Tinggi tombol berbeda antar tombol di satu baris kartu.
 - Menambah warna/radius hardcode; pakai token (§3) dan Classes tombol (§4).
+
+---
+
+## 28. Ikon Mata di MASTER SCRIPT (tampil/tidak di tab BATCH)
+
+**Kapan dipakai:** Pengaturan → Script Manager → **MASTER SCRIPT**, satu baris per file
+`Scripts/Master/*.py`. Ikon mata menentukan apakah skrip itu ikut jadi tombol di tab BATCH.
+
+**Letak & ukuran:** baris master memakai Grid `Auto, *, Auto, Auto` — kolom 2 = ikon mata,
+kolom 3 = pensil (Edit Script). Tombol memakai `Classes="Clear"`, ikon 14 px, `Margin="8,0,0,0"`,
+hanya tampil saat baris TIDAK dalam mode edit.
+
+**Dua ikon, bukan satu yang di-toggle warna:**
+`IconEye` (`TextSecondaryBrush`) saat `IsShownInBatch` true, `IconEyeOff` (`TextFaintBrush`) saat
+false. Tooltip statis: "Tampilkan / sembunyikan tombol ini di tab BATCH".
+
+**Penyimpanan:** status disimpan sebagai `enabled` di `scripts.json` (key = **nama file**),
+memakai field `ScriptConfig.Enabled` yang sama dengan penyembunyian item radial (§27) — dua
+permukaan, satu field, karena keduanya berarti "jangan tampilkan". Nilai default (tanpa entri
+alias) = **tampil**.
+
+- `SettingsViewModel.ToggleBatchVisibility(ScriptItem)` membalik `IsShownInBatch`, menulis alias,
+  lalu `SaveMetadata()` — yang juga mengirim `ScriptOrderChangedMessage`.
+- `BatchViewModel` mendengarkan pesan itu dan menjalankan ulang `LoadScriptsAsync()`, jadi baris
+  tombol BATCH berubah **tanpa restart app**. Jangan mengganti ini dengan "perlu restart".
+- Filter di `BatchViewModel`: `if (hasAlias && !config.Enabled) continue;`.
+
+**`buat_master_duplikat.py` — pengecualian yang disengaja:** file ini punya tombol sendiri di panel
+OUTPUT, jadi TIDAK ikut deretan tombol footer. Ia hanya muncul di footer kalau user sendiri
+menyalakan ikon matanya (`enabled = true`). Jangan mengembalikannya ke daftar footer secara
+default — itu menggandakan tombol yang sama.
+
+**Rename tidak boleh membatalkan status.** `OnSaveRequested` di `LoadScriptsForAsync` membangun
+`ScriptConfig` baru; kalau `Enabled` tidak disalin, mengganti nama skrip akan memunculkannya lagi
+di tab BATCH. Field itu wajib ikut.
+
+DILARANG:
+- Memakai ikon mata untuk hal lain (itu jalur visibilitas BATCH, bukan editor nama/ikon).
+- Menampilkan tombol mata saat mode edit (kolom sudah dipakai Cancel/Save Changes).

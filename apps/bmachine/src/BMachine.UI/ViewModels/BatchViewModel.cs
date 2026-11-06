@@ -2758,16 +2758,23 @@ if ($img -ne $null) {{
                         // file itu library yang di-import skrip lain, bukan sesuatu yang dijalankan user.
                         // Samakan dengan SettingsViewModel.LoadScriptsForAsync yang sudah menyaringnya.
                         if (fname.StartsWith("_")) continue;
-                        // buat_master_duplikat.py punya tombol tersendiri di panel OUTPUT (posisi ditandai user).
-                        // Sembunyikan dari daftar MasterScriptOptions di footer agar tidak dobel.
-                        // Catatan: buat_master.py TETAP ada di deretan tombol footer master.
-                        if (fname.Equals("buat_master_duplikat.py", StringComparison.OrdinalIgnoreCase)) continue;
+
+                        // Ikon mata di MASTER SCRIPT: "enabled" = false -> tidak jadi tombol.
+                        bool hasAlias = _scriptAliases.TryGetValue(fname, out var config);
+                        if (hasAlias && !config!.Enabled) continue;
+
+                        // buat_master_duplikat.py punya tombol tersendiri di panel OUTPUT (posisi ditandai
+                        // user), jadi TIDAK ikut deretan tombol footer master. Dia hanya muncul di footer
+                        // kalau user sendiri menyalakan ikon matanya di MASTER SCRIPT (enabled = true).
+                        if (fname.Equals("buat_master_duplikat.py", StringComparison.OrdinalIgnoreCase)
+                            && !(hasAlias && config!.Enabled)) continue;
+
                         string display = Path.GetFileNameWithoutExtension(fname);
                         int order = 9999;
-                        if (_scriptAliases.TryGetValue(fname, out var config))
+                        if (hasAlias)
                         {
-                            display = config.Name;
-                            order = config.Order;
+                            display = config!.Name;
+                            order = config!.Order;
                         }
                         masterList.Add((new BatchScriptOption
                         {
