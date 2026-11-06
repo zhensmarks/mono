@@ -667,11 +667,13 @@ public partial class RadialMenuViewModel : ObservableObject, CommunityToolkit.Mv
             {
                 _currentHighlightedItem.IsHighlighted = true;
 
-                // Update wedge — item menu dalam pakai wedge radius dalam;
-                // segmen cincin luar (TabId terisi) pakai wedge radius luar.
+                // Update wedge — wedge cincin DALAM hanya untuk item roda utama.
+                // Item submenu (tab DOC maupun anggota grup) sudah punya wedge sendiri di
+                // cincin luar; kalau ini ikut tampil, dua sektor menyala sekaligus
+                // ("2-2 nya nyala, harusnya yang di dalam tidak ikut menyala").
                 WedgeStart = _currentHighlightedItem.WedgeStartAngle;
                 WedgeSweep = _currentHighlightedItem.WedgeSweepAngle;
-                IsWedgeVisible = string.IsNullOrEmpty(_currentHighlightedItem.TabId);
+                IsWedgeVisible = VisibleItems.Contains(_currentHighlightedItem);
 
                 
                 // Update label

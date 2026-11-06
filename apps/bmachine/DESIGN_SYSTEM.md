@@ -572,6 +572,14 @@ keluar roda, `CloseOrphanSubmenu` menutup cincin itu. Cincin TIDAK ditutup selam
 item induknya, supaya jalur keluar dari tombol (radius 72) ke cincin (radius 102–154) tetap mulus.
 Aturan ini berlaku sama untuk cincin grup maupun cincin pilihan tab DOC.
 
+**Hover hanya SATU elemen:** yang menyala hanya yang ada di bawah pointer. Saat pointer masuk cincin
+luar (anggota grup / pilihan tab), wedge cincin DALAM milik tombol induk harus padam —
+`HighlightItem` hanya menyalakan wedge dalam untuk item roda utama:
+`IsWedgeVisible = VisibleItems.Contains(_currentHighlightedItem);`. `TabId` BUKAN penanda cincin
+luar (anggota grup dibuat dengan `TabId = ""`), jadi memakai `TabId` untuk aturan ini membuat dua
+sektor menyala sekaligus ("2-2 nya nyala"). Cincin luar tetap punya wedge hover sendiri
+(`PieWedge` radius 104–152 dengan `IsVisible={Binding IsHighlighted}`).
+
 `Impor` menyalin file `.jsx`/`.pyw` pilihan user ke `Scripts/Action` lalu menambahkannya sebagai
 anggota — satu-satunya jalur untuk script yang belum ada di folder Action.
 
