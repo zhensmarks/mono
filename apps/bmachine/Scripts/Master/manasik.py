@@ -879,7 +879,7 @@ def main(master_path_primary, pilihan_path, output_base_path, master_path_second
 
             if COPY_EDIT:
                 if _new_jobs:
-                    ce_jobs.setdefault((master_file_path, group_out_dir), []).extend(_new_jobs)
+                    ce_jobs.setdefault((master_file_path, current_output_dir), []).extend(_new_jobs)
                     print(f"      -> {len(_new_jobs)} tujuan dicatat.")
             else:
                 copied, _sk, _fl = _fast_batch_copy(_dest_jobs, workers=4, overwrite=True,
@@ -890,8 +890,9 @@ def main(master_path_primary, pilihan_path, output_base_path, master_path_second
                     print(f"      -> {copied} file disalin.")
 
         if COPY_EDIT and ce_jobs:
-            # Template edit disimpan di <grup>/#MASTER supaya tiap grup
-            # (mis. NONREG vs reguler) punya template sendiri.
+            # Template edit disimpan di <folder gambar>/#MASTER supaya SETIAP folder
+            # punya template sendiri: redaksi/nama sekolah berbeda per subfolder
+            # (mis. PAUD ARIFKI vs PAUD ARROHMAN vs RA. ARROHMAN).
             from _photoshop_utils import manifest_add
             for (m_path, group_out_dir), jobs in ce_jobs.items():
                 master_dir = os.path.join(group_out_dir, MASTER_SUBDIR)
@@ -903,9 +904,9 @@ def main(master_path_primary, pilihan_path, output_base_path, master_path_second
                 edit_psd = os.path.join(master_dir, os.path.basename(m_path))
                 if not os.path.isfile(edit_psd):
                     shutil.copy2(m_path, edit_psd)
-                    print(f"    [EDIT] {MASTER_SUBDIR}\\{os.path.basename(edit_psd)} dibuka untuk diedit.")
+                    print(f"    [EDIT] {os.path.relpath(edit_psd, final_output_folder)} dibuka untuk diedit.")
                 else:
-                    print(f"    [EDIT] {MASTER_SUBDIR}\\{os.path.basename(edit_psd)} sudah ada, dipakai ulang.")
+                    print(f"    [EDIT] {os.path.relpath(edit_psd, final_output_folder)} sudah ada, dipakai ulang.")
                 label = os.path.splitext(os.path.basename(m_path))[0]
                 manifest_add(MANIFEST_PATH, edit_psd, label, jobs)
                 print(f"    [MANIFEST] {label}: {len(jobs)} tujuan duplikat tercatat.")

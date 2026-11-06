@@ -51,6 +51,7 @@ ALLOWED_EXTS = (".jpg", ".jpeg")
 # Saat aktif, duplikasi TIDAK langsung: 1 template disalin untuk diedit,
 # daftar tujuan (jobs) dicatat ke manifest, dibuka di Photoshop di fase 2.
 COPY_EDIT = False
+MASTER_SUBDIR = "#MASTER"   # template edit per folder gambar (copy-edit fase 1)
 MANIFEST_PATH = None
 
 def natural_sort_key(s: str):
@@ -476,6 +477,7 @@ def main(master_pasfoto_path: str, pilihan_path: str, output_base_path: str):
 
         item_jobs = []
         _pending_direct_jobs = []
+        _ce_jobs = {}   # target_folder -> [tujuan duplikat]
         # Kumpulkan JPG/JPEG sumber: telusuri SEMUA subfolder (mis. per KELAS),
         # lalu duplikasi PSD per folder sambil mempertahankan struktur folder
         # (pola sama seperti manasik.py: os.walk + rel_dir).
@@ -515,6 +517,7 @@ def main(master_pasfoto_path: str, pilihan_path: str, output_base_path: str):
 
                 if COPY_EDIT:
                     item_jobs.append(dest_path)
+                    _ce_jobs.setdefault(target_folder, []).append(dest_path)
                     print(f"    - [ANTRI] {idx}/{len(source_images)} {dest_filename}")
                 else:
                     _pending_direct_jobs.append((psd_template_path, dest_path))
@@ -524,6 +527,7 @@ def main(master_pasfoto_path: str, pilihan_path: str, output_base_path: str):
             dest_path = os.path.join(item_output_folder, "1.psd")
             if COPY_EDIT:
                 item_jobs.append(dest_path)
+                _ce_jobs.setdefault(item_output_folder, []).append(dest_path)
                 print("    - [ANTRI] 1.psd")
             else:
                 _pending_direct_jobs.append((psd_template_path, dest_path))
@@ -538,17 +542,27 @@ def main(master_pasfoto_path: str, pilihan_path: str, output_base_path: str):
             )
             print(f"      -> {_done} file disalin, {_skipped} skip, {_failed} gagal.")
 
-        if COPY_EDIT and item_jobs:
-            # Salin 1 template untuk DIEDIT user (nama = nama master), catat jobs.
+        if COPY_EDIT and _ce_jobs:
+            # Template edit per FOLDER GAMBAR: <folder>/#MASTER/<MASTER>.psd
+            # supaya tiap subfolder (mis. PAUD ARIFKI vs RA. ARROHMAN) bisa punya
+            # redaksi/nama sekolah sendiri.
             from _photoshop_utils import manifest_add
-            edit_psd = os.path.join(item_output_folder, os.path.basename(psd_template_path))
-            if not os.path.isfile(edit_psd):
-                shutil.copy2(psd_template_path, edit_psd)
-                print(f"  - [EDIT] {os.path.basename(edit_psd)} dibuka untuk diedit.")
-            else:
-                print(f"  - [EDIT] {os.path.basename(edit_psd)} sudah ada, dipakai ulang (jangan ditimpa).")
-            manifest_add(MANIFEST_PATH, edit_psd, item, item_jobs)
-            print(f"  - [MANIFEST] {len(item_jobs)} tujuan duplikat tercatat.")
+            for _target_folder, _jobs in _ce_jobs.items():
+                master_dir = os.path.join(_target_folder, MASTER_SUBDIR)
+                try:
+                    os.makedirs(master_dir, exist_ok=True)
+                except Exception as e:
+                    print(f"  - [ERROR] Gagal buat folder {MASTER_SUBDIR}: {e}", file=sys.stderr)
+                    continue
+                edit_psd = os.path.join(master_dir, os.path.basename(psd_template_path))
+                if not os.path.isfile(edit_psd):
+                    shutil.copy2(psd_template_path, edit_psd)
+                    print(f"  - [EDIT] {os.path.relpath(edit_psd, output_folder)} dibuka untuk diedit.")
+                else:
+                    print(f"  - [EDIT] {os.path.relpath(edit_psd, output_folder)} sudah ada, dipakai ulang (jangan ditimpa).")
+                _label = os.path.splitext(os.path.basename(psd_template_path))[0]
+                manifest_add(MANIFEST_PATH, edit_psd, _label, _jobs)
+                print(f"  - [MANIFEST] {_label}: {len(_jobs)} tujuan duplikat tercatat.")
 
     if processed_count == 0:
         print("[INFO] Tidak ada folder yang cocok dengan kriteria yang ditemukan untuk diproses.")
