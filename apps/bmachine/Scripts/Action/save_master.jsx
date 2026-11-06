@@ -93,7 +93,7 @@ function masterRedaksiFromConfig() {
 function saveMasterConfig(stepsObj, redaksiLines) {
     var f = masterConfigFile();
     if (!f) return null;
-    var keys = ["antiRamijud", "redaksiCheck", "closeAfterSave", "crop2x3", "crop4x6"];
+    var keys = ["antiRamijud", "redaksiCheck", "closeAfterSave"];
     var out = "{\n  \"version\": 1,\n  \"steps\": {\n";
     for (var i = 0; i < keys.length; i++) {
         out += "    \"" + keys[i] + "\": " + (stepsObj[keys[i]] === false ? "false" : "true");
@@ -377,11 +377,9 @@ function main() {
 
     // --- INFO: langkah yang dimatikan lewat Pengaturan (Advanced punya pengaturannya sendiri) ---
     var masterOffLabels = [];
-    if (!stepOn("antiRamijud")) masterOffLabels.push("action anti ramijud");
-    if (!stepOn("redaksiCheck")) masterOffLabels.push("cek redaksi");
-    if (!stepOn("closeAfterSave")) masterOffLabels.push("tutup dokumen otomatis");
-    if (!stepOn("crop2x3")) masterOffLabels.push("crop 2x3");
-    if (!stepOn("crop4x6")) masterOffLabels.push("crop 4x6");
+    if (!stepOn("antiRamijud")) masterOffLabels.push("Anti Ramijud");
+    if (!stepOn("redaksiCheck")) masterOffLabels.push("Polisi Redaksi");
+    if (!stepOn("closeAfterSave")) masterOffLabels.push("Tutup Dokumen setelah Save");
     if (masterOffLabels.length > 0) {
         var lblOff = dlg.add("statictext", undefined, "Nonaktif di Pengaturan: " + masterOffLabels.join(", "));
         lblOff.alignment = "center";
@@ -410,17 +408,13 @@ function main() {
         pnlSteps.margins = 12;
         pnlSteps.spacing = 3;
 
-        var cbAction = pnlSteps.add("checkbox", undefined, "Jalankan action 'anti ramijud' (export JPG/PNG)");
-        var cbRedaksi = pnlSteps.add("checkbox", undefined, "Cek redaksi sebelum save (blokir kalau ada teks terlarang)");
-        var cbClose = pnlSteps.add("checkbox", undefined, "Tutup dokumen setelah save");
-        var cbCrop23 = pnlSteps.add("checkbox", undefined, "Crop pas foto 2x3");
-        var cbCrop46 = pnlSteps.add("checkbox", undefined, "Crop pas foto 4x6");
+        var cbAction = pnlSteps.add("checkbox", undefined, "Anti Ramijud");
+        var cbRedaksi = pnlSteps.add("checkbox", undefined, "Polisi Redaksi");
+        var cbClose = pnlSteps.add("checkbox", undefined, "Tutup Dokumen setelah Save");
 
         cbAction.value = masterStepValue("antiRamijud");
         cbRedaksi.value = masterStepValue("redaksiCheck");
         cbClose.value = masterStepValue("closeAfterSave");
-        cbCrop23.value = masterStepValue("crop2x3");
-        cbCrop46.value = masterStepValue("crop4x6");
 
         var lblAdvNote = settingDlg.add("statictext", undefined, "Tombol Advanced punya pengaturannya sendiri (Save PSD / JPG / PNG / Action / Keep open / Batch).");
         lblAdvNote.enabled = false;
@@ -457,9 +451,7 @@ function main() {
             var steps = {
                 antiRamijud: cbAction.value,
                 redaksiCheck: cbRedaksi.value,
-                closeAfterSave: cbClose.value,
-                crop2x3: cbCrop23.value,
-                crop4x6: cbCrop46.value
+                closeAfterSave: cbClose.value
             };
             var saved = saveMasterConfig(steps, lines);
             if (!saved) {
@@ -486,24 +478,9 @@ function main() {
     btnPng.onClick = function () { dlg.close(2); };
 
     // Pas Foto (Kode 301 dihapus karena redundant dengan JPG Biasa)
-    btnPas2x3.onClick = function () {
-        if (!stepOn("crop2x3")) { alert("Crop pas foto 2x3 sedang dinonaktifkan di Pengaturan.\nAktifkan dulu lewat tombol Pengaturan."); return; }
-        dlg.close(302);
-    };
-    btnPas4x6.onClick = function () {
-        if (!stepOn("crop4x6")) { alert("Crop pas foto 4x6 sedang dinonaktifkan di Pengaturan.\nAktifkan dulu lewat tombol Pengaturan."); return; }
-        dlg.close(303);
-    };
-    btnPasKombi.onClick = function () {
-        if (!stepOn("crop2x3") || !stepOn("crop4x6")) {
-            var kurang = [];
-            if (!stepOn("crop2x3")) kurang.push("crop 2x3");
-            if (!stepOn("crop4x6")) kurang.push("crop 4x6");
-            alert("PAS FOTO (KOMBI) butuh crop 2x3 dan 4x6.\nDinonaktifkan di Pengaturan: " + kurang.join(" dan "));
-            return;
-        }
-        dlg.close(304);
-    };
+    btnPas2x3.onClick = function () { dlg.close(302); };
+    btnPas4x6.onClick = function () { dlg.close(303); };
+    btnPasKombi.onClick = function () { dlg.close(304); };
     
     if (btnArtJpg) {
         btnArtJpg.onClick = function () { dlg.close(401); };
@@ -611,10 +588,6 @@ function main() {
         var btnMethodPas4x6 = leftCol.add("button", undefined, "PAS FOTO (4x6)");
         var btnMethodPasKombi = leftCol.add("button", undefined, "PAS FOTO (KOMBI)");
 
-        // Tombol mengikuti Pengaturan: crop yang dimatikan tidak bisa dipilih di sini.
-        if (!stepOn("crop2x3")) { btnMethodPas2x3.enabled = false; btnMethodPas2x3.helpTip = "Crop 2x3 dinonaktifkan di Pengaturan Save Master."; }
-        if (!stepOn("crop4x6")) { btnMethodPas4x6.enabled = false; btnMethodPas4x6.helpTip = "Crop 4x6 dinonaktifkan di Pengaturan Save Master."; }
-        if (!stepOn("crop2x3") || !stepOn("crop4x6")) { btnMethodPasKombi.enabled = false; btnMethodPasKombi.helpTip = "Butuh crop 2x3 dan 4x6; salah satunya dinonaktifkan di Pengaturan Save Master."; }
 
         var leftBtnW = 150;
         btnMethodJpg.preferredSize.width = leftBtnW;
@@ -737,11 +710,11 @@ function main() {
                     // 3. Crop pas foto (2x3 / 4x6)
                     if (isPasMode) {
                         app.activeDocument = doc;
-                        if ((selChoice == 3 || selChoice == 5) && stepOn("crop2x3")) {
+                        if (selChoice == 3 || selChoice == 5) {
                             var folder2x3 = createFolderIfNotExist(docPath + "/2x3");
                             createCroppedVersion(doc, folder2x3, 2, 3, JPG_QUALITY);
                         }
-                        if ((selChoice == 4 || selChoice == 5) && stepOn("crop4x6")) {
+                        if (selChoice == 4 || selChoice == 5) {
                             var folder4x6 = createFolderIfNotExist(docPath + "/4x6");
                             createCroppedVersion(doc, folder4x6, 4, 6, JPG_QUALITY);
                         }
@@ -1008,11 +981,11 @@ function main() {
                     dupDoc.close(SaveOptions.DONOTSAVECHANGES);
                     dupDoc = null;
 
-                    if ((pasModeSub == 2 || pasModeSub == 4) && stepOn("crop2x3")) { // 2x3
+                    if (pasModeSub == 2 || pasModeSub == 4) { // 2x3
                         var folder2x3 = createFolderIfNotExist(baseOutputFolder + "/2x3");
                         if (createCroppedVersion(doc, folder2x3, 2, 3, JPG_QUALITY)) success2x3++;
                     }
-                    if ((pasModeSub == 3 || pasModeSub == 4) && stepOn("crop4x6")) { // 4x6
+                    if (pasModeSub == 3 || pasModeSub == 4) { // 4x6
                         var folder4x6 = createFolderIfNotExist(baseOutputFolder + "/4x6");
                         if (createCroppedVersion(doc, folder4x6, 4, 6, JPG_QUALITY)) success4x6++;
                     }
