@@ -424,6 +424,11 @@ Baris tombol master di bawah panel SOURCE/OUTPUT dibangun dari isi `Scripts/Mast
   `IconScript`. Tombol aksi manual yang menyertai alur master (mis. `DUPLIKAT PSD`) diletakkan di
   UJUNG baris — tepat setelah tombol `BUAT MASTER` — supaya urutannya tetap: jenis master
   (PROFESI, MANASIK, PAS FOTO, WISUDA) lalu aksi manual di ujung.
+- **Tombol master WAJIB punya tooltip** (ikon-only 32×32 tidak menyebut skrip apa pun):
+  `ToolTip.Tip="{Binding ToolTipText}"` dari `BatchScriptOption`. Isi tooltip = nama alias;
+  kalau alias beda dari nama file, tulis `NAMA (file.py)` supaya jelas skrip mana yang jalan
+  (mis. `ONE FOR ALL (buat_master.py)`). Jangan mengulang nama yang sama dua kali
+  (`MANASIK (manasik.py)` salah).
 - **Skrip baru muncul setelah app dijalankan ulang**; daftar tombol dibangun sekali saat start.
 - **Isi tombol sekunder WAJIB beda dari permukaan di belakangnya.** Token
   `ButtonSecondaryBackgroundBrush` tidak boleh dipetakan sama dengan `CardBackgroundBrush`/surface

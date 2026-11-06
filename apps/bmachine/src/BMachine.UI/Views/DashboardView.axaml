@@ -1015,6 +1015,7 @@
                                                     <Button Classes="secondary"
                                                             Command="{Binding DataContext.BatchVM.ExecuteSpecificMasterCommand, ElementName=Root}"
                                                             CommandParameter="{Binding}"
+                                                            ToolTip.Tip="{Binding ToolTipText}"
                                                             Width="32" Height="32" Padding="0" CornerRadius="{DynamicResource RadiusSm}" Cursor="Hand"
                                                             VerticalAlignment="Center"
                                                             Margin="0,0,6,0">
