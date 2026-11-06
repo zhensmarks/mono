@@ -81,16 +81,34 @@ Bagian yang belum ada: cara mendistribusikan dll itu ke mesin pemakai. Lihat bag
 ## 4. Versioning
 
 Setiap app melacak versi di csproj utamanya:
-- `apps/bmachine/src/BMachine.App/BMachine.App.csproj` -> `<Version>` (sudah ada: 8.3.0)
+- `apps/bmachine/src/BMachine.App/BMachine.App.csproj` -> `<Version>`
 - `apps/pixacompact/PixelcutCompact.csproj` -> `<Version>` (BELUM ADA, harus ditambahkan)
+
+Versi rilis ditulis oleh `updates/publish-update.ps1 -Version <x.y.z>` (script itu yang
+menyunting csproj + manifest), jadi jangan mengubah angka versi manual di luar jalur itu.
 
 Format: Semantic Versioning `MAJOR.MINOR.PATCH`.
 - PATCH: perbaikan bug, tidak ada fitur baru.
 - MINOR: fitur baru, tetap kompatibel.
 - MAJOR: perubahan besar / breaking.
 
-Setiap rilis wajib bump versi. Bug report (bagian 6) menyertakan versi ini supaya
-ketahuan di versi mana bug itu terjadi.
+Contoh nyata untuk BMachine (jangan ditawar ke patch kalau memang fitur):
+
+| Perubahan | Naik |
+|---|---|
+| fix hover radial, perbaikan layout, bug hapus grup | PATCH (`15.4.50`) |
+| tab/dialog baru, update per-file, update tanpa restart, tombol Save Master dirapikan | MINOR (`15.5.0`) |
+| format data user berubah (`scripts.json`, `__groups__.json`), struktur folder `Scripts` berubah, migrasi DB | MAJOR (`16.0.0`) |
+
+**Setiap rilis WAJIB nomor baru, tidak boleh sama.** Pengecekan update di aplikasi
+membandingkan versi manifest dengan versi aplikasi (`latest > current` di
+`LocalUpdateService.CheckAsync`), jadi versi yang tidak naik = tidak ada notif dan tidak ada
+yang bisa meng-update. Ini alasan nomor selalu bertambah tiap publish, bukan sekadar formalitas.
+
+Kapan tidak perlu bump? Kalau memang tidak publish. Kalau publish, wajib bump — dan yang
+menentukan PATCH/MINOR/MAJOR adalah isi rilis itu, bukan besar-kecilnya jumlah file yang berubah.
+
+Bug report (bagian 6) menyertakan versi ini supaya ketahuan di versi mana bug itu terjadi.
 
 ---
 
