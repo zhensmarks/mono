@@ -870,18 +870,15 @@ public partial class SettingsView : UserControl
         Canvas.SetLeft(RadialDragGhost, pos.X - RadialSlotHalf);
         Canvas.SetTop(RadialDragGhost, pos.Y - RadialSlotHalf);
 
-        RadialSlotViewModel? target = null;
-        double best = RadialDropRadius;
-        foreach (var slot in vm.RadialSlots)
-        {
-            if (slot.Script != null && slot.Script == _radialDragSource.Script) continue;
-            double dist = Math.Sqrt(Math.Pow(pos.X - (slot.X + RadialSlotHalf), 2) + Math.Pow(pos.Y - (slot.Y + RadialSlotHalf), 2));
-            if (dist < best)
-            {
-                best = dist;
-                target = slot;
-            }
-        }
+        // Target dipilih dari SUDUT sektor (bukan jarak ke pusat tombol). Versi lama hanya
+        // menerima pointer <= 25 px dari pusat tombol, sehingga menggeser item ke kuadran
+        // tertentu terasa "tidak mau" walau pointer sudah jelas di sektor itu.
+        var candidateSlots = vm.RadialSlots
+            .Where(s => !s.IsNavigationReserved && s.Script != null)
+            .ToList();
+        int hitIndex = BMachine.UI.Services.RadialSlotPicker.FindNearest(
+            candidateSlots.Select(s => s.Angle).ToList(), pos.X, pos.Y);
+        RadialSlotViewModel? target = hitIndex >= 0 ? candidateSlots[hitIndex] : null;
 
         _radialDropTarget = target;
         var key = target == null ? ((int, int)?)null : (target.PageIndex, target.AbsoluteIndex);
@@ -897,7 +894,15 @@ public partial class SettingsView : UserControl
             Canvas.SetTop(RadialDropHighlight, target.Y + RadialSlotHalf - 22);
         }
 
-        UpdateRadialNavHover(vm, target);
+        // Slot navigasi (MORE/BACK) tetap dideteksi terpisah supaya dwell pindah halaman jalan.
+        RadialSlotViewModel? navTarget = null;
+        var navSlot = vm.RadialSlots.FirstOrDefault(s => s.IsNavigationReserved && !string.IsNullOrEmpty(s.NavigationLabel));
+        if (navSlot != null &&
+            BMachine.UI.Services.RadialSlotPicker.FindNearest(new List<double> { navSlot.Angle }, pos.X, pos.Y) == 0)
+        {
+            navTarget = navSlot;
+        }
+        UpdateRadialNavHover(vm, navTarget);
     }
 
     private void UpdateRadialNavHover(SettingsViewModel vm, RadialSlotViewModel? target)
