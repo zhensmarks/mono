@@ -3012,56 +3012,12 @@ public partial class SettingsViewModel : ObservableObject
     {
         RadialSlots.Clear();
         
-        var rawScripts = ActionScripts.ToList();
-
-        // Grup TOOLBOX (auto dari _tb_*.jsx) + grup custom buatan user:
-        // sama-sama "item virtual" dengan Order sendiri dari metadata, bukan
-        // dipaksa paling atas. Order grup TOOLBOX dibaca dari key "__tb_group__".
-        // Item TOOLBOX selalu ada di roda/preview — kalau user menandainya
-        // dinonaktifkan lewat key "__tb_group__.enabled" = false di metadata,
-        // item tetap dibuat tapi tidak ikut tampil.
-        var virtualItems = new List<ScriptItem>();
-        virtualItems.Add(BuildTbGroupItem());
-
-        // Muat daftar grup custom (dari __groups__.json) — dipanggil ulang tiap
-        // rebuild supaya item virtual grup ikut tersusun ulang saat reorder.
-        LoadRadialGroups();
-        foreach (var g in RadialGroups)
-        {
-            virtualItems.Add(new ScriptItem
-            {
-                Name = g.Name,
-                ShortCode = string.IsNullOrWhiteSpace(g.Code) ? BMachine.UI.Models.RadialMenuItem.GenerateShortName(g.Name) : g.Code,
-                IconKey = string.IsNullOrWhiteSpace(g.IconKey) ? "IconGrid" : g.IconKey,
-                OriginalName = g.Key,
-                FullPath = "",
-                Type = "GRP"
-            });
-        }
-
-        // Hapus file yang sudah jadi anggota salah satu grup (TIDAK dihapus dari
-        // daftar file di disk — hanya dari roda, agar tidak tampil dua kali).
-        var groupMemberNames = new HashSet<string>(
-            RadialGroups.SelectMany(g => g.Members), StringComparer.OrdinalIgnoreCase);
-
-        // Filter entri toolbox lama (_tb_* / TOOLBOX.jsx) supaya tidak tampil
-        // terpisah di preview — roda live juga skip file-file ini (diliput
-        // oleh item grup di atas).
-        var sortedScripts = rawScripts
-            .Where(s => !s.OriginalName.Contains("_tb_", StringComparison.OrdinalIgnoreCase)
-                 && !s.OriginalName.Equals("TOOLBOX.jsx", StringComparison.OrdinalIgnoreCase)
-                 && !groupMemberNames.Contains(s.OriginalName))
-            .ToList();
-
-        // Gabungkan: urut semua (skrip biasa + grup) berdasarkan Order di
-        // metadata. Grup/skrip tanpa metadata (baru, belum pernah disimpan)
-        // dapat Order = 9999 sampai user menyetel lewat drag di roda.
-        int Ord(ScriptItem s) => _scriptAliases.TryGetValue(s.OriginalName, out var c) ? c.Order : 9999;
-        var combined = new List<ScriptItem>();
-        combined.AddRange(sortedScripts);
-        combined.AddRange(virtualItems);
-        combined = combined.Where(s => s.Type != "GRP_DISABLED").ToList();
-        sortedScripts = combined.OrderBy(Ord).ThenBy(s => s.Name).ToList();
+        // SATU SUMBER URUTAN: BuildMergedRadialOrder() — fungsi yang sama dipakai drag
+        // (PreviewRadialMove/ApplyRadialMove) dan oleh roda live. Kalau di sini ada filter
+        // sendiri, item yang di-hide (Enabled=false) tetap tampil di pengaturan padahal di roda
+        // live sudah hilang, dan indeks slot untuk drag jadi tidak cocok sehingga item/grup
+        // tidak bisa dipindah ke posisi yang dituju.
+        var sortedScripts = BuildMergedRadialOrder();
 
         RebuildAllRadialGroupItems();
 
