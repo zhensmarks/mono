@@ -134,3 +134,7 @@ verify_shots/
 /updates/payload-pixacompact/
 /updates/manifest-pixacompact.json
 /updates/changelog-pixacompact.json
+
+# wrapper dev local (path mesin ini, jangan ikut repo)
+apps/bmachine/run_dev.cmd
+apps/bmachine/dev_stdout.log
