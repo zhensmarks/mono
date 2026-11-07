@@ -37,14 +37,21 @@ public class RadialSettingsConsistencyTests
         var view = ReadRepoFile("apps/bmachine/src/BMachine.UI/Views/SettingsView.axaml.cs");
         var vm = ReadRepoFile("apps/bmachine/src/BMachine.UI/ViewModels/SettingsViewModel.cs");
 
-        // Drag = TUKAR posisi dua item (switch), bukan menggeser urutan item lain.
+        // Drag = TUKAR posisi dua item pada URUTAN TAMPIL (switch), bukan menggeser urutan.
         Assert.Contains("vm.PreviewRadialSwap(_radialDragSource, target);", view);
-        Assert.Contains("SwapAliasOrder(source.Script, target.Script);", vm);
         Assert.DoesNotContain("PreviewRadialMove(_radialDragSource", view);
+        Assert.Contains("(sequence[sourceAt], sequence[targetAt]) = (sequence[targetAt], sequence[sourceAt]);", vm);
 
-        // Item hidden diberi nomor di luar rentang roda supaya tie-break nama tidak mengacak
-        // posisi item lain setelah swap.
+        // Menukar angka Order tidak dipakai lagi: nilai Order user bisa kembar.
+        Assert.DoesNotContain("SwapAliasOrder", vm);
+
+        // Jangan menormalkan urutan saat drag mulai (membuat roda "mengurut" sendiri).
+        var begin = vm.Substring(vm.IndexOf("public void BeginRadialPreview()"), 220);
+        Assert.DoesNotContain("NormalizeAllOrders();", begin);
+
+        // Item di luar roda diparkir >= 10000 DENGAN URUTAN RELATIF TETAP.
         Assert.Contains("int parked = 10000;", vm);
+        Assert.Contains(".OrderBy(kv => kv.Value.Order)", vm);
     }
 
     [Fact]

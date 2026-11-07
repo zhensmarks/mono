@@ -2876,47 +2876,86 @@ public partial class SettingsViewModel : ObservableObject
 
     public void BeginRadialPreview()
     {
-        NormalizeAllOrders();
+        // JANGAN menormalkan urutan di sini. Normalisasi saat drag mulai memarkir ulang item yang
+        // tidak tampil di roda, sehingga roda terlihat "mengurut" sendiri begitu item dipegang.
         _radialDragSnapshot = _scriptAliases.ToDictionary(kv => kv.Key, kv => kv.Value.Order);
     }
 
     /// <summary>
-    /// Live preview drag: TUKAR posisi item sumber dengan item target (switch), bukan menggeser
-    /// urutan item lain. Kalau slot tujuan kosong barulah dipindah (insert) karena tidak ada
-    /// pasangan untuk ditukar.
+    /// Live preview drag: TUKAR posisi item sumber dengan item target pada URUTAN YANG SEDANG
+    /// TAMPIL, bukan dengan menukar angka Order. Nilai Order milik user bisa kembar (tie-break
+    /// nama), jadi menukar angka bisa tidak mengubah apa pun atau justru mengacak item lain —
+    /// itu yang membuat user melihat "jadi mengurut lagi aneh". Item lain tidak disentuh.
+    /// Kalau slot tujuan kosong barulah dipindah (insert), karena tidak ada pasangan tukar.
     /// </summary>
     public void PreviewRadialSwap(RadialSlotViewModel source, RadialSlotViewModel? target)
     {
         if (_radialDragSnapshot == null || source.Script == null) return;
 
-        foreach (var kv in _radialDragSnapshot)
-            if (_scriptAliases.ContainsKey(kv.Key)) _scriptAliases[kv.Key].Order = kv.Value;
+        RestoreRadialSnapshot();
 
         if (target != null && !target.IsNavigationReserved)
         {
-            if (target.Script != null) SwapAliasOrder(source.Script, target.Script);
-            else ApplyRadialMove(source.Script, target.AbsoluteIndex);
+            if (target.Script == null)
+            {
+                ApplyRadialMove(source.Script, target.AbsoluteIndex);
+            }
+            else
+            {
+                var sequence = BuildMergedRadialOrder();
+                int sourceAt = sequence.FindIndex(s => string.Equals(s.OriginalName, source.Script.OriginalName, StringComparison.OrdinalIgnoreCase));
+                int targetAt = sequence.FindIndex(s => string.Equals(s.OriginalName, target.Script.OriginalName, StringComparison.OrdinalIgnoreCase));
+                if (sourceAt >= 0 && targetAt >= 0 && sourceAt != targetAt)
+                {
+                    (sequence[sourceAt], sequence[targetAt]) = (sequence[targetAt], sequence[sourceAt]);
+                    WriteOrdersFromDisplay(sequence);
+                }
+            }
         }
 
         UpdateRadialPositions();
     }
 
-    /// <summary>Tukar nilai Order dua item. Alias yang belum ada dibuat dulu (Order 9999).</summary>
-    private void SwapAliasOrder(ScriptItem a, ScriptItem b)
+    /// <summary>Kembalikan nilai Order seperti sebelum drag; alias baru hasil preview dibuang.</summary>
+    private void RestoreRadialSnapshot()
     {
-        if (a == null || b == null || ReferenceEquals(a, b)) return;
+        if (_radialDragSnapshot == null) return;
 
-        ScriptConfig Get(ScriptItem s)
+        foreach (var key in _scriptAliases.Keys.ToList())
+            if (!_radialDragSnapshot.ContainsKey(key)) _scriptAliases.Remove(key);
+
+        foreach (var kv in _radialDragSnapshot)
+            if (_scriptAliases.TryGetValue(kv.Key, out var cfg)) cfg.Order = kv.Value;
+    }
+
+    /// <summary>
+    /// Tulis nomor urut mengikuti urutan yang SEDANG TAMPIL (0..n-1), lalu parkir item di luar roda
+    /// mulai 10000 DENGAN URUTAN RELATIF TETAP. Tanpa "tetap" ini, item di halaman lain ikut
+    /// teracak setiap kali drag (keluhan: "jadi mengurut lagi aneh").
+    /// </summary>
+    private void WriteOrdersFromDisplay(List<ScriptItem> displayed)
+    {
+        for (int i = 0; i < displayed.Count; i++)
+            EnsureAlias(displayed[i]).Order = i;
+
+        var inRing = new HashSet<string>(displayed.Select(d => d.OriginalName), StringComparer.OrdinalIgnoreCase);
+        int parked = 10000;
+        foreach (var kv in _scriptAliases
+                     .OrderBy(kv => kv.Value.Order)
+                     .ThenBy(kv => kv.Value.Name, StringComparer.OrdinalIgnoreCase)
+                     .ToList())
         {
-            if (_scriptAliases.TryGetValue(s.OriginalName, out var cfg)) return cfg;
-            cfg = new ScriptConfig { Name = s.Name, Code = s.ShortCode, IconKey = s.IconKey, Order = 9999 };
-            _scriptAliases[s.OriginalName] = cfg;
-            return cfg;
+            if (inRing.Contains(kv.Key)) continue;
+            kv.Value.Order = parked++;
         }
+    }
 
-        var ca = Get(a);
-        var cb = Get(b);
-        (ca.Order, cb.Order) = (cb.Order, ca.Order);
+    private ScriptConfig EnsureAlias(ScriptItem item)
+    {
+        if (_scriptAliases.TryGetValue(item.OriginalName, out var cfg)) return cfg;
+        cfg = new ScriptConfig { Name = item.Name, Code = item.ShortCode, IconKey = item.IconKey, Order = 9999 };
+        _scriptAliases[item.OriginalName] = cfg;
+        return cfg;
     }
 
     private void UpdateRadialPositions()
@@ -2941,8 +2980,7 @@ public partial class SettingsViewModel : ObservableObject
     public void CancelRadialPreview()
     {
         if (_radialDragSnapshot == null) return;
-        foreach (var kv in _radialDragSnapshot)
-            if (_scriptAliases.ContainsKey(kv.Key)) _scriptAliases[kv.Key].Order = kv.Value;
+        RestoreRadialSnapshot();
         _radialDragSnapshot = null;
         RebuildRadialSlots();
     }
@@ -2952,12 +2990,7 @@ public partial class SettingsViewModel : ObservableObject
         var ordered = BuildMergedRadialOrder();
         ordered.Remove(script);
         ordered.Insert(Math.Clamp(targetIndex, 0, ordered.Count), script);
-        for (int i = 0; i < ordered.Count; i++)
-        {
-            var o = ordered[i].OriginalName;
-            if (_scriptAliases.TryGetValue(o, out var c)) c.Order = i;
-            else _scriptAliases[o] = new ScriptConfig { Name = ordered[i].Name, Code = ordered[i].ShortCode, IconKey = ordered[i].IconKey, Order = i };
-        }
+        WriteOrdersFromDisplay(ordered);
     }
 
     /// <summary>Urutan "skrip biasa + grup" yang sama persis dipakai RebuildRadialSlots,
@@ -3022,27 +3055,7 @@ public partial class SettingsViewModel : ObservableObject
     /// grup TOOLBOX + grup custom) based on current merged sort order.</summary>
     private void NormalizeAllOrders()
     {
-        var merged = BuildMergedRadialOrder();
-
-        for (int i = 0; i < merged.Count; i++)
-        {
-            var s = merged[i];
-            if (_scriptAliases.TryGetValue(s.OriginalName, out var existing))
-                existing.Order = i;
-            else
-                _scriptAliases[s.OriginalName] = new ScriptConfig { Name = s.Name, Code = s.ShortCode, IconKey = s.IconKey, Order = i };
-        }
-
-        // Item yang TIDAK tampil di roda (hidden/disabled) diberi nomor di luar rentang supaya
-        // tidak bertabrakan dengan nomor urut baru. Tanpa ini, tie-break nama bisa mengacak
-        // posisi item lain setelah drag (keluhan: "kaya merubah posisi lain").
-        var inRing = new HashSet<string>(merged.Select(m => m.OriginalName), StringComparer.OrdinalIgnoreCase);
-        int parked = 10000;
-        foreach (var key in _scriptAliases.Keys.ToList())
-        {
-            if (inRing.Contains(key)) continue;
-            _scriptAliases[key].Order = parked++;
-        }
+        WriteOrdersFromDisplay(BuildMergedRadialOrder());
     }
 
     private void RebuildRadialSlots()
