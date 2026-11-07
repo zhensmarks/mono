@@ -870,14 +870,14 @@ public partial class SettingsView : UserControl
         Canvas.SetLeft(RadialDragGhost, pos.X - RadialSlotHalf);
         Canvas.SetTop(RadialDragGhost, pos.Y - RadialSlotHalf);
 
-        // Target dipilih dari SUDUT sektor (bukan jarak ke pusat tombol). Versi lama hanya
-        // menerima pointer <= 25 px dari pusat tombol, sehingga menggeser item ke kuadran
-        // tertentu terasa "tidak mau" walau pointer sudah jelas di sektor itu.
+        // Target = slot yang tombolnya paling dekat ke pointer (radius longgar 60 px), dihitung
+        // dari pusat tombol yang benar-benar dipakai menggambar. Versi lama memakai radius 25 px
+        // dari pusat tombol sehingga celah antar tombol (mis. jalur kiri-atas -> kanan-atas) mati.
         var candidateSlots = vm.RadialSlots
             .Where(s => !s.IsNavigationReserved && s.Script != null)
             .ToList();
-        int hitIndex = BMachine.UI.Services.RadialSlotPicker.FindNearest(
-            candidateSlots.Select(s => s.Angle).ToList(), pos.X, pos.Y);
+        int hitIndex = BMachine.UI.Services.RadialSlotPicker.FindNearestForSlots(
+            candidateSlots.Select(s => (s.X, s.Y)).ToList(), pos.X, pos.Y);
         RadialSlotViewModel? target = hitIndex >= 0 ? candidateSlots[hitIndex] : null;
 
         _radialDropTarget = target;
@@ -885,7 +885,7 @@ public partial class SettingsView : UserControl
         if (key != _radialPreviewKey)
         {
             _radialPreviewKey = key;
-            vm.PreviewRadialMove(_radialDragSource, target);
+            vm.PreviewRadialSwap(_radialDragSource, target);
         }
         RadialDropHighlight.IsVisible = target != null;
         if (target != null)
@@ -898,7 +898,8 @@ public partial class SettingsView : UserControl
         RadialSlotViewModel? navTarget = null;
         var navSlot = vm.RadialSlots.FirstOrDefault(s => s.IsNavigationReserved && !string.IsNullOrEmpty(s.NavigationLabel));
         if (navSlot != null &&
-            BMachine.UI.Services.RadialSlotPicker.FindNearest(new List<double> { navSlot.Angle }, pos.X, pos.Y) == 0)
+            BMachine.UI.Services.RadialSlotPicker.FindNearestForSlots(
+                new List<(double, double)> { (navSlot.X, navSlot.Y) }, pos.X, pos.Y) == 0)
         {
             navTarget = navSlot;
         }

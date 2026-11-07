@@ -1,59 +1,57 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace BMachine.UI.Services;
 
 /// <summary>
-/// Menentukan slot radial yang dituju dari posisi pointer memakai SUDUT sektor, bukan jarak
-/// ke pusat tombol. Penyebab "aturan aneh" sebelumnya: drop hanya diterima kalau pointer
-/// ≤25 px dari pusat tombol, jadi menggeser item ke kuadran tertentu terasa tidak mau.
+/// Memilih slot radial yang dituju dari posisi pointer: JARAK ke pusat tiap tombol dengan radius
+/// longgar, sehingga seluruh bidang sektor + celah antar tombol tetap bisa jadi target.
 ///
-/// Koordinat mengikuti canvas roda pengaturan: 200×200, pusat (100,100), item radius 72.
+/// Kenapa bukan sudut dengan pusat canvas hardcode (100,100): <c>RadialSlotsControl</c> adalah
+/// ItemsControl yang membentang di dalam kartu, sedangkan canvas 200x200 ada di tengahnya. Akibatnya
+/// koordinat pointer bergeser dan arah tertentu selalu meleset. Pusat tombol (slot.X/Y + setengah
+/// tombol) adalah acuan yang benar-benar dipakai menggambar, jadi itu yang dipakai di sini.
 /// </summary>
 public static class RadialSlotPicker
 {
-    public const double CenterX = 100.0;
-    public const double CenterY = 100.0;
-
-    /// <summary>Lebih kecil dari ini = deadzone tengah (tidak memilih apa pun).</summary>
-    public const double MinRadius = 34.0;
-
-    /// <summary>Lebih jauh dari ini = di luar roda (drop dibatalkan).</summary>
-    public const double MaxRadius = 118.0;
-
-    /// <summary>Setengah lebar sektor 45°.</summary>
-    public const double HalfSectorDeg = 22.5;
+    public const double ButtonHalf = 18.0;
 
     /// <summary>
-    /// Index slot dengan sudut terdekat ke arah pointer, atau -1 kalau pointer di deadzone /
-    /// luar roda / tidak ada slot dalam setengah sektor.
+    /// Radius penerimaan (px). Tombol 36 px, jarak tombol ke pusat roda 72 px, jadi 60 px menutup
+    /// seluruh sektor dan celah antar tombol tanpa mengambil deadzone tengah roda.
     /// </summary>
-    public static int FindNearest(IReadOnlyList<double> slotAngles, double x, double y)
+    public const double MaxDistance = 60.0;
+
+    /// <summary>Pusat tombol slot; slot.X/slot.Y adalah pojok kiri-atas.</summary>
+    public static (double X, double Y) Center(double slotX, double slotY)
+        => (slotX + ButtonHalf, slotY + ButtonHalf);
+
+    /// <summary>Index slot terdekat ke pointer, atau -1 kalau semuanya lebih jauh dari maxDistance.</summary>
+    public static int FindNearest(IReadOnlyList<(double X, double Y)> centers, double x, double y,
+        double maxDistance = MaxDistance)
     {
-        if (slotAngles == null || slotAngles.Count == 0) return -1;
-
-        double dx = x - CenterX;
-        double dy = y - CenterY;
-        double dist = Math.Sqrt(dx * dx + dy * dy);
-        if (dist < MinRadius || dist > MaxRadius) return -1;
-
-        // 0 = atas, bertambah searah jarum jam (sama dengan Angle slot).
-        double angle = Math.Atan2(dy, dx) * (180.0 / Math.PI) + 90.0;
-        if (angle < 0) angle += 360.0;
+        if (centers == null || centers.Count == 0) return -1;
 
         int best = -1;
-        double bestDiff = HalfSectorDeg;
-        for (int i = 0; i < slotAngles.Count; i++)
+        double bestDist = maxDistance;
+        for (int i = 0; i < centers.Count; i++)
         {
-            double diff = Math.Abs(angle - slotAngles[i]);
-            if (diff > 180.0) diff = 360.0 - diff;
-            if (diff < bestDiff)
+            double dx = x - centers[i].X;
+            double dy = y - centers[i].Y;
+            double dist = Math.Sqrt(dx * dx + dy * dy);
+            if (dist < bestDist)
             {
-                bestDiff = diff;
+                bestDist = dist;
                 best = i;
             }
         }
 
         return best;
     }
+
+    /// <summary>Varian praktis: daftar slot dengan X,Y = pojok kiri-atas.</summary>
+    public static int FindNearestForSlots(IReadOnlyList<(double X, double Y)> slotTops, double x, double y,
+        double maxDistance = MaxDistance)
+        => FindNearest(slotTops.Select(s => Center(s.X, s.Y)).ToList(), x, y, maxDistance);
 }

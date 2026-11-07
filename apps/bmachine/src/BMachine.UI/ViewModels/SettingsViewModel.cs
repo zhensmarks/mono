@@ -2880,8 +2880,12 @@ public partial class SettingsViewModel : ObservableObject
         _radialDragSnapshot = _scriptAliases.ToDictionary(kv => kv.Key, kv => kv.Value.Order);
     }
 
-    /// <summary>Live preview: susun ulang urutan di memori seolah script dipindah ke target.</summary>
-    public void PreviewRadialMove(RadialSlotViewModel source, RadialSlotViewModel? target)
+    /// <summary>
+    /// Live preview drag: TUKAR posisi item sumber dengan item target (switch), bukan menggeser
+    /// urutan item lain. Kalau slot tujuan kosong barulah dipindah (insert) karena tidak ada
+    /// pasangan untuk ditukar.
+    /// </summary>
+    public void PreviewRadialSwap(RadialSlotViewModel source, RadialSlotViewModel? target)
     {
         if (_radialDragSnapshot == null || source.Script == null) return;
 
@@ -2889,8 +2893,30 @@ public partial class SettingsViewModel : ObservableObject
             if (_scriptAliases.ContainsKey(kv.Key)) _scriptAliases[kv.Key].Order = kv.Value;
 
         if (target != null && !target.IsNavigationReserved)
-            ApplyRadialMove(source.Script, target.AbsoluteIndex);
+        {
+            if (target.Script != null) SwapAliasOrder(source.Script, target.Script);
+            else ApplyRadialMove(source.Script, target.AbsoluteIndex);
+        }
+
         UpdateRadialPositions();
+    }
+
+    /// <summary>Tukar nilai Order dua item. Alias yang belum ada dibuat dulu (Order 9999).</summary>
+    private void SwapAliasOrder(ScriptItem a, ScriptItem b)
+    {
+        if (a == null || b == null || ReferenceEquals(a, b)) return;
+
+        ScriptConfig Get(ScriptItem s)
+        {
+            if (_scriptAliases.TryGetValue(s.OriginalName, out var cfg)) return cfg;
+            cfg = new ScriptConfig { Name = s.Name, Code = s.ShortCode, IconKey = s.IconKey, Order = 9999 };
+            _scriptAliases[s.OriginalName] = cfg;
+            return cfg;
+        }
+
+        var ca = Get(a);
+        var cb = Get(b);
+        (ca.Order, cb.Order) = (cb.Order, ca.Order);
     }
 
     private void UpdateRadialPositions()
@@ -3005,6 +3031,17 @@ public partial class SettingsViewModel : ObservableObject
                 existing.Order = i;
             else
                 _scriptAliases[s.OriginalName] = new ScriptConfig { Name = s.Name, Code = s.ShortCode, IconKey = s.IconKey, Order = i };
+        }
+
+        // Item yang TIDAK tampil di roda (hidden/disabled) diberi nomor di luar rentang supaya
+        // tidak bertabrakan dengan nomor urut baru. Tanpa ini, tie-break nama bisa mengacak
+        // posisi item lain setelah drag (keluhan: "kaya merubah posisi lain").
+        var inRing = new HashSet<string>(merged.Select(m => m.OriginalName), StringComparer.OrdinalIgnoreCase);
+        int parked = 10000;
+        foreach (var key in _scriptAliases.Keys.ToList())
+        {
+            if (inRing.Contains(key)) continue;
+            _scriptAliases[key].Order = parked++;
         }
     }
 

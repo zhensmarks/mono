@@ -32,6 +32,31 @@ public class RadialSettingsConsistencyTests
     }
 
     [Fact]
+    public void DropOnAnotherItemSwapsPositions()
+    {
+        var view = ReadRepoFile("apps/bmachine/src/BMachine.UI/Views/SettingsView.axaml.cs");
+        var vm = ReadRepoFile("apps/bmachine/src/BMachine.UI/ViewModels/SettingsViewModel.cs");
+
+        // Drag = TUKAR posisi dua item (switch), bukan menggeser urutan item lain.
+        Assert.Contains("vm.PreviewRadialSwap(_radialDragSource, target);", view);
+        Assert.Contains("SwapAliasOrder(source.Script, target.Script);", vm);
+        Assert.DoesNotContain("PreviewRadialMove(_radialDragSource", view);
+
+        // Item hidden diberi nomor di luar rentang roda supaya tie-break nama tidak mengacak
+        // posisi item lain setelah swap.
+        Assert.Contains("int parked = 10000;", vm);
+    }
+
+    [Fact]
+    public void DropTargetUsesButtonDistanceNotCanvasCenter()
+    {
+        var view = ReadRepoFile("apps/bmachine/src/BMachine.UI/Views/SettingsView.axaml.cs");
+
+        Assert.Contains("RadialSlotPicker.FindNearestForSlots(", view);
+        Assert.DoesNotContain("s.Angle).ToList(), pos.X, pos.Y);", view);
+    }
+
+    [Fact]
     public void LiveMenuStillHidesDisabledItems()
     {
         var vm = ReadRepoFile("apps/bmachine/src/BMachine.UI/ViewModels/RadialMenuViewModel.cs");
