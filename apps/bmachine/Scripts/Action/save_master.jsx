@@ -596,24 +596,28 @@ function main() {
         sepMethodArt.preferredSize.height = 1;
 
         leftCol.add("statictext", undefined, "--- ARTBOARD ---");
-        var artboardBtnNames = [];
+        // Checkbox per-artboard (nama sesuai artboard dokumen aktif).
+        // Aturan: centang = root folder kelas (repeat), kosong = subfolder.
+        var selArtCheckboxes = [];
+        var selArtHasAny = false;
         try {
             var actDoc2 = app.activeDocument;
             if (actDoc2) {
                 var ai2 = getArtboardsData();
                 for (var aiIdx2 = 0; aiIdx2 < ai2.length; aiIdx2++) {
-                    artboardBtnNames.push(ai2[aiIdx2].name);
+                    var chk = leftCol.add("checkbox", undefined, ai2[aiIdx2].name);
+                    chk.value = false;
+                    selArtCheckboxes.push({ name: ai2[aiIdx2].name, checkbox: chk });
+                    selArtHasAny = true;
                 }
             }
         } catch (eArtBtn) {}
-        var artBtnCreated = [];
-        for (var abnIdx = 0; abnIdx < artboardBtnNames.length; abnIdx++) {
-            var abn = artboardBtnNames[abnIdx];
-            var btnAbn = leftCol.add("button", undefined, abn);
-            btnAbn.helpTip = "Export artboard " + abn + " (PNG) ke folder yang sama";
-            artBtnCreated.push(btnAbn);
+        var btnMethodArtSelected = null;
+        if (selArtHasAny) {
+            btnMethodArtSelected = leftCol.add("button", undefined, "PROSES ART (TERPILIH)");
+            btnMethodArtSelected.helpTip = "Export artboard PNG sesuai centangan di atas (centang = root kelas, kosong = subfolder)";
         }
-        if (artboardBtnNames.length === 0) {
+        if (!selArtHasAny) {
             var noArt = leftCol.add("statictext", undefined, "(Tidak ada artboard)");
             noArt.enabled = false;
         }
@@ -625,8 +629,8 @@ function main() {
         btnMethodPas2x3.preferredSize.width = leftBtnW;
         btnMethodPas4x6.preferredSize.width = leftBtnW;
         btnMethodPasKombi.preferredSize.width = leftBtnW;
-        for (var _abw = 0; _abw < artBtnCreated.length; _abw++) {
-            artBtnCreated[_abw].preferredSize.width = leftBtnW;
+        if (btnMethodArtSelected) {
+            btnMethodArtSelected.preferredSize.width = leftBtnW;
         }
         btnMethodPas2x3.helpTip = "Simpan JPG + crop 2x3 cm ke subfolder /2x3";
         btnMethodPas4x6.helpTip = "Simpan JPG + crop 4x6 cm ke subfolder /4x6";
@@ -674,15 +678,13 @@ function main() {
         btnMethodPas2x3.onClick = function () { selDlg.close(3); };
         btnMethodPas4x6.onClick = function () { selDlg.close(4); };
         btnMethodPasKombi.onClick = function () { selDlg.close(5); };
-        for (var _abh = 0; _abh < artBtnCreated.length; _abh++) {
-            (function (idx) {
-                artBtnCreated[idx].onClick = function () { selDlg.close(101 + idx); };
-            })(_abh);
+        if (btnMethodArtSelected) {
+            btnMethodArtSelected.onClick = function () { selDlg.close(101); };
         }
         btnSelCancel.onClick = function () { selDlg.close(0); };
 
         var selChoice = selDlg.show();
-        if (selChoice >= 1 && (selChoice <= 5 || selChoice >= 101)) {
+        if (selChoice >= 1 && (selChoice <= 5 || selChoice == 101)) {
             // Kumpulkan dokumen terpilih
             var selectedIndices = [];
             for (var k = 0; k < lstDocs.items.length; k++) {
@@ -712,8 +714,12 @@ function main() {
             var artTotalSuccess = 0;
             var artTotalFail = 0;
             var isPasMode = (selChoice >= 3 && selChoice <= 5);
-            var isArtMode = (selChoice >= 101);
-            var artboardIdx = (selChoice >= 101) ? (selChoice - 101) : -1;
+            var isArtMode = (selChoice == 101);
+            // Map nama artboard (normalized) -> centang atau tidak dari checkbox dialog
+            var selRepeatByName = {};
+            for (var _cbi = 0; _cbi < selArtCheckboxes.length; _cbi++) {
+                selRepeatByName[normalizeArtboardName(selArtCheckboxes[_cbi].name)] = selArtCheckboxes[_cbi].checkbox.value;
+            }
 
             for (var d = 0; d < docsToProcess.length; d++) {
                 var docName = docsToProcess[d] ? docsToProcess[d].name : "Unknown Document";
@@ -732,26 +738,21 @@ function main() {
                     // 1. Save PSD master
                     doc.save();
 
-                    // 2. Export artboard: HANYA 1 artboard yang dipilih (tombol per-nama)
+                    // 2. Export artboard: SEMUA artboard ikut; centang = root kelas, kosong = subfolder
                     if (isArtMode) {
                         app.activeDocument = doc;
+                        var _allSchedule = [];
                         var _aiExp = getArtboardsData();
-                        if (artboardIdx >= 0 && artboardIdx < _aiExp.length) {
-                            var singleSchedule = [artboardIdx];
-                            var _repeat = {};
-                            _repeat[normalizeArtboardName(_aiExp[artboardIdx].name)] = true;
-                            var resArt = exportArtboards(doc, true, JPG_QUALITY, singleSchedule, _repeat);
-                            artTotalSuccess += resArt.success;
-                            artTotalFail += resArt.fail;
-                            for (var ad = 0; ad < resArt.details.length; ad++) {
-                                artInfoList.push("[" + docName + "] " + resArt.details[ad]);
-                            }
-                            if (resArt.cancelled) {
-                                artInfoList.push("--- PROSES DIBATALKAN OLEH USER (ESC) ---");
-                                break;
-                            }
-                        } else {
-                            artInfoList.push("[" + docName + "] Artboard tidak ditemukan, dilewati.");
+                        for (var _si = 0; _si < _aiExp.length; _si++) _allSchedule.push(_si);
+                        var resArt = exportArtboards(doc, true, JPG_QUALITY, _allSchedule, selRepeatByName);
+                        artTotalSuccess += resArt.success;
+                        artTotalFail += resArt.fail;
+                        for (var ad = 0; ad < resArt.details.length; ad++) {
+                            artInfoList.push("[" + docName + "] " + resArt.details[ad]);
+                        }
+                        if (resArt.cancelled) {
+                            artInfoList.push("--- PROSES DIBATALKAN OLEH USER (ESC) ---");
+                            break;
                         }
                     }
 
