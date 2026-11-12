@@ -170,74 +170,82 @@ function Get-PayloadFileMap([string[]]$Paths) {
 }
 
 $baseDir = $PublishDir                       # hasil publish terakhir (baseline)
+$baseExists = (Test-Path $baseDir) -and @(Get-ChildItem $baseDir -ErrorAction SilentlyContinue).Count -gt 0
 $componentsArray = New-Object System.Collections.ArrayList
 
-# Komponen APLIKASI: exe + Assets
+# Kalau baseline tidak ada, semua komponen dianggap berubah (panel centang terisi)
 $appChanged = $false
-$appPaths = @("BMachine.App.exe", "Assets")
-# Bandingkan hash exe baseline vs payload untuk deteksi perubahan
-$baseExe = Join-Path $baseDir "BMachine.App.exe"
-if (Test-Path $baseExe) {
-    $h1 = Get-SimpleFileHash $baseExe
-    if ($h1 -and $h1 -ne $hash) { $appChanged = $true }
+$masterChanged = $false
+$actionChanged = $false
+if (-not $baseExists) {
+    $appChanged = $true
+    $masterChanged = $true
+    $actionChanged = $true
+} else {
+    # Komponen APLIKASI: exe + Assets
+    $appPaths = @("BMachine.App.exe", "Assets")
+    $baseExe = Join-Path $baseDir "BMachine.App.exe"
+    if (Test-Path $baseExe) {
+        $h1 = Get-SimpleFileHash $baseExe
+        if ($h1 -and $h1 -ne $hash) { $appChanged = $true }
+    }
+
+    # Komponen MASTER: Scripts\Master
+    $masterPayload = Join-Path $PayloadDir "Scripts\Master"
+    $masterBase    = Join-Path $baseDir    "Scripts\Master"
+    if (Test-Path $masterPayload) {
+        $masterFiles = @(Get-ChildItem -Path $masterPayload -Recurse -File | Where-Object { $_.FullName -notlike "*\.git*" })
+        if ($masterFiles.Count -gt 0) {
+            foreach ($f in $masterFiles) {
+                $rel = $f.FullName.Substring($masterPayload.Length).TrimStart("\","/")
+                $baseFile = Join-Path $masterBase $rel
+                if ((-not (Test-Path $baseFile)) -or ((Get-SimpleFileHash $f.FullName) -ne (Get-SimpleFileHash $baseFile))) {
+                    $masterChanged = $true; break
+                }
+            }
+        }
+    }
+
+    # Komponen ACTION: Scripts\Action
+    $actionPayload = Join-Path $PayloadDir "Scripts\Action"
+    $actionBase    = Join-Path $baseDir    "Scripts\Action"
+    if (Test-Path $actionPayload) {
+        $actionFiles = @(Get-ChildItem -Path $actionPayload -Recurse -File | Where-Object { $_.FullName -notlike "*\.git*" })
+        foreach ($f in $actionFiles) {
+            $rel = $f.FullName.Substring($actionPayload.Length).TrimStart("\","/")
+            $baseFile = Join-Path $actionBase $rel
+            if ((-not (Test-Path $baseFile)) -or ((Get-SimpleFileHash $f.FullName) -ne (Get-SimpleFileHash $baseFile))) {
+                $actionChanged = $true; break
+            }
+        }
+    }
 }
+
 $appComponents = @{
     name     = "Aplikasi"
     changed  = $appChanged
     included = $true
     atomic   = $false
-    paths    = $appPaths
-    files    = (Get-PayloadFileMap $appPaths)
+    paths    = @("BMachine.App.exe", "Assets")
+    files    = (Get-PayloadFileMap @("BMachine.App.exe", "Assets"))
 }
 [void]$componentsArray.Add([pscustomobject]$appComponents)
 
-# Komponen MASTER: Scripts\Master
-$masterPayload = Join-Path $PayloadDir "Scripts\Master"
-$masterBase    = Join-Path $baseDir    "Scripts\Master"
-$masterChanged = $false
-$masterFiles   = @()
-if (Test-Path $masterPayload) {
-    $masterFiles = @(Get-ChildItem -Path $masterPayload -Recurse -File | Where-Object { $_.FullName -notlike "*\.git*" })
-    if ($masterFiles.Count -gt 0) {
-        foreach ($f in $masterFiles) {
-            $rel = $f.FullName.Substring($masterPayload.Length).TrimStart("\","/")
-            $baseFile = Join-Path $masterBase $rel
-            if ((-not (Test-Path $baseFile)) -or ((Get-SimpleFileHash $f.FullName) -ne (Get-SimpleFileHash $baseFile))) {
-                $masterChanged = $true; break
-            }
-        }
-    }
-}
 $masterComponents = @{
     name     = "Master"
     changed  = $masterChanged
     included = $true
-    atomic   = $true          # satu kesatuan: kalau satu file berubah, semua disalin
+    atomic   = $true
     paths    = @("Scripts\Master")
     files    = (Get-PayloadFileMap @("Scripts\Master"))
 }
 [void]$componentsArray.Add([pscustomobject]$masterComponents)
 
-# Komponen ACTION: Scripts\Action
-$actionPayload = Join-Path $PayloadDir "Scripts\Action"
-$actionBase    = Join-Path $baseDir    "Scripts\Action"
-$actionChanged = $false
-$actionFiles   = @()
-if (Test-Path $actionPayload) {
-    $actionFiles = @(Get-ChildItem -Path $actionPayload -Recurse -File | Where-Object { $_.FullName -notlike "*\.git*" })
-    foreach ($f in $actionFiles) {
-        $rel = $f.FullName.Substring($actionPayload.Length).TrimStart("\","/")
-        $baseFile = Join-Path $actionBase $rel
-        if ((-not (Test-Path $baseFile)) -or ((Get-SimpleFileHash $f.FullName) -ne (Get-SimpleFileHash $baseFile))) {
-            $actionChanged = $true; break
-        }
-    }
-}
 $actionComponents = @{
     name     = "Action"
     changed  = $actionChanged
-    included = $false   # default: centang Aplikasi + Master saja; Action opsional (modifikasi user sering di sini)
-    atomic   = $false         # per-file: JSX yang berubah saja
+    included = $true   # Opsi 1: Action default tercentang, JSX auto terkirim
+    atomic   = $false
     paths    = @("Scripts\Action")
     files    = (Get-PayloadFileMap @("Scripts\Action"))
 }
