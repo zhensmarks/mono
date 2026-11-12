@@ -588,6 +588,14 @@ function main() {
         var btnMethodPas4x6 = leftCol.add("button", undefined, "PAS FOTO (4x6)");
         var btnMethodPasKombi = leftCol.add("button", undefined, "PAS FOTO (KOMBI)");
 
+        var sepMethodArt = leftCol.add("panel");
+        sepMethodArt.alignment = "fill";
+        sepMethodArt.preferredSize.height = 1;
+
+        leftCol.add("statictext", undefined, "--- ARTBOARD ---");
+        var btnMethodArtJpg = leftCol.add("button", undefined, "ARTBOARD (JPG)");
+        var btnMethodArtPng = leftCol.add("button", undefined, "ARTBOARD (PNG)");
+
 
         var leftBtnW = 150;
         btnMethodJpg.preferredSize.width = leftBtnW;
@@ -595,6 +603,10 @@ function main() {
         btnMethodPas2x3.preferredSize.width = leftBtnW;
         btnMethodPas4x6.preferredSize.width = leftBtnW;
         btnMethodPasKombi.preferredSize.width = leftBtnW;
+        btnMethodArtJpg.preferredSize.width = leftBtnW;
+        btnMethodArtPng.preferredSize.width = leftBtnW;
+        btnMethodArtJpg.helpTip = "Simpan PSD + export SEMUA artboard dokumen ke JPG di folder yang sama (nama: <file>_<artboard>)";
+        btnMethodArtPng.helpTip = "Simpan PSD + export SEMUA artboard dokumen ke PNG di folder yang sama";
         btnMethodPas2x3.helpTip = "Simpan JPG + crop 2x3 cm ke subfolder /2x3";
         btnMethodPas4x6.helpTip = "Simpan JPG + crop 4x6 cm ke subfolder /4x6";
         btnMethodPasKombi.helpTip = "Simpan JPG + crop 2x3 dan 4x6 cm";
@@ -640,10 +652,12 @@ function main() {
         btnMethodPas2x3.onClick = function () { selDlg.close(3); };
         btnMethodPas4x6.onClick = function () { selDlg.close(4); };
         btnMethodPasKombi.onClick = function () { selDlg.close(5); };
+        btnMethodArtJpg.onClick = function () { selDlg.close(6); };
+        btnMethodArtPng.onClick = function () { selDlg.close(7); };
         btnSelCancel.onClick = function () { selDlg.close(0); };
 
         var selChoice = selDlg.show();
-        if (selChoice >= 1 && selChoice <= 5) {
+        if (selChoice >= 1 && selChoice <= 7) {
             // Kumpulkan dokumen terpilih
             var selectedIndices = [];
             for (var k = 0; k < lstDocs.items.length; k++) {
@@ -669,7 +683,11 @@ function main() {
 
             var successList = [];
             var failList = [];
-            var isPasMode = (selChoice >= 3);
+            var artInfoList = [];
+            var artTotalSuccess = 0;
+            var artTotalFail = 0;
+            var isPasMode = (selChoice >= 3 && selChoice <= 5);
+            var isArtMode = (selChoice == 6 || selChoice == 7);
 
             for (var d = 0; d < docsToProcess.length; d++) {
                 var docName = docsToProcess[d] ? docsToProcess[d].name : "Unknown Document";
@@ -688,7 +706,21 @@ function main() {
                     // 1. Save PSD master
                     doc.save();
 
-                    // 2. Export utama (JPG untuk mode JPG & Pas Foto, PNG untuk mode PNG)
+                    // 2. Export artboard (mode ARTBOARD) - semua artboard -> folder PSD
+                    if (isArtMode) {
+                        var resArt = exportArtboards(doc, (selChoice == 7), JPG_QUALITY, null, markAllArtboardsRepeat());
+                        artTotalSuccess += resArt.success;
+                        artTotalFail += resArt.fail;
+                        for (var ad = 0; ad < resArt.details.length; ad++) {
+                            artInfoList.push("[" + docName + "] " + resArt.details[ad]);
+                        }
+                        if (resArt.cancelled) {
+                            artInfoList.push("--- PROSES DIBATALKAN OLEH USER (ESC) ---");
+                            break;
+                        }
+                    }
+
+                    // 3. Export utama (JPG untuk mode JPG & Pas Foto, PNG untuk mode PNG)
                     if (selChoice == 1 || isPasMode) {
                         var dupDoc = doc.duplicate(baseName + "_temp");
                         app.activeDocument = dupDoc;
@@ -734,6 +766,11 @@ function main() {
             if (successList.length > 0) msg += successList.join("\n") + "\n\n";
             msg += "Gagal: " + failList.length + "\n";
             if (failList.length > 0) msg += failList.join("\n");
+
+            if (isArtMode) {
+                msg += "\n\nArtboard - Sukses: " + artTotalSuccess + ", Gagal: " + artTotalFail + "\n";
+                if (artInfoList.length > 0) msg += artInfoList.join("\n");
+            }
 
             showScrollableAlert("Laporan Proses Dokumen Terpilih", msg);
         }
@@ -1146,6 +1183,17 @@ function showScrollableAlert(title, message) {
     btnOk.onClick = function () { dialog.close(); };
 
     dialog.show();
+}
+
+// Mode TERPILIH > ARTBOARD: semua artboard dianggap "repeat" (langsung ke folder PSD,
+// nama file <base>_<artboard>), bukan subfolder per artboard seperti mode PROSES ART batch.
+function markAllArtboardsRepeat() {
+    var map = {};
+    var info = getArtboardsData();
+    for (var i = 0; i < info.length; i++) {
+        map[String(info[i].name || "").replace(/^\s+|\s+$/g, "").toUpperCase()] = true;
+    }
+    return map;
 }
 
 function exportArtboards(sourceDoc, isPng, quality, schedule, repeatByName) {
