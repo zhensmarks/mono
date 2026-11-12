@@ -863,9 +863,9 @@ function main() {
             return String(name || "").replace(/^\s+|\s+$/g, "").toUpperCase();
         }
 
-        // Build schedule: SEMUA artboard di setiap dokumen ikut diexport
-        // (agar tiap folder kelas lengkap). Checkbox hanya menentukan
-        // apakah artboard disimpan di root folder kelas (repeat) atau subfolder.
+        // Build schedule: HANYA artboard yang TERCENTANG ikut diexport.
+        // Checkbox centang = artboard disimpan di root folder kelas (repeat),
+        // centang kosong = artboard dilewati total.
         for (var i = 0; i < docs.length; i++) {
             var schedule = [];
             var doc = docs[i];
@@ -873,7 +873,11 @@ function main() {
                 app.activeDocument = doc;
                 var artboardsInfo = getArtboardsData();
                 for (var scheduleIdx = 0; scheduleIdx < artboardsInfo.length; scheduleIdx++) {
-                    schedule.push(scheduleIdx);
+                    var abName = normalizeArtboardName(artboardsInfo[scheduleIdx].name);
+                    // Export artboard ini hanya kalau tercentang di checkbox dashboard
+                    if (repeatByName[abName] === true) {
+                        schedule.push(scheduleIdx);
+                    }
                 }
             } catch (e) {}
             exportSchedules.push(schedule);
