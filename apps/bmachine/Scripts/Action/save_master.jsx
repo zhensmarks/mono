@@ -596,11 +596,27 @@ function main() {
         sepMethodArt.preferredSize.height = 1;
 
         leftCol.add("statictext", undefined, "--- ARTBOARD ---");
-        var btnMethodArtJpg = leftCol.add("button", undefined, "ARTBOARD (JPG)");
-        var btnMethodArtPng = leftCol.add("button", undefined, "ARTBOARD (PNG)");
-        // Tombol baru: ARTBOARD TERPILIH - ikuti centang artboard dari dashboard
-        var btnMethodArtSelected = leftCol.add("button", undefined, "ARTBOARD TERPILIH");
-        btnMethodArtSelected.helpTip = "Export hanya artboard yang tercentang di dashboard ke folder yang sama (nama: <file>_<artboard>)";
+        var artboardBtnNames = [];
+        try {
+            var actDoc2 = app.activeDocument;
+            if (actDoc2) {
+                var ai2 = getArtboardsData();
+                for (var aiIdx2 = 0; aiIdx2 < ai2.length; aiIdx2++) {
+                    artboardBtnNames.push(ai2[aiIdx2].name);
+                }
+            }
+        } catch (eArtBtn) {}
+        var artBtnCreated = [];
+        for (var abnIdx = 0; abnIdx < artboardBtnNames.length; abnIdx++) {
+            var abn = artboardBtnNames[abnIdx];
+            var btnAbn = leftCol.add("button", undefined, abn);
+            btnAbn.helpTip = "Export artboard " + abn + " (PNG) ke folder yang sama";
+            artBtnCreated.push(btnAbn);
+        }
+        if (artboardBtnNames.length === 0) {
+            var noArt = leftCol.add("statictext", undefined, "(Tidak ada artboard)");
+            noArt.enabled = false;
+        }
 
 
         var leftBtnW = 150;
@@ -609,55 +625,18 @@ function main() {
         btnMethodPas2x3.preferredSize.width = leftBtnW;
         btnMethodPas4x6.preferredSize.width = leftBtnW;
         btnMethodPasKombi.preferredSize.width = leftBtnW;
-        btnMethodArtJpg.preferredSize.width = leftBtnW;
-        btnMethodArtPng.preferredSize.width = leftBtnW;
-        btnMethodArtSelected.preferredSize.width = leftBtnW;
-        btnMethodArtJpg.helpTip = "Simpan PSD + export SEMUA artboard dokumen ke JPG di folder yang sama (nama: <file>_<artboard>)";
-        btnMethodArtPng.helpTip = "Simpan PSD + export SEMUA artboard dokumen ke PNG di folder yang sama";
+        for (var _abw = 0; _abw < artBtnCreated.length; _abw++) {
+            artBtnCreated[_abw].preferredSize.width = leftBtnW;
+        }
         btnMethodPas2x3.helpTip = "Simpan JPG + crop 2x3 cm ke subfolder /2x3";
         btnMethodPas4x6.helpTip = "Simpan JPG + crop 4x6 cm ke subfolder /4x6";
         btnMethodPasKombi.helpTip = "Simpan JPG + crop 2x3 dan 4x6 cm";
 
-        // === KOLOM KANAN: ARTBOARD CHECKBOXES + LIST DOKUMEN ===
+        // === KOLOM KANAN: LIST DOKUMEN ===
         var rightCol = mainRow.add("group");
         rightCol.orientation = "column";
         rightCol.alignChildren = ["fill", "top"];
         rightCol.spacing = 5;
-
-        // --- ARTBOARD: checkbox list, sinkron dengan dashboard ---
-        var artboardGroup = rightCol.add("group");
-        artboardGroup.orientation = "column";
-        artboardGroup.alignChildren = ["fill", "top"];
-        artboardGroup.spacing = 3;
-        artboardGroup.add("statictext", undefined, "--- ARTBOARD (Pilih mana yang akan diexport) ---");
-
-        // Ambil nama artboard dari dokumen aktif saat dialog ini dibuka
-        var currentArtboardNames = [];
-        try {
-            var actDoc = app.activeDocument;
-            if (actDoc) {
-                var ai = getArtboardsData();
-                for (var aiIdx = 0; aiIdx < ai.length; aiIdx++) {
-                    currentArtboardNames.push(ai[aiIdx].name);
-                }
-            }
-        } catch (eArtProbe) {}
-
-        var selArtCheckboxes = [];
-        if (currentArtboardNames.length > 0) {
-            for (var saIdx = 0; saIdx < currentArtboardNames.length; saIdx++) {
-                var saChk = artboardGroup.add("checkbox", undefined, currentArtboardNames[saIdx]);
-                saChk.value = true; // default: semua centang
-                selArtCheckboxes.push({ name: currentArtboardNames[saIdx], checkbox: saChk });
-            }
-        } else {
-            var saNoArt = artboardGroup.add("statictext", undefined, "(Tidak ada artboard di dokumen aktif)");
-            saNoArt.enabled = false;
-        }
-
-        var docSep = rightCol.add("panel");
-        docSep.alignment = "fill";
-        docSep.preferredSize.height = 1;
 
         rightCol.add("statictext", undefined, "--- DOKUMEN (Ctrl untuk pilih banyak) ---");
 
@@ -695,13 +674,15 @@ function main() {
         btnMethodPas2x3.onClick = function () { selDlg.close(3); };
         btnMethodPas4x6.onClick = function () { selDlg.close(4); };
         btnMethodPasKombi.onClick = function () { selDlg.close(5); };
-        btnMethodArtJpg.onClick = function () { selDlg.close(6); };
-        btnMethodArtPng.onClick = function () { selDlg.close(7); };
-        btnMethodArtSelected.onClick = function () { selDlg.close(8); };
+        for (var _abh = 0; _abh < artBtnCreated.length; _abh++) {
+            (function (idx) {
+                artBtnCreated[idx].onClick = function () { selDlg.close(101 + idx); };
+            })(_abh);
+        }
         btnSelCancel.onClick = function () { selDlg.close(0); };
 
         var selChoice = selDlg.show();
-        if (selChoice >= 1 && selChoice <= 8) {
+        if (selChoice >= 1 && (selChoice <= 5 || selChoice >= 101)) {
             // Kumpulkan dokumen terpilih
             var selectedIndices = [];
             for (var k = 0; k < lstDocs.items.length; k++) {
@@ -731,16 +712,8 @@ function main() {
             var artTotalSuccess = 0;
             var artTotalFail = 0;
             var isPasMode = (selChoice >= 3 && selChoice <= 5);
-            var isArtMode = (selChoice == 6 || selChoice == 7 || selChoice == 8);
-            var isArtSelected = (selChoice == 8); // ARTBOARD TERPILIH: ikuti centang dashboard
-            // Schedule artboard index yang terpilih dari dashboard (via checkboxes).
-            // null = belum dihitung; array kosong = tidak ada artboard yang dipilih.
-            var artSchedule = null;
-            // Map nama artboard (normalized) -> apakah dicentang, dari checkboxes DIALOG TERPILIH.
-            var repeatByNameSel = {};
-            for (var _cbi = 0; _cbi < selArtCheckboxes.length; _cbi++) {
-                repeatByNameSel[normalizeArtboardName(selArtCheckboxes[_cbi].name)] = selArtCheckboxes[_cbi].checkbox.value;
-            }
+            var isArtMode = (selChoice >= 101);
+            var artboardIdx = (selChoice >= 101) ? (selChoice - 101) : -1;
 
             for (var d = 0; d < docsToProcess.length; d++) {
                 var docName = docsToProcess[d] ? docsToProcess[d].name : "Unknown Document";
@@ -759,44 +732,26 @@ function main() {
                     // 1. Save PSD master
                     doc.save();
 
-                    // 2. Export artboard (mode ARTBOARD) - ikuti artboard yang tercentang
+                    // 2. Export artboard: HANYA 1 artboard yang dipilih (tombol per-nama)
                     if (isArtMode) {
-                        if (isArtSelected) {
-                            // ARTBOARD TERPILIH: hanya artboard yang tercentang di checkbox dialog
-                            app.activeDocument = doc;
-                            artSchedule = [];
-                            var _ai = getArtboardsData();
-                            for (var _k = 0; _k < _ai.length; _k++) {
-                                var _nm = _ai[_k].name;
-                                for (var _cb = 0; _cb < selArtCheckboxes.length; _cb++) {
-                                    if (normalizeArtboardName(selArtCheckboxes[_cb].name) === normalizeArtboardName(_nm)) {
-                                        if (selArtCheckboxes[_cb].checkbox.value) artSchedule.push(_k);
-                                        break;
-                                    }
-                                }
+                        app.activeDocument = doc;
+                        var _aiExp = getArtboardsData();
+                        if (artboardIdx >= 0 && artboardIdx < _aiExp.length) {
+                            var singleSchedule = [artboardIdx];
+                            var _repeat = {};
+                            _repeat[normalizeArtboardName(_aiExp[artboardIdx].name)] = true;
+                            var resArt = exportArtboards(doc, true, JPG_QUALITY, singleSchedule, _repeat);
+                            artTotalSuccess += resArt.success;
+                            artTotalFail += resArt.fail;
+                            for (var ad = 0; ad < resArt.details.length; ad++) {
+                                artInfoList.push("[" + docName + "] " + resArt.details[ad]);
                             }
-                            if (artSchedule.length === 0) {
-                                artInfoList.push("[" + docName + "] Tidak ada artboard tercentang, dilewati.");
-                                continue;
+                            if (resArt.cancelled) {
+                                artInfoList.push("--- PROSES DIBATALKAN OLEH USER (ESC) ---");
+                                break;
                             }
-                        } else if (artSchedule === null) {
-                            // ARTBOARD SEMUA (selChoice 6/7): hitung schedule untuk semua artboard
-                            artSchedule = [];
-                            app.activeDocument = doc;
-                            var _ai2 = getArtboardsData();
-                            for (var _k2 = 0; _k2 < _ai2.length; _k2++) artSchedule.push(_k2);
-                        }
-
-                        var _isPng = (selChoice == 7 || selChoice == 8);
-                        var resArt = exportArtboards(doc, _isPng, JPG_QUALITY, artSchedule, isArtSelected ? repeatByNameSel : markAllArtboardsRepeat());
-                        artTotalSuccess += resArt.success;
-                        artTotalFail += resArt.fail;
-                        for (var ad = 0; ad < resArt.details.length; ad++) {
-                            artInfoList.push("[" + docName + "] " + resArt.details[ad]);
-                        }
-                        if (resArt.cancelled) {
-                            artInfoList.push("--- PROSES DIBATALKAN OLEH USER (ESC) ---");
-                            break;
+                        } else {
+                            artInfoList.push("[" + docName + "] Artboard tidak ditemukan, dilewati.");
                         }
                     }
 
