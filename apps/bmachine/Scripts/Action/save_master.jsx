@@ -1,4 +1,4 @@
-// @target photoshop
+﻿// @target photoshop
 
 // Map to track unchecked artboards already exported per class folder (must be
 // declared before main() is invoked below, otherwise it is undefined at runtime).
@@ -555,6 +555,9 @@ function main() {
 
     // --- SPECIAL MODE: SELECTED (100) ---
     if (choice == 100) {
+        function normalizeArtboardName(name) {
+            return String(name || "").replace(/^\s+|\s+$/g, "").toUpperCase();
+        }
         var selDlg = new Window("dialog", "Save Terpilih - Pilih Cara & Dokumen");
         selDlg.orientation = "column";
         selDlg.alignChildren = ["fill", "top"];
@@ -595,6 +598,9 @@ function main() {
         leftCol.add("statictext", undefined, "--- ARTBOARD ---");
         var btnMethodArtJpg = leftCol.add("button", undefined, "ARTBOARD (JPG)");
         var btnMethodArtPng = leftCol.add("button", undefined, "ARTBOARD (PNG)");
+        // Tombol baru: ARTBOARD TERPILIH - ikuti centang artboard dari dashboard
+        var btnMethodArtSelected = leftCol.add("button", undefined, "ARTBOARD TERPILIH");
+        btnMethodArtSelected.helpTip = "Export hanya artboard yang tercentang di dashboard ke folder yang sama (nama: <file>_<artboard>)";
 
 
         var leftBtnW = 150;
@@ -605,6 +611,7 @@ function main() {
         btnMethodPasKombi.preferredSize.width = leftBtnW;
         btnMethodArtJpg.preferredSize.width = leftBtnW;
         btnMethodArtPng.preferredSize.width = leftBtnW;
+        btnMethodArtSelected.preferredSize.width = leftBtnW;
         btnMethodArtJpg.helpTip = "Simpan PSD + export SEMUA artboard dokumen ke JPG di folder yang sama (nama: <file>_<artboard>)";
         btnMethodArtPng.helpTip = "Simpan PSD + export SEMUA artboard dokumen ke PNG di folder yang sama";
         btnMethodPas2x3.helpTip = "Simpan JPG + crop 2x3 cm ke subfolder /2x3";
@@ -654,10 +661,11 @@ function main() {
         btnMethodPasKombi.onClick = function () { selDlg.close(5); };
         btnMethodArtJpg.onClick = function () { selDlg.close(6); };
         btnMethodArtPng.onClick = function () { selDlg.close(7); };
+        btnMethodArtSelected.onClick = function () { selDlg.close(8); };
         btnSelCancel.onClick = function () { selDlg.close(0); };
 
         var selChoice = selDlg.show();
-        if (selChoice >= 1 && selChoice <= 7) {
+        if (selChoice >= 1 && selChoice <= 8) {
             // Kumpulkan dokumen terpilih
             var selectedIndices = [];
             for (var k = 0; k < lstDocs.items.length; k++) {
@@ -687,7 +695,16 @@ function main() {
             var artTotalSuccess = 0;
             var artTotalFail = 0;
             var isPasMode = (selChoice >= 3 && selChoice <= 5);
-            var isArtMode = (selChoice == 6 || selChoice == 7);
+            var isArtMode = (selChoice == 6 || selChoice == 7 || selChoice == 8);
+            var isArtSelected = (selChoice == 8); // ARTBOARD TERPILIH: ikuti centang dashboard
+            // Schedule artboard index yang terpilih dari dashboard (via checkboxes).
+            // null = belum dihitung; array kosong = tidak ada artboard yang dipilih.
+            var artSchedule = null;
+            // Map nama artboard (normalized) -> apakah dicentang, dari checkboxes dashboard.
+            var repeatByNameSel = {};
+            for (var _cbi = 0; _cbi < artboardCheckboxes.length; _cbi++) {
+                repeatByNameSel[normalizeArtboardName(artboardCheckboxes[_cbi].name)] = artboardCheckboxes[_cbi].checkbox.value;
+            }
 
             for (var d = 0; d < docsToProcess.length; d++) {
                 var docName = docsToProcess[d] ? docsToProcess[d].name : "Unknown Document";
@@ -706,9 +723,36 @@ function main() {
                     // 1. Save PSD master
                     doc.save();
 
-                    // 2. Export artboard (mode ARTBOARD) - semua artboard -> folder PSD
+                    // 2. Export artboard (mode ARTBOARD) - ikuti artboard yang tercentang
                     if (isArtMode) {
-                        var resArt = exportArtboards(doc, (selChoice == 7), JPG_QUALITY, null, markAllArtboardsRepeat());
+                        if (isArtSelected) {
+                            // ARTBOARD TERPILIH: hanya artboard yang tercentang di dashboard
+                            app.activeDocument = doc;
+                            artSchedule = [];
+                            var _ai = getArtboardsData();
+                            for (var _k = 0; _k < _ai.length; _k++) {
+                                var _nm = _ai[_k].name;
+                                for (var _cb = 0; _cb < artboardCheckboxes.length; _cb++) {
+                                    if (normalizeArtboardName(artboardCheckboxes[_cb].name) === normalizeArtboardName(_nm)) {
+                                        if (artboardCheckboxes[_cb].checkbox.value) artSchedule.push(_k);
+                                        break;
+                                    }
+                                }
+                            }
+                            if (artSchedule.length === 0) {
+                                artInfoList.push("[" + docName + "] Tidak ada artboard tercentang, dilewati.");
+                                continue;
+                            }
+                        } else if (artSchedule === null) {
+                            // ARTBOARD SEMUA (selChoice 6/7): hitung schedule untuk semua artboard
+                            artSchedule = [];
+                            app.activeDocument = doc;
+                            var _ai2 = getArtboardsData();
+                            for (var _k2 = 0; _k2 < _ai2.length; _k2++) artSchedule.push(_k2);
+                        }
+
+                        var _isPng = (selChoice == 7 || selChoice == 8);
+                        var resArt = exportArtboards(doc, _isPng, JPG_QUALITY, artSchedule, isArtSelected ? repeatByNameSel : markAllArtboardsRepeat());
                         artTotalSuccess += resArt.success;
                         artTotalFail += resArt.fail;
                         for (var ad = 0; ad < resArt.details.length; ad++) {
