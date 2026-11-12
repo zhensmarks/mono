@@ -618,11 +618,47 @@ function main() {
         btnMethodPas4x6.helpTip = "Simpan JPG + crop 4x6 cm ke subfolder /4x6";
         btnMethodPasKombi.helpTip = "Simpan JPG + crop 2x3 dan 4x6 cm";
 
-        // === KOLOM KANAN: LIST DOKUMEN ===
+        // === KOLOM KANAN: ARTBOARD CHECKBOXES + LIST DOKUMEN ===
         var rightCol = mainRow.add("group");
         rightCol.orientation = "column";
         rightCol.alignChildren = ["fill", "top"];
         rightCol.spacing = 5;
+
+        // --- ARTBOARD: checkbox list, sinkron dengan dashboard ---
+        var artboardGroup = rightCol.add("group");
+        artboardGroup.orientation = "column";
+        artboardGroup.alignChildren = ["fill", "top"];
+        artboardGroup.spacing = 3;
+        artboardGroup.add("statictext", undefined, "--- ARTBOARD (Pilih mana yang akan diexport) ---");
+
+        // Ambil nama artboard dari dokumen aktif saat dialog ini dibuka
+        var currentArtboardNames = [];
+        try {
+            var actDoc = app.activeDocument;
+            if (actDoc) {
+                var ai = getArtboardsData();
+                for (var aiIdx = 0; aiIdx < ai.length; aiIdx++) {
+                    currentArtboardNames.push(ai[aiIdx].name);
+                }
+            }
+        } catch (eArtProbe) {}
+
+        var selArtCheckboxes = [];
+        if (currentArtboardNames.length > 0) {
+            for (var saIdx = 0; saIdx < currentArtboardNames.length; saIdx++) {
+                var saChk = artboardGroup.add("checkbox", undefined, currentArtboardNames[saIdx]);
+                saChk.value = true; // default: semua centang
+                selArtCheckboxes.push({ name: currentArtboardNames[saIdx], checkbox: saChk });
+            }
+        } else {
+            var saNoArt = artboardGroup.add("statictext", undefined, "(Tidak ada artboard di dokumen aktif)");
+            saNoArt.enabled = false;
+        }
+
+        var docSep = rightCol.add("panel");
+        docSep.alignment = "fill";
+        docSep.preferredSize.height = 1;
+
         rightCol.add("statictext", undefined, "--- DOKUMEN (Ctrl untuk pilih banyak) ---");
 
         var lstDocs = rightCol.add("listbox", undefined, [], { multiselect: true });
@@ -700,10 +736,10 @@ function main() {
             // Schedule artboard index yang terpilih dari dashboard (via checkboxes).
             // null = belum dihitung; array kosong = tidak ada artboard yang dipilih.
             var artSchedule = null;
-            // Map nama artboard (normalized) -> apakah dicentang, dari checkboxes dashboard.
+            // Map nama artboard (normalized) -> apakah dicentang, dari checkboxes DIALOG TERPILIH.
             var repeatByNameSel = {};
-            for (var _cbi = 0; _cbi < artboardCheckboxes.length; _cbi++) {
-                repeatByNameSel[normalizeArtboardName(artboardCheckboxes[_cbi].name)] = artboardCheckboxes[_cbi].checkbox.value;
+            for (var _cbi = 0; _cbi < selArtCheckboxes.length; _cbi++) {
+                repeatByNameSel[normalizeArtboardName(selArtCheckboxes[_cbi].name)] = selArtCheckboxes[_cbi].checkbox.value;
             }
 
             for (var d = 0; d < docsToProcess.length; d++) {
@@ -726,15 +762,15 @@ function main() {
                     // 2. Export artboard (mode ARTBOARD) - ikuti artboard yang tercentang
                     if (isArtMode) {
                         if (isArtSelected) {
-                            // ARTBOARD TERPILIH: hanya artboard yang tercentang di dashboard
+                            // ARTBOARD TERPILIH: hanya artboard yang tercentang di checkbox dialog
                             app.activeDocument = doc;
                             artSchedule = [];
                             var _ai = getArtboardsData();
                             for (var _k = 0; _k < _ai.length; _k++) {
                                 var _nm = _ai[_k].name;
-                                for (var _cb = 0; _cb < artboardCheckboxes.length; _cb++) {
-                                    if (normalizeArtboardName(artboardCheckboxes[_cb].name) === normalizeArtboardName(_nm)) {
-                                        if (artboardCheckboxes[_cb].checkbox.value) artSchedule.push(_k);
+                                for (var _cb = 0; _cb < selArtCheckboxes.length; _cb++) {
+                                    if (normalizeArtboardName(selArtCheckboxes[_cb].name) === normalizeArtboardName(_nm)) {
+                                        if (selArtCheckboxes[_cb].checkbox.value) artSchedule.push(_k);
                                         break;
                                     }
                                 }
