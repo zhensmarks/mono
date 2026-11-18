@@ -4,6 +4,26 @@
 var DEFAULT_BASE_INPUT = "\\\\delapanmataair\\Editor 5\\2. REGULER\\#PROJECT SEKOLAH\\2026-2027";
 var DEFAULT_BASE_MASTER = "";
 
+// Mode filter file input: "auto" (aturan lama: PNG/PSD diutamakan, JPG cadangan)
+// atau paksa ekstensi tertentu: "jpg" | "png" | "psd".
+var CURRENT_INPUT_EXT_MODE = "auto";
+
+function normalizeExtMode(m) {
+    m = String(m || "").toLowerCase();
+    if (m === "jpg" || m === "jpeg") return "jpg";
+    if (m === "png") return "png";
+    if (m === "psd" || m === "psb") return "psd";
+    return "auto";
+}
+
+function inputExtRegex() {
+    var m = CURRENT_INPUT_EXT_MODE;
+    if (m === "jpg") return /\.(jpe?g)$/i;
+    if (m === "png") return /\.png$/i;
+    if (m === "psd") return /\.(psd|psb)$/i;
+    return /\.(png|psd|jpe?g)$/i;
+}
+
 function loadSettings() {
     var settingsFile = new File(Folder.userData + "/replacer_settings_v2.json");
     if (settingsFile.exists) {
@@ -20,26 +40,32 @@ function loadSettings() {
             if (data.baseInputServer === null) data.baseInputServer = "";
             if (!("baseMasterServer" in data)) data.baseMasterServer = DEFAULT_BASE_MASTER;
             if (data.baseMasterServer === null) data.baseMasterServer = "";
+            data.inputExtMode = normalizeExtMode(data.inputExtMode);
+            CURRENT_INPUT_EXT_MODE = data.inputExtMode;
             return data;
         } catch (e) { }
     }
+    CURRENT_INPUT_EXT_MODE = "auto";
     return {
         x: -1, y: -1,
         autoDetect: false,
         baseInputServer: DEFAULT_BASE_INPUT,
-        baseMasterServer: DEFAULT_BASE_MASTER
+        baseMasterServer: DEFAULT_BASE_MASTER,
+        inputExtMode: "auto"
     };
 }
 
-function saveSettings(x, y, autoDetect, baseInputServer, baseMasterServer) {
+function saveSettings(x, y, autoDetect, baseInputServer, baseMasterServer, inputExtMode) {
     var settingsFile = new File(Folder.userData + "/replacer_settings_v2.json");
     try {
+        if (inputExtMode === null || inputExtMode === undefined) inputExtMode = CURRENT_INPUT_EXT_MODE;
+        inputExtMode = normalizeExtMode(inputExtMode);
         var base = (baseInputServer === null || baseInputServer === undefined) ? "" : baseInputServer;
         var escapedBase = base.replace(/\\/g, "\\\\").replace(/"/g, '\\\\"');
         var masterBase = (baseMasterServer === null || baseMasterServer === undefined) ? "" : baseMasterServer;
         var escapedMaster = masterBase.replace(/\\/g, "\\\\").replace(/"/g, '\\\\"');
         settingsFile.open("w");
-        settingsFile.write('{"x":' + x + ',"y":' + y + ',"autoDetect":' + (autoDetect ? "true" : "false") + ',"baseInputServer":"' + escapedBase + '","baseMasterServer":"' + escapedMaster + '"}');
+        settingsFile.write('{"x":' + x + ',"y":' + y + ',"autoDetect":' + (autoDetect ? "true" : "false") + ',"baseInputServer":"' + escapedBase + '","baseMasterServer":"' + escapedMaster + '","inputExtMode":"' + inputExtMode + '"}');
         settingsFile.close();
     } catch (e) { }
 }
@@ -369,6 +395,10 @@ function findLatestContextFile() {
 }
 
 function main() {
+    // Baca settings paling awal: menentukan filter ekstensi input (CURRENT_INPUT_EXT_MODE)
+    // yang juga dipakai jalur Batch Auto dari BMachine.
+    var settings = loadSettings();
+
     // === BMachine Integration (Pre-load context if available) ===
     var bmachineContext = null;
     var tempFile = null;
@@ -457,7 +487,6 @@ function main() {
     }
 
     // === UI CONFIG ===
-    var settings = loadSettings();
     var currentAutoDetect = settings.autoDetect === true;
 
     var w = new Window("dialog", "Smart Object Replacer");
@@ -572,7 +601,8 @@ function main() {
 
         var lblDesc = d.add("statictext", undefined,
             "Base Server : root folder input di server (auto-detect saat Mode Otomatis).\n" +
-            "Base Master : (opsional) folder master lokal bila format path berbeda.",
+            "Base Master : (opsional) folder master lokal bila format path berbeda.\n" +
+            "File Input  : ekstensi file Input yang dipakai untuk replace.",
             { multiline: true });
         lblDesc.preferredSize.width = 480;
         try {
@@ -608,6 +638,24 @@ function main() {
             if (f) txtMst.text = decodeURI(f.fsName || f.fullName);
         };
 
+        // Filter ekstensi file input (menggantikan aturan otomatis PNG/PSD diutamakan).
+        var EXT_VALUES = ["auto", "jpg", "png", "psd"];
+        var EXT_LABELS = ["Default (Otomatis: PNG/PSD diutamakan, JPG cadangan)", "JPG saja (.jpg / .jpeg)", "PNG saja (.png)", "PSD saja (.psd / .psb)"];
+
+        var grpExt = d.add("group");
+        grpExt.orientation = "row";
+        grpExt.alignChildren = ["fill", "center"];
+        var lblExt = grpExt.add("statictext", undefined, "File Input:");
+        lblExt.preferredSize.width = 90;
+        var ddlExt = grpExt.add("dropdownlist", undefined, EXT_LABELS);
+        ddlExt.preferredSize.width = 360;
+        ddlExt.helpTip = "Ekstensi file Input yang dipakai untuk replace.";
+        var curExt = normalizeExtMode(settings.inputExtMode);
+        for (var ei = 0; ei < EXT_VALUES.length; ei++) {
+            if (EXT_VALUES[ei] === curExt) { ddlExt.selection = ei; break; }
+        }
+        if (ddlExt.selection === null) ddlExt.selection = 0;
+
         var grpBtn = d.add("group");
         grpBtn.alignment = "right";
         grpBtn.spacing = 8;
@@ -624,7 +672,9 @@ function main() {
             var mst = txtMst.text.replace(/^["']+|["']+$/g, "").replace(/[\\\/]+$/, "").replace(/^\s+|\s+$/g, "");
             settings.baseInputServer = srv;
             settings.baseMasterServer = mst;
-            saveSettings(w.location.x, w.location.y, chkAutoDetect.value === true, srv, mst);
+            settings.inputExtMode = EXT_VALUES[ddlExt.selection.index];
+            CURRENT_INPUT_EXT_MODE = settings.inputExtMode;
+            saveSettings(w.location.x, w.location.y, chkAutoDetect.value === true, srv, mst, CURRENT_INPUT_EXT_MODE);
             triggerMasterRefresh();
         }
     }
@@ -635,7 +685,7 @@ function main() {
 
     chkAutoDetect.onChange = function () {
         saveSettings(w.location.x, w.location.y, chkAutoDetect.value === true,
-            settings.baseInputServer || "", settings.baseMasterServer || "");
+            settings.baseInputServer || "", settings.baseMasterServer || "", CURRENT_INPUT_EXT_MODE);
         triggerMasterRefresh();
     };
 
@@ -705,7 +755,7 @@ function main() {
             }
             lblDetectStatus.text = "Mode Manual - silakan Browse folder Input";
         } else {
-            var iCount = countFilesFast(txtInput.text, /\.(png|jpe?g|psd)$/i);
+            var iCount = countFilesFast(txtInput.text, inputExtRegex());
             if (iCount > 0) {
                 lblDetectStatus.text = iCount + " file gambar di Input";
             } else {
@@ -725,7 +775,7 @@ function main() {
 
     txtInput.onChanging = function () {
         if (chkAutoDetect.value) return; // auto-detect sedang pegang, jangan override
-        var iCount = countFilesFast(txtInput.text, /\.(png|jpe?g|psd)$/i);
+        var iCount = countFilesFast(txtInput.text, inputExtRegex());
         if (iCount > 0) {
             lblDetectStatus.text = iCount + " file gambar di Input";
         } else {
@@ -929,7 +979,8 @@ function main() {
         w.location.y,
         chkAutoDetect.value === true,
         settings.baseInputServer || "",
-        settings.baseMasterServer || ""
+        settings.baseMasterServer || "",
+        CURRENT_INPUT_EXT_MODE
     );
 
     if (result != 1 && result != 2) return; // Cancel
@@ -1016,25 +1067,28 @@ function runReplacementLogic(templateFolder, inputFolder, suppressAlert, autoBat
 
     // --- Scan Files ---
     var templateFiles = scanFolderForFiles(templateFolder, /\.(psd|psb)$/i);
-    var allInputFiles = scanFolderForFiles(inputFolder, /\.(png|psd|jpe?g)$/i);
+    var allInputFiles = scanFolderForFiles(inputFolder, inputExtRegex());
 
     // --- Determine Mode (PNG/PSD vs JPG) ---
-    var hasPngPsd = false;
-    for (var k = 0; k < allInputFiles.length; k++) {
-        if (allInputFiles[k].name.match(/\.(png|psd)$/i)) {
-            hasPngPsd = true;
-            break;
-        }
-    }
+    // Hanya berlaku untuk mode "auto". Kalau user memilih ekstensi manual di Pengaturan,
+    // filter sudah jalan saat scan jadi semua hasil scan dipakai apa adanya.
+    var inputFiles = allInputFiles;
 
-    var inputFiles = [];
-
-    if (hasPngPsd) {
+    if (CURRENT_INPUT_EXT_MODE === "auto") {
+        var hasPngPsd = false;
         for (var k = 0; k < allInputFiles.length; k++) {
-            if (allInputFiles[k].name.match(/\.(png|psd)$/i)) inputFiles.push(allInputFiles[k]);
+            if (allInputFiles[k].name.match(/\.(png|psd)$/i)) {
+                hasPngPsd = true;
+                break;
+            }
         }
-    } else {
-        inputFiles = allInputFiles;
+
+        if (hasPngPsd) {
+            inputFiles = [];
+            for (var k = 0; k < allInputFiles.length; k++) {
+                if (allInputFiles[k].name.match(/\.(png|psd)$/i)) inputFiles.push(allInputFiles[k]);
+            }
+        }
     }
 
     templateFiles.sort(sortByNumberInFilename);
@@ -1400,7 +1454,7 @@ function runRevisiLogic(masterFolder, inputFolder, mode, suppressAlert) {
     masterFiles.sort(sortByNumberInFilename);
 
     // Scan for replacement files in input folder
-    var inputFiles = scanFolderForFiles(inputFolder, /\.(png|psd|jpe?g)$/i);
+    var inputFiles = scanFolderForFiles(inputFolder, inputExtRegex());
 
     var modeLabel = (mode === "exact") ? "Persis (Exact)" : "Fleksibel (By Number)";
 
