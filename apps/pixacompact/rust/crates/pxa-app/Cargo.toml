@@ -1,0 +1,24 @@
+[package]
+name = "pxa-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PixaCompact — photo background remover & mask editor (Rust rewrite of the Avalonia app)"
+
+[[bin]]
+name = "pixa"
+path = "src/main.rs"
+
+[[bin]]
+name = "pxa-matte"
+path = "src/bin/matte.rs"
+
+[dependencies]
+pxa-core = { path = "../pxa-core" }
+eframe = { version = "0.32", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
+egui = "0.32"
+rfd = "0.18"
+# load-dynamic: ONNX Runtime di-dlopen saat runtime (bukan di-link),
+# jadi jalan dengan toolchain GNU tanpa MSVC import lib.
+ort = { version = "2.0.0-rc.15", features = ["load-dynamic"] }
+serde_json = "1"
