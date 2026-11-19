@@ -130,13 +130,16 @@ ke `Output/<nama>-cutout.png` seperti engine lokal.
 
 ## Sisa (hampir beres)
 
-1. **Konten floating-panel** — jendela melayang sudah spawn (terbukti),
-   tapi isi snapshot read-only belum ter-composit oleh backend eframe
-   multi-viewport di build ini; perbaiki dengan `set_immediate_viewport_renderer`
-   (eframe) atau pindah ke `winit` multi-window eksplisit.
-2. **Konten Properties/History di jendela melayang** — panel sudah ada &
-   ter-dock; jika di-floating, isi jendela OS masih bergantung composit
-   child-viewport (lihat item 1).
+1. **Konten floating-panel** — jendela OS melayang sudah **spawn** (terbukti:
+   HWND native `PX Tools (melayang)` 256×399, bisa drag/resize/close), tapi
+   **konten di dalam jendela child tidak ter-paint** pada backend eframe
+   native (glow) 0.32 build ini. Diverifikasi: hook debug
+   (`PXA_DEBUG_FLOAT_PAINT`) di callback `show_viewport_immediate` tak pernah
+   jalan, padahal jendela sudah dibuat. Artinya eframe membuat jendela native
+   tapi tak mem-drives renderer child-viewport untuknya (perlu wiring
+   `set_immediate_viewport_renderer` + repaint loop eksplisit, atau backend
+   winit multi-window). Panel yang sama tetap **penuh berfungsi saat
+   di-dock** di kolom utama (terverifikasi render).
 
 ## Catatan desain
 

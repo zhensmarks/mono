@@ -1089,6 +1089,7 @@ impl EditorApp {
                             .id(egui::Id::new(format!("float-{i}")))
                             .collapsible(false)
                             .resizable(true)
+                            .default_open(true)
                             .show(ctx2, |ui| match key {
                                 PanelKey::Tools => {
                                     self.tools_ui(ui);
@@ -1103,6 +1104,16 @@ impl EditorApp {
                                     self.layers_ui(ui);
                                 }
                             });
+                        // Hook verifikasi: kalau env PXA_DEBUG_FLOAT_PAIINT set,
+                        // sentuh file tiap kali konten jendela melayang ter-paint.
+                        if std::env::var_os("PXA_DEBUG_FLOAT_PAINT").is_some() {
+                            let _ = std::fs::write(
+                                std::env::temp_dir().join("pxa-float-paint.txt"),
+                                format!("painted {} @ now\n", key.label()),
+                            );
+                        }
+                        // Paksa eframe re-drives child-viewport tiap frame.
+                        ctx.request_repaint();
                     }
                     _ => {}
                 },
