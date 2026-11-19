@@ -133,6 +133,12 @@ pub struct Dashboard {
     web_proxy: String,
     web_new_name: String,
     web_new_limit: u32,
+    /// Folder update LAN (kosong = default NAS / U:).
+    update_folder: String,
+    /// Status hasil cek update terakhir.
+    update_status: String,
+    /// Info update terakhir.
+    update_info: Option<crate::updater::UpdateInfo>,
 }
 
 impl Dashboard {
@@ -163,6 +169,9 @@ impl Dashboard {
             web_proxy: String::new(),
             web_new_name: String::new(),
             web_new_limit: 5,
+            update_folder: String::new(),
+            update_status: String::new(),
+            update_info: None,
         }
     }
 
@@ -784,12 +793,46 @@ impl Dashboard {
                         });
                         ui.label(egui::RichText::new("Tema runtime penuh menyusul; token warna sudah mengikuti DESIGN_SYSTEM.md.").size(11.0).color(TEXT2));
                     }
-                    _ => {
-                        ui.heading("Pembaruan");
-                        ui.label("Versi: 0.1.0 (Rust rewrite)");
-                        ui.label("Kanal update LAN PixaCompact belum diport.");
-                        ui.add_enabled(false, egui::Button::new("Cek pembaruan"));
+                    4 => {
+                        ui.heading("Pembaruan (Update LAN)");
+                        ui.horizontal(|ui| {
+                            ui.label("Folder update:");
+                            ui.text_edit_singleline(&mut self.update_folder);
+                            if ui.button("Cek").clicked() {
+                                let folder = self.update_folder.trim().to_string();
+                                let (info, status) = crate::updater::check(&folder, true);
+                                self.update_status = status;
+                                self.update_info = Some(info);
+                            }
+                        });
+                        ui.label(egui::RichText::new(&self.update_status).size(12.0).color(TEXT2));
+                        if let Some(info) = &self.update_info {
+                            if info.is_update_available {
+                                ui.label(format!(
+                                    "Versi baru v{} (saat ini v{}){}",
+                                    info.latest_version,
+                                    info.current_version,
+                                    if info.size_bytes > 0 {
+                                        format!(" — {}", info.size_text())
+                                    } else {
+                                        String::new()
+                                    }
+                                ));
+                                ui.label(egui::RichText::new(info.notes_text()).size(12.0));
+                                if ui.button("Terapkan update (app tutup lalu buka lagi)").clicked() {
+                                    let (ok, msg) = crate::updater::apply(info);
+                                    self.update_status = msg;
+                                    if ok {
+                                        // App akan ditutup oleh skrip helper; exit sekarang.
+                                        std::process::exit(0);
+                                    }
+                                }
+                            } else {
+                                ui.label(format!("Sudah versi terbaru (v{}).", info.current_version));
+                            }
+                        }
                     }
+                    _ => {}
                 });
             });
         self.settings_open = open;

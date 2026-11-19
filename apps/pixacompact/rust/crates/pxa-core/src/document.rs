@@ -250,6 +250,41 @@ impl CanvasDocument {
         let layers = self.layers.iter().filter(|l| l.id != id).cloned().collect();
         Self { layers, ..self.clone() }
     }
+
+    /// Duplikat layer aktif; salinan di atas, nama "<nama> copy".
+    pub fn duplicate_active(&self) -> Option<Self> {
+        let pos = self.layers.iter().position(|l| l.id == self.active_layer_id)?;
+        let mut layers = self.layers.clone();
+        let mut copy = layers[pos].clone();
+        let new_id = NEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        copy.id = new_id;
+        copy.name = format!("{} copy", copy.name);
+        layers.insert(pos + 1, copy);
+        Some(Self { layers, active_layer_id: new_id, ..self.clone() })
+    }
+
+    /// Merge Down: composite penuh → layer bawah, layer aktif dihapus. No-op
+    /// kalau teratas atau satu layer. (C# `DocEditorSession.MergeDown`.)
+    pub fn merge_down(&self) -> Option<Self> {
+        let pos = self.layers.iter().position(|l| l.id == self.active_layer_id)?;
+        if pos == 0 {
+            return None;
+        }
+        let comp = composite(self);
+        let mut layers = self.layers.clone();
+        let merged = ImageLayer::new(
+            self.layers[pos - 1].name.clone(),
+            Image {
+                width: self.width,
+                height: self.height,
+                rgba: comp.rgba.clone(),
+            },
+        );
+        let new_active = merged.id;
+        layers[pos - 1] = merged;
+        layers.remove(pos);
+        Some(Self { layers, active_layer_id: new_active, ..self.clone() })
+    }
 }
 
 /// Port `LayerCompositor.Composite` → Image RGBA.
@@ -342,7 +377,6 @@ impl DocumentHistory {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     fn solid(w: usize, h: usize, rgba: [u8; 4]) -> Image {
         let mut img = Image::new(w, h);
         for i in 0..w * h {
@@ -422,5 +456,33 @@ mod tests {
         assert_eq!(doc.layers.len(), 2);
         let doc = doc.remove_layer(id);
         assert_eq!(doc.layers.len(), 1);
+    }
+
+    #[test]
+    fn duplicate_active_makes_copy_above() {
+        let doc = CanvasDocument::from_single(solid(2, 2, [5, 5, 5, 255]), "base");
+        let doc = doc.duplicate_active().expect("dup");
+        assert_eq!(doc.layers.len(), 2);
+        assert!(doc.layers.iter().any(|l| l.name == "base copy"));
+        // layer aktif baru = salinan (di atas).
+        let active = &doc.layers.iter().find(|l| l.id == doc.active_layer_id).unwrap();
+        assert_eq!(active.name, "base copy");
+    }
+
+    #[test]
+    fn merge_down_folds_active_into_below() {
+        // base (bawah) + top (atas, aktif).
+        let mut doc = CanvasDocument::from_single(solid(2, 2, [10, 0, 0, 255]), "base");
+        let top = ImageLayer::new("top", solid(2, 2, [0, 10, 0, 255]));
+        let top_id = top.id;
+        doc = doc.add_layer(top, -1);
+        doc.active_layer_id = top_id;
+        assert_eq!(doc.layers.len(), 2);
+        let merged = doc.merge_down().expect("merge");
+        assert_eq!(merged.layers.len(), 1);
+        assert_eq!(merged.layers[0].name, "base");
+        // composite penuh: top (hijau, opacity 255) di atas base (merah) → hijau di atas.
+        let c = composite(&merged);
+        assert_eq!(c.pixel(0, 0)[1], 10); // hijau dari top
     }
 }

@@ -97,15 +97,24 @@ ke `Output/<nama>-cutout.png` seperti engine lokal.
   (`PX_WEB_ACCOUNTS`, `PX_WEB_PROXY`); profil browser per akun. Terbukti: profil
   bernama `.pwprofile-pixa-<akun>` dibuat sesuai akun terpilih.
 
+- **Login interaktif per akun**: tombol `login` per akun → driver mode `login`
+  (browser tampil, user login manual, sesi tersimpan di profil) → dipakai
+  engine web headless berikutnya. Rotasi akun fungsional.
+- **Layer: Duplikat + Gabung (Merge Down)** di panel Layers; `duplicate_active`
+  + `merge_down` di `pxa-core::document` (composite penuh → layer bawah).
+- **Update LAN** (`updater` port `LocalUpdateService`+`UpdateInfo`): baca
+  `manifest.json`/`changelog.json`, bandingkan versi, terapkan via helper
+  PowerShell. Tab Pembaruan di Pengaturan. E2E: manifest v9.9.9 terdeteksi.
+- **Docking panel** (`PreviewWindow.Docking`): menu `Window ▾` di editor —
+  per-panel pilih sisi dock (Atas/Kiri/Kanan/Bawah; Tools hanya kiri/kanan),
+  tampil/sembunyikan, reset layout.
+
 ## Sisa (belum diport)
 
-1. **Docking panel Photoshop-style** (cabut/pasang/rendeng) — panel editor tetap.
-2. **Update LAN, laporan bug, provenance output penuh** (`LocalUpdateService`,
-   `OutputProvenance` sudah ada untuk skip; kanal LAN belum).
-3. **Engine web login interaktif per akun** (buka browser tampil untuk login) —
-   sesi sekarang memakai profil persisten; login manual belum terintegrasi UI.
-4. **Blending/mask pada layer** lanjutan (layer mask raster, blend area) —
-   layer saat ini pakai `layer.mask` dari cutout; panel belum edit mask per layer.
+1. **Drag-drop floating panel** (cabut panel jadi jendela melayang tanpa chrome OS
+   ala Photoshop penuh) — versi sekarang: menu **Window ▾** memindahkan panel ke
+   sisi Atas/Kiri/Kanan/Bawah + tampil/sembunyi + reset layout.
+2. **Laporan bug** ke Trello/GitHub dari app (sisi kirim; bukan UI pengisian).
 
 ## Catatan desain
 

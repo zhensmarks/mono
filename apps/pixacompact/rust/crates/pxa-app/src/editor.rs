@@ -131,6 +131,52 @@ impl Doc {
     }
 }
 
+/// <summary>Posisi dock panel (port `NormalizeDock`).</summary>
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DockPos {
+    Top,
+    Left,
+    Right,
+    Bottom,
+}
+
+impl DockPos {
+    pub fn label(self) -> &'static str {
+        match self {
+            DockPos::Top => "Atas",
+            DockPos::Left => "Kiri",
+            DockPos::Right => "Kanan",
+            DockPos::Bottom => "Bawah",
+        }
+    }
+}
+
+/// Panel editor yang bisa di-dock (port `FloatablePanels`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum PanelKey {
+    Tools,
+    Properties,
+    History,
+    Layers,
+}
+
+impl PanelKey {
+    pub const ALL: [PanelKey; 4] = [
+        PanelKey::Tools,
+        PanelKey::Properties,
+        PanelKey::History,
+        PanelKey::Layers,
+    ];
+    pub fn label(self) -> &'static str {
+        match self {
+            PanelKey::Tools => "Tools",
+            PanelKey::Properties => "Properties",
+            PanelKey::History => "History",
+            PanelKey::Layers => "Layers",
+        }
+    }
+}
+
 pub struct EditorApp {
     docs: Vec<Doc>,
     current: usize,
@@ -156,6 +202,10 @@ pub struct EditorApp {
     layers_dirty: bool,
     use_layers: bool,
     doc_dirty_pending: bool,
+    /// Docking: sisi tiap panel (port `PreviewWindow.Docking`).
+    dock: [DockPos; 4],
+    /// Panel yang tampil di editor (port `PanelVisibility`).
+    panel_visible: [bool; 4],
 }
 
 impl EditorApp {
@@ -185,6 +235,9 @@ impl EditorApp {
             layers_dirty: false,
             use_layers: false,
             doc_dirty_pending: false,
+            // Dock default (C# `ResetLayout`): Tools kiri, Properties/History/Layers kanan.
+            dock: [DockPos::Left, DockPos::Right, DockPos::Right, DockPos::Right],
+            panel_visible: [true; 4],
         };
         // `pixa <file>...` — buka langsung dari command line.
         for arg in std::env::args().skip(1) {
@@ -636,6 +689,32 @@ impl EditorApp {
         self.use_layers = on;
     }
 
+    /// <summary>Port `DockPanelTo` — pasang panel ke sisi tertentu.</summary>
+    pub fn set_dock(&mut self, key: PanelKey, pos: DockPos) {
+        let i = key as usize;
+        // Tools hanya boleh kiri/kanan (C# `NormalizeToolDock`).
+        self.dock[i] = if key == PanelKey::Tools {
+            if pos == DockPos::Left || pos == DockPos::Right {
+                pos
+            } else {
+                DockPos::Left
+            }
+        } else {
+            pos
+        };
+    }
+
+    /// <summary>Port `PanelVisibility` — tampil/sembunyikan panel.</summary>
+    pub fn set_panel_visible(&mut self, key: PanelKey, visible: bool) {
+        self.panel_visible[key as usize] = visible;
+    }
+
+    /// <summary>Port `ResetLayout` — kembalikan dock ke posisi default.</summary>
+    pub fn reset_layout(&mut self) {
+        self.dock = [DockPos::Left, DockPos::Right, DockPos::Right, DockPos::Right];
+        self.panel_visible = [true; 4];
+    }
+
     /// Jalankan Refine Hair lokal: inferensi ONNX pada mask sekarang,
     /// lalu tulis alpha baru HANYA di band unknown (area solid tak bergeser).
     fn refine_hair(&mut self) {
@@ -720,6 +799,40 @@ impl EditorApp {
             if ui.button("Fit").clicked() {
                 self.fit_pending = true;
             }
+            ui.separator();
+            // Menu Window: docking panel ala Photoshop (port `PreviewWindow.Docking`).
+            egui::ComboBox::from_label("Window ▾")
+                .width(170.0)
+                .show_ui(ui, |ui| {
+                    for key in PanelKey::ALL {
+                        let i = key as usize;
+                        ui.separator();
+                        ui.horizontal(|ui| {
+                            let mut vis = self.panel_visible[i];
+                            if ui.checkbox(&mut vis, key.label()).changed() {
+                                self.panel_visible[i] = vis;
+                            }
+                            let mut pos = self.dock[i];
+                            egui::ComboBox::from_label(pos.label())
+                                .width(80.0)
+                                .selected_text(pos.label())
+                                .show_ui(ui, |ui| {
+                                    for p in [DockPos::Top, DockPos::Left, DockPos::Right, DockPos::Bottom] {
+                                        if ui.selectable_label(p == pos, p.label()).clicked() {
+                                            pos = p;
+                                        }
+                                    }
+                                });
+                            if pos != self.dock[i] {
+                                self.set_dock(key, pos);
+                            }
+                        });
+                    }
+                    ui.separator();
+                    if ui.button("Reset layout").clicked() {
+                        self.reset_layout();
+                    }
+                });
         });
         ui.separator();
 
@@ -764,31 +877,33 @@ impl EditorApp {
                 egui::Layout::top_down(egui::Align::LEFT),
                 |ui| {
                     egui::ScrollArea::vertical().id_salt("editor-tools").show(ui, |ui| {
-                        ui.heading("Tool");
-                        for t in [Tool::Brush, Tool::Restore, Tool::Rect, Tool::Ellipse, Tool::Lasso, Tool::Wand, Tool::Pan] {
-                            ui.radio_value(&mut self.tool, t, t.label());
+                        if self.panel_visible[PanelKey::Tools as usize] {
+                            ui.heading("Tool");
+                            for t in [Tool::Brush, Tool::Restore, Tool::Rect, Tool::Ellipse, Tool::Lasso, Tool::Wand, Tool::Pan] {
+                                ui.radio_value(&mut self.tool, t, t.label());
+                            }
+                            ui.separator();
+                            ui.label("Brush");
+                            ui.add(egui::Slider::new(&mut self.brush_radius, 1.0..=300.0).text("radius"));
+                            ui.add(egui::Slider::new(&mut self.brush_hardness, 0.0..=1.0).text("hardness"));
+                            ui.add(egui::Slider::new(&mut self.brush_opacity, 0.05..=1.0).text("opacity"));
+                            ui.separator();
+                            ui.label("Seleksi");
+                            let mode_label = match self.combine {
+                                CombineMode::Replace => "Replace",
+                                CombineMode::Add => "Add",
+                                CombineMode::Subtract => "Subtract",
+                                CombineMode::Intersect => "Intersect",
+                            };
+                            egui::ComboBox::from_label("mode gabung").selected_text(mode_label).show_ui(ui, |ui| {
+                                ui.selectable_value(&mut self.combine, CombineMode::Replace, "Replace");
+                                ui.selectable_value(&mut self.combine, CombineMode::Add, "Add");
+                                ui.selectable_value(&mut self.combine, CombineMode::Subtract, "Subtract");
+                                ui.selectable_value(&mut self.combine, CombineMode::Intersect, "Intersect");
+                            });
+                            ui.add(egui::Slider::new(&mut self.feather_px, 0..=40).text("feather px"));
+                            ui.add(egui::Slider::new(&mut self.tolerance, 0..=96).text("wand tolerance"));
                         }
-                        ui.separator();
-                        ui.label("Brush");
-                        ui.add(egui::Slider::new(&mut self.brush_radius, 1.0..=300.0).text("radius"));
-                        ui.add(egui::Slider::new(&mut self.brush_hardness, 0.0..=1.0).text("hardness"));
-                        ui.add(egui::Slider::new(&mut self.brush_opacity, 0.05..=1.0).text("opacity"));
-                        ui.separator();
-                        ui.label("Seleksi");
-                        let mode_label = match self.combine {
-                            CombineMode::Replace => "Replace",
-                            CombineMode::Add => "Add",
-                            CombineMode::Subtract => "Subtract",
-                            CombineMode::Intersect => "Intersect",
-                        };
-                        egui::ComboBox::from_label("mode gabung").selected_text(mode_label).show_ui(ui, |ui| {
-                            ui.selectable_value(&mut self.combine, CombineMode::Replace, "Replace");
-                            ui.selectable_value(&mut self.combine, CombineMode::Add, "Add");
-                            ui.selectable_value(&mut self.combine, CombineMode::Subtract, "Subtract");
-                            ui.selectable_value(&mut self.combine, CombineMode::Intersect, "Intersect");
-                        });
-                        ui.add(egui::Slider::new(&mut self.feather_px, 0..=40).text("feather px"));
-                        ui.add(egui::Slider::new(&mut self.tolerance, 0..=96).text("wand tolerance"));
                         let has_doc = self.doc().is_some();
                         ui.horizontal(|ui| {
                             if ui.add_enabled(has_doc, egui::Button::new("Hapus")).clicked() {
@@ -885,9 +1000,10 @@ impl EditorApp {
                         });
 
                         // ===== Panel Layers =====
-                        ui.separator();
-                        ui.heading("Layers");
-                        ui.checkbox(&mut self.use_layers, "Gunakan composite layer");
+                        if self.panel_visible[PanelKey::Layers as usize] {
+                            ui.separator();
+                            ui.heading("Layers");
+                            ui.checkbox(&mut self.use_layers, "Gunakan composite layer");
                         if self.use_layers {
                             self.ensure_layers();
                             egui::ScrollArea::vertical().id_salt("editor-layers").max_height(220.0).show(ui, |ui| {
@@ -960,11 +1076,30 @@ impl EditorApp {
                                         }
                                     }
                                 }
+                                if ui.button("Duplikat").clicked() {
+                                    if let Some(ldoc) = self.layers.clone() {
+                                        if let Some(d) = ldoc.duplicate_active() {
+                                            *self.layers.as_mut().unwrap() = d;
+                                            self.layers_dirty = true;
+                                            self.doc_dirty_pending = true;
+                                        }
+                                    }
+                                }
+                                if ui.button("Gabung").clicked() {
+                                    if let Some(ldoc) = self.layers.clone() {
+                                        if let Some(m) = ldoc.merge_down() {
+                                            *self.layers.as_mut().unwrap() = m;
+                                            self.layers_dirty = true;
+                                            self.doc_dirty_pending = true;
+                                        }
+                                    }
+                                }
                                 if ui.button("Segarkan").clicked() {
                                     self.layers_dirty = true;
                                     self.doc_dirty_pending = true;
                                 }
                             });
+                        }
                         }
                     });
                 },

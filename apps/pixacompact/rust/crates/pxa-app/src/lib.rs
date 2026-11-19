@@ -7,4 +7,5 @@ pub mod matting;
 pub mod provenance;
 pub mod refine_hair;
 pub mod trimap;
+pub mod updater;
 pub mod webengine;
