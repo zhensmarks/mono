@@ -569,7 +569,8 @@ impl eframe::App for Dashboard {
                     ui.label(egui::RichText::new(&self.status).size(11.0).color(TEXT2));
                     // spacer fleksibel memusatkan zona tengah + membatok kanan
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        // ZONA KANAN: tombol aksi
+                        // ZONA KANAN: tombol aksi — garis pemisah halus biar gampang di-scan
+                        ui.add(egui::Separator::default().vertical());
                         ui.horizontal(|ui| {
                             if self.processing {
                                 if ui.button("Batal").clicked() {
@@ -608,7 +609,8 @@ impl eframe::App for Dashboard {
                         });
                         ui.add_space(24.0);
                         // ZONA TENGAH: counter + progress
-                        ui.label(egui::RichText::new(format!("{done} / {}", self.items.len())).size(14.0).strong());
+                        let n = self.items.len();
+                        ui.label(egui::RichText::new(format!("{done} / {n}")).size(14.0).strong());
                         ui.label(egui::RichText::new("gambar").size(11.0).color(TEXT2));
                         ui.add_sized([150.0, 8.0], egui::ProgressBar::new(frac));
                     });
