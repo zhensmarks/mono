@@ -361,14 +361,6 @@ impl EditorApp {
     }
 
     /// Hasil composite layer aktif (atau fallback ke compose biasa).
-    fn layer_composite(&self, doc: &Doc) -> Image {
-        if let Some(ldoc) = &self.layers {
-            pxa_core::document::composite(ldoc)
-        } else {
-            compose::compose(&doc.original, Some(&doc.mask))
-        }
-    }
-
     fn fit_view(&mut self, canvas: Rect, doc_w: usize, doc_h: usize) {
         let z = (canvas.width() / doc_w as f32).min(canvas.height() / doc_h as f32).min(1.0);
         self.zoom = z.max(0.02);
@@ -389,7 +381,7 @@ impl EditorApp {
     fn ensure_texture(&mut self, ctx: &egui::Context) {
         // Clone apa yang dibutuhkan agar `doc` tak menahan mut-borrow selama
         // `ensure_layers` (yang mut-borrow `self.layers`).
-        let (original, mask, mut dirty, tex_some) = {
+        let (original, mask, dirty, tex_some) = {
             let d = self.docs.get_mut(self.current);
             match d {
                 Some(d) => {
@@ -754,7 +746,7 @@ impl EditorApp {
         ui.add(egui::Slider::new(&mut self.brush_hardness, 0.0..=1.0).text("hardness"));
         ui.add(egui::Slider::new(&mut self.brush_opacity, 0.05..=1.0).text("opacity"));
         ui.separator();
-        ui.label("Seleksi");
+        ui.label("Parameter");
         let mode_label = match self.combine {
             CombineMode::Replace => "Replace",
             CombineMode::Add => "Add",
@@ -782,8 +774,8 @@ impl EditorApp {
         let feather_px = self.feather_px; // capture untuk closure
         let combine_dbg = format!("{:?}", self.combine);
 
-        // ===== SELECTION =====
-        ui.heading("Selection");
+        // ===== SELEKSI =====
+        ui.heading("Seleksi");
         let sel_count = self.doc().map(|d| d.selection.count_selected()).unwrap_or(0);
         ui.label(format!("terpilih: {sel_count} px • mode: {combine_dbg}"));
         ui.horizontal(|ui| {
@@ -1413,15 +1405,30 @@ impl EditorApp {
 
         ui.separator();
         ui.horizontal(|ui| {
-            ui.label(&self.status);
+            // status: kalau panjang (path lengkap) → ellipsis di bar, full di tooltip.
+            const TXT2: egui::Color32 = egui::Color32::from_rgb(150, 155, 160);
+            let st = self.status.clone();
+            let r = ui.label(egui::RichText::new(truncate_mid(&st, 90)).size(11.0).color(TXT2));
+            r.on_hover_text(st);
             if let Some(d) = self.doc() {
                 ui.separator();
-                ui.label(format!("{}x{}", d.original.width, d.original.height));
+                ui.label(egui::RichText::new(format!("{}x{}", d.original.width, d.original.height)).size(11.0).color(TXT2));
                 ui.separator();
-                ui.label(format!("Terpilih: {} px", d.selection.count_selected()));
+                ui.label(egui::RichText::new(format!("Terpilih: {} px", d.selection.count_selected())).size(11.0).color(TXT2));
             }
         });
     }
+}
+
+/// Pangkas string di tengah: `a…b` kalau > `max`, biar status bar tak meluber.
+fn truncate_mid(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        return s.to_string();
+    }
+    let keep = (max - 1) / 2;
+    let head: String = s.chars().take(keep).collect();
+    let tail: String = s.chars().skip(s.chars().count() - keep).collect();
+    format!("{head}…{tail}")
 }
 
 fn checkerboard(painter: &egui::Painter, rect: Rect) {
@@ -1444,3 +1451,20 @@ fn checkerboard(painter: &egui::Painter, rect: Rect) {
     }
 }
 
+#[cfg(test)]
+mod editor_tests {
+    use super::*;
+    #[test]
+    fn truncate_mid_short_pas() {
+        assert_eq!(truncate_mid("Dimuat: a.png", 90), "Dimuat: a.png");
+    }
+    #[test]
+    fn truncate_mid_long_pangkas() {
+        let s = "Dimuat: C:\\Users\\bengs\\very\\long\\path\\to\\file\\image.png";
+        let out = truncate_mid(s, 40);
+        assert!(out.len() < s.len());
+        assert!(out.contains('\u{2026}')); // ellipsis
+        assert!(out.starts_with('D'));
+        assert!(out.ends_with('g'));
+    }
+}

@@ -110,7 +110,7 @@ pub fn current_version() -> String {
 /// <summary>Port `ResolveCandidates`.</summary>
 pub fn resolve_candidates(configured: &str) -> Vec<String> {
     let mut list: Vec<String> = Vec::new();
-    let mut add = |value: &str, list: &mut Vec<String>| {
+    let add = |value: &str, list: &mut Vec<String>| {
         let value = value.trim().trim_matches('"').trim();
         if value.is_empty() {
             return;
@@ -366,7 +366,7 @@ fn build_apply_script(payload: &Path, install: &Path, pid: u32) -> String {
     let q = |s: &str| format!("'{}'", s.replace('\'', "''"));
     let payload_s = q(payload.to_string_lossy().as_ref());
     let install_s = q(install.to_string_lossy().as_ref());
-    let exe_s = format!("{}{}", install_s, q(&format!("\\pixa.exe")));
+    let _exe_s = format!("{}{}", install_s, q(&format!("\\pixa.exe")));
     let log_s = q(std::env::temp_dir().join("pixacompact-update.log").to_string_lossy().as_ref());
     format!(
         r#"$ErrorActionPreference='Continue'

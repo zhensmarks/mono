@@ -25,7 +25,7 @@ impl WebEngine {
             "REMBG" => Some(Self::Rembg),
             "NOBG_SPACE" | "NOBG" => Some(Self::NobgSpace),
             "REMBG_ONLINE" => Some(Self::RembgOnline),
-            "BG_ERASER" | "BG_ERASER" => Some(Self::BgEraser),
+            "BG_ERASER" => Some(Self::BgEraser),
             _ => None,
         }
     }

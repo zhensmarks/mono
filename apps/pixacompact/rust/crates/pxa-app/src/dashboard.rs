@@ -83,9 +83,7 @@ enum ItemStatus {
 }
 
 struct FileItem {
-    path: PathBuf,
-    original: Option<Image>,
-    result_path: Option<PathBuf>,
+    path: PathBuf,    result_path: Option<PathBuf>,
     status: ItemStatus,
     thumb: Option<TextureHandle>,
     thumb_for: Option<PathBuf>,
@@ -186,7 +184,7 @@ impl Dashboard {
             }
             self.items.push(FileItem {
                 path: p,
-                original: None,
+                
                 result_path: None,
                 status: ItemStatus::Waiting,
                 thumb: None,
@@ -529,14 +527,15 @@ impl eframe::App for Dashboard {
 
         egui::TopBottomPanel::top("titlebar")
             .exact_height(56.0)
-            .frame(egui::Frame::none().fill(CARD).inner_margin(egui::Margin::symmetric(16, 8)))
+            .frame(egui::Frame::NONE.fill(CARD).inner_margin(egui::Margin::symmetric(16, 8)))
             .show(ctx, |ui| {
-                ui.horizontal_centered(|ui| {
+                let ver = self.app_version_tag();
+                ui.horizontal(|ui| {
                     ui.label(egui::RichText::new("PixaCompact").size(16.0).strong());
-                    ui.add_space(16.0);
+                    ui.add_space(12.0);
                     egui::ComboBox::from_id_salt("engine-selector")
                         .selected_text(self.engine.label())
-                        .width(220.0)
+                        .width(200.0)
                         .show_ui(ui, |ui| {
                             for e in Engine::ALL {
                                 let enabled = e.available();
@@ -545,71 +544,79 @@ impl eframe::App for Dashboard {
                                 });
                             }
                         });
-                    ui.label(egui::RichText::new(self.engine.sub()).size(11.0).color(TEXT2));
+                    let sub = self.engine.sub().to_string();
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui.button("Pengaturan").clicked() {
                             self.settings_open = true;
                         }
-                        ui.label(egui::RichText::new("v0.1.0 (Rust)").size(11.0).color(TEXT2));
+                        ui.label(egui::RichText::new(format!("v{ver} (Rust)")).size(11.0).color(TEXT2));
+                        // teks privacy di-clip kalau sempit → ellipsis
+                        ui.label(egui::RichText::new(sub).size(11.0).color(TEXT2).weak());
                     });
                 });
             });
 
         egui::TopBottomPanel::bottom("footer")
             .min_height(55.0)
-            .frame(egui::Frame::none().fill(CARD).inner_margin(egui::Margin::symmetric(16, 10)).stroke(egui::Stroke::new(1.0, DIVIDER)))
+            .frame(egui::Frame::NONE.fill(CARD).inner_margin(egui::Margin::symmetric(16, 10)).stroke(egui::Stroke::new(1.0_f32, DIVIDER)))
             .show(ctx, |ui| {
-                ui.horizontal_centered(|ui| {
-                    let done = self.items.iter().filter(|i| matches!(i.status, ItemStatus::Done)).count();
-                    ui.label(egui::RichText::new(format!("{done} / {}", self.items.len())).size(14.0).strong());
-                    ui.label(egui::RichText::new("gambar").size(11.0).color(TEXT2));
-                    ui.add_space(12.0);
-                    let frac = if self.items.is_empty() { 0.0 } else { done as f32 / self.items.len() as f32 };
-                    ui.add_sized([180.0, 8.0], egui::ProgressBar::new(frac));
+                let done = self.items.iter().filter(|i| matches!(i.status, ItemStatus::Done)).count();
+                let frac = if self.items.is_empty() { 0.0 } else { done as f32 / self.items.len() as f32 };
+                // Satu baris datar, semua elemen vertikal-terpusat (Align::Center) —
+                // baseline sejajar. Kiri=status, lalu spacer fleksibel, tengah=counter+
+                // progress, kanan=tombol aksi (dipatok kanan).
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(&self.status).size(11.0).color(TEXT2));
+                    // spacer fleksibel memusatkan zona tengah + membatok kanan
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if self.processing {
-                            if ui.button("Batal").clicked() {
-                                self.cancel.store(true, Ordering::Relaxed);
-                            }
-                        } else {
-                            let can = !self.items.is_empty() && self.engine.available();
-                            if ui.add_enabled(can, egui::Button::new(egui::RichText::new("Remove BG").color(Color32::WHITE)).fill(ACCENT)).clicked() {
-                                self.start_batch();
-                            }
-                        }
-                        if ui.button("Folder Output").clicked() {
-                            let _ = std::fs::create_dir_all(&self.output_dir);
-                            let _ = open_folder(&self.output_dir);
-                        }
-                        if ui.button("Log").clicked() {
-                            self.show_log = !self.show_log;
-                        }
-                        // Port `BugReporter`: lapor bug ke ProjectBot bridge (fallback lokal).
-                        if ui.button("Laporkan bug").clicked() {
-                            let avail = crate::bugreport::is_available();
-                            let (ok, fallback) = crate::bugreport::send(
-                                "PixelcutCompact",
-                                &format!("Bug dari PixaCompact Rust v{}", self.app_version_tag()),
-                                "Laporan manual dari dashboard (detail kosong — isi di crash.log).",
-                                Some(self.app_version_tag().as_str()),
-                            );
-                            self.status = if ok {
-                                "Bug terkirim ke ProjectBot.".into()
-                            } else {
-                                match fallback {
-                                    Some(p) => format!("Bridge mati; tersimpan lokal: {p}"),
-                                    None => "Gagal kirim bug (bridge mati, fallback gagal).".into(),
+                        // ZONA KANAN: tombol aksi
+                        ui.horizontal(|ui| {
+                            if self.processing {
+                                if ui.button("Batal").clicked() {
+                                    self.cancel.store(true, Ordering::Relaxed);
                                 }
-                            };
-                            let _ = avail;
-                        }
-                        ui.label(egui::RichText::new(&self.status).size(11.0).color(TEXT2));
+                            } else {
+                                let can = !self.items.is_empty() && self.engine.available();
+                                if ui.add_enabled(can, egui::Button::new(egui::RichText::new("Remove BG").color(Color32::WHITE)).fill(ACCENT)).clicked() {
+                                    self.start_batch();
+                                }
+                            }
+                            if ui.button("Folder Output").clicked() {
+                                let _ = std::fs::create_dir_all(&self.output_dir);
+                                let _ = open_folder(&self.output_dir);
+                            }
+                            if ui.button("Log").clicked() {
+                                self.show_log = !self.show_log;
+                            }
+                            if ui.button("Laporkan bug").clicked() {
+                                let _ = crate::bugreport::is_available();
+                                let (ok, fallback) = crate::bugreport::send(
+                                    "PixelcutCompact",
+                                    &format!("Bug dari PixaCompact Rust v{}", self.app_version_tag()),
+                                    "Laporan manual dari dashboard (detail kosong — isi di crash.log).",
+                                    Some(self.app_version_tag().as_str()),
+                                );
+                                self.status = if ok {
+                                    "Bug terkirim ke ProjectBot.".into()
+                                } else {
+                                    match fallback {
+                                        Some(p) => format!("Bridge mati; tersimpan lokal: {p}"),
+                                        None => "Gagal kirim bug (bridge mati, fallback gagal).".into()
+                                    }
+                                };
+                            }
+                        });
+                        ui.add_space(24.0);
+                        // ZONA TENGAH: counter + progress
+                        ui.label(egui::RichText::new(format!("{done} / {}", self.items.len())).size(14.0).strong());
+                        ui.label(egui::RichText::new("gambar").size(11.0).color(TEXT2));
+                        ui.add_sized([150.0, 8.0], egui::ProgressBar::new(frac));
                     });
                 });
             });
 
         egui::CentralPanel::default()
-            .frame(egui::Frame::none().fill(BG).inner_margin(egui::Margin::symmetric(16, 12)))
+            .frame(egui::Frame::NONE.fill(BG).inner_margin(egui::Margin::symmetric(16, 12)))
             .show(ctx, |ui| {
                 if self.items.is_empty() {
                     empty_state(ui, || self.pick_files());
@@ -620,10 +627,10 @@ impl eframe::App for Dashboard {
                             let mut remove = false;
                             let mut preview = false;
                             ui.add_space(6.0);
-                            egui::Frame::none()
+                            egui::Frame::NONE
                                 .fill(CARD)
-                                .rounding(6.0)
-                                .stroke(egui::Stroke::new(1.0, DIVIDER))
+                                .corner_radius(6.0)
+                                .stroke(egui::Stroke::new(1.0_f32, DIVIDER))
                                 .inner_margin(egui::Margin::symmetric(10, 8))
                                 .show(ui, |ui| {
                                     ui.horizontal(|ui| {
@@ -728,7 +735,7 @@ impl Dashboard {
                         ui.heading("Engine Remove BG");
                         for e in Engine::ALL {
                             let avail = e.available();
-                            egui::Frame::none().fill(ELEVATED).rounding(6.0).inner_margin(10.0).show(ui, |ui| {
+                            egui::Frame::NONE.fill(ELEVATED).corner_radius(6.0).inner_margin(10.0).show(ui, |ui| {
                                 ui.horizontal(|ui| {
                                     ui.radio_value(&mut self.engine, e, e.label());
                                     if !avail {
@@ -779,7 +786,7 @@ impl Dashboard {
                         } else {
                             let mut remove_idx: Option<usize> = None;
                             let mut login_idx: Option<usize> = None;
-                            egui::Frame::none().fill(ELEVATED).rounding(6.0).inner_margin(8.0).show(ui, |ui| {
+                            egui::Frame::NONE.fill(ELEVATED).corner_radius(6.0).inner_margin(8.0).show(ui, |ui| {
                                 for (ai, (name, limit)) in self.web_accounts.iter().enumerate() {
                                     ui.horizontal(|ui| {
                                         ui.label(format!("{} (limit {limit}/sesi)", name));
@@ -875,7 +882,7 @@ fn empty_state(ui: &mut egui::Ui, on_click: impl FnOnce()) {
     let (rect, response) = ui.allocate_exact_size(card_size, egui::Sense::click());
     let painter = ui.painter_at(rect);
     painter.rect_filled(rect, 16.0, CARD);
-    painter.rect_stroke(rect, 16.0, egui::Stroke::new(1.0, DIVIDER), egui::StrokeKind::Inside);
+    painter.rect_stroke(rect, 16.0, egui::Stroke::new(1.0_f32, DIVIDER), egui::StrokeKind::Inside);
     let hovered = response.hovered();
     if hovered {
         painter.rect_filled(rect, 16.0, Color32::from_white_alpha(10));

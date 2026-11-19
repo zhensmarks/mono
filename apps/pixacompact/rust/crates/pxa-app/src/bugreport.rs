@@ -4,7 +4,7 @@
 //! fallback ke file JSON di `%LOCALAPPDATA%\BMachine\bug-reports` kalau bridge
 //! mati. Tahan banting: kegagalan jaringan tak boleh menjatuhkan app.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Port default bridge bug ProjectBot (`ProjectBot/lib/httpbug.js`).
 pub const DEFAULT_PORT: u16 = 21478;
