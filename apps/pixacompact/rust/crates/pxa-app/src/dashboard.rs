@@ -426,6 +426,17 @@ impl Dashboard {
         self.editor.set_use_layers(true);
     }
 
+    /// Tag versi app (port `ThisVersion()`): dari env `PXA_VERSION`, default 0.1.0.
+    pub fn app_version_tag(&self) -> String {
+        std::env::var("PXA_VERSION").unwrap_or_else(|_| "0.1.0".into())
+    }
+
+    /// Panel Tools jadi jendela melayang (flag CLI `--float-tools`, untuk verifikasi).
+    pub fn enable_floating_tools(&mut self) {
+        use crate::editor::PanelKey;
+        self.editor.set_floating(PanelKey::Tools, true);
+    }
+
     /// Login interaktif satu akun: buka browser tampil (driver mode `login`),
     /// sesi tersimpan di profil akun → dipakai engine web headless berikutnya.
     pub fn login_account(&mut self, idx: usize) {
@@ -572,6 +583,25 @@ impl eframe::App for Dashboard {
                         }
                         if ui.button("Log").clicked() {
                             self.show_log = !self.show_log;
+                        }
+                        // Port `BugReporter`: lapor bug ke ProjectBot bridge (fallback lokal).
+                        if ui.button("Laporkan bug").clicked() {
+                            let avail = crate::bugreport::is_available();
+                            let (ok, fallback) = crate::bugreport::send(
+                                "PixelcutCompact",
+                                &format!("Bug dari PixaCompact Rust v{}", self.app_version_tag()),
+                                "Laporan manual dari dashboard (detail kosong — isi di crash.log).",
+                                Some(self.app_version_tag().as_str()),
+                            );
+                            self.status = if ok {
+                                "Bug terkirim ke ProjectBot.".into()
+                            } else {
+                                match fallback {
+                                    Some(p) => format!("Bridge mati; tersimpan lokal: {p}"),
+                                    None => "Gagal kirim bug (bridge mati, fallback gagal).".into(),
+                                }
+                            };
+                            let _ = avail;
                         }
                         ui.label(egui::RichText::new(&self.status).size(11.0).color(TEXT2));
                     });

@@ -107,14 +107,29 @@ ke `Output/<nama>-cutout.png` seperti engine lokal.
   PowerShell. Tab Pembaruan di Pengaturan. E2E: manifest v9.9.9 terdeteksi.
 - **Docking panel** (`PreviewWindow.Docking`): menu `Window ▾` di editor —
   per-panel pilih sisi dock (Atas/Kiri/Kanan/Bawah; Tools hanya kiri/kanan),
-  tampil/sembunyikan, reset layout.
+  tampil/sembunyi, reset layout.
+- **Laporan bug** (`bugreport` port `Abeng.BugReporter`): kirim ke ProjectBot
+  bug bridge `http://127.0.0.1:21478/bug`, fallback file JSON
+  `%LOCALAPPDATA%\BMachine\bug-reports` kalau bridge mati; handler crash di
+  `main` → `report_crash` (log `crash.log` + kirim). Tombol "Laporkan bug" di
+  footer dashboard.
+- **Floating panel** (`FloatPanel`): panel bisa dicabut jadi jendela OS melayang
+  via `show_viewport_deferred` (jendela native terpisah, bisa digeser/resize/
+  tutup). Menu `Window ▾` → centang "melayang" per panel; flag CLI
+  `--float-tools`. Terbukti: jendela native `PX Tools (melayang)` 256x399
+  muncul terpisah. Catatan: isi jendela = snapshot read-only; pada beberapa
+  build eframe konten child-viewport belum ter-composit (jendela + judul +
+  drag jalan, isi bisa tampak kosong sampai backend eframe multi-viewport
+  penuh). Edit panel tetap di panel dock.
 
-## Sisa (belum diport)
+## Sisa (hampir beres)
 
-1. **Drag-drop floating panel** (cabut panel jadi jendela melayang tanpa chrome OS
-   ala Photoshop penuh) — versi sekarang: menu **Window ▾** memindahkan panel ke
-   sisi Atas/Kiri/Kanan/Bawah + tampil/sembunyi + reset layout.
-2. **Laporan bug** ke Trello/GitHub dari app (sisi kirim; bukan UI pengisian).
+1. **Konten floating-panel** — jendela melayang sudah spawn (terbukti),
+   tapi isi snapshot read-only belum ter-composit oleh backend eframe
+   multi-viewport di build ini; perbaiki dengan `set_immediate_viewport_renderer`
+   (eframe) atau pindah ke `winit` multi-window eksplisit.
+2. **Properties/History panel** belum diport ke Rust (C# punya; Rust baru
+   Tools + Layers). Melayang/dock mereka jalan, isinya placeholder.
 
 ## Catatan desain
 
