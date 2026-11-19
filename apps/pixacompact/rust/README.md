@@ -114,7 +114,7 @@ ke `Output/<nama>-cutout.png` seperti engine lokal.
   `main` → `report_crash` (log `crash.log` + kirim). Tombol "Laporkan bug" di
   footer dashboard.
 - **Floating panel** (`FloatPanel`): panel bisa dicabut jadi jendela OS melayang
-  via `show_viewport_deferred` (jendela native terpisah, bisa digeser/resize/
+  via `show_viewport_immediate` (jendela native terpisah, bisa digeser/resize/
   tutup). Menu `Window ▾` → centang "melayang" per panel; flag CLI
   `--float-tools`. Terbukti: jendela native `PX Tools (melayang)` 256x399
   muncul terpisah. Catatan: isi jendela = snapshot read-only; pada beberapa
@@ -122,14 +122,21 @@ ke `Output/<nama>-cutout.png` seperti engine lokal.
   drag jalan, isi bisa tampak kosong sampai backend eframe multi-viewport
   penuh). Edit panel tetap di panel dock.
 
+- **Properties + History panel** (`PanelProperties`/`PanelHistory`): panel
+  Properties (seksi Selection: All/None/Invert, Grow/Shrink/Feather; seksi Mask:
+  Erase/Restore/Fill, Expand/Contract/Feather mask, Defringe) + panel History
+  (Undo/Redo stack). Reuse operasi seleksi/mask yang sudah ada di `Doc`.
+  Terintegrasi dock + floating (menu `Window ▾`).
+
 ## Sisa (hampir beres)
 
 1. **Konten floating-panel** — jendela melayang sudah spawn (terbukti),
    tapi isi snapshot read-only belum ter-composit oleh backend eframe
    multi-viewport di build ini; perbaiki dengan `set_immediate_viewport_renderer`
    (eframe) atau pindah ke `winit` multi-window eksplisit.
-2. **Properties/History panel** belum diport ke Rust (C# punya; Rust baru
-   Tools + Layers). Melayang/dock mereka jalan, isinya placeholder.
+2. **Konten Properties/History di jendela melayang** — panel sudah ada &
+   ter-dock; jika di-floating, isi jendela OS masih bergantung composit
+   child-viewport (lihat item 1).
 
 ## Catatan desain
 

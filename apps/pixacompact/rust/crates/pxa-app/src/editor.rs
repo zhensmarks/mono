@@ -177,91 +177,6 @@ impl PanelKey {
     }
 }
 
-/// Snapshot read-only panel untuk jendela melayang (`'static`, tak pegang `&mut self`).
-/// Menampilkan nilai saat ini; interaksi edit tetap di panel dock.
-#[derive(Clone)]
-struct FloatingSnapshot {
-    key: PanelKey,
-    // Tools
-    tool: Tool,
-    combine: CombineMode,
-    brush_radius: f32,
-    brush_hardness: f32,
-    brush_opacity: f32,
-    feather_px: i32,
-    tolerance: u8,
-    // Layers
-    use_layers: bool,
-    layer_names: Vec<String>,
-    layer_opacity: Vec<u8>,
-    layer_visible: Vec<bool>,
-    layer_blend: Vec<LayerBlendMode>,
-    active_idx: usize,
-}
-
-impl FloatingSnapshot {
-    fn from_editor(e: &EditorApp, key: PanelKey) -> Self {
-        let layers = e.layers.as_ref();
-        Self {
-            key,
-            tool: e.tool,
-            combine: e.combine,
-            brush_radius: e.brush_radius,
-            brush_hardness: e.brush_hardness,
-            brush_opacity: e.brush_opacity,
-            feather_px: e.feather_px,
-            tolerance: e.tolerance,
-            use_layers: e.use_layers,
-            layer_names: layers.map(|d| d.layers.iter().map(|l| l.name.clone()).collect()).unwrap_or_default(),
-            layer_opacity: layers.map(|d| d.layers.iter().map(|l| l.opacity).collect()).unwrap_or_default(),
-            layer_visible: layers.map(|d| d.layers.iter().map(|l| l.visible).collect()).unwrap_or_default(),
-            layer_blend: layers.map(|d| d.layers.iter().map(|l| l.blend_mode).collect()).unwrap_or_default(),
-            active_idx: layers.and_then(|d| d.layers.iter().position(|l| l.id == d.active_layer_id)).unwrap_or(0),
-        }
-    }
-
-    /// Paint snapshot read-only ke jendela melayang.
-    fn paint(&self, ui: &mut egui::Ui) {
-        match self.key {
-            PanelKey::Tools => {
-                ui.heading("Tool (melayang — read-only)");
-                let tool = self.tool.label();
-                let comb = format!("{:?}", self.combine);
-                let br = self.brush_radius;
-                let bh = self.brush_hardness;
-                let fp = self.feather_px;
-                let tol = self.tolerance;
-                ui.label(format!("tool: {tool}  •  gabung: {comb}  •  brush r{br} h{bh:.1}"));
-                ui.label(format!("feather {fp}px • tolerance {tol}"));
-                ui.label("Edit di panel Tools dock.");
-            }
-            PanelKey::Layers => {
-                ui.heading("Layers (melayang — read-only)");
-                if !self.use_layers {
-                    ui.label("composite layer OFF");
-                }
-                for (i, n) in self.layer_names.iter().enumerate() {
-                    let vis = self.layer_visible.get(i).copied().unwrap_or(false);
-                    let op = self.layer_opacity.get(i).copied().unwrap_or(255);
-                    let bm = self.layer_blend.get(i).copied().unwrap_or(LayerBlendMode::Normal);
-                    let act = i == self.active_idx;
-                    ui.horizontal(|ui| {
-                        if act {
-                            ui.label("•");
-                        }
-                        ui.label(if vis { n.clone() } else { format!("[off] {n}") });
-                        ui.label(format!("op{op} {bm:?}"));
-                    });
-                }
-                ui.label("Edit di panel Layers dock.");
-            }
-            PanelKey::Properties | PanelKey::History => {
-                ui.label("panel Properties/History belum diport ke Rust; menampilkan snapshot kosong.");
-            }
-        }
-    }
-}
-
 pub struct EditorApp {
     docs: Vec<Doc>,
     current: usize,
@@ -856,6 +771,178 @@ impl EditorApp {
         ui.add(egui::Slider::new(&mut self.tolerance, 0..=96).text("wand tolerance"));
     }
 
+    /// Isi panel Properties (Seleksi + Mask), port `PanelProperties`.
+    /// Reuse operasi seleksi/mask yang sudah ada di `Doc`.
+    fn properties_ui(&mut self, ui: &mut egui::Ui) {
+        let has = self.doc().is_some();
+        if !has {
+            ui.label("tak ada gambar — buka dulu");
+            return;
+        }
+        let feather_px = self.feather_px; // capture untuk closure
+        let combine_dbg = format!("{:?}", self.combine);
+
+        // ===== SELECTION =====
+        ui.heading("Selection");
+        let sel_count = self.doc().map(|d| d.selection.count_selected()).unwrap_or(0);
+        ui.label(format!("terpilih: {sel_count} px • mode: {combine_dbg}"));
+        ui.horizontal(|ui| {
+            if ui.small_button("All").clicked() {
+                if let Some(d) = self.doc_mut() {
+                    d.push_undo();
+                    d.selection.select_all();
+                    d.dirty = true;
+                }
+                self.layers_dirty = true;
+            }
+            if ui.small_button("None").clicked() {
+                if let Some(d) = self.doc_mut() {
+                    d.push_undo();
+                    d.selection.clear();
+                    d.dirty = true;
+                }
+                self.layers_dirty = true;
+            }
+            if ui.small_button("Invert").clicked() {
+                if let Some(d) = self.doc_mut() {
+                    d.push_undo();
+                    d.selection.invert();
+                    d.dirty = true;
+                }
+                self.layers_dirty = true;
+            }
+        });
+        let mut grow_px = 4;
+        ui.horizontal(|ui| {
+            ui.label("px");
+            ui.add(egui::Slider::new(&mut grow_px, 1..=200));
+            if ui.small_button("Grow").clicked() {
+                let r = grow_px;
+                if let Some(d) = self.doc_mut() {
+                    d.push_undo();
+                    d.selection.grow(r);
+                    d.dirty = true;
+                }
+                self.layers_dirty = true;
+            }
+            if ui.small_button("Shrink").clicked() {
+                let r = grow_px;
+                if let Some(d) = self.doc_mut() {
+                    d.push_undo();
+                    d.selection.shrink(r);
+                    d.dirty = true;
+                }
+                self.layers_dirty = true;
+            }
+            if ui.small_button("Feather").clicked() {
+                let f = feather_px;
+                if let Some(d) = self.doc_mut() {
+                    d.push_undo();
+                    d.selection.feather(f);
+                    d.dirty = true;
+                }
+                self.layers_dirty = true;
+            }
+        });
+
+        // ===== MASK =====
+        ui.separator();
+        ui.heading("Mask");
+        ui.horizontal(|ui| {
+            if ui.small_button("Erase").clicked() {
+                if let Some(d) = self.doc_mut() {
+                    d.push_undo();
+                    d.apply_selection(0);
+                }
+                self.layers_dirty = true;
+                self.doc_dirty_pending = true;
+            }
+            if ui.small_button("Restore").clicked() {
+                if let Some(d) = self.doc_mut() {
+                    d.push_undo();
+                    d.apply_selection(255);
+                }
+                self.layers_dirty = true;
+                self.doc_dirty_pending = true;
+            }
+            if ui.small_button("Fill").clicked() {
+                if let Some(d) = self.doc_mut() {
+                    d.push_undo();
+                    pxa_core::mask::fill(&mut d.mask, 255);
+                    d.dirty = true;
+                }
+                self.layers_dirty = true;
+                self.doc_dirty_pending = true;
+            }
+        });
+        ui.horizontal(|ui| {
+            if ui.small_button("Expand").clicked() {
+                if let Some(d) = self.doc_mut() {
+                    d.push_undo();
+                    pxa_core::mask::shift_edge(&mut d.mask, d.original.width, d.original.height, 4, true);
+                    d.dirty = true;
+                }
+                self.layers_dirty = true;
+                self.doc_dirty_pending = true;
+            }
+            if ui.small_button("Contract").clicked() {
+                if let Some(d) = self.doc_mut() {
+                    d.push_undo();
+                    pxa_core::mask::shift_edge(&mut d.mask, d.original.width, d.original.height, 4, false);
+                    d.dirty = true;
+                }
+                self.layers_dirty = true;
+                self.doc_dirty_pending = true;
+            }
+            if ui.small_button("Feather mask").clicked() {
+                let f = feather_px;
+                if let Some(d) = self.doc_mut() {
+                    d.push_undo();
+                    pxa_core::mask::feather(&mut d.mask, d.original.width, d.original.height, f);
+                    d.dirty = true;
+                }
+                self.layers_dirty = true;
+                self.doc_dirty_pending = true;
+            }
+        });
+        if ui.small_button("Defringe").clicked() {
+            if let Some(d) = self.doc_mut() {
+                d.push_undo();
+                pxa_core::mask::defringe(&mut d.original, &d.mask, 2);
+                d.dirty = true;
+            }
+            self.layers_dirty = true;
+            self.doc_dirty_pending = true;
+        }
+    }
+
+    /// Isi panel History (stack undo/redo), port `PanelHistory`/`LstHistory`.
+    fn history_ui(&mut self, ui: &mut egui::Ui) {
+        let counts = self.doc().map(|d| (d.undo.len(), d.redo.len()));
+        let Some((undo_n, redo_n)) = counts else {
+            ui.label("tak ada gambar — buka dulu");
+            return;
+        };
+        ui.label(format!("History: {undo_n} langkah bisa di-undo, {redo_n} bisa di-redo."));
+        ui.horizontal(|ui| {
+            if ui.add_enabled(undo_n > 0, egui::Button::new("Undo")).clicked() {
+                if let Some(d) = self.doc_mut() {
+                    d.undo();
+                }
+                self.layers_dirty = true;
+                self.doc_dirty_pending = true;
+            }
+            if ui.add_enabled(redo_n > 0, egui::Button::new("Redo")).clicked() {
+                if let Some(d) = self.doc_mut() {
+                    d.redo();
+                }
+                self.layers_dirty = true;
+                self.doc_dirty_pending = true;
+            }
+        });
+        ui.label("Riwayat per-step tidak disimpan per-label (C# `DocumentHistory` pakai label; di sini stack mask generik).");
+    }
+
     /// Isi panel Layers (composite + daftar + tombol). Dipakai layout utama & melayang.
     fn layers_ui(&mut self, ui: &mut egui::Ui) {
         ui.separator();
@@ -958,20 +1045,17 @@ impl EditorApp {
     }
 
     /// <summary>Port `FloatPanel`: panel melayang jadi jendela OS terpisah
-    /// (viewport) via `show_viewport_deferred`. Karena callback viewport `&'static`
-    /// tak boleh pegang `&mut self`, isi jendela = snapshot read-only (nilai saat ini)
-    /// + drag/resize/tutup jendela tetap jalan. Edit terjadi di panel dock.</summary>
+    /// via `show_viewport_immediate` (eframe native; callback `FnMut` boleh
+    /// pegang `&mut self`, jadi konten = panel asli live, bukan snapshot).</summary>
     pub fn render_floating(&mut self, ctx: &egui::Context) {
         for key in PanelKey::ALL {
             let i = key as usize;
             if !self.floating[i] {
                 continue;
             }
-            // Snapshot read-only untuk closure 'static.
-            let snap = FloatingSnapshot::from_editor(self, key);
             let title = format!("PX {} (melayang)", key.label());
             let pos = self.float_pos(key);
-            ctx.show_viewport_deferred(
+            ctx.show_viewport_immediate(
                 egui::ViewportId(egui::Id::new(format!("float-{}", key.label()))),
                 egui::ViewportBuilder::default()
                     .with_title(title)
@@ -979,19 +1063,46 @@ impl EditorApp {
                     .with_min_inner_size([180.0, 160.0])
                     .with_position(pos)
                     .with_always_on_top(),
-                move |ctx2, class| match class {
+                |ctx2, class| match class {
+                    // Backend tak support multi-window → embed di window utama.
                     egui::ViewportClass::Embedded => {
-                        // Backend tak support multi-window: render di window utama.
                         egui::Window::new(key.label())
                             .id(egui::Id::new(format!("float-embed-{i}")))
-                            .show(ctx2, |ui| snap.paint(ui));
+                            .show(ctx2, |ui| match key {
+                                PanelKey::Tools => {
+                                    self.tools_ui(ui);
+                                }
+                                PanelKey::Properties => {
+                                    self.properties_ui(ui);
+                                }
+                                PanelKey::History => {
+                                    self.history_ui(ui);
+                                }
+                                PanelKey::Layers => {
+                                    self.layers_ui(ui);
+                                }
+                            });
                     }
+                    // Jendela OS terpisah (eframe native).
                     egui::ViewportClass::Root => {
                         egui::Window::new(key.label())
                             .id(egui::Id::new(format!("float-{i}")))
                             .collapsible(false)
                             .resizable(true)
-                            .show(ctx2, |ui| snap.paint(ui));
+                            .show(ctx2, |ui| match key {
+                                PanelKey::Tools => {
+                                    self.tools_ui(ui);
+                                }
+                                PanelKey::Properties => {
+                                    self.properties_ui(ui);
+                                }
+                                PanelKey::History => {
+                                    self.history_ui(ui);
+                                }
+                                PanelKey::Layers => {
+                                    self.layers_ui(ui);
+                                }
+                            });
                     }
                     _ => {}
                 },
@@ -1170,6 +1281,20 @@ impl EditorApp {
                     egui::ScrollArea::vertical().id_salt("editor-tools").show(ui, |ui| {
                         if self.panel_visible[PanelKey::Tools as usize] && !self.floating[PanelKey::Tools as usize] {
                             self.tools_ui(ui);
+                        }
+                        // Panel Properties (Selection + Mask) — tampil saat di-dock kanan & tak melayang.
+                        if self.dock[PanelKey::Properties as usize] == DockPos::Right
+                            && self.panel_visible[PanelKey::Properties as usize]
+                            && !self.floating[PanelKey::Properties as usize]
+                        {
+                            self.properties_ui(ui);
+                        }
+                        // Panel History (undo/redo) — tampil saat di-dock kanan & tak melayang.
+                        if self.dock[PanelKey::History as usize] == DockPos::Right
+                            && self.panel_visible[PanelKey::History as usize]
+                            && !self.floating[PanelKey::History as usize]
+                        {
+                            self.history_ui(ui);
                         }
                         let has_doc = self.doc().is_some();
                         ui.horizontal(|ui| {
