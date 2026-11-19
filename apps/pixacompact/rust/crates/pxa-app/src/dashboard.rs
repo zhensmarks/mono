@@ -416,6 +416,38 @@ impl Dashboard {
     pub fn enable_layers(&mut self) {
         self.editor.set_use_layers(true);
     }
+
+    /// Login interaktif satu akun: buka browser tampil (driver mode `login`),
+    /// sesi tersimpan di profil akun → dipakai engine web headless berikutnya.
+    pub fn login_account(&mut self, idx: usize) {
+        let Some((name, _limit)) = self.web_accounts.get(idx).cloned() else {
+            self.status = "Akun tidak ditemukan.".into();
+            return;
+        };
+        let exe_dir = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.to_path_buf()));
+        let driver = find_web_driver(&exe_dir);
+        let Some(driver_js) = driver else {
+            self.status = "Login: driver web tak ada (letakkan pixa-webdriver/driver.js).".into();
+            return;
+        };
+        let out_dir = self.output_dir.clone();
+        let proxy = self.web_proxy.clone();
+        let status_name = name.clone();
+        // Jalankan di thread (browser tampil, user login, tutup → selesai).
+        std::thread::spawn(move || {
+            let mut cmd = std::process::Command::new("node");
+            cmd.arg(&driver_js).arg("login").arg(&out_dir);
+            // Akun ini saja + engine PIXA sebagai target login.
+            cmd.env("PX_WEB_ACCOUNTS", format!("{name}:5"));
+            cmd.env("PX_LOGIN_ENGINE", "pixa");
+            if !proxy.trim().is_empty() {
+                cmd.env("PX_WEB_PROXY", &proxy);
+            }
+            // spawn: browser tampil, user interaksi; jangan block UI.
+            let _ = cmd.status();
+        });
+        self.status = format!("Login akun '{status_name}': browser dibuka, login manual, lalu tutup browser.");
+    }
 }
 
 fn is_image(p: &PathBuf) -> bool {
@@ -707,10 +739,14 @@ impl Dashboard {
                             ui.label(egui::RichText::new("Belum ada akun — tambahkan di bawah.").size(11.0).color(TEXT2));
                         } else {
                             let mut remove_idx: Option<usize> = None;
+                            let mut login_idx: Option<usize> = None;
                             egui::Frame::none().fill(ELEVATED).rounding(6.0).inner_margin(8.0).show(ui, |ui| {
                                 for (ai, (name, limit)) in self.web_accounts.iter().enumerate() {
                                     ui.horizontal(|ui| {
                                         ui.label(format!("{} (limit {limit}/sesi)", name));
+                                        if ui.small_button("login").clicked() {
+                                            login_idx = Some(ai);
+                                        }
                                         if ui.small_button("hapus").clicked() {
                                             remove_idx = Some(ai);
                                         }
@@ -719,6 +755,9 @@ impl Dashboard {
                             });
                             if let Some(ai) = remove_idx {
                                 self.web_accounts.remove(ai);
+                            }
+                            if let Some(ai) = login_idx {
+                                self.login_account(ai);
                             }
                         }
                         ui.separator();

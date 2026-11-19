@@ -25,19 +25,23 @@ function accountFor(idx) {
 const ENGINES = {
   pixa: {
     batchUrl: "https://www.pixelcut.ai/t/batch-edit",
+    loginUrl: "https://www.pixelcut.ai/login",
     host: "pixelcut.ai",
     mark: ["pixelcut", "pixa"],
   },
   bg_eraser: {
     batchUrl: "https://www.bgeraser.com/",
+    loginUrl: "https://www.bgeraser.com/",
     host: "bgeraser.com",
     mark: ["bgeraser"],
   },
   nobg: {
     batchUrl: "https://nobg.space/",
+    loginUrl: "https://nobg.space/",
     host: "nobg.space",
     mark: ["nobg"],
   },
+  login: {}, // mode login (URL diambil dari env PX_LOGIN_ENGINE / PX_LOGIN_URL)
 };
 
 function arg(v) {
@@ -85,18 +89,46 @@ function fileAsDataUrl(file) {
 
 async function main() {
   const engine = arg(process.argv[2]);
-  const outDir = path.resolve(arg(process.argv[3]));
+  const outDir = path.resolve(arg(process.argv[3] || ""));
   const inputs = process.argv.slice(4).map(String).filter(Boolean);
   const cfg = ENGINES[engine];
   if (!cfg) {
     console.error(`engine tak dikenal: ${engine}`);
     process.exit(2);
   }
+  fs.mkdirSync(outDir || ".", { recursive: true });
+
+  // ===== Mode login: buka browser tampil untuk login akun, sesi tersimpan di profil =====
+  if (engine === "login") {
+    const account = accountFor(0);
+    const loginUrl = process.env.PX_LOGIN_URL || ENGINES[process.env.PX_LOGIN_ENGINE || "pixa"].batchUrl;
+    const userDataDir = path.join(outDir, ".pwprofile-login-" + account);
+    fs.mkdirSync(userDataDir, { recursive: true });
+    const launchOpts = {
+      headless: false, // tampil: user login manual
+      args: ["--no-sandbox", "--disable-dev-shm-usage"],
+      viewport: { width: 1280, height: 800 },
+    };
+    if (PX_PROXY.trim()) launchOpts.proxy = { server: PX_PROXY.trim() };
+    const context = await chromium.launchPersistentContext(userDataDir, launchOpts);
+    const page = await context.newPage();
+    try {
+      await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: 120000 }).catch(() => {});
+    } catch {}
+    console.log("[login] Buka browser, login akun '" + account + "' di " + loginUrl);
+    console.log("[login] Sesi tersimpan otomatis ke profil saat browser ditutup.");
+    // Tunggu browser ditutup user.
+    context.on("close", () => {
+      console.log("[login] sesi selesai, profil disimpan.");
+      process.exit(0);
+    });
+    return;
+  }
+
   if (inputs.length === 0) {
     console.error("tidak ada file input");
     process.exit(2);
   }
-  fs.mkdirSync(outDir, { recursive: true });
 
   const userDataDir = path.join(outDir, ".pwprofile-" + engine + "-" + accountFor(0));
   fs.mkdirSync(userDataDir, { recursive: true });
