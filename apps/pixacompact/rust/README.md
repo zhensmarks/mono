@@ -87,12 +87,25 @@ ke `Output/<nama>-cutout.png` seperti engine lokal.
 > Catatan: engine web butuh akun pixelcut dengan kredit; untuk foto nyata hasil
 > alpha benar. Gambar sintetis uji sering kembali RGB (tanpa potong) di tier gratis.
 
-## Belum diport (sisa)
+## Sudah diport — parity hampir penuh
 
-1. **Panel Layers & docking Photoshop-style** di UI editor (logika dokumen/layer
-   sudah ada di `pxa-core::document`, panelnya belum).
-2. **Akun, proxy UI, update LAN, laporan bug** (`PixaAccount*`, `LocalUpdateService`).
-3. **Docking panel** cabut/pasang (saat ini panel editor tetap).
+- **Panel Layers** di editor: daftar layer (Latar/Cutout), visibility, opacity,
+  blend mode (16), tambah/hapus layer solid, composite live ke preview & ekspor.
+  Dipakai `pxa-core::document`. Toggle `use_layers` / flag CLI `--layers`.
+- **Akun + proxy UI** (Pengaturan → Akun & Browser): daftar akun round-robin
+  (nama + limit/sesi) + daftar proxy Mix. Diteruskan ke driver web via env
+  (`PX_WEB_ACCOUNTS`, `PX_WEB_PROXY`); profil browser per akun. Terbukti: profil
+  bernama `.pwprofile-pixa-<akun>` dibuat sesuai akun terpilih.
+
+## Sisa (belum diport)
+
+1. **Docking panel Photoshop-style** (cabut/pasang/rendeng) — panel editor tetap.
+2. **Update LAN, laporan bug, provenance output penuh** (`LocalUpdateService`,
+   `OutputProvenance` sudah ada untuk skip; kanal LAN belum).
+3. **Engine web login interaktif per akun** (buka browser tampil untuk login) —
+   sesi sekarang memakai profil persisten; login manual belum terintegrasi UI.
+4. **Blending/mask pada layer** lanjutan (layer mask raster, blend area) —
+   layer saat ini pakai `layer.mask` dari cutout; panel belum edit mask per layer.
 
 ## Catatan desain
 

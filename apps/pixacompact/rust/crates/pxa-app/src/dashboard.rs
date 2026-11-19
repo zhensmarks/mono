@@ -127,6 +127,12 @@ pub struct Dashboard {
     dark: bool,
     accent_hex: String,
     status: String,
+    /// Akun engine web (round-robin), port `PixaAccount`. Nama + limit per sesi.
+    web_accounts: Vec<(String, usize)>,
+    /// Daftar proxy manual (satu per baris) untuk Mix Proxy.
+    web_proxy: String,
+    web_new_name: String,
+    web_new_limit: u32,
 }
 
 impl Dashboard {
@@ -153,6 +159,10 @@ impl Dashboard {
             dark: true,
             accent_hex: "#3B82F6".into(),
             status: "Siap.".into(),
+            web_accounts: Vec::new(),
+            web_proxy: String::new(),
+            web_new_name: String::new(),
+            web_new_limit: 5,
         }
     }
 
@@ -236,6 +246,8 @@ impl Dashboard {
                 Engine::WebNobg => "nobg",
                 _ => "pixa",
             };
+            let accounts = self.web_accounts.clone();
+            let proxy = self.web_proxy.clone();
             std::thread::spawn(move || {
                 let driver = find_web_driver(&exe_dir);
                 match driver {
@@ -246,7 +258,7 @@ impl Dashboard {
                                 continue;
                             }
                             let _ = tx.send(BatchEvent::Start(*idx));
-                            let res = run_web_driver(&bin, engine_tag, &path, &out_dir, &cancel);
+                            let res = run_web_driver(&bin, engine_tag, &path, &out_dir, &cancel, &proxy, &accounts);
                             match res {
                                 Ok(dest) => {
                                     let _ = tx.send(BatchEvent::Done(*idx, dest));
@@ -398,6 +410,11 @@ impl Dashboard {
     pub fn open_preview_path(&mut self, path: PathBuf) {
         self.editor.open_path(path);
         self.preview_open = true;
+    }
+
+    /// Aktifkan mode composite layer di editor (flag CLI --layers).
+    pub fn enable_layers(&mut self) {
+        self.editor.set_use_layers(true);
     }
 }
 
@@ -664,16 +681,60 @@ impl Dashboard {
                         ui.label(egui::RichText::new("Alpha matting / GPU / erode: parameter REMBG Python belum diport; engine lokal memakai MODNet langsung.").size(11.0).color(TEXT2));
                     }
                     1 => {
-                        ui.heading("Browser");
-                        ui.label("Browser Playwright dipakai untuk Remove BG via web (PIXA/BG Eraser/NOBG Space).");
-                        ui.label(egui::RichText::new("Port otomasi web belum dikerjakan — engine web masih disabled.").size(11.0).color(TEXT2));
-                        ui.add_enabled(false, egui::Button::new("Reset sesi browser"));
+                        ui.heading("Browser (Engine Web)");
+                        ui.label("Driver web: Node + Playwright (folder `pixa-webdriver`, engine sama dengan C#).");
+                        let driver_ok = find_web_driver(&std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.to_path_buf()))).is_some();
+                        ui.label(egui::RichText::new(if driver_ok {
+                            "✓ Driver ditemukan — siap dipakai engine web."
+                        } else {
+                            "Driver belum ada di folder exe (letakkan `pixa-webdriver/driver.js` + `node_modules`)."
+                        })
+                        .size(11.0)
+                        .color(if driver_ok { GREEN } else { RED }));
+                        ui.separator();
+                        ui.heading("Mix Proxy");
+                        ui.label("Satu proxy per baris (ip:port atau http://…). Kosongkan untuk tanpa proxy.");
+                        ui.add(egui::TextEdit::multiline(&mut self.web_proxy).desired_width(360.0).desired_rows(4));
                     }
                     2 => {
                         ui.heading("Daftar Akun (Round-Robin)");
-                        ui.label("Belum ada akun. Akun dipakai engine web (PIXA).");
-                        ui.add_enabled(false, egui::Button::new("Login Akun Pixelcut"));
-                        ui.add_enabled(false, egui::Button::new("Cadangan akun"));
+                        ui.label(egui::RichText::new(
+                            "Akun dipakai engine web (PIXA). Tiap akun bergiliran sesuai limit per sesi."
+                        )
+                        .size(11.0)
+                        .color(TEXT2));
+                        if self.web_accounts.is_empty() {
+                            ui.label(egui::RichText::new("Belum ada akun — tambahkan di bawah.").size(11.0).color(TEXT2));
+                        } else {
+                            let mut remove_idx: Option<usize> = None;
+                            egui::Frame::none().fill(ELEVATED).rounding(6.0).inner_margin(8.0).show(ui, |ui| {
+                                for (ai, (name, limit)) in self.web_accounts.iter().enumerate() {
+                                    ui.horizontal(|ui| {
+                                        ui.label(format!("{} (limit {limit}/sesi)", name));
+                                        if ui.small_button("hapus").clicked() {
+                                            remove_idx = Some(ai);
+                                        }
+                                    });
+                                }
+                            });
+                            if let Some(ai) = remove_idx {
+                                self.web_accounts.remove(ai);
+                            }
+                        }
+                        ui.separator();
+                        ui.horizontal(|ui| {
+                            ui.label("Nama:");
+                            ui.text_edit_singleline(&mut self.web_new_name);
+                            ui.label("Limit/sesi:");
+                            ui.add(egui::DragValue::new(&mut self.web_new_limit).range(1..=1000));
+                            if ui.button("+ Tambah").clicked() {
+                                let n = self.web_new_name.trim().to_string();
+                                if !n.is_empty() {
+                                    self.web_accounts.push((n, self.web_new_limit.max(1) as usize));
+                                    self.web_new_name.clear();
+                                }
+                            }
+                        });
                     }
                     3 => {
                         ui.heading("Tampilan Warna");
@@ -770,10 +831,20 @@ fn find_web_driver(exe_dir: &Option<PathBuf>) -> Option<PathBuf> {
 }
 
 /// Jalankan driver web untuk satu file. Return path hasil, atau error.
-fn run_web_driver(driver_js: &PathBuf, engine_tag: &str, input: &std::path::Path, out_dir: &std::path::Path, cancel: &std::sync::Arc<std::sync::atomic::AtomicBool>) -> Result<PathBuf, String> {
+/// `proxy` & `accounts` diteruskan ke driver via env (PX_WEB_PROXY, PX_WEB_ACCOUNTS)
+/// agar rotasi akun + mix-proxy terpakai.
+fn run_web_driver(driver_js: &PathBuf, engine_tag: &str, input: &std::path::Path, out_dir: &std::path::Path, cancel: &std::sync::Arc<std::sync::atomic::AtomicBool>, proxy: &str, accounts: &[(String, usize)]) -> Result<PathBuf, String> {
     let _ = cancel;
     let mut cmd = std::process::Command::new("node");
     cmd.arg(driver_js).arg(engine_tag).arg(out_dir).arg(input);
+    // Env untuk driver.
+    if !proxy.trim().is_empty() {
+        cmd.env("PX_WEB_PROXY", proxy);
+    }
+    let acc = accounts.iter().map(|(n, l)| format!("{n}:{l}")).collect::<Vec<_>>().join(",");
+    if !acc.is_empty() {
+        cmd.env("PX_WEB_ACCOUNTS", acc);
+    }
     let out = cmd.output().map_err(|e| format!("jalankan node: {e} (apakah node ada di PATH?)"))?;
     if !out.status.success() {
         let stderr = String::from_utf8_lossy(&out.stderr);

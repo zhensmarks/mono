@@ -11,6 +11,17 @@ const { chromium } = require("playwright");
 const fs = require("fs");
 const path = require("path");
 
+// Proxy + akun dari env (diteruskan oleh dashboard Rust).
+const PX_PROXY = process.env.PX_WEB_PROXY || "";
+const PX_ACCOUNTS = (process.env.PX_WEB_ACCOUNTS || "").split(",").map((s) => s.trim()).filter(Boolean);
+// Akun aktif untuk sesi ini: round-robin sederhana berdasarkan index pemanggil.
+// (Dashboard memanggil per-file; driver pilih akun berdasarkan urutan file bila banyak.)
+function accountFor(idx) {
+  if (PX_ACCOUNTS.length === 0) return "default";
+  const [name] = PX_ACCOUNTS[idx % PX_ACCOUNTS.length].split(":");
+  return name || "default";
+}
+
 const ENGINES = {
   pixa: {
     batchUrl: "https://www.pixelcut.ai/t/batch-edit",
@@ -87,10 +98,10 @@ async function main() {
   }
   fs.mkdirSync(outDir, { recursive: true });
 
-  const userDataDir = path.join(outDir, ".pwprofile-" + engine);
+  const userDataDir = path.join(outDir, ".pwprofile-" + engine + "-" + accountFor(0));
   fs.mkdirSync(userDataDir, { recursive: true });
 
-  const context = await chromium.launchPersistentContext(userDataDir, {
+  const launchOpts = {
     headless: true,
     args: [
       "--disable-blink-features=AutomationControlled",
@@ -102,7 +113,12 @@ async function main() {
     viewport: { width: 1280, height: 800 },
     userAgent:
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-  });
+  };
+  if (PX_PROXY.trim()) {
+    // Satu proxy per sesi (Mix Proxy). Dashboard sudah memilihkan proxy yang valid.
+    launchOpts.proxy = { server: PX_PROXY.trim() };
+  }
+  const context = await chromium.launchPersistentContext(userDataDir, launchOpts);
   context.setDefaultTimeout(computeTimeoutMs(inputs.length));
 
   let okCount = 0;

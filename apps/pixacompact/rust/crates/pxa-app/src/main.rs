@@ -11,10 +11,13 @@ fn main() -> eframe::Result<()> {
     // `pixa --editor <file>` langsung buka preview editor (tanpa klik).
     let mut editor_file: Option<PathBuf> = None;
     let mut files: Vec<PathBuf> = Vec::new();
+    let mut use_layers = false;
     let mut it = raw.into_iter();
     while let Some(a) = it.next() {
         if a == "--editor" {
             editor_file = it.next().map(PathBuf::from);
+        } else if a == "--layers" {
+            use_layers = true;
         } else {
             files.push(PathBuf::from(a));
         }
@@ -36,6 +39,9 @@ fn main() -> eframe::Result<()> {
             }
             if let Some(p) = editor_file.clone() {
                 app.open_preview_path(p);
+                if use_layers {
+                    app.enable_layers();
+                }
             }
             Ok(Box::new(app))
         }),

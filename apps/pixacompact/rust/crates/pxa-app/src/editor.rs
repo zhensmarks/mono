@@ -14,8 +14,8 @@ use eframe::egui;
 use egui::{Color32, ColorImage, Pos2, Rect, Sense, Stroke, TextureHandle, TextureOptions, Vec2};
 use pxa_core::{
     brush::{self, BrushStamp},
-    compose, image_buf::Image, mask as mask_ops, raster::Region, selection, CombineMode,
-    SelectionState,
+    compose, document::{CanvasDocument, LayerBlendMode}, image_buf::Image, mask as mask_ops,
+    raster::Region, selection, CombineMode, SelectionState,
 };
 
 const MAX_UNDO: usize = 24;
@@ -152,6 +152,10 @@ pub struct EditorApp {
     status: String,
     bg_color: [u8; 3],
     flatten_bg: bool,
+    layers: Option<CanvasDocument>,
+    layers_dirty: bool,
+    use_layers: bool,
+    doc_dirty_pending: bool,
 }
 
 impl EditorApp {
@@ -177,6 +181,10 @@ impl EditorApp {
             status: "Buka gambar untuk mulai.".to_owned(),
             bg_color: [255, 255, 255],
             flatten_bg: false,
+            layers: None,
+            layers_dirty: false,
+            use_layers: false,
+            doc_dirty_pending: false,
         };
         // `pixa <file>...` — buka langsung dari command line.
         for arg in std::env::args().skip(1) {
@@ -227,13 +235,28 @@ impl EditorApp {
 
     fn save_dialog(&mut self, copy: bool) {
         let Some(doc) = self.doc() else { return };
-        let out = if self.flatten_bg {
-            compose::compose_on_background(&doc.original, Some(&doc.mask), self.bg_color)
+        let path0 = doc.path.clone();
+        let use_layers = self.use_layers;
+        let flatten_bg = self.flatten_bg;
+        let bg_color = self.bg_color;
+        // Hitung gambar hasil sebelum mut-borrow (hindari konflik borrow).
+        let out = if use_layers {
+            self.ensure_layers();
+            match &self.layers {
+                Some(ldoc) => pxa_core::document::composite(ldoc),
+                None => {
+                    let d = self.docs.get(self.current).unwrap();
+                    compose::compose(&d.original, Some(&d.mask))
+                }
+            }
+        } else if flatten_bg {
+            let d = self.docs.get(self.current).unwrap();
+            compose::compose_on_background(&d.original, Some(&d.mask), bg_color)
         } else {
-            compose::compose(&doc.original, Some(&doc.mask))
+            let d = self.docs.get(self.current).unwrap();
+            compose::compose(&d.original, Some(&d.mask))
         };
-        let stem = doc
-            .path
+        let stem = path0
             .file_stem()
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| "hasil".into());
@@ -256,6 +279,37 @@ impl EditorApp {
         }
     }
 
+    /// Bangun/refresh `CanvasDocument` dari doc aktif: layer dasar = original
+    /// ("Latar"), layer atas = original ("Cutout") yang bisa diberi opacity/blend.
+    /// Mask tersimpan di layer Cutout sebagai `layer.mask`.
+    fn ensure_layers(&mut self) {
+        let Some(doc) = self.docs.get(self.current) else {
+            self.layers = None;
+            return;
+        };
+        let size_mismatch = match &self.layers {
+            None => true,
+            Some(l) => l.width != doc.original.width || l.height != doc.original.height,
+        };
+        if size_mismatch || self.layers_dirty {
+            let mut cut = pxa_core::document::ImageLayer::new("Cutout", doc.original.clone());
+            cut.mask = Some(doc.mask.clone());
+            let mut ldoc = CanvasDocument::from_single(doc.original.clone(), "Latar");
+            ldoc = ldoc.add_layer(cut, -1);
+            self.layers = Some(ldoc);
+            self.layers_dirty = false;
+        }
+    }
+
+    /// Hasil composite layer aktif (atau fallback ke compose biasa).
+    fn layer_composite(&self, doc: &Doc) -> Image {
+        if let Some(ldoc) = &self.layers {
+            pxa_core::document::composite(ldoc)
+        } else {
+            compose::compose(&doc.original, Some(&doc.mask))
+        }
+    }
+
     fn fit_view(&mut self, canvas: Rect, doc_w: usize, doc_h: usize) {
         let z = (canvas.width() / doc_w as f32).min(canvas.height() / doc_h as f32).min(1.0);
         self.zoom = z.max(0.02);
@@ -274,13 +328,37 @@ impl EditorApp {
     }
 
     fn ensure_texture(&mut self, ctx: &egui::Context) {
-        let Some(doc) = self.docs.get_mut(self.current) else { return };
-        if !doc.dirty && doc.texture.is_some() {
+        // Clone apa yang dibutuhkan agar `doc` tak menahan mut-borrow selama
+        // `ensure_layers` (yang mut-borrow `self.layers`).
+        let (original, mask, mut dirty, tex_some) = {
+            let d = self.docs.get_mut(self.current);
+            match d {
+                Some(d) => {
+                    if self.doc_dirty_pending {
+                        d.dirty = true;
+                        self.doc_dirty_pending = false;
+                    }
+                    (d.original.clone(), d.mask.clone(), d.dirty, d.texture.is_some())
+                }
+                None => return,
+            }
+        };
+        if !dirty && tex_some {
             return;
         }
-        let img = compose::compose(&doc.original, Some(&doc.mask));
+        let use_layers = self.use_layers;
+        let img = if use_layers {
+            self.ensure_layers();
+            match &self.layers {
+                Some(ldoc) => pxa_core::document::composite(ldoc),
+                None => compose::compose(&original, Some(&mask)),
+            }
+        } else {
+            compose::compose(&original, Some(&mask))
+        };
         let color = ColorImage::from_rgba_unmultiplied([img.width, img.height], &img.rgba);
         let opts = if self.zoom >= 1.0 { TextureOptions::NEAREST } else { TextureOptions::LINEAR };
+        let doc = self.docs.get_mut(self.current).unwrap();
         match doc.texture.as_mut() {
             Some(t) => t.set(color, opts),
             None => doc.texture = Some(ctx.load_texture("composite", color, opts)),
@@ -553,6 +631,11 @@ impl EditorApp {
         }
     }
 
+    /// Aktifkan mode composite layer (untuk verifikasi via CLI `--layers`).
+    pub fn set_use_layers(&mut self, on: bool) {
+        self.use_layers = on;
+    }
+
     /// Jalankan Refine Hair lokal: inferensi ONNX pada mask sekarang,
     /// lalu tulis alpha baru HANYA di band unknown (area solid tak bergeser).
     fn refine_hair(&mut self) {
@@ -800,6 +883,89 @@ impl EditorApp {
                             }
                             ui.label("warna");
                         });
+
+                        // ===== Panel Layers =====
+                        ui.separator();
+                        ui.heading("Layers");
+                        ui.checkbox(&mut self.use_layers, "Gunakan composite layer");
+                        if self.use_layers {
+                            self.ensure_layers();
+                            egui::ScrollArea::vertical().id_salt("editor-layers").max_height(220.0).show(ui, |ui| {
+                                if let Some(ldoc) = self.layers.as_mut() {
+                                    // Layer paling atas di daftar paling atas (UI convention).
+                                    let idxs: Vec<usize> = (0..ldoc.layers.len()).rev().collect();
+                                    for li in idxs {
+                                        let layer = ldoc.layers.get_mut(li).unwrap();
+                                        let name = layer.name.clone();
+                                        let is_active = ldoc.active_layer_id == layer.id;
+                                        ui.horizontal(|ui| {
+                                            let mut vis = layer.visible;
+                                            let resp = ui.checkbox(&mut vis, &name);
+                                            if resp.changed() {
+                                                layer.visible = vis;
+                                                self.layers_dirty = true;
+                                                self.doc_dirty_pending = true;
+                                            }
+                                            if ui.selectable_label(is_active, "•").clicked() {
+                                                ldoc.active_layer_id = layer.id;
+                                            }
+                                            let o = ui.add(egui::Slider::new(&mut layer.opacity, 0..=255));
+                                            if o.changed() {
+                                                self.layers_dirty = true;
+                                                self.doc_dirty_pending = true;
+                                            }
+                                        });
+                                        // Blend mode per layer.
+                                        let mut picked: Option<LayerBlendMode> = None;
+                                        egui::ComboBox::from_label("blend")
+                                            .selected_text(layer.blend_mode.label())
+                                            .width(110.0)
+                                            .show_ui(ui, |ui| {
+                                                for m in LayerBlendMode::ALL {
+                                                    if ui.selectable_label(m == layer.blend_mode, m.label()).clicked() {
+                                                        picked = Some(m);
+                                                    }
+                                                }
+                                            });
+                                        if let Some(m) = picked {
+                                            layer.blend_mode = m;
+                                            self.layers_dirty = true;
+                                            self.doc_dirty_pending = true;
+                                        }
+                                    }
+                                } else {
+                                    ui.label("tak ada layer");
+                                }
+                            });
+                            ui.horizontal(|ui| {
+                                if ui.button("+ Layer solid").clicked() {
+                                    self.ensure_layers();
+                                    if let Some(ldoc) = self.layers.as_mut() {
+                                        let solid = pxa_core::document::ImageLayer::new(
+                                            format!("Layer {}", ldoc.layers.len() + 1),
+                                            self.docs.get(self.current).map(|d| d.original.clone()).unwrap_or_else(|| Image::new(1, 1)),
+                                        );
+                                        *ldoc = ldoc.add_layer(solid, -1);
+                                        self.layers_dirty = true;
+                                        self.doc_dirty_pending = true;
+                                    }
+                                }
+                                if ui.button("Hapus layer").clicked() {
+                                    if let Some(ldoc) = self.layers.as_mut() {
+                                        if ldoc.layers.len() > 1 {
+                                            let id = ldoc.active_layer_id;
+                                            *ldoc = ldoc.remove_layer(id);
+                                            self.layers_dirty = true;
+                                            self.doc_dirty_pending = true;
+                                        }
+                                    }
+                                }
+                                if ui.button("Segarkan").clicked() {
+                                    self.layers_dirty = true;
+                                    self.doc_dirty_pending = true;
+                                }
+                            });
+                        }
                     });
                 },
             );
