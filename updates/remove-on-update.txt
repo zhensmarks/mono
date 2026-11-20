@@ -1,4 +1,0 @@
-Scripts/Action/C-REDAKSI.jsx
-Scripts/Action/FOOTNOTE.jsx
-Scripts/Action/NOMORSATSET.jsx
-Scripts/Action/seleksi_alam.jsx
