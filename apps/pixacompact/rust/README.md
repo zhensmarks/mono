@@ -150,5 +150,3 @@ ke `Output/<nama>-cutout.png` seperti engine lokal.
   accent `#3B82F6`, state green/red/blue).
 - Verifikasi UI pakai capture layar (PrintWindow), tanpa menggerakkan mouse/keyboard
   user; state dibuka lewat flag CLI / shortcut.
-- rust-anything tak dipakai untuk verifikasi runtime C# (belum ada runtime C#);
-  `rust/MIGRATION-PLAN.md` = output `rust-anything analyze --lang csharp --whole-app`.
