@@ -1,0 +1,10 @@
+[package]
+name = "pixa-next"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Clean-room Windows desktop rewrite of PixaCompact"
+
+[dependencies]
+eframe = { version = "0.32", default-features = false, features = ["default_fonts", "glow"] }
+rfd = "0.18"
