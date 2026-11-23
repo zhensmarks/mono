@@ -1,43 +1,36 @@
 # AGENTS.md — BMachine.v2
 
-BMachine.v2 is the primary project. It is **independent** — do NOT mirror or sync changes
-to `BDater/`. BDater is no longer coupled to BMachine.
+BMachine.v2 is the primary project. It is independent; do not mirror or sync changes to `BDater/`.
 
 ## Focus
 
-Current work: `src/BMachine.UI/Models/MantraData` (MantraData feature area).
-
-See `../AGENTS.md` for the workspace-level rules.
+Current feature focus: `src/BMachine.UI/Models/MantraData`. Check the workspace-level instructions in `../AGENTS.md` before making changes.
 
 ## Code style
 
-- C# 12, .NET 8, Avalonia 11
-- MVVM: CommunityToolkit.Mvvm (`[ObservableProperty]`, `[RelayCommand]`, `ObservableObject`)
-- Views: `.axaml` files; code-behind in `.axaml.cs`
-- ViewModels: no code-behind logic; pure data + commands
+- C# 12, .NET 8, Avalonia 11.
+- Use MVVM and CommunityToolkit.Mvvm (`[ObservableProperty]`, `[RelayCommand]`, `ObservableObject`).
+- Keep ViewModels focused on state and commands. Put visual structure in `.axaml` views and keep code-behind limited to view-specific interaction.
 
-## Design language (MantraDataView.axaml)
+## Design system
 
-Hybrid Minimalist Dark (Bento). Token set:
-- Window Background: `{DynamicResource AppBackgroundBrush}` (WAJIB mengikuti pengaturan Appearance di Settings, JANGAN hardcode `#09090B` pada Window baru), card `#111113`, border `#232326`, text `#E8E8E6`, muted `#71717A`
-- `ToolBtn`: `Background="#18181B"`, `Foreground="#E4E4E7"`, `BorderBrush="#27272A"`,
-  `BorderThickness="1"`, `CornerRadius="6"`, `Height="32"`
-- `ActionBtn`: `Background="#EDEDED"`, `Foreground="#111111"`, `CornerRadius="6"`,
-  `Height="32"`, `FontWeight="SemiBold"`
-- No icons in toolbar buttons — plain `Content="Text"` only (typographic, no glyphs)
-- Formula bar: monospace `'Cascadia Code', Consolas, monospace`; no glyph prefix in ViewModel
+Use the shared design system as the source of truth; do not copy old one-off values into new views.
 
-## Dialog buttons (MantraData dialogs)
+- Shared control styles and sizing tokens: `src/BMachine.UI/Styles/BMachineDesignSystem.axaml`.
+- Theme colors and semantic brushes: `src/BMachine.UI/Themes/DarkTheme.axaml` and `LightTheme.axaml`.
+- Navigation and tab styles: `src/BMachine.UI/Styles/TrelloNavigation.axaml`.
+- Icon geometry: `src/BMachine.UI/Styles/TablerIcons.axaml`.
+- Use dynamic theme resources such as `AppBackgroundBrush`, `CardBackgroundBrush`, `TextPrimaryBrush`, and the appropriate status or border brush. Do not hardcode colors in views. When a new semantic color is needed, define its light and dark values in both theme dictionaries and use the shared resource key.
+- `SurfaceElevatedBrush` and `PrimaryBrush` are already declared in both theme dictionaries. Search the theme resources before adding or renaming a brush.
+- Use the existing radius, spacing, and icon-size resources or shared control classes instead of arbitrary values where a matching token exists.
+- Keep both light and dark themes usable. A color change in one theme must have an intentional counterpart in the other.
+- MantraData toolbar buttons are text-only unless a feature explicitly requires an icon. Keep the formula bar monospace and do not add decorative glyphs to ViewModel text.
+- In MantraData dialogs, prefer `Button.Action` for the main action, `Button.Muted` for secondary/cancel, and `Button.ChromeClose` for title-bar close. Avoid `Button.Primary` there unless a blue accent is explicitly requested; its custom template has previously caused font rendering issues.
 
-- `Button.Action` — light, solid `#EDEDED`, dark text; the default primary action button.
-- `Button.Muted` — dark card `#1C1C1F`, light text; secondary/cancel button.
-- `Button.ChromeClose` — transparent titlebar close button.
-- Avoid `Button.Primary` inside MantraData dialogs unless a blue accent is explicitly requested:
-  `App.axaml` defines a global `Button.Primary` with a **custom template** whose
-  `ContentPresenter` does not inherit a font family reliably, which caused the "block text /
-  blok pada teks" rendering issue on the Ganti Semua button.
+## Build and verification
 
-## Workflow wajib
-
-- Setelah selesai mengubah kode, selalu jalankan dev run (dotnet run --no-restore --project src\BMachine.App\BMachine.App.csproj) untuk test instansi baru.
-- Dev run tetap memakai database harian: jangan set BMACHINE_APPDATA_ROOT (DB harian: %AppData%\BMachine\BMachine.db).
+- After code changes, build and run the app from this directory:
+  `dotnet run --no-restore --project src/BMachine.App/BMachine.App.csproj`
+- The development run uses the normal daily database under the user's app-data folder. Do not set `BMACHINE_APPDATA_ROOT` for this check.
+- Run regression tests when relevant: `dotnet test tests/BMachine.UI.RegressionTests`.
+- Windows publishing is handled by `build.ps1`; `build.sh` contains macOS and Linux publishing paths. Report clearly when a build or platform-specific check could not be run.

@@ -1,275 +1,107 @@
-# 🚀 BMachine
+# BMachine
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-6.5.0-blue.svg)
-![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)
+![Version](https://img.shields.io/badge/version-15.10.0-blue.svg)
+![Platform](https://img.shields.io/badge/platform-Windows%20x64-lightgrey.svg)
 ![Framework](https://img.shields.io/badge/.NET-8.0-purple.svg)
 
-**Dashboard Automasi All-in-One untuk Manajemen Workflow Kreatif**
-
-[Fitur](#-fitur) • [Instalasi](#-instalasi) • [Penggunaan](#-cara-penggunaan) • [Konfigurasi](#%EF%B8%8F-konfigurasi) • [Update](#-update)
+**Dashboard automasi untuk workflow kreatif**
 
 </div>
 
----
+## Deskripsi
 
-## 📋 Deskripsi
+BMachine adalah aplikasi desktop untuk membantu editor mengelola pekerjaan kreatif dari satu tempat. Aplikasi ini menggabungkan pemantauan kartu Trello, pengolahan dan sinkronisasi data, pengelolaan file, serta otomasi melalui skrip Photoshop dan Python.
 
-BMachine adalah dashboard automasi komprehensif yang dirancang untuk mempermudah pengelolaan workflow kreatif. Aplikasi ini mengintegrasikan berbagai layanan seperti **Trello**, **Google Sheets**, **Google Drive**, dan **Pixelcut AI** dalam satu antarmuka yang modern dan mudah digunakan.
+Versi aplikasi mengikuti `Version` di `src/BMachine.App/BMachine.App.csproj`; versi yang tercatat saat dokumentasi ini diperbarui adalah **15.10.0**.
 
----
+## Fitur
 
-## ✨ Fitur
+### Dashboard dan Trello
+- Statistik Editing, Revision, Late, dan poin.
+- Daftar kartu Editing, Revision, dan Late, termasuk detail, komentar, lampiran, checklist, dan aksi pemindahan.
+- Pemindahan kartu secara batch dan penautan kartu manual.
+- Panel log dan pengaturan tampilan.
 
-### 🏠 Dashboard Utama
-| Fitur | Deskripsi |
-|-------|-----------|
-| **Statistik Real-time** | Lihat metrik Editing, Revision, Late, dan Points dalam sekali pandang |
-| **Smart Orb** | Widget mini floating untuk akses cepat ke statistik dan kontrol utama |
-| **Activity Log** | Panel log terintegrasi untuk memantau proses background dan error |
-| **Panel Kustomisasi** | Atur tampilan, tema, dan warna sesuai preferensi |
+### Workflow kreatif
+- MantraData untuk membaca dan mengolah data spreadsheet/dokumen, transformasi, pencocokan foto, dan tata letak yearbook.
+- Toolbox untuk menjalankan otomasi Photoshop melalui JSX dan skrip Python.
+- Pemrosesan gambar Pixelcut melalui skrip pendamping.
+- Integrasi Google Drive dan Google Sheets untuk alur file dan pelacakan data.
 
----
+Ketersediaan tiap fitur eksternal bergantung pada konfigurasi, koneksi, dan perangkat lunak yang dibutuhkan fitur tersebut.
 
-### 📋 Integrasi Trello
-Kelola kartu Trello langsung dari aplikasi dengan fitur-fitur canggih:
+## Persyaratan
 
-- **📊 Kanban Lists** - Tampilan list "Editing", "Revision", dan "Late" 
-- **🔄 Batch Move** - Pindahkan banyak kartu sekaligus antar list
-- **🔗 Unlink** - Hapus kartu dari list "Manual" dengan satu klik
-- **🎨 Color Coding** - Penanda visual untuk status kartu (Merah untuk revisi, dll)
-- **📝 Card Details** - Lihat detail kartu termasuk label, due date, dan attachment
-- **⚡ Quick Actions** - Aksi cepat untuk operasi yang sering digunakan
+- **Rilis utama:** Windows 10/11, x64.
+- **Menjalankan dari source:** .NET 8 SDK.
+- **Skrip Python:** Python 3.10 atau lebih baru; sebagian skrip memerlukan `requests` dan `pillow`.
+- **Skrip Photoshop:** Adobe Photoshop CC 2020 atau lebih baru.
 
----
+Skrip build juga menyediakan target macOS (ARM64/x64) dan Linux x64. Periksa dan uji hasil build pada sistem operasi tujuan sebelum mendistribusikannya.
 
-### 🖼️ Pixelcut (AI Image Processing)
-Pemrosesan gambar berbasis AI yang powerful:
+## Menjalankan dari source
 
-| Fitur | Deskripsi |
-|-------|-----------|
-| **Background Removal** | Hapus background gambar secara otomatis dengan AI |
-| **Upscaling** | Tingkatkan resolusi gambar menggunakan AI |
-| **Smart Queue** | Antrian pemrosesan dengan auto-retry untuk item yang gagal |
-| **Drag & Drop** | Cukup drag file untuk memulai pemrosesan |
-| **Compact View** | Tampilan ringkas khusus untuk pemrosesan file |
-| **Batch Processing** | Proses banyak gambar sekaligus |
-
----
-
-### ☁️ Google Drive Sync
-Sinkronisasi file dengan Google Drive:
-
-- **📤 Upload Mudah** - Drag & drop file untuk upload ke folder Month/Date
-- **📁 Folder Otomatis** - Folder dibuat otomatis berdasarkan tanggal
-- **✅ Multi-Selection** - Dukungan Shift+Click dan multi-select standar
-- **📊 Progress Tracking** - Progress bar real-time untuk setiap upload
-- **🔄 Auto Sync** - Sinkronisasi otomatis dengan folder lokal
-
----
-
-### 📊 Google Sheets Integration
-Integrasi dengan Google Sheets untuk tracking data:
-
-- **📈 Auto Sync** - Data otomatis tersinkron dengan spreadsheet
-- **📋 Template System** - Sistem template untuk berbagai jenis laporan
-- **⏰ Real-time Update** - Update data secara real-time
-
----
-
-### 🎨 Kustomisasi & Tema
-
-| Fitur | Deskripsi |
-|-------|-----------|
-| **Dark/Light Mode** | Pilih tema gelap atau terang sesuai preferensi |
-| **Custom Accent Color** | Atur warna aksen aplikasi |
-| **Smart Orb Customization** | Kustomisasi warna dan posisi Smart Orb |
-| **Window State Memory** | Aplikasi mengingat ukuran dan posisi terakhir |
-
----
-
-### 🔐 Keamanan
-
-- **🔒 Credential Protection** - File kredensial tidak disertakan dalam build
-- **🔑 Secure Token Storage** - Token disimpan dengan aman di database lokal
-- **🌐 External Auth** - Autentikasi melalui browser untuk keamanan maksimal
-
----
-
-### 🔄 Sistem Update
-
-- **📥 Auto Check** - Cek update otomatis saat startup
-- **🔔 Notifikasi** - Notifikasi di header jika ada update baru
-- **📋 Release Notes** - Lihat catatan rilis sebelum mengupdate
-- **⬇️ One-Click Download** - Download update langsung dari aplikasi
-
----
-
-## 💾 Instalasi
-
-### Prasyarat
-- Windows 10/11
-- .NET 8 Runtime (sudah termasuk jika menggunakan versi portable)
-
-### Script Requirements (Opsional)
-Beberapa fitur memerlukan software tambahan:
-
-| Software | Versi | Diperlukan Untuk |
-|----------|-------|------------------|
-| **Python** | 3.10+ | Script automasi (`.py`, `.pyw`) |
-| **Adobe Photoshop** | CC 2020+ | Script JSX untuk edit PSD |
-
-#### Instalasi Python
-1. Download Python dari [python.org](https://python.org)
-2. Saat install, **centang** "Add Python to PATH"
-3. Install dependencies:
-   ```bash
-   pip install requests pillow
-   ```
-
-#### Script JSX (Adobe Photoshop)
-- Script `.jsx` akan otomatis berjalan jika **Adobe Photoshop** terpasang
-- Pastikan Photoshop sudah diset sebagai default untuk file `.jsx`
-- File JSX ada di folder `Scripts/Action/`
-
-#### Lokasi Script
-```
-Scripts/
-├── Master/          # Script utama (.py)
-├── Action/          # Script Photoshop (.jsx, .pyw)
-└── *.txt            # File template/instruksi
-```
-
-### Cara Install
-
-#### Metode 1: Download Release (Recommended)
-1. **Download** file `BMachine.App.exe` dari [Releases](https://github.com/zhensmarks/BMachine.v2/releases)
-2. **Jalankan** file tersebut - tidak perlu instalasi!
-
-#### Metode 2: Build dari Source
 ```bash
-# Clone repository
-git clone https://github.com/zhensmarks/BMachine.v2.git
-cd BMachine.v2
+git clone https://github.com/zhensmarks/mono.git
+cd mono/apps/bmachine
+dotnet restore BMachine.v2.sln
+dotnet run --project src/BMachine.App/BMachine.App.csproj
+```
 
-# Restore dependencies
-dotnet restore
+Untuk membuat rilis Windows x64 dari PowerShell di folder `apps/bmachine`:
 
-# Jalankan aplikasi
-dotnet run --project src/BMachine.App
-
-# Atau build untuk produksi
+```powershell
 .\build.ps1
 ```
 
----
+Skrip publish membuat aplikasi self-contained di folder `BMachine` pada root monorepo. Untuk build macOS atau Linux, gunakan `./build.sh` pada sistem yang sesuai.
 
-## 📖 Cara Penggunaan
+## Konfigurasi awal
 
-### Pertama Kali
-1. **Jalankan** aplikasi `BMachine.App.exe`
-2. **Buka Settings** (ikon gear di header)
-3. **Konfigurasi** integrasi yang diperlukan:
-   - Masukkan **Trello API Key** dan **Token** (gunakan tombol "Get Key" dan "Get Token")
-   - Letakkan file `credentials.json` untuk Google Drive/Sheets
-4. **Simpan** dan mulai menggunakan!
+1. Jalankan aplikasi dan buka **Settings**.
+2. Atur kredensial Trello dan informasi board yang diperlukan.
+3. Jika memakai Google Drive/Sheets, siapkan kredensial Google dan berikan akses folder atau spreadsheet kepada akun layanan yang digunakan.
+4. Pasang Python atau Photoshop hanya jika workflow yang dipakai memerlukannya.
 
-### Shortcut Keyboard
+**Penyimpanan data:** pengaturan dan data aplikasi disimpan secara lokal menggunakan SQLite di folder data aplikasi. Kunci API dan token Trello disimpan melalui credential vault sistem operasi, bukan sebagai nilai biasa di tabel SQLite. Kredensial Google berbentuk file tetap perlu dijaga sebagai rahasia dan tidak dimasukkan ke repository.
+
+## Shortcut
+
 | Shortcut | Aksi |
-|----------|------|
+|---|---|
 | `Ctrl + ,` | Buka Settings |
-| `Ctrl + L` | Toggle Log Panel |
-| `Escape` | Tutup popup/dialog |
+| `Ctrl + L` | Tampilkan/sembunyikan panel log |
+| `Escape` | Tutup popup atau dialog |
 
----
-
-## ⚙️ Konfigurasi
-
-### Trello Integration
-1. Buka **Settings** → **Trello Integration**
-2. Klik **"Get Key"** untuk mendapatkan API Key dari Trello
-3. Klik **"Get Token"** untuk mengotorisasi akses
-4. Masukkan **Board ID** dan **Workspace ID**
-
-### Google Drive/Sheets
-1. Buat **Service Account** di [Google Cloud Console](https://console.cloud.google.com)
-2. Download file JSON credentials
-3. Rename menjadi `credentials.json`
-4. Letakkan di folder yang sama dengan aplikasi
-5. **Share** spreadsheet/folder ke email service account
-
-### Pixelcut
-Pixelcut **tidak memerlukan API key**. Fitur ini menggunakan Python script yang berkomunikasi langsung dengan layanan Pixelcut.
-
-**Requirement:**
-- Python 3.10+ terinstall
-- **VPN aktif** (diperlukan untuk mengakses layanan Pixelcut dari Indonesia)
-- Proxy address dapat dikonfigurasi di Settings jika diperlukan
-
----
-
-## 🔄 Update
-
-Aplikasi akan **otomatis mengecek update** saat startup. Jika ada update:
-
-1. **Ikon hijau** akan muncul di header (sebelah Settings)
-2. Atau buka **Settings** → **About** → **Check for Updates**
-3. Klik **"Download Update"** untuk membuka halaman download
-4. Download dan replace file exe lama dengan yang baru
-
----
-
-## 🛠️ Tech Stack
+## Teknologi
 
 | Komponen | Teknologi |
-|----------|-----------|
-| **Framework** | Avalonia UI (.NET 8) |
-| **Bahasa** | C# |
-| **Pattern** | MVVM (CommunityToolkit.Mvvm) |
-| **Database** | LiteDB |
-| **API** | REST (Trello, Google, Pixelcut) |
+|---|---|
+| UI desktop | Avalonia UI 11 |
+| Runtime | .NET 8, C# 12 |
+| Pola aplikasi | MVVM, CommunityToolkit.Mvvm |
+| Penyimpanan lokal | SQLite melalui Microsoft.Data.Sqlite |
+| Integrasi | REST API Trello dan Google; skrip pendamping untuk workflow lain |
 
----
+## Struktur folder
 
-## 📁 Struktur Proyek
-
-```
-BMachine.v2/
+```text
+apps/bmachine/
 ├── src/
-│   ├── BMachine.App/       # Main application
-│   ├── BMachine.UI/        # UI components & ViewModels
-│   ├── BMachine.Core/      # Core business logic
-│   └── BMachine.SDK/       # SDK & interfaces
-├── Scripts/                # Action scripts (JSX, Python)
-└── build.ps1               # Publish script (output ke mono\BMachine di root monorepo)
+│   ├── BMachine.App/       # Entry point dan aplikasi desktop
+│   ├── BMachine.Core/      # Database, keamanan, platform, dan plugin
+│   ├── BMachine.SDK/       # Kontrak layanan dan plugin
+│   ├── BMachine.UI/        # Tampilan, ViewModel, dan layanan UI
+│   └── Plugins/            # Plugin aplikasi
+├── Scripts/                # Skrip Photoshop dan Python
+├── tests/                  # Regression tests
+├── tools/                  # Utilitas pengembangan
+├── build.ps1               # Publish Windows x64
+└── build.sh                # Publish macOS/Linux
 ```
 
----
+## Distribusi
 
-## 📝 Changelog
-
-### v6.5.0 (Latest)
-- ✨ Antarmuka Profile Picture Viewer baru ala Instagram (Background Blur)
-- ✨ Redesain dialog Logout dengan tombol Sign Out yang tegas
-- 🎨 Penghapusan animasi hover zoom pada widget dashboard agar lebih stabil
-- ✨ Tampilan Log Panel dan Trello Card yang lebih ringkas (compact)
-- ✨ Sistem update otomatis dari GitHub Releases
-- ✨ Tab "About" baru di Settings
-- ✨ Tombol "Get Key" dan "Get Token" untuk Trello
-- 🔒 Peningkatan keamanan kredensial
-- 📦 Single-file executable publish
-
----
-
-## 📄 Lisensi
-
-Proyek ini bersifat private dan tidak untuk distribusi publik.
-
----
-
-<div align="center">
-
-**Made with ❤️ by Zhensmarks**
-
-</div>
+BMachine tidak dimaksudkan untuk didistribusikan ulang secara publik. Repository ini tidak menyediakan lisensi distribusi publik; tanyakan kepada pemilik proyek sebelum menyalin atau menerbitkan build.
