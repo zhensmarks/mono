@@ -1,0 +1,38 @@
+name: PixaCompact Rust v2
+
+"on":
+  push:
+    branches:
+      - agent/pixacompact-rust-v2
+    paths:
+      - apps/pixacompact/rust-v2/**
+      - .github/workflows/pixacompact-rust-v2.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - apps/pixacompact/rust-v2/**
+      - .github/workflows/pixacompact-rust-v2.yml
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows tests and release build
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: apps/pixacompact/rust-v2
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run unit tests
+        run: cargo test
+
+      - name: Build release app
+        run: cargo build --release
