@@ -162,17 +162,22 @@ impl PixaApp {
     }
 
     fn render_navigation(&mut self, ctx: &egui::Context) {
+        let queue_label = self.t(Key::Work);
+        let editor_label = self.t(Key::Editor);
+        let settings_label = self.t(Key::Settings);
+        let section_label = self.t(Key::Queue);
+
         egui::SidePanel::left("navigation")
             .resizable(false)
             .exact_width(190.0)
             .frame(egui::Frame::default().inner_margin(egui::Margin::same(16)))
             .show(ctx, |ui| {
                 ui.add_space(8.0);
-                ui.label(egui::RichText::new(self.t(Key::Queue)).strong());
+                ui.label(egui::RichText::new(section_label).strong());
                 ui.add_space(8.0);
-                nav_button(ui, &mut self.page, Page::Queue, self.t(Key::Work));
-                nav_button(ui, &mut self.page, Page::Editor, self.t(Key::Editor));
-                nav_button(ui, &mut self.page, Page::Settings, self.t(Key::Settings));
+                nav_button(ui, &mut self.page, Page::Queue, queue_label);
+                nav_button(ui, &mut self.page, Page::Editor, editor_label);
+                nav_button(ui, &mut self.page, Page::Settings, settings_label);
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
                     ui.separator();
                     ui.label(egui::RichText::new("PixaCompact · Rust").small().weak());
@@ -188,16 +193,10 @@ impl PixaApp {
                 ui.add_space(8.0);
                 ui.heading(self.t(Key::Engine));
                 ui.add_space(8.0);
-                ui.selectable_value(
-                    &mut self.engine,
-                    Engine::Local,
-                    self.t(Key::LocalEngine),
-                );
-                ui.selectable_value(
-                    &mut self.engine,
-                    Engine::Web,
-                    self.t(Key::WebEngine),
-                );
+                let local_label = self.t(Key::LocalEngine);
+                ui.selectable_value(&mut self.engine, Engine::Local, local_label);
+                let web_label = self.t(Key::WebEngine);
+                ui.selectable_value(&mut self.engine, Engine::Web, web_label);
                 ui.add_space(6.0);
                 let privacy = match self.engine {
                     Engine::Local => self.t(Key::LocalPrivacy),
@@ -318,7 +317,8 @@ impl PixaApp {
                     {
                         self.selected = Some(path.clone());
                     }
-                    ui.label(egui::RichText::new(path.parent().unwrap_or(Path::new("")).display().to_string()).small().weak());
+                    let parent = path.parent().unwrap_or(Path::new(""));
+                    ui.label(egui::RichText::new(parent.display().to_string()).small().weak());
                     ui.with_layout(
                         egui::Layout::right_to_left(egui::Align::Center),
                         |ui| {
