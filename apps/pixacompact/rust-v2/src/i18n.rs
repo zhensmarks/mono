@@ -1,10 +1,10 @@
-#\[derive(Clone, Copy, PartialEq, Eq)\]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Locale {
     Id,
     En,
 }
 
-#\[derive(Clone, Copy)\]
+#[derive(Clone, Copy)]
 pub enum Key {
     AppTitle,
     Work,
@@ -24,7 +24,6 @@ pub enum Key {
     Status,
     Ready,
     ReadyCount,
-    SelectedFiles,
     OutputFolder,
     ProcessingUnavailableTitle,
     ProcessingUnavailableBody,
@@ -32,90 +31,77 @@ pub enum Key {
     WebPrivacy,
     EditorNext,
     SettingsNext,
-    SelectImage,
     RemoveItem,
-    ChooseEngine,
     Theme,
     Light,
     Dark,
     Language,
     ImportNotice,
-    FileCount,
     Input,
     Destination,
-    Waiting,
-    LocalMode,
-    WebMode,
     BackToQueue,
 }
 
-pub fn text(locale: Locale, key: Key) -&gt; &amp;'static str {
+pub fn text(locale: Locale, key: Key) -> &'static str {
     let (id, en) = match key {
-        Key::AppTitle =&gt; ("PixaCompact", "PixaCompact"),
-        Key::Work =&gt; ("Antrean", "Queue"),
-        Key::Editor =&gt; ("Editor", "Editor"),
-        Key::Settings =&gt; ("Pengaturan", "Settings"),
-        Key::AddImages =&gt; ("Tambah gambar", "Add images"),
-        Key::AddFolder =&gt; ("Tambah folder", "Add folder"),
-        Key::RemoveSelected =&gt; ("Hapus pilihan", "Remove selected"),
-        Key::StartProcessing =&gt; ("Mulai proses", "Start processing"),
-        Key::Engine =&gt; ("Mesin", "Engine"),
-        Key::LocalEngine =&gt; ("MODNet lokal", "Local MODNet"),
-        Key::WebEngine =&gt; ("Engine web", "Web engine"),
-        Key::Queue =&gt; ("Daftar gambar", "Image queue"),
-        Key::QueueEmptyTitle =&gt; ("Belum ada gambar", "No images yet"),
-        Key::QueueEmptyBody =&gt; (
+        Key::AppTitle => ("PixaCompact", "PixaCompact"),
+        Key::Work => ("Antrean", "Queue"),
+        Key::Editor => ("Editor", "Editor"),
+        Key::Settings => ("Pengaturan", "Settings"),
+        Key::AddImages => ("Tambah gambar", "Add images"),
+        Key::AddFolder => ("Tambah folder", "Add folder"),
+        Key::RemoveSelected => ("Hapus pilihan", "Remove selected"),
+        Key::StartProcessing => ("Mulai proses", "Start processing"),
+        Key::Engine => ("Mesin", "Engine"),
+        Key::LocalEngine => ("MODNet lokal", "Local MODNet"),
+        Key::WebEngine => ("Engine web", "Web engine"),
+        Key::Queue => ("Daftar gambar", "Image queue"),
+        Key::QueueEmptyTitle => ("Belum ada gambar", "No images yet"),
+        Key::QueueEmptyBody => (
             "Tambahkan gambar atau seret file ke jendela ini untuk memulai.",
             "Add images or drop files into this window to get started.",
         ),
-        Key::DropHint =&gt; ("PNG, JPG, WEBP, BMP, TIFF", "PNG, JPG, WEBP, BMP, TIFF"),
-        Key::Status =&gt; ("Status", "Status"),
-        Key::Ready =&gt; ("Siap", "Ready"),
-        Key::ReadyCount =&gt; ("Siap diproses", "Ready to process"),
-        Key::SelectedFiles =&gt; ("File dipilih", "Files selected"),
-        Key::OutputFolder =&gt; ("Folder hasil", "Output folder"),
-        Key::ProcessingUnavailableTitle =&gt; (
+        Key::DropHint => ("PNG, JPG, WEBP, BMP, TIFF", "PNG, JPG, WEBP, BMP, TIFF"),
+        Key::Status => ("Status", "Status"),
+        Key::Ready => ("Siap", "Ready"),
+        Key::ReadyCount => ("Siap diproses", "Ready to process"),
+        Key::OutputFolder => ("Folder hasil", "Output folder"),
+        Key::ProcessingUnavailableTitle => (
             "Mesin pemrosesan belum tersedia di tahap ini",
             "Processing is not available in this milestone",
         ),
-        Key::ProcessingUnavailableBody =&gt; (
+        Key::ProcessingUnavailableBody => (
             "Tombol proses baru diaktifkan setelah engine Rust dipindahkan dan diuji.",
             "Processing will be enabled after the Rust engine is ported and tested.",
         ),
-        Key::LocalPrivacy =&gt; (
+        Key::LocalPrivacy => (
             "Pemrosesan lokal menjaga gambar tetap di perangkat.",
             "Local processing keeps images on this device.",
         ),
-        Key::WebPrivacy =&gt; (
+        Key::WebPrivacy => (
             "Engine web mengirim gambar ke layanan pihak ketiga saat proses dimulai.",
             "Web engines send images to a third-party service when processing starts.",
         ),
-        Key::EditorNext =&gt; (
+        Key::EditorNext => (
             "Editor gambar sedang disiapkan. Pilih gambar dari antrean setelah tahap ini.",
             "The image editor is being prepared. Open an image from the queue in a later milestone.",
         ),
-        Key::SettingsNext =&gt; (
+        Key::SettingsNext => (
             "Pengaturan engine, akun, proxy, dan pembaruan akan ditambahkan berikutnya.",
             "Engine, account, proxy, and update settings are planned for a later milestone.",
         ),
-        Key::SelectImage =&gt; ("Pilih gambar", "Select an image"),
-        Key::RemoveItem =&gt; ("Hapus gambar", "Remove image"),
-        Key::ChooseEngine =&gt; ("Pilih engine", "Choose an engine"),
-        Key::Theme =&gt; ("Tema", "Theme"),
-        Key::Light =&gt; ("Terang", "Light"),
-        Key::Dark =&gt; ("Gelap", "Dark"),
-        Key::Language =&gt; ("Bahasa", "Language"),
-        Key::ImportNotice =&gt; ("Gambar ditambahkan ke antrean.", "Images added to the queue."),
-        Key::FileCount =&gt; ("jumlah", "count"),
-        Key::Input =&gt; ("Sumber", "Source"),
-        Key::Destination =&gt; ("Tujuan", "Destination"),
-        Key::Waiting =&gt; ("Menunggu", "Waiting"),
-        Key::LocalMode =&gt; ("Lokal", "Local"),
-        Key::WebMode =&gt; ("Web", "Web"),
-        Key::BackToQueue =&gt; ("Kembali ke antrean", "Back to queue"),
+        Key::RemoveItem => ("Hapus gambar", "Remove image"),
+        Key::Theme => ("Tema", "Theme"),
+        Key::Light => ("Terang", "Light"),
+        Key::Dark => ("Gelap", "Dark"),
+        Key::Language => ("Bahasa", "Language"),
+        Key::ImportNotice => ("Gambar ditambahkan ke antrean.", "Images added to the queue."),
+        Key::Input => ("Sumber", "Source"),
+        Key::Destination => ("Tujuan", "Destination"),
+        Key::BackToQueue => ("Kembali ke antrean", "Back to queue"),
     };
     match locale {
-        Locale::Id =&gt; id,
-        Locale::En =&gt; en,
+        Locale::Id => id,
+        Locale::En => en,
     }
 }
