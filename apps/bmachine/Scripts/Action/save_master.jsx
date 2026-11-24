@@ -141,18 +141,22 @@ function runAdvancedMode(c){
  cancel.onClick=function(){requested=true;status.text="Pembatalan diminta; menunggu langkah aktif selesai...";w.update();};
  w.show();
 
- function isAbsolutePath(p){return p.indexOf(":")>=0||p.indexOf("\\\\")===0;}
- function getExportFolder(pathInput,sourceDocPath){
-  if(!pathInput||pathInput.length===0)return sourceDocPath?new Folder(sourceDocPath):null;
-  if(isAbsolutePath(pathInput))return new Folder(pathInput);
-  if(!sourceDocPath)return null; // path relatif tanpa path dokumen tidak bisa dihitung
-  // Relatif: buat satu level di atas sumber, mirroring subfolder sumber di batch
-  var srcFolder=new Folder(sourceDocPath);
-  var srcName=srcFolder.name;
-  var parentFolder=srcFolder.parent;
-  var relativeBase=parentFolder.fsName+"/"+pathInput;
-  if(batchMode){var relatFolder=new Folder(relativeBase+"/"+srcName);if(!relatFolder.exists)relatFolder.create();return relatFolder;}
-  else{var f=new Folder(relativeBase);if(!f.exists)f.create();return f;}
+ // Folder tujuan export — logika SAMAA seperti save standar (JPG/PNG/PSD):
+ //  - export folder KOSONG  -> folder sumber (sesamping PSD), persis save standar
+ //  - export folder diisi   -> folder custom; nama folder sumber jadi subfolder
+ //    (mirroring, sesuai logika custom-folder save standar)
+ // Saat batch, tiap dokumen ditarget sesuai folder sumbernya sendiri, sehingga
+ // SEMUA dokumen tersimpan (bukan hanya yang pertama).
+ function resolveAdvTarget(pathInput,srcFolder){
+  if(!pathInput||pathInput.length===0)return srcFolder?srcFolder.fsName:null;
+  var target=new Folder(pathInput);
+  if(srcFolder){
+   var sub=new Folder(target.fsName+"/"+srcFolder.name);
+   if(!sub.exists){try{sub.create();}catch(eCreate){}}
+   return sub.fsName;
+  }
+  if(!target.exists){try{target.create();}catch(eCreate2){}}
+  return target.fsName;
  }
 
  try{
@@ -167,83 +171,85 @@ function runAdvancedMode(c){
     app.activeDocument=d;
     var m=docName.match(/\.([^.]+)$/),ext=m?m[1].toLowerCase():"";
 
-    // Path dokumen sumber. Dokumen yang belum pernah disimpan tidak punya path,
+    // Path folder sumber. Dokumen yang belum pernah disimpan tidak punya path,
     // jadi akses d.path harus dibungkus (kalau tidak, seluruh proses gagal).
-    var srcPath=null;
-    try{ if(d.path)srcPath=d.path.fsName; }catch(ePath){}
+    var srcFolder=null;
+    try{ if(d.path)srcFolder=d.path; }catch(ePath){}
 
-    // Tentukan export folder (untuk PSD dan export file)
-    var exportFolder=null;
+    // Folder tujuan export (PSD + JPG/PNG) — logika SAMAA seperti save standar:
+    // kosong = sesamping PSD (folder sumber); diisi = folder custom +mirroring
+    // nama folder sumber. Di-batch tiap dokumen punya tujuan sendiri, jadi
+    // semua dokumen tetap tersimpan (bukan hanya yang pertama).
+    var docPath=null;
     if(c.saveMaster||c.exportJpg||c.exportPng){
-     if(c.path){
-      exportFolder=getExportFolder(c.path,srcPath);
-      if(!exportFolder)throw new Error("Folder export relatif butuh dokumen yang sudah disimpan; isi path absolut.");
-      if(!exportFolder.exists){try{exportFolder.create();}catch(eCreate){}}
-      if(!exportFolder.exists)throw new Error("Tidak bisa membuat/akses folder export: "+exportFolder.fsName);
-     }else if(srcPath){
-      exportFolder=new Folder(srcPath);
-     }
+     docPath=resolveAdvTarget(c.path,srcFolder);
+     if(!docPath)throw new Error("Folder tujuan tidak tersedia: dokumen belum pernah disimpan dan export folder kosong. Simpan PSD dulu, atau isi export folder.");
     }
 
-    // SAVE PSD
+    // --- SAVE PSD (master) — logika sama seperti save standar ---
     if(c.saveMaster){
-     if((ext==="jpg"||ext==="jpeg"||ext==="png")&&srcPath){
-      var f=new File(exportFolder.fsName+"/"+base+".psd"),o=new PhotoshopSaveOptions();
+     if(ext==="jpg"||ext==="jpeg"||ext==="png"){
+      // Sumber raster: simpan master .psd ke folder tujuan
+      var f=new File(docPath+"/"+base+".psd"),o=new PhotoshopSaveOptions();
       o.embedColorProfile=true;o.layers=true;o.maximizeCompatibility=true;
       d.saveAs(f,o,true,Extension.LOWERCASE);
-     }else if(!srcPath){
+     }else if(!srcFolder){
+      // Belum pernah disimpan: minta lokasi simpan
       var sf=File.saveDialog("Simpan master PSD","Photoshop:*.psd");
       if(!sf)throw new Error("Save dibatalkan");
       if(!/\.psd$/i.test(sf.name))sf=new File(sf.fsName+".psd");
       var so=new PhotoshopSaveOptions();so.embedColorProfile=true;so.layers=true;so.maximizeCompatibility=true;
       d.saveAs(sf,so,true,Extension.LOWERCASE);
+     }else if(c.path&&docPath!==srcFolder.fsName){
+      // Sumber PSD/PSB + export folder custom: saveAs ke folder tujuan
+      var pf=new File(docPath+"/"+base+".psd"),po=new PhotoshopSaveOptions();
+      po.embedColorProfile=true;po.layers=true;po.maximizeCompatibility=true;
+      d.saveAs(pf,po,true,Extension.LOWERCASE);
      }else{
-      // PSD/PSB source: respect export folder when set; otherwise save in place.
-      if(exportFolder&&exportFolder.fsName!==new Folder(srcPath).fsName){
-       var pf=new File(exportFolder.fsName+"/"+base+".psd"),po=new PhotoshopSaveOptions();
-       po.embedColorProfile=true;po.layers=true;po.maximizeCompatibility=true;
-       d.saveAs(pf,po,true,Extension.LOWERCASE);
-      }else{
-       d.save();
-      }
+      // PSD/PSB tanpa export folder: simpan di tempat (persis save standar)
+      d.save();
      }
     }
 
-    // EXPORT JPG/PNG
+    // --- EXPORT JPG/PNG — logika sama seperti save standar ---
     if(c.exportJpg||c.exportPng){
-     // Dokumen belum pernah disimpan & tidak ada folder export: minta folder.
-     if(!exportFolder){
+     // Dokumen belum pernah disimpan & export folder kosong: docPath belum ada,
+     // minta folder (sama seperti fallback save standar tanpa custom folder).
+     if(!docPath){
       var picked=Folder.selectDialog("Pilih folder export untuk: "+docName);
       if(!picked)throw new Error("Folder export tidak dipilih (dibatalkan)");
-      exportFolder=picked;
+      docPath=picked.fsName;
      }
 
      // --- PNG: HARUS tetap transparan ---
      // JANGAN pakai dup.flatten(): Photoshop mengisi semua area transparan dengan
-     // putih, sehingga file .png keluar berbackground putih walau layer background
-     // sudah tidak ada / di-hide. Pakai mergeVisible (persis seperti tombol
-     // "PNG Standard") supaya alpha tetap terjaga.
+     // putih. Pakai mergeVisible (persis tombol "PNG Standard") supaya alpha
+     // tetap terjaga. Tambah layer baru dulu, sama seperti save standar.
      if(c.exportPng){
       dup=d.duplicate(base+"_advanced_png");app.activeDocument=dup;
       try{dup.artLayers.add();}catch(exAdd){}
       try{executeAction(stringIDToTypeID("mergeVisible"),undefined,DialogModes.NO);}catch(exMerge){}
       if(!requested&&c.processAction)try{app.doAction("anti ramijud","starter pack");}catch(ex){}
-      if(!requested)savePNG(dup,exportFolder.fsName+"/"+base+".png");
+      if(!requested)savePNG(dup,docPath+"/"+base+".png");
       dup.close(SaveOptions.DONOTSAVECHANGES);dup=null;app.activeDocument=d;
      }
 
-     // --- JPG: tidak mendukung alpha, flatten tetap dipakai (sama seperti mode JPG) ---
+     // --- JPG: tidak mendukung alpha ---
+     // Sama persis save standar: tambah layer baru (visible) SEBELUM flatten
+     // supaya background tidak ikut terisi putih, lalu flatten.
      if(c.exportJpg){
-      dup=d.duplicate(base+"_advanced_jpg");app.activeDocument=dup;dup.flatten();
+      dup=d.duplicate(base+"_advanced_jpg");app.activeDocument=dup;
+      try{dup.artLayers.add();}catch(exAdd2){}
+      dup.flatten();
       if(!requested&&c.processAction)try{app.doAction("anti ramijud","starter pack");}catch(ex){}
-      if(!requested)saveJPG(dup,exportFolder.fsName+"/"+base+".jpg",12);
+      if(!requested)saveJPG(dup,docPath+"/"+base+".jpg",12);
       dup.close(SaveOptions.DONOTSAVECHANGES);dup=null;app.activeDocument=d;
      }
     }
 
     if(requested){stop=true;break;}
     if(!c.keepOpen){d.close(SaveOptions.DONOTSAVECHANGES);}
-    ok.push(docName);
+    ok.push(docName+" -> "+docPath);
    }catch(e){
     if(e.number===8007||(e.message&&e.message.toLowerCase().indexOf("cancel")>=0)){stop=true;break;}
     fail.push(docName+" ("+e.message+")");
