@@ -296,6 +296,28 @@ $history.Add([pscustomobject][ordered]@{
     notes      = $cleanNotes
 }) | Out-Null
 
+# Riwayat NAS WAJIB digabung: folder updates/ lokal sering kosong (gitignored), sehingga
+# tanpa ini changelog NAS (puluhan rilis) tertimpa jadi satu entri setiap publish.
+if ($OutDir -and [System.IO.Directory]::Exists($OutDir)) {
+    $nasChangelog = Join-Path $OutDir "changelog.json"
+    if (Test-Path -LiteralPath $nasChangelog) {
+        try {
+            $nasParsed = ConvertFrom-Json -InputObject ([System.IO.File]::ReadAllText($nasChangelog))
+            $have = @{}
+            foreach ($entry in @($history)) { $have["$($entry.version)"] = $true }
+            foreach ($entry in @($nasParsed)) {
+                if (-not $entry) { continue }
+                $vt = "$($entry.version)"
+                if ($vt -eq "" -or $vt -eq $Version -or $have.ContainsKey($vt)) { continue }
+                [void]$history.Add($entry)
+            }
+            Write-Host "      changelog NAS digabung ($($history.Count) entri total)." -ForegroundColor DarkGray
+        } catch {
+            Write-Host "[!] changelog NAS tidak terbaca; riwayat lama dilewati." -ForegroundColor Yellow
+        }
+    }
+}
+
 # Terbaru dulu, simpan maksimum 60 rilis.
 $history = @($history | Sort-Object -Property @{ Expression = { [version]([string]$_.version) } } -Descending)
 if ($history.Count -gt 60) { $history = @($history[0..59]) }
@@ -319,6 +341,14 @@ if ($OutDir) {
             Write-Host "[5/5] Folder NAS terkunci - membuka sementara..." -ForegroundColor Yellow
             & icacls $OutDir /grant "Everyone:(OI)(CI)M" | Out-Null
             $relock = $true
+            # icacls.exe tidak melempar error PowerShell meski gagal: buktikan dengan probe tulis.
+            try {
+                Set-Content -LiteralPath $probe -Value "x" -ErrorAction Stop
+                Remove-Item -LiteralPath $probe -Force -ErrorAction SilentlyContinue
+            } catch {
+                $relock = $false
+                throw "Folder NAS masih read-only setelah icacls grant: $OutDir (publish dibatalkan, bukan sukses senyap)."
+            }
         }
 
         Write-Host "[5/5] Salin payload ke NAS: $OutDir" -ForegroundColor Cyan
@@ -330,6 +360,15 @@ if ($OutDir) {
 
         Copy-Item -LiteralPath $Changelog -Destination (Join-Path $OutDir "changelog.json") -Force
         Write-Host "      changelog.json tersalin (riwayat catatan rilis)." -ForegroundColor DarkGray
+
+        # Bukti nyata: copy dianggap sukses hanya kalau file benar-benar ada dan hash cocok.
+        $nasExe  = Join-Path $OutDir "payload\BMachine.App.exe"
+        $nasMan  = Join-Path $OutDir "manifest.json"
+        if (-not (Test-Path -LiteralPath $nasExe)) { throw "Payload tidak mendarat di NAS: $nasExe" }
+        $nasHash = (Get-FileHash -LiteralPath $nasExe -Algorithm SHA256).Hash
+        if ($nasHash -ne $hash) { throw "Hash payload NAS ($nasHash) != manifest ($hash) - salinan gagal." }
+        if (-not (Test-Path -LiteralPath $nasMan)) { throw "manifest.json tidak mendarat di NAS: $nasMan" }
+        Write-Host "      verifikasi NAS: payload + manifest ada, sha256 cocok." -ForegroundColor DarkGray
 
         if ($relock) {
             & icacls $OutDir /inheritance:r /grant:r "Everyone:(OI)(CI)RX" | Out-Null
