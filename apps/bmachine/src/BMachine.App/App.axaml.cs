@@ -374,6 +374,18 @@ public partial class App : Application,
             WeakReferenceMessenger.Default.RegisterAll(this);
             Log("Initialization Complete.");
 
+            // Env var BMACHINE_RADIAL_TEST=1: langsung open radial menu saat start (bypass hotkey global)
+            if (System.Environment.GetEnvironmentVariable("BMACHINE_RADIAL_TEST") == "1")
+            {
+                Log("[App] BMACHINE_RADIAL_TEST=1: auto-opening radial menu");
+                Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    await Task.Delay(1500);
+                    var pos = GetCursorScreenPosFallback();
+                    OnRadialTrigger(pos);
+                });
+            }
+
             // Command-line folder arguments (e.g. drag folder to exe, Open With, or CLI test)
             if (desktop.Args != null && desktop.Args.Length > 0)
             {
@@ -522,4 +534,16 @@ public partial class App : Application,
         }
         catch(Exception ex) { Console.WriteLine($"Error loading shortcut: {ex.Message}"); }
     }
+
+    /// <summary>Ambil posisi kursor layar via Win32 GetCursorPos.</summary>
+    private static Point GetCursorScreenPosFallback()
+    {
+        return GetCursorPos(out var p) ? new Point(p.X, p.Y) : new Point(400, 400);
+    }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct WinPoint { public int X; public int Y; }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out WinPoint p);
 }
