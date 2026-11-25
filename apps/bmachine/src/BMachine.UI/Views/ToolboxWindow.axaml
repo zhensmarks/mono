@@ -329,6 +329,162 @@
 
 
 
+        <!-- ═══════════════════════════════════════════
+             LAUNCHER (layar depan: daftar modul)
+        ═══════════════════════════════════════════ -->
+
+        <!-- KARTU MODUL: card 1px border, radius RadiusLg, hover border accent -->
+        <Style Selector="Button.moduleCard">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
+            <Setter Property="Padding" Value="20,18"/>
+            <Setter Property="MinHeight" Value="104"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.moduleCard /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
+        </Style>
+        <Style Selector="Button.moduleCard:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BgHoverBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
+        </Style>
+        <Style Selector="Button.moduleCard:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentSubtleBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
+        </Style>
+        <Style Selector="Button.moduleCard:focus-visible /template/ ContentPresenter">
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}"/>
+        </Style>
+        <Style Selector="Button.moduleCard:disabled">
+            <Setter Property="Opacity" Value="0.5"/>
+            <Setter Property="Cursor" Value="Arrow"/>
+        </Style>
+        <Style Selector="Button.moduleCard:disabled /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
+        </Style>
+
+        <!-- KOTAK IKON MODUL: 44x44, tint per modul -->
+        <Style Selector="Border.moduleIcon">
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="44"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusLg}"/>
+            <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
+        </Style>
+        <Style Selector="Border.moduleIcon.blue">
+            <Setter Property="Background" Value="{DynamicResource ModuleBlueBgBrush}"/>
+        </Style>
+        <Style Selector="Border.moduleIcon.teal">
+            <Setter Property="Background" Value="{DynamicResource ModuleTealBgBrush}"/>
+        </Style>
+        <Style Selector="Border.moduleIcon.violet">
+            <Setter Property="Background" Value="{DynamicResource ModuleVioletBgBrush}"/>
+        </Style>
+        <Style Selector="Border.moduleIcon.gray">
+            <Setter Property="Background" Value="{DynamicResource SurfaceElevatedBrush}"/>
+        </Style>
+
+        <Style Selector="PathIcon.moduleGlyph">
+            <Setter Property="Width" Value="22"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        </Style>
+        <Style Selector="Border.moduleIcon.blue PathIcon.moduleGlyph">
+            <Setter Property="Foreground" Value="{DynamicResource ModuleBlueFgBrush}"/>
+        </Style>
+        <Style Selector="Border.moduleIcon.teal PathIcon.moduleGlyph">
+            <Setter Property="Foreground" Value="{DynamicResource ModuleTealFgBrush}"/>
+        </Style>
+        <Style Selector="Border.moduleIcon.violet PathIcon.moduleGlyph">
+            <Setter Property="Foreground" Value="{DynamicResource ModuleVioletFgBrush}"/>
+        </Style>
+        <Style Selector="Border.moduleIcon.gray PathIcon.moduleGlyph">
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        </Style>
+
+        <!-- PILL AKSI KARTU (OPEN / LOCKED) -->
+        <Style Selector="Border.actionPill">
+            <Setter Property="BorderBrush" Value="{DynamicResource ButtonSecondaryBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
+            <Setter Property="Padding" Value="11,7"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Border.actionPill.locked">
+            <Setter Property="BorderBrush" Value="{DynamicResource SeparatorBrush}"/>
+        </Style>
+        <Style Selector="Border.actionPill TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="LetterSpacing" Value="1.2"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        </Style>
+        <Style Selector="Border.actionPill.locked TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        </Style>
+        <Style Selector="PathIcon.pillGlyph">
+            <Setter Property="Width" Value="12"/>
+            <Setter Property="Height" Value="12"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentColorBrush}"/>
+        </Style>
+        <Style Selector="Border.actionPill.locked PathIcon.pillGlyph">
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        </Style>
+
+        <!-- BREADCRUMB kembali ke launcher: ghost, menyatu dengan tema header -->
+        <Style Selector="Button.breadcrumb">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="9,6"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+        </Style>
+        <Style Selector="Button.breadcrumb TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="LetterSpacing" Value="1.2"/>
+        </Style>
+        <Style Selector="Button.breadcrumb /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.breadcrumb:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BgHoverBrush}"/>
+        </Style>
+        <Style Selector="Button.breadcrumb:pointerover TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+        <Style Selector="Button.breadcrumb:pointerover PathIcon">
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        </Style>
+
+        <!-- CHIP STATUS MAINTENANCE (amber khusus status, terpisah dari tombol aksi) -->
+        <Style Selector="Border.maintenanceChip">
+            <Setter Property="BorderBrush" Value="{DynamicResource StatusWarningBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusXs}"/>
+            <Setter Property="Padding" Value="6,2"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Border.maintenanceChip TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="LetterSpacing" Value="1.2"/>
+            <Setter Property="Foreground" Value="{DynamicResource StatusWarningBrush}"/>
+        </Style>
+
     </Window.Styles>
 
     <Grid RowDefinitions="Auto,*">
@@ -341,7 +497,7 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             
-            <TextBlock Grid.Column="0" Text="BMachine Toolbox" VerticalAlignment="Center" Margin="16,0,0,0" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" IsHitTestVisible="False" />
+            <!-- Judul window sengaja kosong: header sudah tampil di konten (BMACHINE TOOLBOX), hindari header dobel -->
             
             <Button Grid.Column="1" Classes="WindowClose" Click="OnCloseButtonClick" ToolTip.Tip="Close Toolbox">
                 <PathIcon Data="{StaticResource IconX}"/>
@@ -358,9 +514,83 @@
         <!-- StatusTextWidth simulates Window width minus two buttons in the action bar -->
         <Panel x:Name="StatusTextWidth" Margin="44,0,320,0" IsHitTestVisible="False" />
 
+        <!-- ═══ LAUNCHER (layar depan: pilih modul) ═══ -->
+        <Grid Grid.Row="1" Margin="20,22,20,20" IsVisible="{Binding IsHomeVisible}">
+            <Grid RowDefinitions="Auto,*">
+
+                <!-- Brand: tanpa ikon, dua teks berbagi satu baseline -->
+                <TextBlock Grid.Row="0" Margin="-1,0,0,20" LetterSpacing="1.2">
+                    <Run Text="BMACHINE" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <Run Text="   TOOLBOX" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextMutedBrush}"/>
+                </TextBlock>
+
+                <!-- Kartu modul: data-driven dari ToolboxViewModel.Modules -->
+                <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Modules}" Margin="0,0,-14,-14" VerticalAlignment="Top">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Columns="2" VerticalAlignment="Top"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ToolboxModule" x:CompileBindings="False">
+                                <Button Classes="moduleCard" Margin="0,0,14,14"
+                                        IsEnabled="{Binding IsEnabled}"
+                                        Command="{Binding $parent[Window].DataContext.OpenModuleCommand}"
+                                        CommandParameter="{Binding}">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+
+                                        <Border Grid.Column="0" Classes="moduleIcon" VerticalAlignment="Center"
+                                                Classes.blue="{Binding IsBlue}" Classes.teal="{Binding IsTeal}"
+                                                Classes.violet="{Binding IsViolet}" Classes.gray="{Binding IsGray}">
+                                            <Panel>
+                                                <PathIcon Classes="moduleGlyph" Data="{StaticResource IconLayers}" IsVisible="{Binding IsIconLayers}"/>
+                                                <PathIcon Classes="moduleGlyph" Data="{StaticResource IconType}" IsVisible="{Binding IsIconType}"/>
+                                                <PathIcon Classes="moduleGlyph" Data="{StaticResource IconCopy}" IsVisible="{Binding IsIconCopy}"/>
+                                                <PathIcon Classes="moduleGlyph" Data="{StaticResource IconDatabase}" IsVisible="{Binding IsIconDatabase}"/>
+                                            </Panel>
+                                        </Border>
+
+                                        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Classes="h3" Text="{Binding Name}" VerticalAlignment="Center"/>
+                                                <Border Classes="maintenanceChip" VerticalAlignment="Center" IsVisible="{Binding IsMaintenance}">
+                                                    <TextBlock Text="MAINTENANCE"/>
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Classes="body" Text="{Binding Description}" TextWrapping="Wrap"/>
+                                        </StackPanel>
+
+                                        <Panel Grid.Column="2" VerticalAlignment="Center">
+                                            <Border Classes="actionPill" IsVisible="{Binding IsEnabled}">
+                                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                                    <TextBlock Text="OPEN" VerticalAlignment="Center"/>
+                                                    <PathIcon Classes="pillGlyph" Data="{StaticResource IconArrowRight}"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Classes="actionPill locked" IsVisible="{Binding IsMaintenance}">
+                                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                                    <TextBlock Text="LOCKED" VerticalAlignment="Center"/>
+                                                    <PathIcon Classes="pillGlyph" Data="{StaticResource IconLock}"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </Panel>
+
+                                    </Grid>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+
+        <!-- ═══ MODUL (isi toolbox yang sudah ada) ═══ -->
+        <Grid Grid.Row="1" IsVisible="{Binding !IsHomeVisible}">
+
         <!-- ═══ CONTENT ═══ -->
         <Grid ZIndex="0"
-              Margin="20,85,20,20"
+              Margin="20,74,20,20"
               IsVisible="{Binding !PsdBucinVM.IsManualModeActive}">
             <Grid>
 
@@ -950,7 +1180,7 @@
         </Grid>
 
         <!-- VIEWER VIEW (manual) -->
-        <Grid Grid.Row="1" Margin="20,16,20,20" RowDefinitions="Auto,*,Auto" IsVisible="{Binding PsdBucinVM.IsManualModeActive}" MinHeight="480">
+        <Grid Margin="20,20,20,20" RowDefinitions="Auto,*,Auto" IsVisible="{Binding PsdBucinVM.IsManualModeActive}" MinHeight="480">
 
             <!-- Top bar -->
             <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,14,Auto,8,Auto" Margin="0,0,0,14">
@@ -1061,24 +1291,18 @@
 
         </Grid>
 
-        <!-- ═══ NAV (FLOATING) — Trello board pill (card bordered, short indicator) ═══ -->
-        <Border ZIndex="10" Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource NavigationDividerBrush}" BorderThickness="1" CornerRadius="{DynamicResource RadiusMd}" Padding="4" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,20,0,0"
-                IsVisible="{Binding !PsdBucinVM.IsManualModeActive}">
-            <StackPanel Orientation="Horizontal" Spacing="2">
-                <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="ToolboxTabs" IsChecked="{Binding IsPsdBucinVisible}" Command="{Binding SwitchTabCommand}" CommandParameter="{x:Static vm:ToolboxTab.PsdBucin}">
-                    <TextBlock Classes="navLabel" Text="MANTRA BUCIN"/>
-                </RadioButton>
-                <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="ToolboxTabs" IsChecked="{Binding IsMantraNamaVisible}" Command="{Binding SwitchTabCommand}" CommandParameter="{x:Static vm:ToolboxTab.MantraNama}">
-                    <TextBlock Classes="navLabel" Text="MANTRA NAMA"/>
-                </RadioButton>
-                <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="ToolboxTabs" IsChecked="{Binding IsMantraGandaVisible}" Command="{Binding SwitchTabCommand}" CommandParameter="{x:Static vm:ToolboxTab.MantraGanda}">
-                    <TextBlock Classes="navLabel" Text="MANTRA GANDA"/>
-                </RadioButton>
-                <RadioButton Classes="TrelloBoardTab CompactTab" GroupName="ToolboxTabs" IsChecked="{Binding IsMantraDataVisible}" Command="{Binding SwitchTabCommand}" CommandParameter="{x:Static vm:ToolboxTab.MantraData}">
-                    <TextBlock Classes="navLabel" Text="MANTRA DATA"/>
-                </RadioButton>
+        </Grid>
+
+        <!-- ═══ BREADCRUMB — kembali ke launcher, menyatu dengan header dashboard ═══ -->
+        <Button ZIndex="10" Classes="breadcrumb" Command="{Binding GoHomeCommand}"
+                HorizontalAlignment="Left" VerticalAlignment="Top" Margin="11,20,0,0"
+                IsVisible="{Binding IsBreadcrumbVisible}"
+                ToolTip.Tip="Kembali ke daftar modul">
+            <StackPanel Orientation="Horizontal" Spacing="7">
+                <PathIcon Width="13" Height="13" Data="{StaticResource IconArrowLeft}"/>
+                <TextBlock Text="TOOLBOX" VerticalAlignment="Center"/>
             </StackPanel>
-        </Border>
+        </Button>
 
         </Grid>
     </Grid>

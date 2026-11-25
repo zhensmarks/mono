@@ -244,6 +244,9 @@ public partial class ToolboxWindow : Window
         var files = e.DataTransfer.TryGetFiles()?.Select(f => f.Path.LocalPath).ToList();
         if (files == null || files.Count == 0 || DataContext is not ToolboxViewModel vm) return;
 
+        // Di layar depan (launcher) belum ada modul aktif: drop diabaikan.
+        if (vm.IsHomeVisible) return;
+
         var firstPath = files[0];
         bool isDir = Directory.Exists(firstPath);
 

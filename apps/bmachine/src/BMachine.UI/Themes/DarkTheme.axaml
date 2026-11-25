@@ -24,6 +24,13 @@
     <SolidColorBrush x:Key="StatusWarningBrush" Color="#E8A447"/>
     <SolidColorBrush x:Key="StatusDangerBrush" Color="#EF4444"/>
     <SolidColorBrush x:Key="StatusInfoBrush" Color="#3B82F6"/>
+    <!-- Tint kotak ikon kartu modul launcher Toolbox (biru/teal/violet; amber khusus status) -->
+    <SolidColorBrush x:Key="ModuleBlueBgBrush" Color="#1B2B45"/>
+    <SolidColorBrush x:Key="ModuleBlueFgBrush" Color="#7FB4FF"/>
+    <SolidColorBrush x:Key="ModuleTealBgBrush" Color="#13302F"/>
+    <SolidColorBrush x:Key="ModuleTealFgBrush" Color="#5EEAD4"/>
+    <SolidColorBrush x:Key="ModuleVioletBgBrush" Color="#221F38"/>
+    <SolidColorBrush x:Key="ModuleVioletFgBrush" Color="#C3AEFF"/>
     <SolidColorBrush x:Key="OverlayBrush" Color="#CC000000"/>
     <SolidColorBrush x:Key="HoverOverlayBrush" Color="#CC000000"/>
     <SolidColorBrush x:Key="TintHoverBrush" Color="#0AFFFFFF"/>

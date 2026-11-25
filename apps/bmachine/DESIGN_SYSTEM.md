@@ -76,6 +76,11 @@ Default `TextBlock` = FontPrimary Normal, TextPrimary, line-height 20.
 | `SurfaceElevatedBrush` | #202226 | #F1F3F5 | panel detail, comment, checklist |
 | `PrimaryBrush` | #3b82f6 | #2563EB | accent primer (sidebar log) |
 | `AccentEditingColor` / `AccentLateColor` / `AccentRevisionColor` | #3b82f6 / #ef4444 / #f97316 | sama | warna kategori kartu list |
+| `ModuleBlueBgBrush` / `ModuleBlueFgBrush` | #1B2B45 / #7FB4FF | #E7EEFD / #1D4ED8 | tint kotak ikon modul (launcher) |
+| `ModuleTealBgBrush` / `ModuleTealFgBrush` | #13302F / #5EEAD4 | #DFF7F3 / #0F766E | tint kotak ikon modul (launcher) |
+| `ModuleVioletBgBrush` / `ModuleVioletFgBrush` | #221F38 / #C3AEFF | #F0EBFF / #6D28D9 | tint kotak ikon modul (launcher) |
+
+Amber (`StatusWarningBrush`) khusus status maintenance, bukan warna ikon modul.
 
 Jangan pakai hex random. Jika butuh warna baru, tambah sebagai token di `BMachineDesignSystem.axaml`.
 
@@ -629,3 +634,38 @@ di tab BATCH. Field itu wajib ikut.
 DILARANG:
 - Memakai ikon mata untuk hal lain (itu jalur visibilitas BATCH, bukan editor nama/ikon).
 - Menampilkan tombol mata saat mode edit (kolom sudah dipakai Cancel/Save Changes).
+
+---
+
+## 29. Launcher Toolbox (layar depan ToolboxWindow)
+
+Layar pertama ToolboxWindow adalah grid kartu modul, bukan lagi tab pill.
+
+**Sumber data:** `ToolboxViewModel.Modules` (`ObservableCollection<ToolboxModule>`, field `Name`,
+`Description`, `TargetTab`, `IsEnabled`, `Tint`, `Icon`). Tambah/hapus modul = ubah list itu saja;
+XAML (`ItemsControl` + `UniformGrid Columns=2`) menyesuaikan sendiri. Jangan hardcode kartu di XAML.
+
+**Header:** satu-satunya header adalah teks brand di konten (`BMACHINE` + `TOOLBOX` dalam SATU
+`TextBlock` berisi dua `Run`, supaya baseline dijamin sama). Title bar window sengaja TIDAK berisi
+teks judul — dua header sekaligus ditolak user. `Margin="-1,0,0,20"` pada brand mengompensasi
+side-bearing glyph "B" supaya ink-nya sejajar border kartu.
+
+**Kartu:** `Button.moduleCard` — `CardBackgroundBrush` + `SeparatorBrush` 1px + `RadiusLg`,
+`Padding 20,18`, `MinHeight 104`, isi `Grid` 3 kolom: kotak ikon 44px (`Border.moduleIcon` +
+`PathIcon.moduleGlyph`), judul `h3`/deskripsi `body`, pill aksi di kanan. Hover = border
+`AccentColorBrush` + `BgHoverBrush` (tanpa lift/shadow — aturan §11). Fokus keyboard =
+`BorderFocusBrush` lewat `:focus-visible` saja.
+
+**State maintenance:** `IsEnabled=false` → `:disabled` opacity 0.5, status tampil sebagai chip
+`Border.maintenanceChip` (amber, 11px) di samping judul, aksi jadi pill `LOCKED` (+ ikon kunci),
+BUKAN tombol yang sama dengan OPEN. Jangan taruh status di slot tombol aksi.
+
+**Kembali ke launcher:** `Button.breadcrumb` (`← TOOLBOX`, ghost, 12px `TextMutedBrush`,
+hover `BgHoverBrush` + `TextPrimaryBrush`) menempel kiri-atas konten, `Margin="11,20,0,0"`
+(11 = 20 padding konten dikurangi padding internal tombol), `IsVisible` = `IsBreadcrumbVisible`
+(`!IsHomeVisible && !PsdBucinVM.IsManualModeActive`). DILARANG memakai pill mengambang di tengah-atas;
+tombol back selalu di jalur kiri header.
+
+**Isi modul tidak berubah:** klik kartu hanya memanggil `OpenModuleCommand` yang men-set `CurrentTab`
+dan `IsHomeVisible=false`; form asli tiap modul (PsdBucin/MantraNama/MantraGanda/MantraData) tetap
+utuh, tanpa header tambahan di dalam modul.
