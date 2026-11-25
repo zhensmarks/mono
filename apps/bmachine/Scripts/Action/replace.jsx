@@ -344,13 +344,13 @@ function countFilesFast(folderPath, regex) {
             var item = items[i];
             if (item instanceof File && item.name.match(regex)) {
                 total++;
-            } else if (item instanceof Folder) {
+            } else if (item instanceof Folder && !isExcludedScanFolder(item)) {
                 try {
                     var subItems = item.getFiles();
                     for (var j = 0; j < subItems.length; j++) {
                         if (subItems[j] instanceof File && subItems[j].name.match(regex)) {
                             total++;
-                        } else if (subItems[j] instanceof Folder) {
+                        } else if (subItems[j] instanceof Folder && !isExcludedScanFolder(subItems[j])) {
                             var sub2 = subItems[j].getFiles();
                             for (var k = 0; k < sub2.length; k++) {
                                 if (sub2[k] instanceof File && sub2[k].name.match(regex)) total++;
@@ -1387,13 +1387,21 @@ function runReplacementLogic(templateFolder, inputFolder, suppressAlert, autoBat
 }
 
 // === Helpers ===
+// Folder "#MASTER" adalah subfolder yang dibuat skrip buat_master (template edit
+// copy-edit). Isinya PSD template, BUKAN hasil kerja -> dilewati saat scan
+// (baik di sisi folder Master maupun folder Input).
+function isExcludedScanFolder(item) {
+    var n = decodeURI(item.name || "").toLowerCase();
+    return n === "#master";
+}
+
 function scanFolderForFiles(folder, regex) {
     var files = [];
     var items = folder.getFiles();
     for (var i = 0; i < items.length; i++) {
         var item = items[i];
         if (item instanceof File && item.name.match(regex)) files.push(item);
-        else if (item instanceof Folder) files = files.concat(scanFolderForFiles(item, regex));
+        else if (item instanceof Folder && !isExcludedScanFolder(item)) files = files.concat(scanFolderForFiles(item, regex));
     }
     return files;
 }
