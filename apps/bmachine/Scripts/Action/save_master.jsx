@@ -122,13 +122,50 @@ function isBatchEnabled(value){return value==="all"||value===true||String(value)
 function showAdvancedMode(){
  var presets=loadAdvancedPresets(),pos=loadSettings(),dlg=new Window("dialog","Save Master - Advanced");dlg.orientation="column";dlg.alignChildren=["fill","top"];dlg.spacing=7;dlg.margins=12;
  var panel=dlg.add("panel",undefined,"Saved presets - click button to run");panel.orientation="column";panel.alignChildren=["fill","top"];panel.preferredSize=[350,140];var area=panel.add("group");area.orientation="column";area.alignChildren=["fill","top"];
- var name=dlg.add("edittext",undefined,"");var row=dlg.add("group");row.orientation="row";var master=row.add("checkbox",undefined,"Save PSD");master.value=true;var jpg=row.add("checkbox",undefined,"JPG");var png=row.add("checkbox",undefined,"PNG");var action=dlg.add("checkbox",undefined,"Run anti ramijud action");action.value=true;var keep=dlg.add("checkbox",undefined,"Keep source open");keep.value=true;var batch=dlg.add("checkbox",undefined,"Batch: all open documents");batch.value=false;
- var cropRow=dlg.add("group");cropRow.orientation="row";cropRow.add("statictext",undefined,"Pas Foto (JPG):");var c23=cropRow.add("checkbox",undefined,"Crop 2x3");var c46=cropRow.add("checkbox",undefined,"Crop 4x6");c23.helpTip="Simpan juga versi crop 2x3 ke subfolder 2x3 (seperti tombol PAS FOTO 2x3). JPG ukuran asli 3x4 tidak ikut dibuat kecuali checkbox JPG dicentang.";c46.helpTip="Simpan juga versi crop 4x6 ke subfolder 4x6 (seperti tombol PAS FOTO 4x6). JPG ukuran asli 3x4 tidak ikut dibuat kecuali checkbox JPG dicentang.";cropRow.add("statictext",undefined,"(crop saja, tanpa 3x4)");var bahanRow=dlg.add("group");bahanRow.orientation="row";bahanRow.add("statictext",undefined,"Save to Bahan");var bBahan=bahanRow.add("checkbox",undefined,"Save ke folder BAHAN");var bKelas=bahanRow.add("checkbox",undefined,"BAHAN per KELAS");bKelas.helpTip="Naik satu level ke folder induk, buat BAHAN/BAHAN <KELAS> [format]. Kelas = nama folder dokumen sumber.";
- var pr=dlg.add("group");pr.orientation="row";pr.add("statictext",undefined,"Export folder (blank = source)");var path=pr.add("edittext",undefined,"");path.preferredSize.width=145;var browse=pr.add("button",undefined,"Browse");var buttons=dlg.add("group");buttons.orientation="row";buttons.alignment="center";var save=buttons.add("button",undefined,"Save / Edit");var run=buttons.add("button",undefined,"Run Current");var cancel=buttons.add("button",undefined,"Cancel");
- function conf(){return{name:name.text,saveMaster:master.value,exportJpg:jpg.value,exportPng:png.value,processAction:action.value,keepOpen:keep.value,batch:batch.value,path:path.text,crop2x3:c23.value,crop4x6:c46.value,saveToBahan:bBahan.value,bahanPerKelas:bKelas.value};}
- function execute(c){if(!c.saveMaster&&!c.exportJpg&&!c.exportPng&&!c.crop2x3&&!c.crop4x6){alert("Aktifkan minimal satu proses.");return;}var f=(c.path?String(c.path):"").replace(/^\s+|\s+$/g,"");var isAbs=f.indexOf(":")>=0||f.charAt(0)==="/";if(f&&isAbs&&!new Folder(f).exists){alert("Folder export tidak ditemukan.");return;}dlg.close(1);runAdvancedMode({saveMaster:!!c.saveMaster,exportJpg:!!c.exportJpg,exportPng:!!c.exportPng,processAction:!!c.processAction,keepOpen:!!c.keepOpen,batch:isBatchEnabled(c.batch),path:f,crop2x3:!!c.crop2x3,crop4x6:!!c.crop4x6,saveToBahan:!!c.saveToBahan,bahanPerKelas:!!c.bahanPerKelas});}
+ var name=dlg.add("edittext",undefined,"");
+ var row=dlg.add("group");row.orientation="row";
+ var master=row.add("checkbox",undefined,"Save PSD");master.value=true;
+ var jpg=row.add("checkbox",undefined,"JPG");
+ var png=row.add("checkbox",undefined,"PNG");
+ var action=dlg.add("checkbox",undefined,"Run anti ramijud action");action.value=true;
+ var keep=dlg.add("checkbox",undefined,"Keep source open");keep.value=true;
+ var batch=dlg.add("checkbox",undefined,"Batch: all open documents");batch.value=false;
+ var cropRow=dlg.add("group");cropRow.orientation="row";
+ cropRow.add("statictext",undefined,"Pas Foto (JPG):");
+ var c23=cropRow.add("checkbox",undefined,"Crop 2x3");
+ var c46=cropRow.add("checkbox",undefined,"Crop 4x6");
+ c23.helpTip="Simpan juga versi crop 2x3 ke subfolder 2x3 (seperti tombol PAS FOTO 2x3). JPG ukuran asli 3x4 tidak ikut dibuat kecuali checkbox JPG dicentang.";
+ c46.helpTip="Simpan juga versi crop 4x6 ke subfolder 4x6 (seperti tombol PAS FOTO 4x6). JPG ukuran asli 3x4 tidak ikut dibuat kecuali checkbox JPG dicentang.";
+ cropRow.add("statictext",undefined,"(crop saja, tanpa 3x4)");
+ var pBahan=dlg.add("panel",undefined,"Save to Bahan");
+ pBahan.orientation="row";pBahan.alignChildren=["left","center"];pBahan.spacing=12;pBahan.margins=6;
+ var bBahan=pBahan.add("checkbox",undefined,"Save ke folder BAHAN");
+ var bKelas=pBahan.add("checkbox",undefined,"BAHAN per KELAS");
+ bKelas.helpTip="Naik satu level ke folder induk, buat BAHAN/BAHAN <KELAS> [format]. Kelas = nama folder dokumen sumber.";
+ var buttons=dlg.add("group");buttons.orientation="row";buttons.alignment="center";
+ var save=buttons.add("button",undefined,"Save / Edit");
+ var run=buttons.add("button",undefined,"Run Current");
+ var cancel=buttons.add("button",undefined,"Cancel");
+ function conf(){return{name:name.text,saveMaster:master.value,exportJpg:jpg.value,exportPng:png.value,processAction:action.value,keepOpen:keep.value,batch:batch.value,crop2x3:c23.value,crop4x6:c46.value,saveToBahan:bBahan.value,bahanPerKelas:bKelas.value};}
+ function execute(c){if(!c.saveMaster&&!c.exportJpg&&!c.exportPng&&!c.crop2x3&&!c.crop4x6){alert("Aktifkan minimal satu proses.");return;}dlg.close(1);runAdvancedMode({saveMaster:!!c.saveMaster,exportJpg:!!c.exportJpg,exportPng:!!c.exportPng,processAction:!!c.processAction,keepOpen:!!c.keepOpen,batch:isBatchEnabled(c.batch),path:"",crop2x3:!!c.crop2x3,crop4x6:!!c.crop4x6,saveToBahan:!!c.saveToBahan,bahanPerKelas:!!c.bahanPerKelas});}
  function populate(){while(area.children.length)area.remove(area.children[0]);var r=null;for(var i=0;i<presets.length;i++){if(i%3===0){r=area.add("group");r.orientation="row";}var item=r.add("group");item.orientation="row";item.spacing=1;var b=item.add("button",undefined,presets[i].name);b.preferredSize=[88,25];b.idx=i;b.onClick=function(){var c=presets[this.idx];if(typeof c.batch==="undefined")c.batch=false;if(typeof c.crop2x3==="undefined")c.crop2x3=false;if(typeof c.crop4x6==="undefined")c.crop4x6=false;if(typeof c.saveToBahan==="undefined")c.saveToBahan=false;if(typeof c.bahanPerKelas==="undefined")c.bahanPerKelas=false;execute(c);};var x=item.add("button",undefined,"X");x.preferredSize=[18,25];x.idx=i;x.helpTip="Hapus preset";x.onClick=function(){var idx=this.idx;if(!confirm("Hapus preset '"+presets[idx].name+"'?"))return;presets.splice(idx,1);if(!saveAdvancedPresets(presets)){alert("Gagal menghapus preset.");return;}populate();};}if(!presets.length)area.add("statictext",undefined,"Belum ada preset tersimpan.");area.layout.layout(true);panel.layout.layout(true);dlg.layout.layout(true);dlg.update();}
- populate();browse.onClick=function(){var f=Folder.selectDialog("Pilih folder export");if(f)path.text=decodeURI(f.fsName);};function savePreset(){var c=conf(),n=c.name.replace(/^\s+|\s+$/g,"");if(!n){alert("Isi nama preset.");return;}c.name=n;var i=-1;for(var j=0;j<presets.length;j++)if(presets[j].name===n)i=j;if(i<0)presets.push(c);else presets[i]=c;if(!saveAdvancedPresets(presets)){alert("Gagal menyimpan preset.");return;}populate();area.layout.layout(true);panel.layout.layout(true);dlg.layout.layout(true);dlg.layout.resize();dlg.update();}save.onClick=savePreset; run.onClick=function(){execute(conf());};cancel.onClick=function(){dlg.close(0);};dlg.onClose=function(){var s=loadSettings();s.advancedX=dlg.location.x;s.advancedY=dlg.location.y;saveSettingsData(s);return true;};if(pos.advancedX>0&&pos.advancedY>0)dlg.location=[pos.advancedX,pos.advancedY];else dlg.center();dlg.show();
+ populate();
+ function savePreset(){
+  var c=conf(),n=c.name.replace(/^\s+|\s+$/g,"");
+  if(!n){alert("Isi nama preset.");return;}
+  c.name=n;
+  var i=-1;
+  for(var j=0;j<presets.length;j++)if(presets[j].name===n)i=j;
+  if(i<0)presets.push(c);else presets[i]=c;
+  if(!saveAdvancedPresets(presets)){alert("Gagal menyimpan preset.");return;}
+  populate();area.layout.layout(true);panel.layout.layout(true);dlg.layout.layout(true);dlg.layout.resize();dlg.update();
+ }
+ save.onClick=savePreset;
+ run.onClick=function(){execute(conf());};
+ cancel.onClick=function(){dlg.close(0);};
+ dlg.onClose=function(){var s=loadSettings();s.advancedX=dlg.location.x;s.advancedY=dlg.location.y;saveSettingsData(s);return true;};
+ if(pos.advancedX>0&&pos.advancedY>0)dlg.location=[pos.advancedX,pos.advancedY];else dlg.center();
+ dlg.show();
 }
 function runAdvancedMode(c){
  var docNames=[];var batchMode=isBatchEnabled(c.batch);
