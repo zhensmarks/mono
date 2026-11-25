@@ -123,13 +123,20 @@ function showAdvancedMode(){
  var presets=loadAdvancedPresets(),pos=loadSettings(),dlg=new Window("dialog","Save Master - Advanced");dlg.orientation="column";dlg.alignChildren=["fill","top"];dlg.spacing=7;dlg.margins=12;
  var panel=dlg.add("panel",undefined,"Saved presets - click button to run");panel.orientation="column";panel.alignChildren=["fill","top"];panel.preferredSize=[350,140];var area=panel.add("group");area.orientation="column";area.alignChildren=["fill","top"];
  var name=dlg.add("edittext",undefined,"");
+ name.helpTip="Nama preset (untuk Simpan/Run di bawah). Kosongkan untuk Run Current tanpa nama."
  var row=dlg.add("group");row.orientation="row";
  var master=row.add("checkbox",undefined,"Save PSD");master.value=true;
+ master.helpTip="Simpan master PSD (ukuran asli, tanpa crop) ke folder tujuan. Sumber raster (JPG/PNG) otomatis dikonversi ke PSD."
  var jpg=row.add("checkbox",undefined,"JPG");
+ jpg.helpTip="Export JPG kualitas 12 (flatten + tambah layer putih sebelum flatten). Jika BAHAN ON, hasil ke folder BAHAN JPG."
  var png=row.add("checkbox",undefined,"PNG");
+ png.helpTip="Export PNG transparan (mergeVisible, tanpa flatten supaya alpha terjaga). Jika BAHAN ON, hasil ke folder BAHAN PNG."
  var action=dlg.add("checkbox",undefined,"Run anti ramijud action");action.value=true;
+ action.helpTip="Jalankan action \"anti ramijud\" dari set \"starter pack\" pada duplicate sebelum export. Kalau BAHAN ON, ditambah UnsharpMask(50,2,0) identik NOISEWARE."
  var keep=dlg.add("checkbox",undefined,"Keep source open");keep.value=true;
+ keep.helpTip="Kalau dicentang: dokumen sumber tetap terbuka setelah selesai. Kalau kosong: dokumen ditutup otomatis (DONOTSAVECHANGES)."
  var batch=dlg.add("checkbox",undefined,"Batch: all open documents");batch.value=false;
+ batch.helpTip="Kalau dicentang: semua dokumen terbuka diproses berurutan. Kalau kosong: hanya dokumen aktif."
  var cropRow=dlg.add("group");cropRow.orientation="row";
  cropRow.add("statictext",undefined,"Pas Foto (JPG):");
  var c23=cropRow.add("checkbox",undefined,"Crop 2x3");
@@ -140,12 +147,16 @@ function showAdvancedMode(){
  var pBahan=dlg.add("panel",undefined,"Save to Bahan");
  pBahan.orientation="row";pBahan.alignChildren=["left","center"];pBahan.spacing=12;pBahan.margins=6;
  var bBahan=pBahan.add("checkbox",undefined,"Save ke folder BAHAN");
+ bBahan.helpTip="Simpan hasil ke folder BAHAN (bukan folder sumber). Dokumen WAJIB sudah punya path. KELAS OFF: parent/BAHAN [format]. KELAS ON: naik 1 level, root/BAHAN/BAHAN <KELAS> [format]."
  var bKelas=pBahan.add("checkbox",undefined,"BAHAN per KELAS");
  bKelas.helpTip="Naik satu level ke folder induk, buat BAHAN/BAHAN <KELAS> [format]. Kelas = nama folder dokumen sumber.";
  var buttons=dlg.add("group");buttons.orientation="row";buttons.alignment="center";
  var save=buttons.add("button",undefined,"Save / Edit");
+ save.helpTip="Simpan (atau perbarui) preset dengan nama di atas ke save_master_presets.json. Kalau nama sudah ada, preset lama ditimpa."
  var run=buttons.add("button",undefined,"Run Current");
+ run.helpTip="Jalankan langsung semua centang di atas (PSD/JPG/PNG/crop/BAHAN/anti ramijud) tanpa disimpan jadi preset."
  var cancel=buttons.add("button",undefined,"Cancel");
+ cancel.helpTip="Batal tanpa eksekusi, kembali ke dialog Save Master."
  function conf(){return{name:name.text,saveMaster:master.value,exportJpg:jpg.value,exportPng:png.value,processAction:action.value,keepOpen:keep.value,batch:batch.value,crop2x3:c23.value,crop4x6:c46.value,saveToBahan:bBahan.value,bahanPerKelas:bKelas.value};}
  function execute(c){if(!c.saveMaster&&!c.exportJpg&&!c.exportPng&&!c.crop2x3&&!c.crop4x6){alert("Aktifkan minimal satu proses.");return;}dlg.close(1);runAdvancedMode({saveMaster:!!c.saveMaster,exportJpg:!!c.exportJpg,exportPng:!!c.exportPng,processAction:!!c.processAction,keepOpen:!!c.keepOpen,batch:isBatchEnabled(c.batch),path:"",crop2x3:!!c.crop2x3,crop4x6:!!c.crop4x6,saveToBahan:!!c.saveToBahan,bahanPerKelas:!!c.bahanPerKelas});}
  function populate(){while(area.children.length)area.remove(area.children[0]);var r=null;for(var i=0;i<presets.length;i++){if(i%3===0){r=area.add("group");r.orientation="row";}var item=r.add("group");item.orientation="row";item.spacing=1;var b=item.add("button",undefined,presets[i].name);b.preferredSize=[88,25];b.idx=i;b.onClick=function(){var c=presets[this.idx];if(typeof c.batch==="undefined")c.batch=false;if(typeof c.crop2x3==="undefined")c.crop2x3=false;if(typeof c.crop4x6==="undefined")c.crop4x6=false;if(typeof c.saveToBahan==="undefined")c.saveToBahan=false;if(typeof c.bahanPerKelas==="undefined")c.bahanPerKelas=false;execute(c);};var x=item.add("button",undefined,"X");x.preferredSize=[18,25];x.idx=i;x.helpTip="Hapus preset";x.onClick=function(){var idx=this.idx;if(!confirm("Hapus preset '"+presets[idx].name+"'?"))return;presets.splice(idx,1);if(!saveAdvancedPresets(presets)){alert("Gagal menghapus preset.");return;}populate();};}if(!presets.length)area.add("statictext",undefined,"Belum ada preset tersimpan.");area.layout.layout(true);panel.layout.layout(true);dlg.layout.layout(true);dlg.update();}
