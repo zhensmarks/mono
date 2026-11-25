@@ -119,11 +119,36 @@ function saveMasterConfig(stepsObj, redaksiLines) {
 function loadAdvancedPresets(){var f=new File(Folder.userData+"/save_master_presets.json");if(!f.exists)return[];try{f.open("r");var d=eval("("+f.read()+")");f.close();return d&&d.presets&&d.presets.constructor===Array?d.presets:[];}catch(e){try{f.close();}catch(x){}return[];}}
 function saveAdvancedPresets(p){var f=new File(Folder.userData+"/save_master_presets.json");try{f.open("w");f.write(({presets:p}).toSource());f.close();return true;}catch(e){try{f.close();}catch(x){}return false;}}
 function isBatchEnabled(value){return value==="all"||value===true||String(value).toLowerCase()==="true"||String(value)==="1"||String(value).toLowerCase()==="on";}
+// Build tooltip for a preset button: keterangan user + ringkasan centangan
+function buildPresetTip(c){
+ var lines=[];
+ if(c.desc&&String(c.desc).replace(/^\s+|\s+$/g,"")){
+  lines.push("["+String(c.desc).replace(/^\s+|\s+$/g,"")+"]");
+ }
+ var ctrl=[];
+ if(c.saveMaster)ctrl.push("PSD");
+ if(c.exportJpg)ctrl.push("JPG");
+ if(c.exportPng)ctrl.push("PNG");
+ if(c.crop2x3)ctrl.push("crop 2x3");
+ if(c.crop4x6)ctrl.push("crop 4x6");
+ if(c.saveToBahan)ctrl.push("BAHAN"+(c.bahanPerKelas?" per KELAS":""));
+ if(c.processAction)ctrl.push("anti ramijud");
+ if(c.batch)ctrl.push("BATCH");
+ if(!c.keepOpen)ctrl.push("tutup dokumen");
+ if(ctrl.length){
+  lines.push("Kontrol: "+ctrl.join(", "));
+ }else{
+  lines.push("(tidak ada kontrol dicentang)");
+ }
+ return lines.join("\n");
+}
 function showAdvancedMode(){
  var presets=loadAdvancedPresets(),pos=loadSettings(),dlg=new Window("dialog","Save Master - Advanced");dlg.orientation="column";dlg.alignChildren=["fill","top"];dlg.spacing=7;dlg.margins=12;
  var panel=dlg.add("panel",undefined,"Saved presets - click button to run");panel.orientation="column";panel.alignChildren=["fill","top"];panel.preferredSize=[350,140];var area=panel.add("group");area.orientation="column";area.alignChildren=["fill","top"];
  var name=dlg.add("edittext",undefined,"");
  name.helpTip="Nama preset (untuk Simpan/Run di bawah). Kosongkan untuk Run Current tanpa nama."
+ var desc=dlg.add("edittext",undefined,"");
+ desc.helpTip="Keterangan bebas: jelaskan preset ini untuk apa. Muncul di tooltip tombol preset saat hover."
  var row=dlg.add("group");row.orientation="row";
  var master=row.add("checkbox",undefined,"Save PSD");master.value=true;
  master.helpTip="Simpan master PSD (ukuran asli, tanpa crop) ke folder tujuan. Sumber raster (JPG/PNG) otomatis dikonversi ke PSD."
@@ -157,9 +182,10 @@ function showAdvancedMode(){
  run.helpTip="Jalankan langsung semua centang di atas (PSD/JPG/PNG/crop/BAHAN/anti ramijud) tanpa disimpan jadi preset."
  var cancel=buttons.add("button",undefined,"Cancel");
  cancel.helpTip="Batal tanpa eksekusi, kembali ke dialog Save Master."
- function conf(){return{name:name.text,saveMaster:master.value,exportJpg:jpg.value,exportPng:png.value,processAction:action.value,keepOpen:keep.value,batch:batch.value,crop2x3:c23.value,crop4x6:c46.value,saveToBahan:bBahan.value,bahanPerKelas:bKelas.value};}
+ function conf(){return{name:name.text,desc:desc.text,saveMaster:master.value,exportJpg:jpg.value,exportPng:png.value,processAction:action.value,keepOpen:keep.value,batch:batch.value,crop2x3:c23.value,crop4x6:c46.value,saveToBahan:bBahan.value,bahanPerKelas:bKelas.value};}
  function execute(c){if(!c.saveMaster&&!c.exportJpg&&!c.exportPng&&!c.crop2x3&&!c.crop4x6){alert("Aktifkan minimal satu proses.");return;}dlg.close(1);runAdvancedMode({saveMaster:!!c.saveMaster,exportJpg:!!c.exportJpg,exportPng:!!c.exportPng,processAction:!!c.processAction,keepOpen:!!c.keepOpen,batch:isBatchEnabled(c.batch),path:"",crop2x3:!!c.crop2x3,crop4x6:!!c.crop4x6,saveToBahan:!!c.saveToBahan,bahanPerKelas:!!c.bahanPerKelas});}
- function populate(){while(area.children.length)area.remove(area.children[0]);var r=null;for(var i=0;i<presets.length;i++){if(i%3===0){r=area.add("group");r.orientation="row";}var item=r.add("group");item.orientation="row";item.spacing=1;var b=item.add("button",undefined,presets[i].name);b.preferredSize=[88,25];b.idx=i;b.onClick=function(){var c=presets[this.idx];if(typeof c.batch==="undefined")c.batch=false;if(typeof c.crop2x3==="undefined")c.crop2x3=false;if(typeof c.crop4x6==="undefined")c.crop4x6=false;if(typeof c.saveToBahan==="undefined")c.saveToBahan=false;if(typeof c.bahanPerKelas==="undefined")c.bahanPerKelas=false;execute(c);};var x=item.add("button",undefined,"X");x.preferredSize=[18,25];x.idx=i;x.helpTip="Hapus preset";x.onClick=function(){var idx=this.idx;if(!confirm("Hapus preset '"+presets[idx].name+"'?"))return;presets.splice(idx,1);if(!saveAdvancedPresets(presets)){alert("Gagal menghapus preset.");return;}populate();};}if(!presets.length)area.add("statictext",undefined,"Belum ada preset tersimpan.");area.layout.layout(true);panel.layout.layout(true);dlg.layout.layout(true);dlg.update();}
+ function populate(){while(area.children.length)area.remove(area.children[0]);var r=null;for(var i=0;i<presets.length;i++){if(i%3===0){r=area.add("group");r.orientation="row";}var item=r.add("group");item.orientation="row";item.spacing=1;var b=item.add("button",undefined,presets[i].name);b.preferredSize=[88,25];b.idx=i;
+ b.helpTip=buildPresetTip(presets[i]);b.onClick=function(){var c=presets[this.idx];if(typeof c.batch==="undefined")c.batch=false;if(typeof c.crop2x3==="undefined")c.crop2x3=false;if(typeof c.crop4x6==="undefined")c.crop4x6=false;if(typeof c.saveToBahan==="undefined")c.saveToBahan=false;if(typeof c.bahanPerKelas==="undefined")c.bahanPerKelas=false;execute(c);};var x=item.add("button",undefined,"X");x.preferredSize=[18,25];x.idx=i;x.helpTip="Hapus preset";x.onClick=function(){var idx=this.idx;if(!confirm("Hapus preset '"+presets[idx].name+"'?"))return;presets.splice(idx,1);if(!saveAdvancedPresets(presets)){alert("Gagal menghapus preset.");return;}populate();};}if(!presets.length)area.add("statictext",undefined,"Belum ada preset tersimpan.");area.layout.layout(true);panel.layout.layout(true);dlg.layout.layout(true);dlg.update();}
  populate();
  function savePreset(){
   var c=conf(),n=c.name.replace(/^\s+|\s+$/g,"");
