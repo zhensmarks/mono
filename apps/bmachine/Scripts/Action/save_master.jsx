@@ -123,11 +123,11 @@ function showAdvancedMode(){
  var presets=loadAdvancedPresets(),pos=loadSettings(),dlg=new Window("dialog","Save Master - Advanced");dlg.orientation="column";dlg.alignChildren=["fill","top"];dlg.spacing=7;dlg.margins=12;
  var panel=dlg.add("panel",undefined,"Saved presets - click button to run");panel.orientation="column";panel.alignChildren=["fill","top"];panel.preferredSize=[350,140];var area=panel.add("group");area.orientation="column";area.alignChildren=["fill","top"];
  var name=dlg.add("edittext",undefined,"");var row=dlg.add("group");row.orientation="row";var master=row.add("checkbox",undefined,"Save PSD");master.value=true;var jpg=row.add("checkbox",undefined,"JPG");var png=row.add("checkbox",undefined,"PNG");var action=dlg.add("checkbox",undefined,"Run anti ramijud action");action.value=true;var keep=dlg.add("checkbox",undefined,"Keep source open");keep.value=true;var batch=dlg.add("checkbox",undefined,"Batch: all open documents");batch.value=false;
- var cropRow=dlg.add("group");cropRow.orientation="row";cropRow.add("statictext",undefined,"Pas Foto (JPG):");var c23=cropRow.add("checkbox",undefined,"Crop 2x3");var c46=cropRow.add("checkbox",undefined,"Crop 4x6");c23.helpTip="Simpan juga versi crop 2x3 ke subfolder 2x3 (seperti tombol PAS FOTO 2x3). JPG ukuran asli 3x4 tidak ikut dibuat kecuali checkbox JPG dicentang.";c46.helpTip="Simpan juga versi crop 4x6 ke subfolder 4x6 (seperti tombol PAS FOTO 4x6). JPG ukuran asli 3x4 tidak ikut dibuat kecuali checkbox JPG dicentang.";cropRow.add("statictext",undefined,"(crop saja, tanpa 3x4)");
+ var cropRow=dlg.add("group");cropRow.orientation="row";cropRow.add("statictext",undefined,"Pas Foto (JPG):");var c23=cropRow.add("checkbox",undefined,"Crop 2x3");var c46=cropRow.add("checkbox",undefined,"Crop 4x6");c23.helpTip="Simpan juga versi crop 2x3 ke subfolder 2x3 (seperti tombol PAS FOTO 2x3). JPG ukuran asli 3x4 tidak ikut dibuat kecuali checkbox JPG dicentang.";c46.helpTip="Simpan juga versi crop 4x6 ke subfolder 4x6 (seperti tombol PAS FOTO 4x6). JPG ukuran asli 3x4 tidak ikut dibuat kecuali checkbox JPG dicentang.";cropRow.add("statictext",undefined,"(crop saja, tanpa 3x4)");var bahanRow=dlg.add("group");bahanRow.orientation="row";bahanRow.add("statictext",undefined,"Save to Bahan");var bBahan=bahanRow.add("checkbox",undefined,"Save ke folder BAHAN");var bKelas=bahanRow.add("checkbox",undefined,"BAHAN per KELAS");bKelas.helpTip="Naik satu level ke folder induk, buat BAHAN/BAHAN <KELAS> [format]. Kelas = nama folder dokumen sumber.";
  var pr=dlg.add("group");pr.orientation="row";pr.add("statictext",undefined,"Export folder (blank = source)");var path=pr.add("edittext",undefined,"");path.preferredSize.width=145;var browse=pr.add("button",undefined,"Browse");var buttons=dlg.add("group");buttons.orientation="row";buttons.alignment="center";var save=buttons.add("button",undefined,"Save / Edit");var run=buttons.add("button",undefined,"Run Current");var cancel=buttons.add("button",undefined,"Cancel");
- function conf(){return{name:name.text,saveMaster:master.value,exportJpg:jpg.value,exportPng:png.value,processAction:action.value,keepOpen:keep.value,batch:batch.value,path:path.text,crop2x3:c23.value,crop4x6:c46.value};}
- function execute(c){if(!c.saveMaster&&!c.exportJpg&&!c.exportPng&&!c.crop2x3&&!c.crop4x6){alert("Aktifkan minimal satu proses.");return;}var f=(c.path?String(c.path):"").replace(/^\s+|\s+$/g,"");var isAbs=f.indexOf(":")>=0||f.charAt(0)==="/";if(f&&isAbs&&!new Folder(f).exists){alert("Folder export tidak ditemukan.");return;}dlg.close(1);runAdvancedMode({saveMaster:!!c.saveMaster,exportJpg:!!c.exportJpg,exportPng:!!c.exportPng,processAction:!!c.processAction,keepOpen:!!c.keepOpen,batch:isBatchEnabled(c.batch),path:f,crop2x3:!!c.crop2x3,crop4x6:!!c.crop4x6});}
- function populate(){while(area.children.length)area.remove(area.children[0]);var r=null;for(var i=0;i<presets.length;i++){if(i%3===0){r=area.add("group");r.orientation="row";}var item=r.add("group");item.orientation="row";item.spacing=1;var b=item.add("button",undefined,presets[i].name);b.preferredSize=[88,25];b.idx=i;b.onClick=function(){var c=presets[this.idx];if(typeof c.batch==="undefined")c.batch=false;if(typeof c.crop2x3==="undefined")c.crop2x3=false;if(typeof c.crop4x6==="undefined")c.crop4x6=false;execute(c);};var x=item.add("button",undefined,"X");x.preferredSize=[18,25];x.idx=i;x.helpTip="Hapus preset";x.onClick=function(){var idx=this.idx;if(!confirm("Hapus preset '"+presets[idx].name+"'?"))return;presets.splice(idx,1);if(!saveAdvancedPresets(presets)){alert("Gagal menghapus preset.");return;}populate();};}if(!presets.length)area.add("statictext",undefined,"Belum ada preset tersimpan.");area.layout.layout(true);panel.layout.layout(true);dlg.layout.layout(true);dlg.update();}
+ function conf(){return{name:name.text,saveMaster:master.value,exportJpg:jpg.value,exportPng:png.value,processAction:action.value,keepOpen:keep.value,batch:batch.value,path:path.text,crop2x3:c23.value,crop4x6:c46.value,saveToBahan:bBahan.value,bahanPerKelas:bKelas.value};}
+ function execute(c){if(!c.saveMaster&&!c.exportJpg&&!c.exportPng&&!c.crop2x3&&!c.crop4x6){alert("Aktifkan minimal satu proses.");return;}var f=(c.path?String(c.path):"").replace(/^\s+|\s+$/g,"");var isAbs=f.indexOf(":")>=0||f.charAt(0)==="/";if(f&&isAbs&&!new Folder(f).exists){alert("Folder export tidak ditemukan.");return;}dlg.close(1);runAdvancedMode({saveMaster:!!c.saveMaster,exportJpg:!!c.exportJpg,exportPng:!!c.exportPng,processAction:!!c.processAction,keepOpen:!!c.keepOpen,batch:isBatchEnabled(c.batch),path:f,crop2x3:!!c.crop2x3,crop4x6:!!c.crop4x6,saveToBahan:!!c.saveToBahan,bahanPerKelas:!!c.bahanPerKelas});}
+ function populate(){while(area.children.length)area.remove(area.children[0]);var r=null;for(var i=0;i<presets.length;i++){if(i%3===0){r=area.add("group");r.orientation="row";}var item=r.add("group");item.orientation="row";item.spacing=1;var b=item.add("button",undefined,presets[i].name);b.preferredSize=[88,25];b.idx=i;b.onClick=function(){var c=presets[this.idx];if(typeof c.batch==="undefined")c.batch=false;if(typeof c.crop2x3==="undefined")c.crop2x3=false;if(typeof c.crop4x6==="undefined")c.crop4x6=false;if(typeof c.saveToBahan==="undefined")c.saveToBahan=false;if(typeof c.bahanPerKelas==="undefined")c.bahanPerKelas=false;execute(c);};var x=item.add("button",undefined,"X");x.preferredSize=[18,25];x.idx=i;x.helpTip="Hapus preset";x.onClick=function(){var idx=this.idx;if(!confirm("Hapus preset '"+presets[idx].name+"'?"))return;presets.splice(idx,1);if(!saveAdvancedPresets(presets)){alert("Gagal menghapus preset.");return;}populate();};}if(!presets.length)area.add("statictext",undefined,"Belum ada preset tersimpan.");area.layout.layout(true);panel.layout.layout(true);dlg.layout.layout(true);dlg.update();}
  populate();browse.onClick=function(){var f=Folder.selectDialog("Pilih folder export");if(f)path.text=decodeURI(f.fsName);};function savePreset(){var c=conf(),n=c.name.replace(/^\s+|\s+$/g,"");if(!n){alert("Isi nama preset.");return;}c.name=n;var i=-1;for(var j=0;j<presets.length;j++)if(presets[j].name===n)i=j;if(i<0)presets.push(c);else presets[i]=c;if(!saveAdvancedPresets(presets)){alert("Gagal menyimpan preset.");return;}populate();area.layout.layout(true);panel.layout.layout(true);dlg.layout.layout(true);dlg.layout.resize();dlg.update();}save.onClick=savePreset; run.onClick=function(){execute(conf());};cancel.onClick=function(){dlg.close(0);};dlg.onClose=function(){var s=loadSettings();s.advancedX=dlg.location.x;s.advancedY=dlg.location.y;saveSettingsData(s);return true;};if(pos.advancedX>0&&pos.advancedY>0)dlg.location=[pos.advancedX,pos.advancedY];else dlg.center();dlg.show();
 }
 function runAdvancedMode(c){
@@ -153,6 +153,30 @@ function runAdvancedMode(c){
  // Saat batch, tiap dokumen ditarget sesuai folder sumbernya sendiri, sehingga
  // SEMUA dokumen tersimpan (bukan hanya yang pertama).
  function resolveAdvTarget(pathInput,srcFolder){
+  if(c.saveToBahan){
+   if(!srcFolder)throw new Error("BAHAN: dokumen belum pernah disimpan, tidak bisa menentukan folder BAHAN. Simpan dulu dokumennya.");
+   var srcParent=srcFolder;
+   var subJpg=null,subPng=null;
+   if(c.bahanPerKelas){
+    try{ if(srcFolder.parent){srcParent=new Folder(srcFolder.fsName+"/");} }catch(eP){srcParent=srcFolder;}
+    var bahanRoot=new Folder(srcParent.fsName+"/BAHAN");
+    if(!bahanRoot.exists){try{bahanRoot.create();}catch(eRoot){}}
+    var kelasSuffix=srcFolder.name;
+    var jpgName="BAHAN "+kelasSuffix+(c.exportJpg?" JPG":"");
+    var pngName="BAHAN "+kelasSuffix+(c.exportPng?" PNG":"");
+    if(c.exportJpg){subJpg=new Folder(bahanRoot.fsName+"/"+jpgName);if(!subJpg.exists){try{subJpg.create();}catch(eJ){}}}
+    if(c.exportPng){subPng=new Folder(bahanRoot.fsName+"/"+pngName);if(!subPng.exists){try{subPng.create();}catch(ePng2){}}}
+    if(!c.exportJpg&&!c.exportPng){var noFmt=new Folder(bahanRoot.fsName+"/BAHAN "+kelasSuffix);if(!noFmt.exists){try{noFmt.create();}catch(eNF){}};subJpg=subPng=noFmt;}
+    return {jpg:subJpg?subJpg.fsName:null,png:subPng?subPng.fsName:null,psd:bahanRoot.fsName};
+   }else{
+    var singleName="BAHAN";
+    if(c.exportJpg)singleName="BAHAN JPG";
+    else if(c.exportPng)singleName="BAHAN PNG";
+    var fBahan=new Folder(srcFolder.fsName+"/"+singleName);
+    if(!fBahan.exists){try{fBahan.create();}catch(eB){}}
+    return {jpg:fBahan.fsName,png:fBahan.fsName,psd:fBahan.fsName};
+   }
+  }
   if(!pathInput||pathInput.length===0)return srcFolder?srcFolder.fsName:null;
   var target=new Folder(pathInput);
   if(srcFolder){
@@ -185,86 +209,96 @@ function runAdvancedMode(c){
     // kosong = sesamping PSD (folder sumber); diisi = folder custom +mirroring
     // nama folder sumber. Di-batch tiap dokumen punya tujuan sendiri, jadi
     // semua dokumen tetap tersimpan (bukan hanya yang pertama).
-    var docPath=null;
-    if(c.saveMaster||c.exportJpg||c.exportPng||crop2x3||crop4x6){
-     docPath=resolveAdvTarget(c.path,srcFolder);
-     if(!docPath)throw new Error("Folder tujuan tidak tersedia: dokumen belum pernah disimpan dan export folder kosong. Simpan PSD dulu, atau isi export folder.");
+    var docPath=null,docPathJpg=null,docPathPng=null,docPathPsd=null;
+    if(c.saveToBahan){
+     // BAHAN mode: resolve folder BAHAN (per KELAS atau langsung di parent)
+     var bahanTargets=resolveAdvTarget(c.path,srcFolder);
+     docPathJpg=bahanTargets.jpg;
+     docPathPng=bahanTargets.png;
+     docPathPsd=bahanTargets.psd;
+     docPath=docPathJpg?docPathJpg:docPathPsd;
+    }else{
+     if(c.saveMaster||c.exportJpg||c.exportPng||crop2x3||crop4x6){
+      docPath=resolveAdvTarget(c.path,srcFolder);
+      if(!docPath)throw new Error("Folder tujuan tidak tersedia: dokumen belum pernah disimpan dan export folder kosong. Simpan PSD dulu, atau isi export folder.");
+     }
     }
 
-    // --- SAVE PSD (master) — logika sama seperti save standar ---
+    // --- SAVE PSD (master) ---
     if(c.saveMaster){
-     if(ext==="jpg"||ext==="jpeg"||ext==="png"){
-      // Sumber raster: simpan master .psd ke folder tujuan
+     if(c.saveToBahan&&docPathPsd){
+      var fb=new File(docPathPsd+"/"+base+".psd"),ob=new PhotoshopSaveOptions();
+      ob.embedColorProfile=true;ob.layers=true;ob.maximizeCompatibility=true;
+      d.saveAs(fb,ob,true,Extension.LOWERCASE);
+     }else if(ext==="jpg"||ext==="jpeg"||ext==="png"){
       var f=new File(docPath+"/"+base+".psd"),o=new PhotoshopSaveOptions();
       o.embedColorProfile=true;o.layers=true;o.maximizeCompatibility=true;
       d.saveAs(f,o,true,Extension.LOWERCASE);
      }else if(!srcFolder){
-      // Belum pernah disimpan: minta lokasi simpan
       var sf=File.saveDialog("Simpan master PSD","Photoshop:*.psd");
       if(!sf)throw new Error("Save dibatalkan");
       if(!/\.psd$/i.test(sf.name))sf=new File(sf.fsName+".psd");
       var so=new PhotoshopSaveOptions();so.embedColorProfile=true;so.layers=true;so.maximizeCompatibility=true;
       d.saveAs(sf,so,true,Extension.LOWERCASE);
      }else if(c.path&&docPath!==srcFolder.fsName){
-      // Sumber PSD/PSB + export folder custom: saveAs ke folder tujuan
       var pf=new File(docPath+"/"+base+".psd"),po=new PhotoshopSaveOptions();
       po.embedColorProfile=true;po.layers=true;po.maximizeCompatibility=true;
       d.saveAs(pf,po,true,Extension.LOWERCASE);
      }else{
-      // PSD/PSB tanpa export folder: simpan di tempat (persis save standar)
       d.save();
      }
     }
 
-    // --- EXPORT JPG/PNG — logika sama seperti save standar ---
+    // --- EXPORT JPG/PNG ---
     if(c.exportJpg||c.exportPng){
-     // Dokumen belum pernah disimpan & export folder kosong: docPath belum ada,
-     // minta folder (sama seperti fallback save standar tanpa custom folder).
-     if(!docPath){
+     var jpgTarget=c.saveToBahan?docPathJpg:docPath;
+     var pngTarget=c.saveToBahan?docPathPng:docPath;
+
+     if(!c.saveToBahan&&!docPath){
       var picked=Folder.selectDialog("Pilih folder export untuk: "+docName);
       if(!picked)throw new Error("Folder export tidak dipilih (dibatalkan)");
       docPath=picked.fsName;
+      jpgTarget=pngTarget=docPath;
      }
 
-     // --- PNG: HARUS tetap transparan ---
-     // JANGAN pakai dup.flatten(): Photoshop mengisi semua area transparan dengan
-     // putih. Pakai mergeVisible (persis tombol "PNG Standard") supaya alpha
-     // tetap terjaga. Tambah layer baru dulu, sama seperti save standar.
      if(c.exportPng){
-      dup=d.duplicate(base+"_advanced_png");app.activeDocument=dup;
-      try{dup.artLayers.add();}catch(exAdd){}
-      try{executeAction(stringIDToTypeID("mergeVisible"),undefined,DialogModes.NO);}catch(exMerge){}
-      if(!requested&&c.processAction)try{app.doAction("anti ramijud","starter pack");}catch(ex){}
-      if(!requested)savePNG(dup,docPath+"/"+base+".png");
-      dup.close(SaveOptions.DONOTSAVECHANGES);dup=null;app.activeDocument=d;
+      if(c.saveToBahan){
+       savePngBahan(d,base,pngTarget,c.processAction);
+      }else{
+       dup=d.duplicate(base+"_advanced_png");app.activeDocument=dup;
+       try{dup.artLayers.add();}catch(exAdd){}
+       try{executeAction(stringIDToTypeID("mergeVisible"),undefined,DialogModes.NO);}catch(exMerge){}
+       if(!requested&&c.processAction)try{app.doAction("anti ramijud","starter pack");}catch(ex){}
+       if(!requested)savePNG(dup,docPath+"/"+base+".png");
+       dup.close(SaveOptions.DONOTSAVECHANGES);dup=null;app.activeDocument=d;
+      }
      }
 
-     // --- JPG: tidak mendukung alpha ---
-     // Sama persis save standar: tambah layer baru (visible) SEBELUM flatten
-     // supaya background tidak ikut terisi putih, lalu flatten.
      if(c.exportJpg){
-      dup=d.duplicate(base+"_advanced_jpg");app.activeDocument=dup;
-      try{dup.artLayers.add();}catch(exAdd2){}
-      dup.flatten();
-      if(!requested&&c.processAction)try{app.doAction("anti ramijud","starter pack");}catch(ex){}
-      if(!requested)saveJPG(dup,docPath+"/"+base+".jpg",12);
-      dup.close(SaveOptions.DONOTSAVECHANGES);dup=null;app.activeDocument=d;
+      if(c.saveToBahan){
+       saveJPGBahan(d,base,jpgTarget,c.processAction);
+      }else{
+       dup=d.duplicate(base+"_advanced_jpg");app.activeDocument=dup;
+       try{dup.artLayers.add();}catch(exAdd2){}
+       dup.flatten();
+       if(!requested&&c.processAction)try{app.doAction("anti ramijud","starter pack");}catch(ex){}
+       if(!requested)saveJPG(dup,docPath+"/"+base+".jpg",12);
+       dup.close(SaveOptions.DONOTSAVECHANGES);dup=null;app.activeDocument=d;
+      }
      }
 
     }
 
     // --- PAS FOTO (Advanced, custom): crop 2x3 / 4x6 ---
-    // Hasilnya ke subfolder 2x3 / 4x6 persis tombol PAS FOTO di dialog utama.
-    // Karena Advanced custom, memilih crop TIDAK membuat <base>.jpg ukuran asli
-    // (3x4); JPG itu hanya dibuat kalau checkbox JPG di atas dicentang.
+    var cropBase=c.saveToBahan?docPathJpg:docPath;
     if(crop2x3||crop4x6){
-     if(crop2x3&&!requested){
-      var folderCrop2x3=createFolderIfNotExist(docPath+"/2x3");
+     if(crop2x3&&!requested&&cropBase){
+      var folderCrop2x3=createFolderIfNotExist(cropBase+"/2x3");
       createCroppedVersion(d,folderCrop2x3.fsName,2,3,12,(c.processAction&&!requested));
       try{app.activeDocument=d;}catch(exBack23){}
      }
-     if(crop4x6&&!requested){
-      var folderCrop4x6=createFolderIfNotExist(docPath+"/4x6");
+     if(crop4x6&&!requested&&cropBase){
+      var folderCrop4x6=createFolderIfNotExist(cropBase+"/4x6");
       createCroppedVersion(d,folderCrop4x6.fsName,4,6,12,(c.processAction&&!requested));
       try{app.activeDocument=d;}catch(exBack46){}
      }
@@ -1255,6 +1289,34 @@ function createCroppedVersion(sourceDoc, targetFolder, widthCm, heightCm, qualit
     tempDoc.close(SaveOptions.DONOTSAVECHANGES);
     return true;
 }
+
+// === BAHAN helpers (identik dengan "NOISEWARE" di 2.SAVE FORMAT.jsx) ===
+function saveJPGBahan(doc, baseName, targetFolder, runAction) {
+    var tempDoc = doc.duplicate();
+    app.activeDocument = tempDoc;
+    try { tempDoc.artLayers.add(); } catch (eAdd) { }
+    tempDoc.flatten();
+    if (runAction) {
+        try { app.doAction("anti ramijud", "starter pack"); } catch (eAct) { }
+        try { tempDoc.activeLayer.applyUnSharpMask(50, 2, 0); } catch (eUSM) { }
+    }
+    saveJPG(tempDoc, targetFolder + "/" + baseName + ".jpg", 12);
+    tempDoc.close(SaveOptions.DONOTSAVECHANGES);
+    app.activeDocument = doc;
+}
+
+function savePngBahan(doc, baseName, targetFolder, runAction) {
+    var tempDoc = doc.duplicate();
+    app.activeDocument = tempDoc;
+    try { executeAction(stringIDToTypeID("mergeVisible"), undefined, DialogModes.NO); } catch (eMerge) { }
+    if (runAction) {
+        try { app.doAction("anti ramijud", "starter pack"); } catch (eAct) { }
+    }
+    savePNG(tempDoc, targetFolder + "/" + baseName + ".png");
+    tempDoc.close(SaveOptions.DONOTSAVECHANGES);
+    app.activeDocument = doc;
+}
+
 
 function showScrollableAlert(title, message) {
     var dialog = new Window("dialog", title);
