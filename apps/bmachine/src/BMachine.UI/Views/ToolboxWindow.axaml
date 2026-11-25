@@ -174,6 +174,20 @@
             <Setter Property="CornerRadius" Value="{DynamicResource RadiusXxs}"/>
         </Style>
 
+        <!-- DROPZONE BOX: visual feedback jelas saat drag & drop -->
+        <Style Selector="Border.DropZoneBox">
+            <Setter Property="Background" Value="{DynamicResource BgInputBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderDefaultBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}"/>
+            <Setter Property="Padding" Value="12,14"/>
+            <Setter Property="MinHeight" Value="68"/>
+        </Style>
+        <Style Selector="Border.DropZoneBox:pointerover">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentColorBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource BgHoverBrush}"/>
+        </Style>
+
         <!-- LISTBOX (Preview) -->
         <Style Selector="ListBox.Preview">
             <Setter Property="Background" Value="Transparent"/>
@@ -508,11 +522,7 @@
         </Grid>
 
         <Grid Grid.Row="1">
-        <!-- LAYOUT CONSTRAINT MOCKS (Independent from content to prevent shrink-lock & ensure stretching) -->
-        <!-- PathTextBoxWidth simulates Window width minus left/right paddings and button sizes -->
-        <Panel x:Name="PathTextBoxWidth" Margin="44,0,150,0" IsHitTestVisible="False" />
-        <!-- StatusTextWidth simulates Window width minus two buttons in the action bar -->
-        <Panel x:Name="StatusTextWidth" Margin="44,0,320,0" IsHitTestVisible="False" />
+
 
         <!-- ═══ LAUNCHER (layar depan: pilih modul) ═══ -->
         <Grid Grid.Row="1" Margin="20,22,20,20" IsVisible="{Binding IsHomeVisible}">
@@ -603,25 +613,41 @@
                     <Grid Grid.Row="0" IsVisible="{Binding !PsdBucinVM.IsManualModeActive}" RowDefinitions="*,16,*,16,Auto">
 
                         <!-- Master PSD -->
-                        <Border Grid.Row="0" x:Name="MasterDropZone" Classes="Card" DragDrop.AllowDrop="True">
-                            <Grid RowDefinitions="Auto,Auto,*,Auto">
-                                <TextBlock Grid.Row="0" Classes="Section" Text="MASTER &amp; OUTPUT" FontWeight="Bold" HorizontalAlignment="Center"/>
-                                <Rectangle Grid.Row="1" Classes="Divider" Margin="0,0,0,0"/>
-                                <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
-                                    <TextBox Grid.Column="0" Classes="Input" Text="{Binding PsdBucinVM.MasterDirectory}" Watermark="Ketik/Paste path, atau Drag &amp; Drop folder kesini" MinWidth="0" ScrollViewer.HorizontalScrollBarVisibility="Auto" Width="{Binding #PathTextBoxWidth.Bounds.Width}"/>
-                                    <Button Grid.Column="1" Classes="Muted" Content="Pilih" Margin="8,0,0,0" Padding="12,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center" Click="OnPsdSelectMasterClick"/>
+                        <Border Grid.Row="0" x:Name="MasterDropZone" Classes="Card" Padding="18,16" DragDrop.AllowDrop="True">
+                            <Grid RowDefinitions="Auto,*,Auto" RowSpacing="10">
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
+                                    <PathIcon Width="14" Height="14" Data="{StaticResource IconLayers}" Foreground="{DynamicResource AccentColorBrush}"/>
+                                    <TextBlock Classes="Section" Text="MASTER &amp; OUTPUT" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <Border Grid.Row="1" Classes="DropZoneBox">
+                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="6">
+                                        <PathIcon Width="20" Height="20" Data="{StaticResource IconFolderOpen}" Foreground="{DynamicResource AccentColorBrush}" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Seret (Drag &amp; Drop) folder template master PSD ke sini" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <TextBox Grid.Column="0" Classes="Input" Text="{Binding PsdBucinVM.MasterDirectory}" Watermark="Path folder master PSD..." MinWidth="0" ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
+                                    <Button Grid.Column="1" Classes="Muted" Content="Pilih" Padding="14,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center" Click="OnPsdSelectMasterClick"/>
                                 </Grid>
                             </Grid>
                         </Border>
 
                         <!-- Foto JPG -->
-                        <Border Grid.Row="2" x:Name="PhotoDropZone" Classes="Card" DragDrop.AllowDrop="True">
-                            <Grid RowDefinitions="Auto,Auto,*,Auto">
-                                <TextBlock Grid.Row="0" Classes="Section" Text="INPUT" FontWeight="Bold" HorizontalAlignment="Center"/>
-                                <Rectangle Grid.Row="1" Classes="Divider" Margin="0,0,0,0"/>
-                                <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
-                                    <TextBox Grid.Column="0" Classes="Input" Text="{Binding PsdBucinVM.PhotoDirectory}" Watermark="Ketik/Paste path, atau Drag &amp; Drop folder kesini" MinWidth="0" ScrollViewer.HorizontalScrollBarVisibility="Auto" Width="{Binding #PathTextBoxWidth.Bounds.Width}"/>
-                                    <Button Grid.Column="1" Classes="Muted" Content="Pilih" Margin="8,0,0,0" Padding="12,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center" Click="OnPsdSelectPhotoClick"/>
+                        <Border Grid.Row="2" x:Name="PhotoDropZone" Classes="Card" Padding="18,16" DragDrop.AllowDrop="True">
+                            <Grid RowDefinitions="Auto,*,Auto" RowSpacing="10">
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
+                                    <PathIcon Width="14" Height="14" Data="{StaticResource IconPhoto}" Foreground="{DynamicResource AccentColorBrush}"/>
+                                    <TextBlock Classes="Section" Text="INPUT FOTO" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <Border Grid.Row="1" Classes="DropZoneBox">
+                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="6">
+                                        <PathIcon Width="20" Height="20" Data="{StaticResource IconPhoto}" Foreground="{DynamicResource AccentColorBrush}" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Seret (Drag &amp; Drop) folder foto JPG sumber ke sini" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <TextBox Grid.Column="0" Classes="Input" Text="{Binding PsdBucinVM.PhotoDirectory}" Watermark="Path folder foto JPG..." MinWidth="0" ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
+                                    <Button Grid.Column="1" Classes="Muted" Content="Pilih" Padding="14,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center" Click="OnPsdSelectPhotoClick"/>
                                 </Grid>
                             </Grid>
                         </Border>
@@ -640,15 +666,15 @@
                     </Grid>
 
                     <!-- Action Bar (Rata Bawah) -->
-                    <Border Grid.Row="2" Classes="Card" IsVisible="{Binding !PsdBucinVM.IsProcessing}">
-                        <Grid ColumnDefinitions="*,12,Auto,8,Auto">
+                    <Border Grid.Row="2" Classes="Card" Padding="18,14" IsVisible="{Binding !PsdBucinVM.IsProcessing}">
+                        <Grid ColumnDefinitions="*,Auto,8,Auto">
                             <TextBlock Grid.Column="0" Classes="Body"
                                        Text="{Binding PsdBucinVM.StatusText}"
                                        VerticalAlignment="Center"
-                                       TextWrapping="Wrap" Width="{Binding #StatusTextWidth.Bounds.Width}"/>
-                            <Button Grid.Column="2" Classes="Muted" Content="Clear"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <Button Grid.Column="1" Classes="Muted" Content="Clear" Margin="12,0,0,0"
                                     Command="{Binding PsdBucinVM.ClearPathsCommand}"/>
-                            <Button Grid.Column="4" Classes="Action" Content="MULAI"
+                            <Button Grid.Column="3" Classes="Action" Content="MULAI"
                                     Command="{Binding PsdBucinVM.StartManualViewerCommand}"/>
                         </Grid>
                     </Border>
@@ -1056,14 +1082,14 @@
                                 </Grid>
 
                                 <!-- Action row -->
-                                <Grid Grid.Row="4" ColumnDefinitions="*,10,Auto,8,Auto">
+                                <Grid Grid.Row="4" ColumnDefinitions="*,Auto,8,Auto">
                                     <TextBlock Grid.Column="0" Classes="Body"
                                                Text="{Binding MantraNamaVM.StatusText}"
                                                VerticalAlignment="Center"
-                                               TextWrapping="Wrap" Width="{Binding #StatusTextWidth.Bounds.Width}"/>
-                                    <Button Grid.Column="2" Classes="Muted" Content="Clear"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <Button Grid.Column="1" Classes="Muted" Content="Clear" Margin="10,0,0,0"
                                             Command="{Binding MantraNamaVM.ClearListCommand}"/>
-                                    <Button Grid.Column="4" Classes="Action" Content="Eksekusi Rename"
+                                    <Button Grid.Column="3" Classes="Action" Content="Eksekusi Rename"
                                             Command="{Binding MantraNamaVM.ExecuteRenameCommand}"/>
                                 </Grid>
 
@@ -1081,25 +1107,41 @@
                     <!-- Content (Atas) -->
                     <Grid Grid.Row="0" RowDefinitions="*,16,*,16,Auto">
                         <!-- File Master -->
-                        <Border Grid.Row="0" x:Name="GandaMasterDropZone" Classes="Card" DragDrop.AllowDrop="True">
-                            <Grid RowDefinitions="Auto,Auto,*,Auto">
-                                <TextBlock Grid.Row="0" Classes="Section" Text="FILE / FOLDER MASTER" FontWeight="Bold" HorizontalAlignment="Center"/>
-                                <Rectangle Grid.Row="1" Classes="Divider" Margin="0,0,0,0"/>
-                                <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
-                                    <TextBox Grid.Column="0" Classes="Input" Text="{Binding MantraGandaVM.MasterPath}" Watermark="Ketik/Paste path, atau Drag &amp; Drop file/folder kesini" MinWidth="0" ScrollViewer.HorizontalScrollBarVisibility="Auto" Width="{Binding #PathTextBoxWidth.Bounds.Width}"/>
-                                    <Button Grid.Column="1" Classes="Muted" Content="Pilih" Margin="8,0,0,0" Padding="12,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center" Click="OnGandaSelectFileClick"/>
+                        <Border Grid.Row="0" x:Name="GandaMasterDropZone" Classes="Card" Padding="18,16" DragDrop.AllowDrop="True">
+                            <Grid RowDefinitions="Auto,*,Auto" RowSpacing="10">
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
+                                    <PathIcon Width="14" Height="14" Data="{StaticResource IconCopy}" Foreground="{DynamicResource AccentColorBrush}"/>
+                                    <TextBlock Classes="Section" Text="FILE / FOLDER MASTER" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <Border Grid.Row="1" Classes="DropZoneBox">
+                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="6">
+                                        <PathIcon Width="20" Height="20" Data="{StaticResource IconCopy}" Foreground="{DynamicResource AccentColorBrush}" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Seret (Drag &amp; Drop) file master template ke sini" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <TextBox Grid.Column="0" Classes="Input" Text="{Binding MantraGandaVM.MasterPath}" Watermark="Path file atau folder master..." MinWidth="0" ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
+                                    <Button Grid.Column="1" Classes="Muted" Content="Pilih" Padding="14,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center" Click="OnGandaSelectFileClick"/>
                                 </Grid>
                             </Grid>
                         </Border>
 
                         <!-- Folder Data -->
-                        <Border Grid.Row="2" x:Name="GandaDataDropZone" Classes="Card" DragDrop.AllowDrop="True">
-                            <Grid RowDefinitions="Auto,Auto,*,Auto">
-                                <TextBlock Grid.Row="0" Classes="Section" Text="FOLDER DATA (OPSIONAL)" FontWeight="Bold" HorizontalAlignment="Center"/>
-                                <Rectangle Grid.Row="1" Classes="Divider" Margin="0,0,0,0"/>
-                                <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
-                                    <TextBox Grid.Column="0" Classes="Input" Text="{Binding MantraGandaVM.DataFolder}" Watermark="Ketik/Paste path, atau Drag &amp; Drop folder kesini" MinWidth="0" ScrollViewer.HorizontalScrollBarVisibility="Auto" Width="{Binding #PathTextBoxWidth.Bounds.Width}"/>
-                                    <Button Grid.Column="1" Classes="Muted" Content="Pilih" Margin="8,0,0,0" Padding="12,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center" Click="OnGandaSelectDataFolderClick"/>
+                        <Border Grid.Row="2" x:Name="GandaDataDropZone" Classes="Card" Padding="18,16" DragDrop.AllowDrop="True">
+                            <Grid RowDefinitions="Auto,*,Auto" RowSpacing="10">
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
+                                    <PathIcon Width="14" Height="14" Data="{StaticResource IconFolderOpen}" Foreground="{DynamicResource AccentColorBrush}"/>
+                                    <TextBlock Classes="Section" Text="FOLDER DATA (OPSIONAL)" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <Border Grid.Row="1" Classes="DropZoneBox">
+                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="6">
+                                        <PathIcon Width="20" Height="20" Data="{StaticResource IconFolderOpen}" Foreground="{DynamicResource AccentColorBrush}" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Seret (Drag &amp; Drop) folder sumber data bila diperlukan" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <TextBox Grid.Column="0" Classes="Input" Text="{Binding MantraGandaVM.DataFolder}" Watermark="Path folder data tambahan (opsional)..." MinWidth="0" ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
+                                    <Button Grid.Column="1" Classes="Muted" Content="Pilih" Padding="14,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center" Click="OnGandaSelectDataFolderClick"/>
                                 </Grid>
                             </Grid>
                         </Border>
@@ -1150,17 +1192,17 @@
                             <Rectangle Grid.Row="3" Classes="Divider" Margin="0,0,0,12" IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}"/>
 
                             <!-- Action bar rata bawah -->
-                            <Grid Grid.Row="4" ColumnDefinitions="*,12,Auto,8,Auto,8,Auto">
+                            <Grid Grid.Row="4" ColumnDefinitions="*,Auto,8,Auto,8,Auto">
                                 <TextBlock Grid.Column="0" Classes="Body"
                                            Text="{Binding MantraGandaVM.StatusText}"
                                            VerticalAlignment="Center"
-                                           TextWrapping="Wrap" Width="{Binding #StatusTextWidth.Bounds.Width}"/>
-                                <Button Grid.Column="2" Classes="Muted" Content="Clear"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <Button Grid.Column="1" Classes="Muted" Content="Clear" Margin="12,0,0,0"
                                         Command="{Binding MantraGandaVM.ClearPathsCommand}"/>
-                                <Button Grid.Column="4" Classes="Warn" Content="Stop"
+                                <Button Grid.Column="3" Classes="Warn" Content="Stop"
                                         IsVisible="{Binding MantraGandaVM.IsProcessing}"
                                         Command="{Binding MantraGandaVM.StopDuplicateCommand}"/>
-                                <Button Grid.Column="6" Classes="Action" Content="{Binding MantraGandaVM.ActionButtonText}"
+                                <Button Grid.Column="5" Classes="Action" Content="{Binding MantraGandaVM.ActionButtonText}"
                                         IsVisible="{Binding !MantraGandaVM.IsProcessing}"
                                         Command="{Binding MantraGandaVM.ExecuteDuplicateCommand}"/>
                             </Grid>
@@ -1218,7 +1260,7 @@
                     
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
                                 IsVisible="{Binding PsdBucinVM.IsLoadingImage}" Spacing="10">
-                        <TextBlock Text="Membuka gambar..." Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
+                        <TextBlock Text="Membuka gambar..." Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
                     </StackPanel>
 
                     <Border Background="{DynamicResource ScrimSoftBrush}" IsVisible="{Binding PsdBucinVM.IsProcessing}">
