@@ -165,7 +165,8 @@ function showAdvancedMode(){
  cancel.onClick=function(){dlg.close(0);};
  dlg.onClose=function(){var s=loadSettings();s.advancedX=dlg.location.x;s.advancedY=dlg.location.y;saveSettingsData(s);return true;};
  if(pos.advancedX>0&&pos.advancedY>0)dlg.location=[pos.advancedX,pos.advancedY];else dlg.center();
- dlg.show();
+ var _advResult=dlg.show();
+ return _advResult;
 }
 function runAdvancedMode(c){
  var docNames=[];var batchMode=isBatchEnabled(c.batch);
@@ -361,9 +362,18 @@ function main() {
     // === KONFIGURASI ===
     var JPG_QUALITY = 12;
 
+    // Guard: cegah infinite recursion (advanced cancel → main() → ...)
+    if (!main._reentry) main._reentry = 0;
+    if (main._reentry >= 3) {
+        alert("Terlalu banyak peralihan dialog. Coba lagi.");
+        return;
+    }
+    main._reentry++;
+
     // === MAIN LOGIC ===
     if (app.documents.length == 0) {
         alert("Tidak ada dokumen terbuka di Photoshop.");
+        main._reentry--;
         return;
     }
 
@@ -649,7 +659,14 @@ function main() {
     saveSettings(dlg.location.x, dlg.location.y);
 
     if (choice == 0) return; // Cancelled
-    if (choice == -1) { showAdvancedMode(); return; }
+    if (choice == -1) {
+        var advResult = showAdvancedMode();
+        if (advResult === 0) {
+            // Cancel di Advanced → kembali ke dialog Save Master
+            main();
+        }
+        return;
+    }
 
     // === PROCESSING LOGIC Setup ===
 
