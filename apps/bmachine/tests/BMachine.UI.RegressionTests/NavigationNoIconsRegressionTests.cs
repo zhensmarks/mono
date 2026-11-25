@@ -130,6 +130,17 @@ public class NavigationNoIconsRegressionTests
     }
 
     [Fact]
+    public void MantraGandaKeepsNavigationAndActionsPinnedWhenTheToolboxIsSmall()
+    {
+        var toolbox = ReadAxaml("apps/bmachine/src/BMachine.UI/Views/ToolboxWindow.axaml");
+
+        Assert.NotNull(FindNamed(toolbox, "GandaScrollableBody"));
+        Assert.NotNull(FindNamed(toolbox, "GandaActionFooter"));
+        Assert.NotNull(FindNamed(toolbox, "GandaConfigurationFields"));
+        Assert.Contains("UpdateGandaResponsiveLayout", ReadRepoFile("apps/bmachine/src/BMachine.UI/Views/ToolboxWindow.axaml.cs"));
+    }
+
+    [Fact]
     public void DashboardAndAdvancedModeNavigationKeepTextTabsAndUserIconProfile()
     {
         var dashboard = ReadAxaml("apps/bmachine/src/BMachine.UI/Views/DashboardView.axaml");

@@ -1237,113 +1237,96 @@
                      MANTRA GANDA
                 ═══════════════════════ -->
                 </Grid>
-                <Grid IsVisible="{Binding IsMantraGandaVisible}" RowDefinitions="*,16,Auto" MinHeight="480">
-
-                    <!-- Content (Atas) -->
-                    <Grid Grid.Row="0" RowDefinitions="*,16,*,16,Auto">
-                        <!-- File Master -->
-                        <Border Grid.Row="0" x:Name="GandaMasterDropZone" Classes="Card" Padding="18,16" DragDrop.AllowDrop="True">
-                            <Grid RowDefinitions="Auto,*,Auto" RowSpacing="10">
-                                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
-                                    <PathIcon Width="14" Height="14" Data="{StaticResource IconCopy}" Foreground="{DynamicResource AccentColorBrush}"/>
-                                    <TextBlock Classes="Section" Text="FILE / FOLDER MASTER" VerticalAlignment="Center"/>
-                                </StackPanel>
-                                <Border Grid.Row="1" Classes="DropZoneBox">
-                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="6">
-                                        <PathIcon Width="20" Height="20" Data="{StaticResource IconCopy}" Foreground="{DynamicResource AccentColorBrush}" HorizontalAlignment="Center"/>
-                                        <TextBlock Text="Seret (Drag &amp; Drop) file master template ke sini" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                <!-- Header popup dan footer aksi tetap terlihat; form di tengah yang scroll. -->
+                <Grid IsVisible="{Binding IsMantraGandaVisible}" RowDefinitions="*,Auto" MinHeight="0">
+                    <ScrollViewer x:Name="GandaScrollableBody" Grid.Row="0"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto">
+                        <StackPanel Spacing="12">
+                            <!-- Header selalu di atas drop target: tidak lagi tertutup. -->
+                            <Border x:Name="GandaMasterDropZone" Classes="Card" Padding="16" DragDrop.AllowDrop="True">
+                                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <PathIcon Width="14" Height="14" Data="{StaticResource IconCopy}" Foreground="{DynamicResource AccentColorBrush}"/>
+                                        <TextBlock Classes="Section" Text="FILE / FOLDER MASTER" VerticalAlignment="Center"/>
                                     </StackPanel>
-                                </Border>
-                                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                    <TextBox Grid.Column="0" Classes="Input" Text="{Binding MantraGandaVM.MasterPath}" Watermark="Path file atau folder master..." MinWidth="0" ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
-                                    <Button Grid.Column="1" Classes="Muted" Content="Pilih" Padding="14,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center" Click="OnGandaSelectFileClick"/>
+                                    <Border Grid.Row="1" Classes="DropZoneBox">
+                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="4">
+                                            <PathIcon Width="18" Height="18" Data="{StaticResource IconCopy}" Foreground="{DynamicResource AccentColorBrush}" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Seret (Drag &amp; Drop) file master template ke sini" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <TextBox Grid.Column="0" Classes="Input" Text="{Binding MantraGandaVM.MasterPath}" Watermark="Path file atau folder master..." MinWidth="0" ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
+                                        <Button Grid.Column="1" Classes="Muted" Content="Pilih" Padding="14,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center" Click="OnGandaSelectFileClick"/>
+                                    </Grid>
                                 </Grid>
-                            </Grid>
-                        </Border>
+                            </Border>
 
-                        <!-- Folder Data -->
-                        <Border Grid.Row="2" x:Name="GandaDataDropZone" Classes="Card" Padding="18,16" DragDrop.AllowDrop="True">
-                            <Grid RowDefinitions="Auto,*,Auto" RowSpacing="10">
-                                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
-                                    <PathIcon Width="14" Height="14" Data="{StaticResource IconFolderOpen}" Foreground="{DynamicResource AccentColorBrush}"/>
-                                    <TextBlock Classes="Section" Text="FOLDER DATA (OPSIONAL)" VerticalAlignment="Center"/>
-                                </StackPanel>
-                                <Border Grid.Row="1" Classes="DropZoneBox">
-                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="6">
-                                        <PathIcon Width="20" Height="20" Data="{StaticResource IconFolderOpen}" Foreground="{DynamicResource AccentColorBrush}" HorizontalAlignment="Center"/>
-                                        <TextBlock Text="Seret (Drag &amp; Drop) folder sumber data bila diperlukan" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                            <Border x:Name="GandaDataDropZone" Classes="Card" Padding="16" DragDrop.AllowDrop="True">
+                                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <PathIcon Width="14" Height="14" Data="{StaticResource IconFolderOpen}" Foreground="{DynamicResource AccentColorBrush}"/>
+                                        <TextBlock Classes="Section" Text="FOLDER DATA (OPSIONAL)" VerticalAlignment="Center"/>
                                     </StackPanel>
-                                </Border>
-                                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                    <TextBox Grid.Column="0" Classes="Input" Text="{Binding MantraGandaVM.DataFolder}" Watermark="Path folder data tambahan (opsional)..." MinWidth="0" ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
-                                    <Button Grid.Column="1" Classes="Muted" Content="Pilih" Padding="14,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center" Click="OnGandaSelectDataFolderClick"/>
+                                    <Border Grid.Row="1" Classes="DropZoneBox">
+                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="4">
+                                            <PathIcon Width="18" Height="18" Data="{StaticResource IconFolderOpen}" Foreground="{DynamicResource AccentColorBrush}" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Seret (Drag &amp; Drop) folder sumber data bila diperlukan" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <TextBox Grid.Column="0" Classes="Input" Text="{Binding MantraGandaVM.DataFolder}" Watermark="Path folder data tambahan (opsional)..." MinWidth="0" ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
+                                        <Button Grid.Column="1" Classes="Muted" Content="Pilih" Padding="14,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center" Click="OnGandaSelectDataFolderClick"/>
+                                    </Grid>
                                 </Grid>
-                            </Grid>
-                        </Border>
+                            </Border>
 
-                        <!-- Progress -->
-                        <Border Grid.Row="4" Classes="Card" IsVisible="{Binding MantraGandaVM.IsProcessing}">
-                            <StackPanel Spacing="10">
-                                <TextBlock Classes="Section" Text="MENGGANDAKAN"/>
-                                <ProgressBar Classes="Bar"
-                                             Minimum="0"
-                                             Maximum="{Binding MantraGandaVM.ProgressMaximum}"
-                                             Value="{Binding MantraGandaVM.ProgressValue}"/>
-                                <TextBlock Classes="Body" Text="{Binding MantraGandaVM.StatusText}"/>
-                            </StackPanel>
-                        </Border>
-                    </Grid>
+                            <Border Classes="Card" IsVisible="{Binding MantraGandaVM.IsProcessing}">
+                                <StackPanel Spacing="10">
+                                    <TextBlock Classes="Section" Text="MENGGANDAKAN"/>
+                                    <ProgressBar Classes="Bar" Minimum="0" Maximum="{Binding MantraGandaVM.ProgressMaximum}" Value="{Binding MantraGandaVM.ProgressValue}"/>
+                                    <TextBlock Classes="Body" Text="{Binding MantraGandaVM.StatusText}"/>
+                                </StackPanel>
+                            </Border>
 
-                    <!-- Konfigurasi & Action (Bawah) -->
-                    <Border Grid.Row="2" Classes="Card">
-                        <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto">
-                            <TextBlock Grid.Row="0" Classes="Section" Text="KONFIGURASI" Margin="0,0,0,12" IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}"/>
-                            <Rectangle Grid.Row="1" Classes="Divider" Margin="0,0,0,12" IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}"/>
-                            <Grid Grid.Row="2" RowDefinitions="Auto,12,Auto" ColumnDefinitions="*,16,*" Margin="0,0,0,12" IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}">
-                                <!-- Row 0 -->
-                                <StackPanel Grid.Row="0" Grid.Column="0" Spacing="6">
-                                    <TextBlock Classes="FieldLabel" Text="Jumlah duplikat"/>
-                                    <NumericUpDown Classes="Input"
-                                                   Value="{Binding MantraGandaVM.DuplicateCount}"
-                                                   Minimum="1" Maximum="10000"/>
-                                </StackPanel>
-                                <StackPanel Grid.Row="0" Grid.Column="2" Spacing="6">
-                                    <TextBlock Classes="FieldLabel" Text="Mulai dari nomor"/>
-                                    <NumericUpDown Classes="Input"
-                                                   Value="{Binding MantraGandaVM.StartNumber}"
-                                                   Minimum="0"/>
-                                </StackPanel>
-                                <!-- Row 2 -->
-                                <StackPanel Grid.Row="2" Grid.Column="0" Spacing="6">
-                                    <TextBlock Classes="FieldLabel" Text="Pemisah (_, -, spasi)"/>
-                                    <TextBox Classes="Input" Text="{Binding MantraGandaVM.Separator}"/>
-                                </StackPanel>
-                                <StackPanel Grid.Row="2" Grid.Column="2" Spacing="6">
-                                    <TextBlock Classes="FieldLabel" Text="Nama Dasar (Opsional)"/>
-                                    <TextBox Classes="Input" Text="{Binding MantraGandaVM.CustomBaseName}" Watermark="kosong = nama asli"/>
-                                </StackPanel>
-                            </Grid>
+                            <Border Classes="Card">
+                                <Grid RowDefinitions="Auto,Auto,Auto">
+                                    <TextBlock Grid.Row="0" Classes="Section" Text="KONFIGURASI" Margin="0,0,0,10" IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}"/>
+                                    <Rectangle Grid.Row="1" Classes="Divider" Margin="0,0,0,10" IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}"/>
+                                    <Grid x:Name="GandaConfigurationFields" Grid.Row="2" RowDefinitions="Auto,12,Auto" ColumnDefinitions="*,16,*" IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}">
+                                        <StackPanel x:Name="GandaDuplicateCountField" Grid.Row="0" Grid.Column="0" Spacing="6">
+                                            <TextBlock Classes="FieldLabel" Text="Jumlah duplikat"/>
+                                            <NumericUpDown Classes="Input" Value="{Binding MantraGandaVM.DuplicateCount}" Minimum="1" Maximum="10000"/>
+                                        </StackPanel>
+                                        <StackPanel x:Name="GandaStartNumberField" Grid.Row="0" Grid.Column="2" Spacing="6">
+                                            <TextBlock Classes="FieldLabel" Text="Mulai dari nomor"/>
+                                            <NumericUpDown Classes="Input" Value="{Binding MantraGandaVM.StartNumber}" Minimum="0"/>
+                                        </StackPanel>
+                                        <StackPanel x:Name="GandaSeparatorField" Grid.Row="2" Grid.Column="0" Spacing="6">
+                                            <TextBlock Classes="FieldLabel" Text="Pemisah (_, -, spasi)"/>
+                                            <TextBox Classes="Input" Text="{Binding MantraGandaVM.Separator}"/>
+                                        </StackPanel>
+                                        <StackPanel x:Name="GandaBaseNameField" Grid.Row="2" Grid.Column="2" Spacing="6">
+                                            <TextBlock Classes="FieldLabel" Text="Nama Dasar (Opsional)"/>
+                                            <TextBox Classes="Input" Text="{Binding MantraGandaVM.CustomBaseName}" Watermark="kosong = nama asli"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
 
-                            <Rectangle Grid.Row="3" Classes="Divider" Margin="0,0,0,12" IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}"/>
-
-                            <!-- Action bar rata bawah -->
-                            <Grid Grid.Row="4" ColumnDefinitions="*,Auto,8,Auto,8,Auto">
-                                <TextBlock Grid.Column="0" Classes="Body"
-                                           Text="{Binding MantraGandaVM.StatusText}"
-                                           VerticalAlignment="Center"
-                                           TextTrimming="CharacterEllipsis"/>
-                                <Button Grid.Column="1" Classes="Muted" Content="Clear" Margin="12,0,0,0"
-                                        Command="{Binding MantraGandaVM.ClearPathsCommand}"/>
-                                <Button Grid.Column="3" Classes="Warn" Content="Stop"
-                                        IsVisible="{Binding MantraGandaVM.IsProcessing}"
-                                        Command="{Binding MantraGandaVM.StopDuplicateCommand}"/>
-                                <Button Grid.Column="5" Classes="Action" Content="{Binding MantraGandaVM.ActionButtonText}"
-                                        IsVisible="{Binding !MantraGandaVM.IsProcessing}"
-                                        Command="{Binding MantraGandaVM.ExecuteDuplicateCommand}"/>
-                            </Grid>
+                    <!-- Aksi tidak ikut scroll supaya selalu terjangkau di window pendek. -->
+                    <Border x:Name="GandaActionFooter" Grid.Row="1" Classes="Card" Padding="14,10" Margin="0,12,0,0"
+                            BorderBrush="{DynamicResource SeparatorBrush}" BorderThickness="0,1,0,0">
+                        <Grid ColumnDefinitions="*,Auto,8,Auto,8,Auto">
+                            <TextBlock Grid.Column="0" Classes="Body" Text="{Binding MantraGandaVM.StatusText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            <Button Grid.Column="1" Classes="Muted" Content="Clear" Margin="12,0,0,0" Command="{Binding MantraGandaVM.ClearPathsCommand}"/>
+                            <Button Grid.Column="3" Classes="Warn" Content="Stop" IsVisible="{Binding MantraGandaVM.IsProcessing}" Command="{Binding MantraGandaVM.StopDuplicateCommand}"/>
+                            <Button Grid.Column="5" Classes="Action" Content="{Binding MantraGandaVM.ActionButtonText}" IsVisible="{Binding !MantraGandaVM.IsProcessing}" Command="{Binding MantraGandaVM.ExecuteDuplicateCommand}"/>
                         </Grid>
                     </Border>
-
                 </Grid>
 
                 <!-- ═══════════════════════

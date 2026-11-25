@@ -57,6 +57,42 @@ public partial class ToolboxWindow : Window
         Directory.CreateDirectory(bmachineDir);
         _settingsPath = Path.Combine(bmachineDir, "ToolboxWindowState.json");
         LoadWindowState();
+        SizeChanged += (_, _) => UpdateGandaResponsiveLayout();
+        Opened += (_, _) => UpdateGandaResponsiveLayout();
+    }
+
+    // Di lebar kecil, dua kolom konfigurasi menjadi satu kolom agar label dan stepper tidak bertabrakan.
+    // Pada lebar normal susunan dua kolom dipulihkan; semua kontrol tetap berada di form yang sama.
+    private void UpdateGandaResponsiveLayout()
+    {
+        var fields = this.FindControl<Grid>("GandaConfigurationFields");
+        var duplicateCount = this.FindControl<StackPanel>("GandaDuplicateCountField");
+        var startNumber = this.FindControl<StackPanel>("GandaStartNumberField");
+        var separator = this.FindControl<StackPanel>("GandaSeparatorField");
+        var baseName = this.FindControl<StackPanel>("GandaBaseNameField");
+        if (fields is null || duplicateCount is null || startNumber is null || separator is null || baseName is null)
+            return;
+
+        // Overlay, margin, dan padding mengurangi lebar form sekitar 90 px.
+        // Ambang 920 membuat isi 863 px pada screenshot juga masuk mode lega satu kolom.
+        var compact = Bounds.Width > 0 && Bounds.Width < 920;
+        if (compact)
+        {
+            fields.ColumnDefinitions = new ColumnDefinitions("*");
+            fields.RowDefinitions = new RowDefinitions("Auto,12,Auto,12,Auto,12,Auto");
+            Grid.SetRow(duplicateCount, 0); Grid.SetColumn(duplicateCount, 0);
+            Grid.SetRow(startNumber, 2); Grid.SetColumn(startNumber, 0);
+            Grid.SetRow(separator, 4); Grid.SetColumn(separator, 0);
+            Grid.SetRow(baseName, 6); Grid.SetColumn(baseName, 0);
+            return;
+        }
+
+        fields.ColumnDefinitions = new ColumnDefinitions("*,16,*");
+        fields.RowDefinitions = new RowDefinitions("Auto,12,Auto");
+        Grid.SetRow(duplicateCount, 0); Grid.SetColumn(duplicateCount, 0);
+        Grid.SetRow(startNumber, 0); Grid.SetColumn(startNumber, 2);
+        Grid.SetRow(separator, 2); Grid.SetColumn(separator, 0);
+        Grid.SetRow(baseName, 2); Grid.SetColumn(baseName, 2);
     }
 
     private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
