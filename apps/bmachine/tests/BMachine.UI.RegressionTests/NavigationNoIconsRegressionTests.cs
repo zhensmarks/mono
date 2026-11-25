@@ -141,6 +141,16 @@ public class NavigationNoIconsRegressionTests
     }
 
     [Fact]
+    public void MantraGandaExposesSourceFileFormatSelector()
+    {
+        var toolbox = ReadAxaml("apps/bmachine/src/BMachine.UI/Views/ToolboxWindow.axaml");
+        var combo = toolbox.Descendants(Avalonia + "ComboBox")
+            .Single(element => (Attribute(element, "ItemsSource") ?? string.Empty).Contains("DataFileFormatItems", StringComparison.Ordinal));
+
+        Assert.Equal("{Binding MantraGandaVM.DataFileFormat}", Attribute(combo, "SelectedIndex"));
+    }
+
+    [Fact]
     public void DashboardAndAdvancedModeNavigationKeepTextTabsAndUserIconProfile()
     {
         var dashboard = ReadAxaml("apps/bmachine/src/BMachine.UI/Views/DashboardView.axaml");

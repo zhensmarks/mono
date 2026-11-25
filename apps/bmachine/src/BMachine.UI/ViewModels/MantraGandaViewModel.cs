@@ -50,6 +50,32 @@ public partial class MantraGandaViewModel : ObservableObject
     [ObservableProperty]
     private bool _isManualConfigVisible = true;
 
+    [ObservableProperty]
+    private int _dataFileFormat = 0;
+
+    public string[] DataFileFormats { get; } = { "JPG", "PNG", "PSD", "JPG + PNG" };
+
+    partial void OnDataFileFormatChanged(int value) => CheckState();
+    public IReadOnlyList<string> DataFileFormatItems => DataFileFormats;
+
+    private static readonly string[][] SourceFileExtensions =
+    {
+        new[] { ".jpg", ".jpeg" },
+        new[] { ".png" },
+        new[] { ".psd", ".psb" },
+        new[] { ".jpg", ".jpeg", ".png" }
+    };
+
+    public IReadOnlyCollection<string> SelectedSourceFileExtensions =>
+        SourceFileExtensions[Math.Clamp(DataFileFormat, 0, 3)];
+
+    public bool SourceFileMatches(string path) =>
+        SelectedSourceFileExtensions.Any(ext => path.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
+
+    public bool SourceExtensionMatches(string path) =>
+        SelectedSourceFileExtensions.Any(ext =>
+            string.Equals(Path.GetExtension(path), ext, StringComparison.OrdinalIgnoreCase));
+
     public ObservableCollection<string> Logs { get; } = new();
 
     partial void OnMasterPathChanged(string value) => CheckState();
@@ -78,7 +104,8 @@ public partial class MantraGandaViewModel : ObservableObject
         }
         else
         {
-            StatusText = $"Siap membuat {DuplicateCount} duplikat manual";
+            var formatLabel = DataFileFormats[Math.Clamp(DataFileFormat, 0, 3)];
+            StatusText = $"Siap membuat {DuplicateCount} duplikat manual ({formatLabel})";
             ActionButtonText = "Gandakan Sekarang";
             IsManualConfigVisible = true;
         }
@@ -134,19 +161,20 @@ public partial class MantraGandaViewModel : ObservableObject
                 
                 if (!string.IsNullOrWhiteSpace(DataFolder) && Directory.Exists(DataFolder))
                 {
+                    var sourceExtensions = SelectedSourceFileExtensions;
                     var dataFiles = Directory.GetFiles(DataFolder, "*.*", SearchOption.AllDirectories)
-                                             .Where(f => f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || 
-                                                         f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) || 
-                                                         f.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                                             .Where(f => sourceExtensions.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
                                              .ToArray();
                     
                     Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => ProgressMaximum = dataFiles.Length);
 
                     if (isMasterDir)
                     {
+                        var masterExtensions = DataFileFormat == 2
+                            ? new[] { ".psd", ".psb" }
+                            : new[] { ".jpg", ".jpeg", ".png" };
                         var masterFiles = Directory.GetFiles(MasterPath, "*.*", SearchOption.AllDirectories)
-                                                   .Where(f => f.EndsWith(".psd", StringComparison.OrdinalIgnoreCase) || 
-                                                               f.EndsWith(".psb", StringComparison.OrdinalIgnoreCase))
+                                                   .Where(f => masterExtensions.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
                                                    .ToArray();
                                                    
                         var psdMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

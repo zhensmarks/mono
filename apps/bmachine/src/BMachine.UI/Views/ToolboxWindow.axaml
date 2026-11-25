@@ -1311,6 +1311,12 @@
                                             <TextBlock Classes="FieldLabel" Text="Nama Dasar (Opsional)"/>
                                             <TextBox Classes="Input" Text="{Binding MantraGandaVM.CustomBaseName}" Watermark="kosong = nama asli"/>
                                         </StackPanel>
+                                        <StackPanel x:Name="GandaSourceFormatField" Grid.Row="4" Grid.Column="0" Spacing="6">
+                                            <TextBlock Classes="FieldLabel" Text="Tipe File Sumber"/>
+                                            <ComboBox Classes="Input"
+                                                      ItemsSource="{Binding MantraGandaVM.DataFileFormatItems}"
+                                                      SelectedIndex="{Binding MantraGandaVM.DataFileFormat}"/>
+                                        </StackPanel>
                                     </Grid>
                                 </Grid>
                             </Border>

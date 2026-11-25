@@ -70,7 +70,8 @@ public partial class ToolboxWindow : Window
         var startNumber = this.FindControl<StackPanel>("GandaStartNumberField");
         var separator = this.FindControl<StackPanel>("GandaSeparatorField");
         var baseName = this.FindControl<StackPanel>("GandaBaseNameField");
-        if (fields is null || duplicateCount is null || startNumber is null || separator is null || baseName is null)
+        var sourceFormat = this.FindControl<StackPanel>("GandaSourceFormatField");
+        if (fields is null || duplicateCount is null || startNumber is null || separator is null || baseName is null || sourceFormat is null)
             return;
 
         // Overlay, margin, dan padding mengurangi lebar form sekitar 90 px.
@@ -79,20 +80,23 @@ public partial class ToolboxWindow : Window
         if (compact)
         {
             fields.ColumnDefinitions = new ColumnDefinitions("*");
-            fields.RowDefinitions = new RowDefinitions("Auto,12,Auto,12,Auto,12,Auto");
+            fields.RowDefinitions = new RowDefinitions("Auto,12,Auto,12,Auto,12,Auto,12,Auto");
+
             Grid.SetRow(duplicateCount, 0); Grid.SetColumn(duplicateCount, 0);
             Grid.SetRow(startNumber, 2); Grid.SetColumn(startNumber, 0);
             Grid.SetRow(separator, 4); Grid.SetColumn(separator, 0);
             Grid.SetRow(baseName, 6); Grid.SetColumn(baseName, 0);
+            Grid.SetRow(sourceFormat, 8); Grid.SetColumn(sourceFormat, 0);
             return;
         }
 
         fields.ColumnDefinitions = new ColumnDefinitions("*,16,*");
-        fields.RowDefinitions = new RowDefinitions("Auto,12,Auto");
+        fields.RowDefinitions = new RowDefinitions("Auto,12,Auto,12,Auto");
         Grid.SetRow(duplicateCount, 0); Grid.SetColumn(duplicateCount, 0);
         Grid.SetRow(startNumber, 0); Grid.SetColumn(startNumber, 2);
         Grid.SetRow(separator, 2); Grid.SetColumn(separator, 0);
         Grid.SetRow(baseName, 2); Grid.SetColumn(baseName, 2);
+        Grid.SetRow(sourceFormat, 4); Grid.SetColumn(sourceFormat, 0);
     }
 
     private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
