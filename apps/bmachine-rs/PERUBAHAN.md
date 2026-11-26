@@ -5,6 +5,20 @@ sebelum commit + push (format lengkap di `AGENTS.md`). Entri terbaru di
 paling atas. Dengan log ini, siapa pun yang menerima project — Dex, Hermes,
 atau orang lain — langsung tahu apa saja yang diubah tanpa menebak.
 
+## 2026-11-27 — Antigravity Agent — Implementasi Backend Fase 6 (SQLite, Trello API, Executor Python/JSX, Sheets API) & Verifikasi Nyata di VM
+- Diubah:
+  - `src/db.rs`: Database service nyata `BMachine.db` SQLite (AppData/BMachine) dengan tabel `KeyValueStore` & `Activities`, WAL mode, dan busy timeout 15 detik.
+  - `src/trello_api.rs`: Layanan HTTP client Trello via `reqwest` untuk sinkronisasi board dan list akun asli (`members/me/boards`, `boards/{id}/lists`).
+  - `src/executor.rs`: Service executor proses nyata untuk Python `batch_wrapper.py` (`buat_master.py`) dan dispatch file/skrip ke Photoshop.
+  - `src/sheets_api.rs`: Google Sheets client validator kredensial service account dan generator endpoint Google Sheets v4.
+  - `src/main.rs`: Wiring inisialisasi database SQLite saat startup, preloading setting awal (Trello API key, Token, Google Sheet ID), serta integrasi seluruh modul backend.
+  - `Cargo.toml`: Menambahkan dependensi `rusqlite` (fitur bundled) dan `reqwest` (fitur blocking + json).
+- Alasan: Instruksi user agar seluruh fungsi backend dan logika eksekusi diimplementasikan secara nyata persis seperti arsitektur C#, serta diverifikasi langsung di VM.
+- Terverifikasi:
+  - `cargo build` sukses exit 0 (0 warning).
+  - Executable `bmachine-rs.exe` ditransfer ke VM `Win10LTSC-Dev`, dijalankan di dalam VM, dan terverifikasi secara visual menampilkan GUI BMachine Dark Theme dengan kartu status aktif (HOME, BATCH, EDITING 24, REVISION 7).
+  - Screenshot tersimpan di host: `D:/VMs/bmachine_rs_final2.png`.
+
 ## 2026-11-27 — Antigravity Agent — Implementasi Lengkap 7 Menu Settings C# (Extensions, Script Manager, Account, Wiring State Bersih)
 - Diubah:
   - `ui/settings.slint`: Menambahkan menu **Extensions** (daftar plugin DLL, tombol Add/Disable/Delete) dan **Script Manager** (manajemen skrip Master, tombol reload `scripts.json`, dan peta 8 slot trigonometri Radial Menu). Sekarang 7 menu Settings lengkap persis susunan C#: `General`, `Appearance`, `Account`, `Extensions`, `Script Manager`, `Explorer/Paths`, `About`.

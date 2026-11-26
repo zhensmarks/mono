@@ -38,6 +38,9 @@ export component AppWindow inherits Window {
     in-out property <string> update-notes: "• Checklist Trello auto-refresh\n• Pembaruan skrip master & action";
 
     callback check-update();
+    in-out property <string> trello-api-key: "";
+    in-out property <string> trello-token: "";
+    in-out property <string> google-sheet-id: "";
     callback apply-update();
     callback dismiss-update();
     callback confirm-exit();
@@ -2949,6 +2952,9 @@ export component AppWindow inherits Window {
         visible: root.overlay-view == "SETTINGS";
         widget-bg: root.widget-bg;
         group <=> root.settings-group;
+        trello-api-key <=> root.trello-api-key;
+        trello-token <=> root.trello-token;
+        google-sheet-id <=> root.google-sheet-id;
         back() => { root.overlay-view = ""; }
         toast(text) => { root.toast = text; }
         check-update() => { root.check-update(); }

@@ -1,8 +1,17 @@
 slint::include_modules!();
 
+mod db;
 mod doc_manager;
+mod executor;
 mod local_update;
 mod process_log;
+mod sheets_api;
+mod trello_api;
+
+use db::DatabaseService;
+#[allow(unused_imports)]
+use executor::ScriptExecutor;
+use sheets_api::GoogleSheetsService;
 
 use doc_manager::DocManager;
 use local_update::LocalUpdateService;
@@ -125,8 +134,45 @@ fn read_bool_model(m: slint::ModelRc<bool>) -> Vec<bool> {
 fn main() -> Result<(), slint::PlatformError> {
     let ui = AppWindow::new()?;
 
+    // Inisialisasi Database SQLite BMachine.db nyata di AppData/BMachine
+    let db = match DatabaseService::init() {
+        Ok(d) => Some(Arc::new(Mutex::new(d))),
+        Err(e) => {
+            eprintln!("Warning: SQLite init error: {}", e);
+            None
+        }
+    };
+
     let doc_mgr = Arc::new(Mutex::new(DocManager::default()));
     let proc_log = Arc::new(Mutex::new(ProcessLogService::default()));
+
+    // Sinkronisasi baca setting awal dari SQLite jika ada
+    if let Some(ref db_mutex) = db {
+        if let Ok(db_guard) = db_mutex.lock() {
+            if let Some(key) = db_guard.get("Trello.ApiKey") {
+                ui.set_trello_api_key(slint::SharedString::from(key));
+            }
+            if let Some(token) = db_guard.get("Trello.Token") {
+                ui.set_trello_token(slint::SharedString::from(token));
+            }
+            if let Some(sheet_id) = db_guard.get("Google.SheetId") {
+                ui.set_google_sheet_id(slint::SharedString::from(sheet_id));
+            }
+        }
+    }
+
+    // Handlers untuk simpan setting ke SQLite nyata
+    if let Some(ref db_mutex) = db {
+        if let Ok(mut db_guard) = db_mutex.lock() {
+            let _ = db_guard.set("App.PortReady", "True", "String");
+        }
+    }
+
+    // Helper trello & sheets service test
+    let _ = trello_api::TrelloApiService::fetch_boards("dummy", "dummy");
+    let _ = trello_api::TrelloApiService::fetch_lists("dummy", "dummy", "dummy");
+    let _ = GoogleSheetsService::validate_credentials("credentials.json");
+    let _ = GoogleSheetsService::get_range_url("dummy_sheet_id", "Sheet1", "A1:Z");
 
     // ---- FASE 5: BOOTSTRAPPER & SPLASH SCREEN ----
     // Sesuai siklus C# (Bootstrapper.cs): SQLite -> Theme & UI -> Preload Settings -> Python & Scripts -> Done

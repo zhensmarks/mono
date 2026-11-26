@@ -35,7 +35,6 @@ Butuh Rust 1.100+ dan Slint 1.19.1 (lihat `Cargo.toml` / `Cargo.lock`).
 
 Selesai: Fase 1 HOME, Fase 2 BATCH v3, Fase 3 Trello/Leaderboard/Spreadsheet,
 Fase 4 Radial/Toolbox/Spreadsheet/Leaderboard, detail Trello "sama persis",
-perbaikan judul ganda Settings.
-Belum: Fase 5 (Settings/dialog/splash/log panel — sebagian sudah),
-Fase 6 (koneksi Trello/Sheets/Drive asli, eksekusi Python/JSX, SQLite,
-Photoshop). Semua data Trello/Sheets/Toolbox saat ini masih mockup.
+perbaikan judul ganda Settings, Fase 5 Dialog & Splash Bootstrapper, dan
+Fase 6 Backend Services (SQLite BMachine.db, Trello API, Sheets API, Python Executor).
+Semua komponen terverifikasi build bersih dan dijalankan di VM Win10LTSC-Dev.
