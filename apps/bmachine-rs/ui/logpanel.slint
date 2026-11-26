@@ -143,6 +143,8 @@ export component LogPanelView inherits Rectangle {
     callback toast(string);
     callback close();
     callback open-explorer(string);
+    callback doc-tab-add();
+    callback doc-tab-close();
 
     // Tab aktif panel: "LOG" | "EXPLORER" | "MASTER" | "DOC".
     in-out property <string> panel-tab: "LOG";
@@ -590,7 +592,7 @@ export component LogPanelView inherits Rectangle {
                             height: 100%;
                         }
                     }
-                    Rectangle {
+                    if root.doc-tab == "2" : Rectangle {
                         width: 32px;
                         height: 28px;
                         background: root.doc-tab == "2" ? Design.accent-subtle : Design.bg-hover;
@@ -612,7 +614,7 @@ export component LogPanelView inherits Rectangle {
                             height: 100%;
                         }
                     }
-                    Rectangle {
+                    if root.doc-tab == "1" : Rectangle {
                         width: 32px;
                         height: 28px;
                         background: Design.bg-hover;
@@ -621,13 +623,41 @@ export component LogPanelView inherits Rectangle {
                         border-radius: Design.radius-sm;
                         docplus-touch := TouchArea {
                             mouse-cursor: pointer;
-                            clicked => { root.toast("Tab redaksi baru ditambahkan."); }
+                            clicked => {
+                                root.doc-tab = "2";
+                                root.doc-tab-add();
+                                root.toast("Tab redaksi 2 ditambahkan.");
+                            }
                         }
                         Text {
                             text: "+";
                             font-size: Design.font-h3;
                             font-weight: 700;
                             color: Design.text-primary;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            width: 100%;
+                            height: 100%;
+                        }
+                    }
+                    if root.doc-tab == "2" : Rectangle {
+                        width: 28px;
+                        height: 28px;
+                        background: Design.bg-hover;
+                        border-radius: Design.radius-sm;
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.doc-tab = "1";
+                                root.doc-tab-close();
+                                root.toast("Tab redaksi 2 ditutup.");
+                            }
+                        }
+                        Text {
+                            text: "×";
+                            font-size: 14px;
+                            font-weight: 700;
+                            color: Design.status-danger;
                             horizontal-alignment: center;
                             vertical-alignment: center;
                             width: 100%;

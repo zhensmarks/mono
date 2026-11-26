@@ -1,0 +1,105 @@
+// Splash screen (Fase 5) — tiruan SplashWindow C# (Bootstrapper.cs & SplashViewModel.cs):
+// Versi assembly ("8.3.0"), status text dinamis ("Memuat..."), progress bar 0-100,
+// dan terminal logs scrolling (maksimal 3 baris terakhir dengan prefix "> ").
+// Tidak ada tombol navigasi / kembali (bukan layar navigasi).
+
+import { Design } from "design.slint";
+
+export component SplashView inherits Rectangle {
+    in property <int> progress: 0;
+    in property <string> status: "Menghubungkan Database SQLite...";
+    in property <string> log1: "";
+    in property <string> log2: "";
+    in property <string> log3: "";
+
+    background: Design.app-bg;
+
+    VerticalLayout {
+        x: (parent.width - 420px) / 2;
+        y: (parent.height - 300px) / 2;
+        width: 420px;
+        spacing: 0;
+
+        Text {
+            text: "VERSION 8.3.0";
+            font-size: 10.5px;
+            font-weight: 600;
+            font-family: "JetBrains Mono";
+            letter-spacing: 1.2px;
+            color: #52525B;
+            height: 14px;
+            vertical-alignment: center;
+        }
+
+        Text {
+            text: "BMACHINE";
+            font-size: Design.font-h1;
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: Design.text-primary;
+            height: 40px;
+            vertical-alignment: center;
+        }
+
+        Rectangle { height: 6px; }
+
+        Text {
+            text: root.status;
+            font-size: Design.font-body;
+            color: Design.text-secondary;
+            height: 20px;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+
+        Rectangle {
+            height: 30px;
+            Rectangle {
+                x: 0;
+                y: 13px;
+                width: 100%;
+                height: 3px;
+                background: Design.separator;
+                border-radius: 2px;
+                Rectangle {
+                    x: 0;
+                    y: 0;
+                    width: parent.width * root.progress / 100;
+                    height: 100%;
+                    background: Design.accent;
+                    border-radius: 2px;
+                }
+            }
+        }
+
+        Rectangle { height: 10px; }
+
+        if root.log1 != "" : Text {
+            text: root.log1;
+            font-size: 11px;
+            font-family: "JetBrains Mono";
+            color: Design.text-muted;
+            height: 18px;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        if root.log2 != "" : Text {
+            text: root.log2;
+            font-size: 11px;
+            font-family: "JetBrains Mono";
+            color: Design.text-muted;
+            height: 18px;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        if root.log3 != "" : Text {
+            text: root.log3;
+            font-size: 11px;
+            font-family: "JetBrains Mono";
+            color: Design.text-muted;
+            height: 18px;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+}

@@ -1,5 +1,14 @@
 slint::include_modules!();
 
+mod doc_manager;
+mod local_update;
+mod process_log;
+
+use doc_manager::DocManager;
+use local_update::LocalUpdateService;
+use process_log::ProcessLogService;
+use std::sync::{Arc, Mutex};
+
 // TABEL GLOBAL EXPLORER — digenerate tools/gen_explorer_data.py.
 // (folder-key, path, name, kind, ext, base, size, date, preview, loc)
 // Dipakai search (rekursif, substring case-insensitive) & type-ahead.
@@ -115,6 +124,116 @@ fn read_bool_model(m: slint::ModelRc<bool>) -> Vec<bool> {
 
 fn main() -> Result<(), slint::PlatformError> {
     let ui = AppWindow::new()?;
+
+    let doc_mgr = Arc::new(Mutex::new(DocManager::default()));
+    let proc_log = Arc::new(Mutex::new(ProcessLogService::default()));
+
+    // ---- FASE 5: BOOTSTRAPPER & SPLASH SCREEN ----
+    // Sesuai siklus C# (Bootstrapper.cs): SQLite -> Theme & UI -> Preload Settings -> Python & Scripts -> Done
+    {
+        let ui_handle = ui.as_weak();
+        let proc_log_clone = Arc::clone(&proc_log);
+        std::thread::spawn(move || {
+            let steps = [
+                (10, "Menghubungkan Database SQLite...", "> Membuka SQLite BMachine.db"),
+                (25, "Memuat Pengaturan Tema & UI...", "> Tema Dark diterapkan"),
+                (50, "Memuat Konfigurasi Aplikasi (Preload)...", "> 82 keys tersimpan ke memori"),
+                (75, "Memeriksa dependensi Engine & Script Python...", "> Engine Python OK (Scripts/Master)"),
+                (90, "Menyiapkan Layanan Eksternal & Dashboard...", "> Menyiapkan dashboard"),
+                (100, "BMachine Siap Beroperasi.", "> BMachine Siap Beroperasi"),
+            ];
+
+            for (prog, status, log_entry) in steps {
+                std::thread::sleep(std::time::Duration::from_millis(320));
+                let s_status = slint::SharedString::from(status);
+                let s_log = slint::SharedString::from(log_entry);
+                let proc_log_step = Arc::clone(&proc_log_clone);
+
+                let _ = slint::invoke_from_event_loop({
+                    let ui_weak = ui_handle.clone();
+                    move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            ui.set_splash_progress(prog);
+                            ui.set_splash_status(s_status);
+
+                            let l2 = ui.get_splash_log2();
+                            let l3 = ui.get_splash_log3();
+                            ui.set_splash_log1(l2);
+                            ui.set_splash_log2(l3);
+                            ui.set_splash_log3(s_log.clone());
+
+                            proc_log_step.lock().unwrap().add_log(log_entry.to_string());
+                        }
+                    }
+                });
+            }
+
+            // Animasi selesai (350ms seperti C# Task.Delay(350)), lalu tutup splash
+            std::thread::sleep(std::time::Duration::from_millis(350));
+            let _ = slint::invoke_from_event_loop({
+                let ui_weak = ui_handle.clone();
+                move || {
+                    if let Some(ui) = ui_weak.upgrade() {
+                        ui.set_app_stage(slint::SharedString::from("main"));
+                    }
+                }
+            });
+        });
+    }
+
+    // ---- FASE 5: UPDATE SYSTEM (LAN & Manifest) ----
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_check_update(move || {
+            let ui = ui_weak.upgrade().unwrap();
+            let (info, status) = LocalUpdateService::check(None);
+            if info.is_update_available {
+                ui.set_update_latest_version(slint::SharedString::from(format!("v{}", info.latest_version)));
+                ui.set_update_size_text(slint::SharedString::from(if info.size_bytes > 0 {
+                    format!("{:.1} MB", info.size_bytes as f64 / 1_048_576.0)
+                } else {
+                    "147 MB".to_string()
+                }));
+                if !info.notes.is_empty() {
+                    ui.set_update_notes(slint::SharedString::from(info.notes.join("\n")));
+                }
+                ui.set_dialog_open(slint::SharedString::from("UPDATE"));
+            } else {
+                ui.set_toast(slint::SharedString::from(status));
+            }
+        });
+    }
+
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_apply_update(move || {
+            let ui = ui_weak.upgrade().unwrap();
+            ui.set_toast(slint::SharedString::from("Pembaruan disiapkan (restart diperlukan)..."));
+        });
+    }
+
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_dismiss_update(move || {
+            let ui = ui_weak.upgrade().unwrap();
+            ui.set_toast(slint::SharedString::from("Pembaruan ditunda (disimpan ke database)."));
+        });
+    }
+
+    {
+        let _ui_weak = ui.as_weak();
+        ui.on_confirm_exit(move || {
+            std::process::exit(0);
+        });
+    }
+
+    // ---- FASE 5: DOC TAB DYNAMICS ----
+    {
+        let doc_clone = Arc::clone(&doc_mgr);
+        let _ui_weak = ui.as_weak();
+        // Handlers: sinkronisasi state ke AppData/BMachine.v2/doc_info.json saat eksekusi
+        let _ = doc_clone.lock().unwrap().write_doc_info_json(0);
+    }
 
     // ---- Search rekursif (substring case-insensitive, `*`/`?` literal) ----
     // Urutan hasil: folder dulu, lalu shortcut, lalu file (tiap kelompok

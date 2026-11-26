@@ -11,6 +11,8 @@ import { LogPanelView } from "logpanel.slint";
 import { ExplorerView } from "explorer.slint";
 import { TrelloDetailPanel } from "trello-detail.slint";
 import { RadialMenuView } from "radial.slint";
+import { SplashView } from "splash.slint";
+import { ExitConfirmDialog, UpdateDialog } from "dialog.slint";
 
 export component AppWindow inherits Window {
     width: Design.window-width;
@@ -21,6 +23,24 @@ export component AppWindow inherits Window {
     in-out property <string> current-tab: "HOME";
     in-out property <bool> show-flyout: false;
     in-out property <string> toast: "";
+
+    // State Fase 5: Splash & Dialog Modal
+    in-out property <string> app-stage: "splash";
+    in-out property <int> splash-progress: 0;
+    in-out property <string> splash-status: "Menghubungkan Database SQLite...";
+    in-out property <string> splash-log1: "";
+    in-out property <string> splash-log2: "";
+    in-out property <string> splash-log3: "";
+
+    in-out property <string> dialog-open: ""; // "" | "EXIT" | "UPDATE"
+    in-out property <string> update-latest-version: "v8.4.0";
+    in-out property <string> update-size-text: "147 MB";
+    in-out property <string> update-notes: "• Checklist Trello auto-refresh\n• Pembaruan skrip master & action";
+
+    callback check-update();
+    callback apply-update();
+    callback dismiss-update();
+    callback confirm-exit();
 
     // Log Panel (sidebar kanan): lebar 300px saat terbuka; konten
     // utama menyusut (content-width) supaya tidak tertutup panel.
@@ -401,7 +421,9 @@ export component AppWindow inherits Window {
         KeyBinding {
             keys: @keys(Escape);
             activated => {
-                if (root.overlay-view == "EXPLORER") {
+                if (root.dialog-open != "") {
+                    root.dialog-open = "";
+                } else if (root.overlay-view == "EXPLORER") {
                     // Prioritas Esc Explorer: dialog → tab-ctx → ctx →
                     // rename → addr-edit → search → buffer type-ahead →
                     // tutup overlay (esc-pressed di explorer.slint).
@@ -2898,7 +2920,7 @@ export component AppWindow inherits Window {
 
             // ----- LOG PANEL (sidebar kanan; lebar 0 saat tertutup,
             // visible:false tetap makan ruang jadi lebar yang mengatur) -----
-            LogPanelView {
+            log-panel := LogPanelView {
                 width: root.show-logpanel ? 300px : 0px;
                 height: root.height - 68px * root.ui-scale;
                 visible: root.show-logpanel;
@@ -2911,6 +2933,8 @@ export component AppWindow inherits Window {
                     root.show-logpanel = false;
                     explorer-view.focus-list();
                 }
+                doc-tab-add() => { }
+                doc-tab-close() => { }
             }
         }
     }
@@ -2927,6 +2951,7 @@ export component AppWindow inherits Window {
         group <=> root.settings-group;
         back() => { root.overlay-view = ""; }
         toast(text) => { root.toast = text; }
+        check-update() => { root.check-update(); }
     }
     ToolboxView {
         x: 0; y: 0; width: 100%; height: 100%;
@@ -2958,8 +2983,12 @@ export component AppWindow inherits Window {
     radial-view := RadialMenuView {
         x: 0; y: 0; width: 100%; height: 100%;
         visible: root.overlay-view == "RADIAL";
+        doc-tab-count: log-panel.doc-tab == "2" ? 2 : 1;
         back() => { root.overlay-view = ""; }
         toast(text) => { root.toast = text; }
+        execute-script(name) => {
+            root.toast = "[Photoshop] Menjalankan: " + name;
+        }
         open-toolbox(tab) => {
             root.toolbox-tab = tab;
             root.overlay-view = "TOOLBOX";
@@ -3436,7 +3465,10 @@ export component AppWindow inherits Window {
                 height: 36px;
                 TouchArea {
                     mouse-cursor: pointer;
-                    clicked => { root.show-flyout = false; root.toast = "Log Out — sesi berakhir."; }
+                    clicked => {
+                        root.show-flyout = false;
+                        root.dialog-open = "EXIT";
+                    }
                 }
                 Text {
                     text: "Log Out";
@@ -3484,6 +3516,42 @@ export component AppWindow inherits Window {
             width: 100%;
             height: 100%;
         }
+    }
+
+    // ===== FASE 5: DIALOG MODAL & SPLASH SCREEN =====
+    if root.dialog-open == "EXIT" : ExitConfirmDialog {
+        x: 0; y: 0; width: 100%; height: 100%;
+        confirmed => {
+            root.confirm-exit();
+            root.dialog-open = "";
+        }
+        cancelled => {
+            root.dialog-open = "";
+        }
+    }
+
+    if root.dialog-open == "UPDATE" : UpdateDialog {
+        x: 0; y: 0; width: 100%; height: 100%;
+        latest-version: root.update-latest-version;
+        size-text: root.update-size-text;
+        notes: root.update-notes;
+        applied => {
+            root.apply-update();
+            root.dialog-open = "";
+        }
+        dismissed => {
+            root.dismiss-update();
+            root.dialog-open = "";
+        }
+    }
+
+    if root.app-stage == "splash" : SplashView {
+        x: 0; y: 0; width: 100%; height: 100%;
+        progress: root.splash-progress;
+        status: root.splash-status;
+        log1: root.splash-log1;
+        log2: root.splash-log2;
+        log3: root.splash-log3;
     }
     } // tutup keys-scope FocusScope
 }

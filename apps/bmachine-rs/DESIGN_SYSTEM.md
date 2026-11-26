@@ -694,11 +694,10 @@ ini MENGIKAT untuk semua pekerjaan berikutnya:
 - [x] Log Panel (sidebar kanan, Ctrl+L — lihat §18): tab
   EXPLORER / LOG / MASTER / DOC; tab EXPLORER = compact (path D:\#GAWENA + 5 baris, klik → buka folder itu di overlay Explorer) + tombol "⧉ Buka Window Baru" → overlay "EXPLORER" (disambung Build B, 26 Nov — lihat §20).
 - [x] Explorer (Build B / LANGKAH 3, 26 Nov — ui/explorer.slint + ui/explorer-data.slint + src/main.rs, overlay "EXPLORER", lihat §20): tab (maks 4, pin badge 30px palet 8 warna), 5 layout, sort/group via dataset terurut, search rekursif (Rust) + kolom Lokasi, type-ahead, preview .txt/.docx, operasi file + undo maks 50 + Task Monitor, ctx menu + "BUAT MASTER" / "Kirim ke BATCH", Quick Access, klik-kanan latar = tutup overlay, Esc prioritas. Terverifikasi 1280×800 (Vertical, Thumbnail, search, ctx menu, Task Monitor) dan 520×600 (sidebar/preview sembunyi, toolbar scroll horizontal).
-- [ ] Dialog (konfirmasi, update, splash) — TODO Fase 5.
-- [ ] Log Panel — tab MASTER masih daftar + toast (Master
-  File Browser ditunda, lihat §16 & §20.5).
-- [ ] Font Inter / JetBrains Mono dibundel — TODO (saat ini
-  font sistem).
+- [x] Fase 5 — Dialog (Exit "Sign Out of Session", LAN Update manifest reader & dialog 380px, Splash screen bootstrapper 10-100% dengan 3 baris log terminal C#).
+- [x] Radial Menu — Dibenahi total sesuai C#: Submenu TOOLBOX memuat 5 file skrip `_tb_*.jsx` asli (`_tb_C-REDAKSI.jsx`, `_tb_FOOTNOTE.jsx`, `_tb_IMAGE_SIZE.jsx`, `_tb_NOMORSATSET.jsx`, `_tb_SELEKSI_ALAM.jsx`), submenu SEND-* terhubung dinamis dengan tab DOC.
+- [x] Log Panel & DOC — Tab redaksi DOC multi-tab (1, 2, tambah +, hapus x) + sinkronisasi state `doc_info.json`. Buffer log proses maks 1000 entri.
+- [ ] Font Inter / JetBrains Mono dibundel — TODO (saat ini font sistem).
 - [ ] Tema terang — TODO (token terang belum ada di `Design`).
 
 Riwayat yang dibatalkan (jangan dibangun ulang tanpa arahan

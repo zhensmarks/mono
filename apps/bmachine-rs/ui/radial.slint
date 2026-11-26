@@ -1,35 +1,9 @@
-// Radial Menu — Fase 4 (port RadialMenuWindow C#).
-// Wheel 400x400 terpusat di overlay: cincin dalam 7 slot + cincin luar
-// (submenu) + dwell 300ms + hub tengah. Bukan window terpisah — overlay
-// in-app ("RADIAL"), seperti overlay lain di AppWindow.
-//
-// Model slot mengikuti RadialMenuViewModel C# (LoadScripts):
-// Action/*.jsx tanpa prefix "_" (kecuali TOOLBOX.jsx) + Scripts/*.pyw,
-// diurutkan Order lalu nama; grup TOOLBOX (_tb_*.jsx) jadi satu slot
-// grup di cincin dalam. MaxVisibleItems C# = 7 — 7 slot di sini pas
-// 7, jadi tidak ada tombol More/Back (BuildVisibleItems).
-//   TOOLBOX (grup, Order 0) · REPLACE (Order 1) · SAVE MASTER (2) ·
-//   BUCIN psdbucin_v3.pyw (5) · OPEN PSD (6) · SEND-LOGO · SEND-TEXT
-// Sudut mengikuti grid 8-slot C# (ArrangeItems): 0, 45, 315, 90, 270,
-// 135, 225 — slot Selatan (180) kosong karena tidak ada item nav.
-//
-// PENYEDERHANAAN PORT (dicatat, bukan disembunyikan):
-// - Cincin luar TOOLBOX di C# berisi 5 file _tb_*.jsx (C-REDAKSI,
-//   FOOTNOTE, IMAGE SIZE, NOMORSATSET, SELEKSI ALAM). Di port ini
-//   berisi 3 tab Mantra (MantraNama / MantraGanda / PsdBucin) yang
-//   membuka overlay TOOLBOX pada tab itu — sesuai tugas Fase 4 dan
-//   karena ToolboxView port hanya punya 3 tab itu.
-// - Cincin luar SEND-TEXT / SEND-LOGO di C# berisi tab DOC hasil
-//   QueryDocTabs (hanya bila > 1 tab). Port belum punya DOC, jadi
-//   cincin luarnya berisi 2 tab contoh ("Tab 1" / "Tab 2"); klik
-//   hanya toast mockup.
-// - Tidak ada PieWedge: Slint tidak punya primitif sektor lingkaran.
-//   Highlight slot memakai latar accent-subtle + border aksen
-//   (gaya aktif §10.2), bukan sektor menyala.
-// - Label slot horizontal (tidak dirotasi tangensial seperti C#)
-//   supaya tetap terbaca.
-// - Eksekusi nyata (kirim .jsx/.pyw ke Photoshop) belum ada —
-//   semua aksi slot = toast mockup / buka overlay (Fase 6).
+// Radial Menu — Fase 4 & 5 (port RadialMenuWindow C#).
+// Wheel 400x400 terpusat di overlay: cincin dalam 7 slot + cincin luar (submenu) + dwell 300ms + hub tengah.
+// Submenu TOOLBOX mencakup 5 file skrip _tb_*.jsx:
+//   _tb_C-REDAKSI.jsx, _tb_FOOTNOTE.jsx, _tb_IMAGE_SIZE.jsx, _tb_NOMORSATSET.jsx, _tb_SELEKSI_ALAM.jsx
+// Submenu SEND-TEXT / SEND-LOGO mencakup tab DOC dinamis hasil query DocManager.
+// Klik kanan / Esc = tutup (§10.11), tidak ada tombol "← Kembali".
 
 import { Design, IconBtn } from "design.slint";
 
@@ -156,9 +130,13 @@ component RadialOuterItem inherits Rectangle {
 }
 
 export component RadialMenuView inherits Rectangle {
-    callback back();            // tutup radial (ke dashboard / overlay sebelumnya)
+    callback back();
     callback toast(string);
-    callback open-toolbox(string); // buka overlay TOOLBOX pada tab Mantra itu
+    callback execute-script(string); // Jalankan skrip nyata / simulasi handler
+    callback open-toolbox(string);
+
+    // Tab DOC yang sedang aktif di sistem
+    in property <int> doc-tab-count: 1;
 
     // State tampil.
     property <string> hovered-id: "";
@@ -177,34 +155,22 @@ export component RadialMenuView inherits Rectangle {
     property <[bool]> slot-sub: [true, false, false, false, false, true, true];
     property <[length]> slot-cx: [200px, 273.5px, 126.5px, 304px, 96px, 273.5px, 126.5px];
     property <[length]> slot-cy: [96px, 126.5px, 126.5px, 200px, 200px, 273.5px, 273.5px];
-    // Label di radius 171 (67px di luar pusat slot, searah sudut slot).
-    // 67px dipilih supaya teks (kotak 96px, label terlebar ~70px)
-    // tidak lagi tertutup lingkaran slot (jari-jari 28px): label
-    // kardinal butuh dx > 53px, label diagonal butuh dy > 35px —
-    // offset lama 36px membuat huruf tepi label hilang di balik
-    // lingkaran (terlihat di verifikasi live 26 Nov: "EPLACE",
-    // "SAVE MASTE", "UCIN"). Radius 171 juga menjaga label tetap
-    // di dalam piringan (radius 180).
     property <[length]> label-dx: [0px, 47.4px, -47.4px, 67px, -67px, 47.4px, -47.4px];
     property <[length]> label-dy: [-67px, -47.4px, -47.4px, 0px, 0px, 47.4px, 47.4px];
 
-    // --- Cincin luar TOOLBOX: 3 tab Mantra, radius 195, sudut -35/0/35
-    // mengelilingi slot induk (TOOLBOX di 0°), seperti BuildOuterToolboxSubmenu.
-    // Radius 195 + sudut ±35° (bukan 172 / ±45°): pil di 172/±45° akan
-    // menutupi label slot yang kini di radius 171 (pil 100x28 di
-    // (78,78) tepat menimpa label SAVE/REPLACE); di 195/±35° pil
-    // bersih dari label (jarak vertikal ≥ 17px) dan dari lingkaran slot.
-    property <[string]> tb-ids: ["MantraNama", "MantraGanda", "PsdBucin"];
-    property <[length]> tb-cx: [88.1px, 200px, 311.9px];
-    property <[length]> tb-cy: [40.3px, 5px, 40.3px];
+    // Cincin luar TOOLBOX: 5 file skrip _tb_*.jsx C# asli
+    property <[string]> tb-labels: ["C-REDAKSI", "FOOTNOTE", "IMAGE SIZE", "NOMOR SATSET", "SELEKSI ALAM"];
+    property <[string]> tb-scripts: ["_tb_C-REDAKSI.jsx", "_tb_FOOTNOTE.jsx", "_tb_IMAGE_SIZE.jsx", "_tb_NOMORSATSET.jsx", "_tb_SELEKSI_ALAM.jsx"];
+    // Posisi 5 pil mengelilingi slot TOOLBOX (0° Utara)
+    property <[length]> tb-cx: [65px, 130px, 200px, 270px, 335px];
+    property <[length]> tb-cy: [45px, 20px, 10px, 20px, 45px];
 
-    // --- Cincin luar SEND-*: 2 tab DOC contoh, radius 172, sudut
-    // induk ±22.5° (seperti BuildOuterSubmenu). ---
-    property <[string]> doc-labels: ["Tab 1", "Tab 2"];
-    property <[length]> doc-logo-cx: [358.9px, 265.8px];
-    property <[length]> doc-logo-cy: [265.8px, 358.9px];
-    property <[length]> doc-text-cx: [134.2px, 41.1px];
-    property <[length]> doc-text-cy: [358.9px, 265.8px];
+    // Cincin luar SEND-*: Tab DOC dinamis
+    property <[string]> doc-labels: ["Tab 1", "Tab 2", "Tab 3", "Tab 4"];
+    property <[length]> doc-logo-cx: [358.9px, 265.8px, 310.0px, 220.0px];
+    property <[length]> doc-logo-cy: [265.8px, 358.9px, 320.0px, 370.0px];
+    property <[length]> doc-text-cx: [134.2px, 41.1px, 90.0px, 180.0px];
+    property <[length]> doc-text-cy: [358.9px, 265.8px, 320.0px, 370.0px];
 
     // Dwell 300ms (C#: SubmenuDwellMs) — hover slot ber-submenu
     // sesaat membuka submenu (OnSubmenuDwellTick).
@@ -212,7 +178,12 @@ export component RadialMenuView inherits Rectangle {
         interval: 300ms;
         triggered => {
             if (root.dwell-id != "") {
-                root.submenu-id = root.dwell-id;
+                // Jangan buka submenu SEND-* jika tab DOC cuma 1 (persis logika C#)
+                if ((root.dwell-id == "SEND-LOGO" || root.dwell-id == "SEND-TEXT") && root.doc-tab-count <= 1) {
+                    root.submenu-id = "";
+                } else {
+                    root.submenu-id = root.dwell-id;
+                }
             }
             root.dwell-id = "";
         }
@@ -274,43 +245,50 @@ export component RadialMenuView inherits Rectangle {
         }
     }
 
-    // Klik slot dalam (C#: ExecuteItem). Slot grup tidak dieksekusi —
-    // klik membuka submenunya langsung (hover membukanya via dwell).
-    // BUCIN = psdbucin_v3.pyw, yang di C# membuka ToolboxWindow.
     function slot-click(id: string) {
-        if (id == "TOOLBOX" || id == "SEND-LOGO" || id == "SEND-TEXT") {
+        if (id == "TOOLBOX") {
             root.submenu-id = id;
             root.dwell-id = "";
             dwell-timer.stop();
             return;
         }
+        if ((id == "SEND-LOGO" || id == "SEND-TEXT") && root.doc-tab-count > 1) {
+            root.submenu-id = id;
+            root.dwell-id = "";
+            dwell-timer.stop();
+            return;
+        }
+
         if (id == "BUCIN") {
             root.open-toolbox("PsdBucin");
             return;
         }
         if (id == "REPLACE") {
-            root.toast("REPLACE: replace.jsx dikirim ke Photoshop (mockup).");
+            root.execute-script("replace.jsx");
         } else if (id == "SAVE") {
-            root.toast("SAVE MASTER: save_master.jsx dikirim ke Photoshop (mockup).");
+            root.execute-script("save_master.jsx");
         } else if (id == "OPENPSD") {
-            root.toast("OPEN PSD: pilih file PSD… (mockup — dialog file di aplikasi asli).");
+            root.execute-script("OPEN PSD.jsx");
+        } else if (id == "SEND-LOGO") {
+            root.execute-script("SEND-LOGO.jsx (Tab 1)");
+        } else if (id == "SEND-TEXT") {
+            root.execute-script("SEND-TEXT.jsx (Tab 1)");
         }
+
         root.reset();
         root.back();
     }
 
-    // Klik item cincin luar. Mantra -> overlay TOOLBOX pada tab itu
-    // (tanpa back(): open-toolbox sudah mengganti overlay-view).
-    // Tab DOC -> toast mockup (DOC belum ada di port).
-    function outer-click(id: string, label: string) {
-        if (id == "MantraNama" || id == "MantraGanda" || id == "PsdBucin") {
-            root.open-toolbox(id);
-            return;
-        }
-        if (root.submenu-id == "SEND-LOGO") {
-            root.toast("SEND LOGO → " + label + " (mockup — dikirim ke Photoshop di aplikasi asli).");
+    function outer-click(idx: int, is-toolbox: bool) {
+        if (is-toolbox) {
+            root.execute-script(root.tb-scripts[idx]);
         } else {
-            root.toast("SEND TEXT → " + label + " (mockup — dikirim ke Photoshop di aplikasi asli).");
+            let tab-num = idx + 1;
+            if (root.submenu-id == "SEND-LOGO") {
+                root.execute-script("SEND-LOGO.jsx (Tab " + tab-num + ")");
+            } else {
+                root.execute-script("SEND-TEXT.jsx (Tab " + tab-num + ")");
+            }
         }
         root.reset();
         root.back();
@@ -389,29 +367,29 @@ export component RadialMenuView inherits Rectangle {
             close-requested => { root.reset(); root.back(); }
         }
 
-        // --- Cincin luar TOOLBOX: 3 tab Mantra ---
-        for i in 3 : RadialOuterItem {
+        // --- Cincin luar TOOLBOX: 5 file skrip _tb_*.jsx C# asli ---
+        for i in 5 : RadialOuterItem {
             visible: root.submenu-id == "TOOLBOX";
             x: root.tb-cx[i];
             y: root.tb-cy[i];
-            label: root.tb-ids[i];
-            pill-width: 100px;
-            hovered: root.hovered-id == root.tb-ids[i];
-            hover-changed(h) => { root.outer-hover(root.tb-ids[i], root.tb-ids[i], h); }
-            activate => { root.outer-click(root.tb-ids[i], root.tb-ids[i]); }
+            label: root.tb-labels[i];
+            pill-width: 110px;
+            hovered: root.hovered-id == root.tb-labels[i];
+            hover-changed(h) => { root.outer-hover(root.tb-labels[i], root.tb-labels[i], h); }
+            activate => { root.outer-click(i, true); }
             close-requested => { root.reset(); root.back(); }
         }
 
-        // --- Cincin luar SEND-*: 2 tab DOC contoh ---
+        // --- Cincin luar SEND-*: Tab DOC dinamis (jika doc-tab-count > 1) ---
         for i in 2 : RadialOuterItem {
-            visible: root.submenu-id == "SEND-LOGO" || root.submenu-id == "SEND-TEXT";
+            visible: (root.submenu-id == "SEND-LOGO" || root.submenu-id == "SEND-TEXT") && root.doc-tab-count > 1 && i < root.doc-tab-count;
             x: root.submenu-id == "SEND-LOGO" ? root.doc-logo-cx[i] : root.doc-text-cx[i];
             y: root.submenu-id == "SEND-LOGO" ? root.doc-logo-cy[i] : root.doc-text-cy[i];
             label: root.doc-labels[i];
             pill-width: 64px;
             hovered: root.hovered-id == root.doc-labels[i];
             hover-changed(h) => { root.outer-hover(root.doc-labels[i], root.doc-labels[i], h); }
-            activate => { root.outer-click(root.doc-labels[i], root.doc-labels[i]); }
+            activate => { root.outer-click(i, false); }
             close-requested => { root.reset(); root.back(); }
         }
 
