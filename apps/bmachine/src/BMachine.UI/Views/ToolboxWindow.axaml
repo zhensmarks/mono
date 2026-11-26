@@ -1275,22 +1275,16 @@
                                             <TextBlock Text="Seret (Drag &amp; Drop) folder sumber data bila diperlukan" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" TextWrapping="Wrap"/>
                                         </StackPanel>
                                     </Border>
-                                    <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <!-- Row 2: path + [dropdown tipe file] + Pilih -->
+                                    <Grid Grid.Row="2" ColumnDefinitions="*,140,Auto" ColumnSpacing="8">
                                         <TextBox Grid.Column="0" Classes="Input" Text="{Binding MantraGandaVM.DataFolder}" Watermark="Path folder data tambahan (opsional)..." MinWidth="0" ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
-                                        <Button Grid.Column="1" Classes="Muted" Content="Pilih" Padding="14,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center" Click="OnGandaSelectDataFolderClick"/>
+                                        <!-- Dropdown muncul hanya saat folder data terisi -->
+                                        <ComboBox Grid.Column="1" Classes="Input"
+                                                  ItemsSource="{Binding MantraGandaVM.DataFileFormatItems}"
+                                                  SelectedIndex="{Binding MantraGandaVM.DataFileFormat}"
+                                                  IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}"/>
+                                        <Button Grid.Column="2" Classes="Muted" Content="Pilih" Padding="14,0" VerticalAlignment="Stretch" VerticalContentAlignment="Center" Click="OnGandaSelectDataFolderClick"/>
                                     </Grid>
-                                </Grid>
-                            </Border>
-
-                            <!-- Tipe file sumber: muncul saat folder data terisi, mengisi ruang bekas KONFIGURASI -->
-                            <Border x:Name="GandaSourceFormatInline" Classes="Card" Padding="16"
-                                    IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}">
-                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
-                                    <TextBlock Grid.Column="0" Classes="FieldLabel" Text="Tipe File Sumber" VerticalAlignment="Center"/>
-                                    <ComboBox Grid.Column="1" Classes="Input"
-                                              ItemsSource="{Binding MantraGandaVM.DataFileFormatItems}"
-                                              SelectedIndex="{Binding MantraGandaVM.DataFileFormat}"
-                                              HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
                                 </Grid>
                             </Border>
 
