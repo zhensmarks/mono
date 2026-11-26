@@ -330,14 +330,21 @@ function main() {
     grpContent.alignChildren = ["fill", "fill"];
     grpContent.spacing = 8;
 
+    // Path root panjang jangan mendorong dialog melebar. Label dan path dibuat
+    // vertikal; statictext multiline dibatasi selebar area dua panel.
     var rootInfo = grpContent.add("group");
-    rootInfo.orientation = "row";
-    rootInfo.alignChildren = ["fill", "center"];
-    rootInfo.spacing = 8;
+    rootInfo.orientation = "column";
+    rootInfo.alignChildren = ["fill", "top"];
+    rootInfo.spacing = 1;
+    rootInfo.preferredSize = [580, 42];
+    rootInfo.maximumSize = [580, 42];
     var rootLbl = rootInfo.add("statictext", undefined, "Root:");
     styleLabel(rootLbl, "Segoe UI", 10, false, [50, 50, 50]);
-    var rootPathTxt = rootInfo.add("statictext", undefined, decodeURI(folder.fsName));
-    styleLabel(rootPathTxt, "Segoe UI", 10, false, [120, 120, 120]);
+    var rootPathTxt = rootInfo.add("statictext", undefined, decodeURI(folder.fsName), { multiline: true });
+    rootPathTxt.preferredSize = [570, 27];
+    rootPathTxt.minimumSize = [570, 27];
+    rootPathTxt.maximumSize = [570, 27];
+    styleLabel(rootPathTxt, "Segoe UI", 9, false, [120, 120, 120]);
 
     var grpCols = grpContent.add("group");
     grpCols.orientation = "row";
