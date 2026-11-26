@@ -1,0 +1,1209 @@
+// Layar Toolbox / Spreadsheet / Leaderboard — BUKAN launcher Modul.
+// TIDAK ADA layar "Modul" di C# (26 Nov 18:47): tiap layar dibuka dari
+// jalurnya sendiri — Toolbox dari flyout profil, Spreadsheet dari panah
+// widget POINTS, Leaderboard dari badan widget POINTS. (Dulu ada launcher
+// MODUL di port ini; dihapus 26 Nov karena tidak ada di aplikasi asli.)
+
+import { Design, Card, HSeparator, Btn, TextField, NavTab, Chip, Toggle } from "design.slint";
+
+// Chip pilihan kecil (Harian/Bulanan, tab Toolbox, dsb.) — font Btn (12/600).
+component OptionChip inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked();
+
+    height: 32px;
+    background: selected ? Design.accent-subtle : (chip-touch.has-hover ? Design.bg-hover : transparent);
+    border-color: selected ? Design.accent : Design.separator;
+    border-width: 1px;
+    border-radius: Design.radius-sm;
+    chip-touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    HorizontalLayout {
+        width: 100%;
+        height: 100%;
+        padding-left: 14px;
+        padding-right: 14px;
+        alignment: center;
+        Text {
+            text: label;
+            font-size: Design.font-button;
+            font-weight: 600;
+            color: selected ? Design.accent : Design.text-primary;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// Drop zone Toolbox: klik = pilih file/folder (mockup — isi path contoh).
+component DropZone inherits Rectangle {
+    in property <string> title;
+    in property <string> hint;
+    callback clicked();
+    callback right-clicked(); // klik kanan = kembali (§10.11): TouchArea
+    // di atas menelan event tombol kanan, jadi harus diteruskan eksplisit.
+    height: 96px;
+    background: Design.bg-input;
+    border-color: Design.border-hover;
+    border-width: 1px;
+    border-radius: Design.radius-md;
+    drop-touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                root.right-clicked();
+            }
+        }
+    }
+    VerticalLayout {
+        alignment: center;
+        spacing: 4px;
+        padding-left: Design.space-md;
+        padding-right: Design.space-md;
+        Text {
+            text: "+";
+            font-size: 24px;
+            font-weight: 300;
+            color: Design.text-muted;
+            horizontal-alignment: center;
+        }
+        Text {
+            text: title;
+            font-size: Design.font-body;
+            font-weight: 700;
+            color: Design.text-primary;
+            horizontal-alignment: center;
+        }
+        Text {
+            text: hint;
+            font-size: Design.font-button;
+            color: Design.text-secondary;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+    }
+}
+
+// Label seksi eyebrow (gaya "Section" C#: mono, kecil, tracking lebar).
+component SectionLabel inherits Text {
+    font-family: "JetBrains Mono";
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    color: Design.text-muted;
+    vertical-alignment: center;
+}
+
+// Satu baris preview pasangan nama: referensi → target (MantraNama).
+component PairRow inherits Rectangle {
+    in property <string> from-name;
+    in property <string> to-name;
+    in property <bool> done;
+    height: 28px;
+    HorizontalLayout {
+        spacing: Design.space-sm;
+        Text {
+            horizontal-stretch: 1;
+            text: from-name;
+            font-family: "JetBrains Mono";
+            font-size: Design.font-button;
+            color: Design.text-secondary;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        Text {
+            text: "→";
+            font-size: Design.font-body;
+            color: Design.text-muted;
+            vertical-alignment: center;
+        }
+        Text {
+            horizontal-stretch: 1;
+            text: to-name;
+            font-family: "JetBrains Mono";
+            font-size: Design.font-button;
+            font-weight: 700;
+            color: Design.text-primary;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        Text {
+            width: 20px;
+            text: done ? "✓" : "•";
+            font-size: Design.font-body;
+            color: done ? Design.status-success : Design.text-muted;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+    }
+}
+
+// Bar progress tipis (gaya "Bar" C#: tinggi kecil, tanpa angka besar).
+component MiniProgress inherits Rectangle {
+    in property <float> frac;
+    height: 6px;
+    background: Design.separator;
+    border-radius: 3px;
+    Rectangle {
+        x: 0; y: 0;
+        width: parent.width * frac;
+        height: 100%;
+        background: Design.status-success;
+        border-radius: 3px;
+    }
+}
+
+// ================= TOOLBOX =================
+// Tab MantraNama / MantraGanda / PsdBucin (BMACHINE_ALUR_APLIKASI.md §4.5).
+export component ToolboxView inherits Rectangle {
+    callback back();
+    callback toast(string);
+    in-out property <string> tool-tab: "MantraNama";
+
+    // --- State mockup per tab (eksekusi nyata = Fase 6) ---
+    in-out property <string> nama-example: "47276395_SDN RANCAIYUH 1_GUSFIARI";
+    in-out property <bool> nama-processed: false;
+    in-out property <bool> nama-autopair: true;
+    in-out property <string> nama-status: "Siap — 3 pasangan terdeteksi (contoh).";
+    in-out property <string> ganda-master: "";
+    in-out property <string> ganda-data: "";
+    in-out property <string> ganda-count: "2";
+    in-out property <string> ganda-start: "1";
+    in-out property <string> ganda-sep: " ";
+    in-out property <string> ganda-base: "";
+    in-out property <bool> ganda-running: false;
+    in-out property <int> ganda-step: 0;
+    in-out property <float> ganda-progress: 0.0;
+    in-out property <string> ganda-status: "Siap untuk menggandakan.";
+    in-out property <string> bucin-master: "";
+    in-out property <string> bucin-photo: "";
+    in-out property <bool> bucin-running: false;
+    in-out property <int> bucin-step: 0;
+    in-out property <float> bucin-progress: 0.0;
+    in-out property <string> bucin-status: "Menunggu Folder...";
+
+    // Timer mockup: 20 langkah × 150ms ≈ 3 detik sampai selesai.
+    ganda-timer := Timer {
+        interval: 150ms;
+        running: root.ganda-running;
+        triggered => {
+            root.ganda-step += 1;
+            root.ganda-progress = root.ganda-step * 0.05;
+            if (root.ganda-step >= 20) {
+                root.ganda-running = false;
+                root.ganda-status = "Selesai — file digandakan ×" + root.ganda-count + " (mockup).";
+                root.toast("MantraGanda: selesai — ×" + root.ganda-count + " (mockup).");
+            } else {
+                root.ganda-status = "Menggandakan… " + root.ganda-step + "/20 (mockup)";
+            }
+        }
+    }
+    bucin-timer := Timer {
+        interval: 150ms;
+        running: root.bucin-running;
+        triggered => {
+            root.bucin-step += 1;
+            root.bucin-progress = root.bucin-step * 0.05;
+            if (root.bucin-step >= 20) {
+                root.bucin-running = false;
+                root.bucin-status = "Selesai — PSD dibuat dari folder foto (mockup).";
+                root.toast("PsdBucin: selesai — PSD dibuat (mockup).");
+            } else {
+                root.bucin-status = "Memproses… " + root.bucin-step + "/20 (mockup)";
+            }
+        }
+    }
+
+    // Klik kanan = kembali ke dashboard (C# OnEmbeddedViewPointerPressed).
+    toolbox-back-touch := TouchArea {
+        width: 100%; height: 100%;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                root.back();
+            }
+        }
+    }
+
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+        padding-left: Design.space-xl;
+        padding-right: Design.space-xl;
+        padding-bottom: 30px;
+        spacing: Design.space-md;
+
+        HorizontalLayout {
+            height: 36px;
+            spacing: Design.space-sm;
+            Text {
+                text: "Toolbox";
+                font-size: Design.font-h2;
+                font-weight: 800;
+                color: Design.text-primary;
+                vertical-alignment: center;
+            }
+        }
+
+        HorizontalLayout {
+            height: 32px;
+            spacing: 2px;
+            NavTab {
+                label: "MantraNama";
+                selected: root.tool-tab == "MantraNama";
+                clicked => { root.tool-tab = "MantraNama"; }
+            }
+            NavTab {
+                label: "MantraGanda";
+                selected: root.tool-tab == "MantraGanda";
+                clicked => { root.tool-tab = "MantraGanda"; }
+            }
+            NavTab {
+                label: "PsdBucin";
+                selected: root.tool-tab == "PsdBucin";
+                clicked => { root.tool-tab = "PsdBucin"; }
+            }
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+
+            // --- MantraNama: rapikan nama file (pair referensi → target) ---
+            // Flickable: isi tab bisa lebih tinggi dari area (520x600) —
+            // scroll supaya tombol bawah tetap terjangkau. height =
+            // max(viewport, isi): di layar tinggi kartu stretch mengisi
+            // area seperti sebelumnya; di layar pendek isi melebihi
+            // viewport dan bisa di-scroll.
+            Flickable {
+                x: 0; y: 0; width: 100%; height: 100%;
+                visible: root.tool-tab == "MantraNama";
+                VerticalLayout {
+                    x: 0; width: 100%;
+                    height: max(parent.height, self.preferred-height);
+                    spacing: Design.space-md;
+                Card {
+                    height: nama-card-layout.preferred-height;
+                    nama-card-layout := VerticalLayout {
+                        padding: Design.space-md;
+                        spacing: Design.space-md;
+                        SectionLabel { text: "SUMBER — RAPIKAN NAMA FILE"; }
+                        DropZone {
+                            title: "Drop file/folder di sini";
+                            hint: "Nama file akan dirapikan mengikuti referensi (MantraNama).";
+                            clicked => { root.toast("Pilih file… (dialog file di aplikasi asli)"); }
+                            right-clicked => { root.back(); }
+                        }
+                        TextField {
+                            text: root.nama-example;
+                            placeholder: "Contoh: 47276395_SDN RANCAIYUH 1_GUSFIARI";
+                            edited(text) => { root.nama-example = text; }
+                        }
+                        HorizontalLayout {
+                            height: 36px;
+                            spacing: Design.space-sm;
+                            Btn {
+                                label: "Proses Nama";
+                                variant: "primary";
+                                clicked => {
+                                    root.nama-processed = true;
+                                    root.nama-status = "Selesai — 3 nama dirapikan (mockup).";
+                                    root.toast("MantraNama: 3 nama dirapikan (mockup).");
+                                }
+                            }
+                            Btn {
+                                label: "Bersihkan";
+                                variant: "ghost";
+                                clicked => {
+                                    root.nama-example = "";
+                                    root.nama-processed = false;
+                                    root.nama-status = "Siap — 3 pasangan terdeteksi (contoh).";
+                                    root.toast("MantraNama: dibersihkan.");
+                                }
+                            }
+                            Rectangle { horizontal-stretch: 1; }
+                            Text {
+                                text: "Auto-pair";
+                                font-size: Design.font-button;
+                                font-weight: 600;
+                                color: Design.text-secondary;
+                                vertical-alignment: center;
+                            }
+                            Rectangle {
+                                width: 44px;
+                                height: 36px;
+                                Toggle {
+                                    x: 0; y: 6px;
+                                    checked: root.nama-autopair;
+                                    toggled(on) => {
+                                        root.nama-autopair = on;
+                                        root.toast(on ? "Auto-pair aktif — pasangan diurutkan otomatis." : "Auto-pair mati — pasangan diatur manual.");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Card {
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                        padding: Design.space-md;
+                        spacing: Design.space-xs;
+                        HorizontalLayout {
+                            height: 20px;
+                            SectionLabel { text: "PREVIEW PASANGAN — REFERENSI → TARGET"; }
+                            Rectangle { horizontal-stretch: 1; }
+                            Text {
+                                text: "3 pasangan";
+                                font-size: Design.font-caption;
+                                font-weight: 600;
+                                color: Design.text-muted;
+                                vertical-alignment: center;
+                            }
+                        }
+                        HSeparator { }
+                        PairRow { from-name: "SDN RANCAIYUH 1_GUSFIARI.jpg"; to-name: "47276395_SDN RANCAIYUH 1_GUSFIARI.jpg"; done: root.nama-processed; }
+                        PairRow { from-name: "BANTAR KAMBING 03_YOGA.jpg"; to-name: "48328499_SDN BANTAR KAMBING 03_YOGA.jpg"; done: root.nama-processed; }
+                        PairRow { from-name: "TK ISLAM ARAFAH_NISSA.jpg"; to-name: "30816883_TK ISLAM ARAFAH 1024_NISSA.jpg"; done: root.nama-processed; }
+                        Rectangle { vertical-stretch: 1; }
+                        Text {
+                            text: "Preview contoh — pasangan nyata dihitung dari folder referensi & target di aplikasi asli (Fase 6).";
+                            font-size: Design.font-caption;
+                            color: Design.text-muted;
+                            wrap: word-wrap;
+                        }
+                    }
+                }
+            }
+            }
+
+            // --- MantraGanda: gandakan file (master + data opsional + konfigurasi) ---
+            Flickable {
+                x: 0; y: 0; width: 100%; height: 100%;
+                visible: root.tool-tab == "MantraGanda";
+                VerticalLayout {
+                    x: 0; width: 100%;
+                    height: max(parent.height, self.preferred-height);
+                    spacing: Design.space-md;
+                Card {
+                    height: ganda-card-layout.preferred-height;
+                    ganda-card-layout := VerticalLayout {
+                        padding: Design.space-md;
+                        spacing: Design.space-md;
+                        SectionLabel { text: "FILE / FOLDER MASTER"; }
+                        DropZone {
+                            title: "Drop file master template di sini";
+                            hint: "File master PSD / folder yang akan digandakan.";
+                            clicked => {
+                                root.ganda-master = "D:\\#GAWENA\\Master\\template.psd";
+                                root.toast("Master dipilih: template.psd (contoh).");
+                            }
+                            right-clicked => { root.back(); }
+                        }
+                        HorizontalLayout {
+                            height: 36px;
+                            spacing: Design.space-sm;
+                            TextField {
+                                horizontal-stretch: 1;
+                                text: root.ganda-master;
+                                placeholder: "Path file atau folder master...";
+                                edited(text) => { root.ganda-master = text; }
+                            }
+                            Btn {
+                                label: "Pilih";
+                                variant: "secondary";
+                                clicked => {
+                                    root.ganda-master = "D:\\#GAWENA\\Master\\template.psd";
+                                    root.toast("Master dipilih: template.psd (contoh).");
+                                }
+                            }
+                        }
+                        HorizontalLayout {
+                            height: 36px;
+                            spacing: Design.space-sm;
+                            TextField {
+                                horizontal-stretch: 1;
+                                text: root.ganda-data;
+                                placeholder: "Path folder data tambahan (opsional)...";
+                                edited(text) => { root.ganda-data = text; }
+                            }
+                            Btn {
+                                label: "Pilih";
+                                variant: "secondary";
+                                clicked => {
+                                    root.ganda-data = "D:\\#GAWENA\\Data";
+                                    root.toast("Folder data dipilih: Data (contoh).");
+                                }
+                            }
+                        }
+                    }
+                }
+                Card {
+                    height: ganda-cfg-layout.preferred-height;
+                    ganda-cfg-layout := VerticalLayout {
+                        padding: Design.space-md;
+                        spacing: Design.space-md;
+                        SectionLabel { text: "KONFIGURASI"; }
+                        HorizontalLayout {
+                            height: 36px;
+                            spacing: Design.space-sm;
+                            Text {
+                                text: "Jumlah ganda";
+                                font-size: Design.font-body;
+                                font-weight: 700;
+                                color: Design.text-primary;
+                                vertical-alignment: center;
+                            }
+                            TextField {
+                                width: 80px;
+                                text: root.ganda-count;
+                                placeholder: "2";
+                                edited(text) => { root.ganda-count = text; }
+                            }
+                            Text {
+                                text: "Mulai dari";
+                                font-size: Design.font-body;
+                                font-weight: 700;
+                                color: Design.text-primary;
+                                vertical-alignment: center;
+                            }
+                            TextField {
+                                width: 64px;
+                                text: root.ganda-start;
+                                placeholder: "1";
+                                edited(text) => { root.ganda-start = text; }
+                            }
+                            Text {
+                                text: "Pisah";
+                                font-size: Design.font-body;
+                                font-weight: 700;
+                                color: Design.text-primary;
+                                vertical-alignment: center;
+                            }
+                            TextField {
+                                width: 48px;
+                                text: root.ganda-sep;
+                                placeholder: " ";
+                                edited(text) => { root.ganda-sep = text; }
+                            }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
+                        TextField {
+                            text: root.ganda-base;
+                            placeholder: "Nama dasar (kosong = nama asli)";
+                            edited(text) => { root.ganda-base = text; }
+                        }
+                    }
+                }
+                Card {
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                        padding: Design.space-md;
+                        spacing: Design.space-md;
+                        SectionLabel { text: "PROGRESS"; }
+                        Text {
+                            text: root.ganda-status;
+                            font-size: Design.font-body;
+                            color: Design.text-secondary;
+                        }
+                        MiniProgress { frac: root.ganda-progress; }
+                        HorizontalLayout {
+                            height: 36px;
+                            spacing: Design.space-sm;
+                            Btn {
+                                label: "Gandakan Sekarang";
+                                variant: "primary";
+                                clicked => {
+                                    if (root.ganda-master == "") {
+                                        root.toast("Pilih file/folder master dulu.");
+                                    } else if (root.ganda-running) {
+                                        root.toast("Duplikasi sedang berjalan…");
+                                    } else {
+                                        root.ganda-running = true;
+                                        root.ganda-step = 0;
+                                        root.ganda-progress = 0.0;
+                                        root.ganda-status = "Menggandakan… 0/20 (mockup)";
+                                        root.toast("MantraGanda: menggandakan ×" + root.ganda-count + " (mockup).");
+                                    }
+                                }
+                            }
+                            Btn {
+                                label: "Berhenti";
+                                variant: "danger";
+                                clicked => {
+                                    if (root.ganda-running) {
+                                        root.ganda-running = false;
+                                        root.ganda-status = "Dihentikan di langkah " + root.ganda-step + "/20 (mockup).";
+                                        root.toast("MantraGanda: duplikasi dihentikan (mockup).");
+                                    } else {
+                                        root.toast("Tidak ada proses duplikasi yang berjalan.");
+                                    }
+                                }
+                            }
+                            Btn {
+                                label: "Bersihkan";
+                                variant: "ghost";
+                                clicked => {
+                                    root.ganda-master = "";
+                                    root.ganda-data = "";
+                                    root.ganda-base = "";
+                                    root.ganda-running = false;
+                                    root.ganda-progress = 0.0;
+                                    root.ganda-step = 0;
+                                    root.ganda-status = "Siap untuk menggandakan.";
+                                    root.toast("MantraGanda: dibersihkan.");
+                                }
+                            }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
+                        Rectangle { vertical-stretch: 1; }
+                    }
+                }
+            }
+            }
+
+            // --- PsdBucin: duplicator PSD (master + foto + validasi) ---
+            Flickable {
+                x: 0; y: 0; width: 100%; height: 100%;
+                visible: root.tool-tab == "PsdBucin";
+                VerticalLayout {
+                    x: 0; width: 100%;
+                    height: max(parent.height, self.preferred-height);
+                    spacing: Design.space-md;
+                Card {
+                    height: bucin-master-layout.preferred-height;
+                    bucin-master-layout := VerticalLayout {
+                        padding: Design.space-md;
+                        spacing: Design.space-md;
+                        SectionLabel { text: "MASTER & OUTPUT"; }
+                        DropZone {
+                            title: "Drop folder template master PSD di sini";
+                            hint: "Seret folder template master PSD ke sini.";
+                            clicked => {
+                                root.bucin-master = "D:\\#GAWENA\\Master PSD";
+                                root.toast("Folder master dipilih (contoh).");
+                            }
+                            right-clicked => { root.back(); }
+                        }
+                        HorizontalLayout {
+                            height: 36px;
+                            spacing: Design.space-sm;
+                            TextField {
+                                horizontal-stretch: 1;
+                                text: root.bucin-master;
+                                placeholder: "Path folder master PSD...";
+                                edited(text) => { root.bucin-master = text; }
+                            }
+                            Btn {
+                                label: "Pilih";
+                                variant: "secondary";
+                                clicked => {
+                                    root.bucin-master = "D:\\#GAWENA\\Master PSD";
+                                    root.toast("Folder master dipilih (contoh).");
+                                }
+                            }
+                        }
+                    }
+                }
+                Card {
+                    height: bucin-photo-layout.preferred-height;
+                    bucin-photo-layout := VerticalLayout {
+                        padding: Design.space-md;
+                        spacing: Design.space-md;
+                        SectionLabel { text: "INPUT FOTO"; }
+                        DropZone {
+                            title: "Drop folder foto JPG di sini";
+                            hint: "Seret folder foto JPG sumber ke sini.";
+                            clicked => {
+                                root.bucin-photo = "D:\\#GAWENA\\Foto";
+                                root.toast("Folder foto dipilih (contoh).");
+                            }
+                            right-clicked => { root.back(); }
+                        }
+                        HorizontalLayout {
+                            height: 36px;
+                            spacing: Design.space-sm;
+                            TextField {
+                                horizontal-stretch: 1;
+                                text: root.bucin-photo;
+                                placeholder: "Path folder foto JPG...";
+                                edited(text) => { root.bucin-photo = text; }
+                            }
+                            Btn {
+                                label: "Pilih";
+                                variant: "secondary";
+                                clicked => {
+                                    root.bucin-photo = "D:\\#GAWENA\\Foto";
+                                    root.toast("Folder foto dipilih (contoh).");
+                                }
+                            }
+                        }
+                    }
+                }
+                Card {
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                        padding: Design.space-md;
+                        spacing: Design.space-md;
+                        SectionLabel { text: "STATUS"; }
+                        Text {
+                            text: root.bucin-status;
+                            font-size: Design.font-body;
+                            color: Design.text-secondary;
+                        }
+                        MiniProgress { frac: root.bucin-progress; }
+                        HorizontalLayout {
+                            height: 36px;
+                            spacing: Design.space-sm;
+                            Btn {
+                                label: "MULAI";
+                                variant: "primary";
+                                clicked => {
+                                    if (root.bucin-master == "") {
+                                        root.toast("Pilih folder master PSD dulu.");
+                                    } else if (root.bucin-photo == "") {
+                                        root.toast("Pilih folder foto JPG dulu.");
+                                    } else if (root.bucin-running) {
+                                        root.toast("PsdBucin sedang memproses…");
+                                    } else {
+                                        root.bucin-running = true;
+                                        root.bucin-step = 0;
+                                        root.bucin-progress = 0.0;
+                                        root.bucin-status = "Memproses… 0/20 (mockup)";
+                                        root.toast("PsdBucin: mulai — psdbucin_v3.pyw (mockup).");
+                                    }
+                                }
+                            }
+                            Btn {
+                                label: "Clear";
+                                variant: "ghost";
+                                clicked => {
+                                    root.bucin-master = "";
+                                    root.bucin-photo = "";
+                                    root.bucin-running = false;
+                                    root.bucin-progress = 0.0;
+                                    root.bucin-step = 0;
+                                    root.bucin-status = "Menunggu Folder...";
+                                    root.toast("PsdBucin: dibersihkan.");
+                                }
+                            }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
+                        Rectangle { vertical-stretch: 1; }
+                    }
+                }
+            }
+            }
+        }
+
+        HSeparator { }
+
+        // Strip status bawah — status tab aktif + pengingat MantraData locked.
+        HorizontalLayout {
+            height: 36px;
+            spacing: Design.space-sm;
+            Rectangle {
+                width: 20px;
+                height: 36px;
+                Rectangle {
+                    x: 6px; y: 14px;
+                    width: 8px; height: 8px;
+                    background: (root.tool-tab == "MantraGanda" && root.ganda-running) || (root.tool-tab == "PsdBucin" && root.bucin-running) ? Design.status-success : Design.accent;
+                    border-radius: 4px;
+                }
+            }
+            Text {
+                text: root.tool-tab == "MantraNama" ? root.nama-status : root.tool-tab == "MantraGanda" ? root.ganda-status : root.bucin-status;
+                font-size: Design.font-body;
+                color: Design.text-secondary;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                overflow: elide;
+            }
+            Rectangle {
+                width: 150px;
+                height: 36px;
+                Chip {
+                    x: 0; y: 9px;
+                    width: 150px;
+                    label: "MANTRA DATA · LOCKED";
+                    accent: Design.status-warning;
+                }
+            }
+        }
+    }
+}
+
+// ================= SPREADSHEET =================
+// Editor grid 1 Google Sheet (service account); nomor baris = baris sheet asli.
+export component SheetsView inherits Rectangle {
+    callback back();
+    callback toast(string);
+    in-out property <string> sheet-s1: "SDN RANCAIYUH I";
+    in-out property <string> sheet-p1: "1.280";
+
+    // --- Draft persisten (C# SpreadsheetDraftStore) ---
+    // sheet-s1/sheet-p1 = nilai TERSIMPAN (yang terakhir di-commit ke
+    // sheet). draft-s1/draft-p1 = isi editan yang sedang diketik.
+    // Draft bertahan saat pindah tab/overlay dalam satu sesi: SheetsView
+    // di main.slint hanya di-toggle `visible`, instansinya tidak pernah
+    // dihancurkan, jadi draft + saved sama-sama hidup selama aplikasi
+    // jalan. (Persistensi antar-sesi / ke DB = Fase 6, seperti
+    // PersistDraftsAsync tiap 700 ms di C# — belum ada di mockup ini.)
+    // Di C#, draft dipulihkan hanya bila nilai asli sel di sheet masih
+    // sama (SpreadsheetDraftStore.Apply); di sini itu diwakili guard
+    // fingerprint di bawah.
+    in-out property <string> draft-s1: "SDN RANCAIYUH I";
+    in-out property <string> draft-p1: "1.280";
+    property <bool> has-draft: draft-s1 != sheet-s1 || draft-p1 != sheet-p1;
+
+    // --- Guard fingerprint (C# SpreadsheetRowAnchorGuard) ---
+    // Mockup: flag ini = "sheet berubah di luar sejak dimuat" (baris
+    // disisip/dihapus/di-cut). Selama flag aktif, Simpan DIBLOKIR —
+    // persis CheckRowsStillAlignedAsync() di C# yang membatalkan tulis
+    // bila sidik jari baris (seluruh nilai baris saat dimuat) tidak
+    // lagi cocok. "Muat ulang" mengambil ulang jangkar dari sheet
+    // sehingga flag terhapus; draft tetap dipertahankan.
+    in-out property <bool> external-changed: false;
+
+    // Klik kanan = kembali ke dashboard (C# OnEmbeddedViewPointerPressed).
+    sheets-back-touch := TouchArea {
+        width: 100%; height: 100%;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                root.back();
+            }
+        }
+    }
+
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+        padding-left: Design.space-xl;
+        padding-right: Design.space-xl;
+        padding-bottom: 30px;
+        spacing: Design.space-md;
+
+        HorizontalLayout {
+            height: 36px;
+            spacing: Design.space-sm;
+            Text {
+                text: "Spreadsheet";
+                font-size: Design.font-h2;
+                font-weight: 800;
+                color: Design.text-primary;
+                vertical-alignment: center;
+            }
+        }
+        Text {
+            text: "1 Google Sheet (service account)";
+            font-size: Design.font-body;
+            font-weight: 700;
+            color: Design.cat-points;
+        }
+
+        // Tinggi EKSPLISIT (bukan vertical-stretch): rantai persentase
+        // di Slint jatuh ke preferred-height (pelajaran yang sama di
+        // main.slint ~536) — vertical-stretch di Card maupun Rectangle
+        // pembungkus tidak mengembang (terverifikasi live 2x). 232px =
+        // judul 36 + subjudul 24 + status 28 + tombol 36 + footnote 18
+        // + 5 gap 60 + padding-bawah 30. max() menjaga isi (282px)
+        // tidak terpotong bila root.height ternyata setinggi isi.
+        Card {
+            height: max(300px, root.height - 232px);
+            VerticalLayout {
+                padding: Design.space-md;
+                spacing: 2px;
+
+                // Header kolom.
+                HorizontalLayout {
+                    height: 28px;
+                    spacing: Design.space-sm;
+                    Text { width: 40px; text: "No"; font-size: Design.font-caption; font-weight: 800; color: Design.text-muted; vertical-alignment: center; }
+                    Text { horizontal-stretch: 1; text: "Sekolah"; font-size: Design.font-caption; font-weight: 800; color: Design.text-muted; vertical-alignment: center; }
+                    Text { width: 110px; text: "Status"; font-size: Design.font-caption; font-weight: 800; color: Design.text-muted; vertical-alignment: center; }
+                    Text { width: 80px; text: "Poin"; font-size: Design.font-caption; font-weight: 800; color: Design.text-muted; vertical-alignment: center; }
+                }
+                HSeparator { }
+
+                // Baris 1 — sel Sekolah & Poin bisa diedit.
+                HorizontalLayout {
+                    height: 36px;
+                    spacing: Design.space-sm;
+                    Text { width: 40px; text: "1"; font-size: Design.font-button; font-family: "JetBrains Mono"; color: Design.text-muted; vertical-alignment: center; }
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        height: 28px;
+                        background: Design.bg-input;
+                        border-color: Design.border-default;
+                        border-width: 1px;
+                        border-radius: Design.radius-sm;
+                        TextInput {
+                            x: 8px; width: parent.width - 16px; height: 100%;
+                            text: root.draft-s1;
+                            font-size: Design.font-body;
+                            font-weight: 700;
+                            color: Design.text-primary;
+                            vertical-alignment: center;
+                            edited => { root.draft-s1 = self.text; }
+                        }
+                    }
+                    Text { width: 110px; text: "Selesai"; font-size: Design.font-button; font-weight: 700; color: Design.status-success; vertical-alignment: center; }
+                    Rectangle {
+                        width: 80px;
+                        height: 28px;
+                        background: Design.bg-input;
+                        border-color: Design.border-default;
+                        border-width: 1px;
+                        border-radius: Design.radius-sm;
+                        TextInput {
+                            x: 8px; width: parent.width - 16px; height: 100%;
+                            text: root.draft-p1;
+                            font-size: Design.font-body;
+                            font-weight: 700;
+                            color: Design.cat-points;
+                            vertical-alignment: center;
+                            edited => { root.draft-p1 = self.text; }
+                        }
+                    }
+                }
+                // Baris 2–6 (baca saja, contoh).
+                HorizontalLayout {
+                    height: 36px; spacing: Design.space-sm;
+                    Text { width: 40px; text: "2"; font-size: Design.font-button; font-family: "JetBrains Mono"; color: Design.text-muted; vertical-alignment: center; }
+                    Text { horizontal-stretch: 1; text: "SDN BANTAR KAMBING 03"; font-size: Design.font-body; font-weight: 700; color: Design.text-primary; vertical-alignment: center; overflow: elide; }
+                    Text { width: 110px; text: "Revisi"; font-size: Design.font-button; font-weight: 700; color: Design.cat-revision; vertical-alignment: center; }
+                    Text { width: 80px; text: "980"; font-size: Design.font-body; font-weight: 700; color: Design.cat-points; vertical-alignment: center; }
+                }
+                HorizontalLayout {
+                    height: 36px; spacing: Design.space-sm;
+                    Text { width: 40px; text: "3"; font-size: Design.font-button; font-family: "JetBrains Mono"; color: Design.text-muted; vertical-alignment: center; }
+                    Text { horizontal-stretch: 1; text: "TK ISLAM ARAFAH"; font-size: Design.font-body; font-weight: 700; color: Design.text-primary; vertical-alignment: center; overflow: elide; }
+                    Text { width: 110px; text: "Editing"; font-size: Design.font-button; font-weight: 700; color: Design.cat-editing; vertical-alignment: center; }
+                    Text { width: 80px; text: "760"; font-size: Design.font-body; font-weight: 700; color: Design.cat-points; vertical-alignment: center; }
+                }
+                HorizontalLayout {
+                    height: 36px; spacing: Design.space-sm;
+                    Text { width: 40px; text: "4"; font-size: Design.font-button; font-family: "JetBrains Mono"; color: Design.text-muted; vertical-alignment: center; }
+                    Text { horizontal-stretch: 1; text: "PAUD CAHAYA UMMAT"; font-size: Design.font-body; font-weight: 700; color: Design.text-primary; vertical-alignment: center; overflow: elide; }
+                    Text { width: 110px; text: "Editing"; font-size: Design.font-button; font-weight: 700; color: Design.cat-editing; vertical-alignment: center; }
+                    Text { width: 80px; text: "640"; font-size: Design.font-body; font-weight: 700; color: Design.cat-points; vertical-alignment: center; }
+                }
+                HorizontalLayout {
+                    height: 36px; spacing: Design.space-sm;
+                    Text { width: 40px; text: "5"; font-size: Design.font-button; font-family: "JetBrains Mono"; color: Design.text-muted; vertical-alignment: center; }
+                    Text { horizontal-stretch: 1; text: "TK ASSALAM"; font-size: Design.font-body; font-weight: 700; color: Design.text-primary; vertical-alignment: center; overflow: elide; }
+                    Text { width: 110px; text: "Selesai"; font-size: Design.font-button; font-weight: 700; color: Design.status-success; vertical-alignment: center; }
+                    Text { width: 80px; text: "520"; font-size: Design.font-body; font-weight: 700; color: Design.cat-points; vertical-alignment: center; }
+                }
+                HorizontalLayout {
+                    height: 36px; spacing: Design.space-sm;
+                    Text { width: 40px; text: "6"; font-size: Design.font-button; font-family: "JetBrains Mono"; color: Design.text-muted; vertical-alignment: center; }
+                    Text { horizontal-stretch: 1; text: "PAUD HAUR WANGUN"; font-size: Design.font-body; font-weight: 700; color: Design.text-primary; vertical-alignment: center; overflow: elide; }
+                    Text { width: 110px; text: "Revisi"; font-size: Design.font-button; font-weight: 700; color: Design.cat-revision; vertical-alignment: center; }
+                    Text { width: 80px; text: "410"; font-size: Design.font-body; font-weight: 700; color: Design.cat-points; vertical-alignment: center; }
+                }
+            }
+        }
+
+        // Baris status: penyelaras baris (C# SpreadsheetLoadAlignment —
+        // jangkar = awal range respons, jatuh kembali ke konfigurasi bila
+        // tak terurai) + indikator draft. Pemetaan §19.3: grid baris i =
+        // sheet baris 3+i, range A3:Z — jadi grid 1–6 = sheet 4–9.
+        HorizontalLayout {
+            height: 28px;
+            spacing: Design.space-sm;
+            Text {
+                text: root.external-changed
+                    ? "● Baris 4 di sheet berubah di luar — fingerprint tidak cocok (dimuat: 'SDN RANCAIYUH I')"
+                    : "● 6 baris selaras · grid 1–6 = sheet 4–9 · jangkar A3 · range A3:Z";
+                font-size: Design.font-caption;
+                font-weight: 700;
+                color: root.external-changed ? Design.status-danger : Design.status-success;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                overflow: elide;
+            }
+            Text {
+                text: root.has-draft ? "● Draft — belum disimpan" : "";
+                font-size: Design.font-button;
+                font-weight: 700;
+                color: Design.status-warning;
+                vertical-alignment: center;
+            }
+        }
+
+        HorizontalLayout {
+            height: 36px;
+            spacing: Design.space-sm;
+            Btn {
+                label: "Simpan";
+                variant: "primary";
+                clicked => {
+                    if (root.external-changed) {
+                        // Guard memblokir — persis C#:
+                        // CheckRowsStillAlignedAsync() membatalkan tulis
+                        // bila sidik jari tidak cocok; draft tetap ada.
+                        root.toast("Save diblokir — sheet berubah di luar (guard fingerprint). Muat ulang dulu; draft tetap tersimpan.");
+                    } else if (!root.has-draft) {
+                        root.toast("Tidak ada perubahan untuk disimpan");
+                    } else {
+                        root.sheet-s1 = root.draft-s1;
+                        root.sheet-p1 = root.draft-p1;
+                        root.toast("Tersimpan ke sheet");
+                    }
+                }
+            }
+            Btn {
+                label: "Simulasikan perubahan di luar";
+                variant: "secondary";
+                clicked => {
+                    root.external-changed = true;
+                    root.toast("Simulasi: sheet berubah di luar — Simpan diblokir (guard fingerprint); draft tetap tersimpan.");
+                }
+            }
+            Btn {
+                label: "Muat ulang";
+                variant: "secondary";
+                clicked => {
+                    root.external-changed = false;
+                    if (root.has-draft) {
+                        root.toast("Sheet dimuat ulang — 6 baris selaras; draft belum disimpan tetap ada.");
+                    } else {
+                        root.toast("Sheet dimuat ulang — 6 baris selaras");
+                    }
+                }
+            }
+            Rectangle { horizontal-stretch: 1; }
+        }
+        Text {
+            text: "Guard fingerprint baris aktif — save diblokir bila sheet berubah di luar.";
+            font-size: Design.font-caption;
+            color: Design.text-muted;
+            wrap: word-wrap;
+        }
+    }
+}
+
+// ================= LEADERBOARD =================
+// Poin harian/bulanan. Peringkat 1–3 pakai warna teks (emas/perak/perunggu),
+// tanpa emoji. Bar poin proporsional terhadap yang teratas.
+component LeaderRow inherits Rectangle {
+    in property <int> rank;
+    in property <string> name;
+    in property <string> points;
+    in property <float> frac;
+    in property <color> rank-color;
+    callback clicked();
+    callback right-clicked(); // klik kanan = kembali (§10.11): TouchArea
+    // di atas menelan event tombol kanan, jadi harus diteruskan eksplisit.
+    height: 56px;
+    background: lrow-touch.has-hover ? Design.bg-hover : transparent;
+    border-radius: Design.radius-sm;
+    lrow-touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                root.right-clicked();
+            }
+        }
+    }
+    HorizontalLayout {
+        padding-left: Design.space-md;
+        padding-right: Design.space-md;
+        spacing: Design.space-md;
+        Text {
+            width: 32px;
+            text: rank;
+            font-size: Design.font-h2;
+            font-weight: 800;
+            color: rank-color;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: 6px;
+            alignment: center;
+            Text {
+                text: name;
+                font-size: Design.font-body;
+                font-weight: 700;
+                color: Design.text-primary;
+                overflow: elide;
+            }
+            Rectangle {
+                height: 8px;
+                background: Design.separator;
+                border-radius: 4px;
+                Rectangle {
+                    x: 0; y: 0;
+                    width: parent.width * frac;
+                    height: 100%;
+                    background: Design.cat-points;
+                    border-radius: 4px;
+                }
+            }
+        }
+        Text {
+            width: 84px;
+            text: points + " poin";
+            font-size: Design.font-body;
+            font-weight: 700;
+            color: Design.text-primary;
+            vertical-alignment: center;
+            horizontal-alignment: right;
+        }
+    }
+}
+
+export component LeaderboardView inherits Rectangle {
+    callback back();
+    callback toast(string);
+    in-out property <string> period: "Harian";
+
+    // Klik kanan = kembali ke dashboard (C# OnEmbeddedViewPointerPressed).
+    leaderboard-back-touch := TouchArea {
+        width: 100%; height: 100%;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                root.back();
+            }
+        }
+    }
+
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+        padding-left: Design.space-xl;
+        padding-right: Design.space-xl;
+        padding-bottom: 30px;
+        spacing: Design.space-md;
+
+        HorizontalLayout {
+            height: 36px;
+            spacing: Design.space-sm;
+            Text {
+                text: "Leaderboard";
+                font-size: Design.font-h2;
+                font-weight: 800;
+                color: Design.text-primary;
+                vertical-alignment: center;
+            }
+        }
+
+        HorizontalLayout {
+            height: 32px;
+            spacing: 6px;
+            OptionChip {
+                label: "Harian";
+                selected: root.period == "Harian";
+                clicked => { root.period = "Harian"; root.toast("Leaderboard harian"); }
+            }
+            OptionChip {
+                label: "Bulanan";
+                selected: root.period == "Bulanan";
+                clicked => { root.period = "Bulanan"; root.toast("Leaderboard bulanan"); }
+            }
+        }
+
+        // Tinggi EKSPLISIT (bukan vertical-stretch): rantai persentase
+        // di Slint jatuh ke preferred-height (pelajaran yang sama di
+        // main.slint ~536) — vertical-stretch di Card maupun Rectangle
+        // pembungkus tidak mengembang (terverifikasi live 2x di Sheets
+        // dan Leaderboard). 195px = judul 36 + toggle 32 + separator 1
+        // + footer 36 + 4 gap 48 + padding-bawah 30 + cadangan 12.
+        // max() menjaga isi (317px) tidak terpotong bila root.height
+        // ternyata setinggi isi. (Brief Fase 4: isi area kosong di bawah
+        // — mengalahkan catatan lama "kartu besar kosong".)
+        Card {
+            height: max(330px, root.height - 195px);
+            VerticalLayout {
+                padding: Design.space-md;
+                spacing: Design.space-xs;
+                LeaderRow {
+                    rank: 1; name: "abeng";
+                    points: root.period == "Harian" ? "1.280" : "4.860";
+                    frac: 1.0;
+                    rank-color: Design.status-warning;
+                    clicked => { root.toast("abeng — " + (root.period == "Harian" ? "1.280" : "4.860") + " poin (" + root.period + ")"); }
+                    right-clicked => { root.back(); }
+                }
+                LeaderRow {
+                    rank: 2; name: "nissa";
+                    points: root.period == "Harian" ? "980" : "4.210";
+                    frac: root.period == "Harian" ? 0.766 : 0.866;
+                    rank-color: Design.text-secondary;
+                    clicked => { root.toast("nissa — " + (root.period == "Harian" ? "980" : "4.210") + " poin (" + root.period + ")"); }
+                    right-clicked => { root.back(); }
+                }
+                LeaderRow {
+                    rank: 3; name: "fenti";
+                    points: root.period == "Harian" ? "760" : "3.980";
+                    frac: root.period == "Harian" ? 0.594 : 0.819;
+                    // Perunggu #cd7f32 — C# tidak punya warna medali (semua
+                    // peringkat TextSecondaryBrush); skema emas/perak/perunggu
+                    // adalah keputusan port (§19.4). Belum ada token perunggu
+                    // di Design — jadikan token bila design.slint disentuh.
+                    rank-color: #cd7f32;
+                    clicked => { root.toast("fenti — " + (root.period == "Harian" ? "760" : "3.980") + " poin (" + root.period + ")"); }
+                    right-clicked => { root.back(); }
+                }
+                LeaderRow {
+                    rank: 4; name: "surya";
+                    points: root.period == "Harian" ? "640" : "3.120";
+                    frac: root.period == "Harian" ? 0.5 : 0.642;
+                    rank-color: Design.text-muted;
+                    clicked => { root.toast("surya — " + (root.period == "Harian" ? "640" : "3.120") + " poin (" + root.period + ")"); }
+                    right-clicked => { root.back(); }
+                }
+                LeaderRow {
+                    rank: 5; name: "yoga";
+                    points: root.period == "Harian" ? "520" : "2.740";
+                    frac: root.period == "Harian" ? 0.406 : 0.564;
+                    rank-color: Design.text-muted;
+                    clicked => { root.toast("yoga — " + (root.period == "Harian" ? "520" : "2.740") + " poin (" + root.period + ")"); }
+                    right-clicked => { root.back(); }
+                }
+            }
+        }
+
+        // Strip footer (cermin status bar bawah C# LeaderboardView:
+        // "Total: N Pts" kiri + tombol Refresh kanan). Total = jumlah
+        // 5 editor periode aktif (harian 4.180, bulanan 18.910).
+        HSeparator { }
+
+        HorizontalLayout {
+            height: 36px;
+            spacing: Design.space-sm;
+            Text {
+                text: "Total:";
+                font-size: Design.font-button;
+                color: Design.text-secondary;
+                vertical-alignment: center;
+            }
+            Text {
+                text: root.period == "Harian" ? "4.180" : "18.910";
+                font-size: Design.font-body;
+                font-weight: 700;
+                color: Design.cat-points;
+                vertical-alignment: center;
+            }
+            Text {
+                text: "poin · 5 editor · " + root.period;
+                font-size: Design.font-button;
+                color: Design.text-secondary;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+            Rectangle { horizontal-stretch: 1; }
+            Btn {
+                label: "↻ Refresh";
+                variant: "ghost";
+                clicked => { root.toast("Leaderboard di-refresh — 5 editor dimuat (" + root.period + ")"); }
+            }
+        }
+    }
+}

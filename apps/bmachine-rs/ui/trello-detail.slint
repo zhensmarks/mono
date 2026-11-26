@@ -1,0 +1,857 @@
+// ============================================================
+// TrelloDetailPanel — panel detail kartu Trello, sama persis C#
+// CardDetailPanelHost (BMachine.UI/Views/CardDetailPanelHost.xaml).
+//
+// Komponen mandiri: tampilan + logika + fungsi sendiri.
+// - Kolom kanan 400px (clamp 320 saat sempit), ukuran C# tetap
+//   (tanpa ui-scale): judul 24px Bold, chip 11px SemiBold,
+//   badge meta 30px, tombol aksi 32px, deskripsi penuh
+//   (C# max 240px + scroll — scroll ditambah di Fase 6).
+// - Sub-panel menggantikan detail di kolom yang sama (bukan
+//   overlay): Comments / Checklists / Move Card / Attachments.
+// - Klik kanan detail = tutup; klik kanan sub-panel = kembali
+//   ke detail; × detail = tutup; × sub-panel = kembali ke detail.
+// - Fungsi (mockup, Fase 6 = API Trello asli): tambah komentar
+//   (maks 3 per kartu), checklist dicentang, Move Card
+//   (validasi board & list), Unlink kartu manual (nyata —
+//   hapus dari daftar), ID badge → spreadsheet, copy-link &
+//   open-in-browser.
+// - Kategori POINTS menampilkan breakdown (Minggu/Bulan/Total),
+//   bukan detail kartu Trello.
+// - Catatan penyimpangan mockup: badge "Attachments: 0" selalu
+//   tampil agar panel Attachments bisa dibuka (C# menyembunyikan
+//   badge bila 0 — Fase 6: sembunyikan bila API mengembalikan 0).
+// ============================================================
+
+import { Design, Btn, IconBtn, TextField, HSeparator } from "design.slint";
+
+// Satu baris komentar: avatar bulat + nama + waktu + isi.
+component CommentRow inherits HorizontalLayout {
+    in property <string> author;
+    in property <string> time;
+    in property <string> body;
+    in property <string> initial;
+    in property <color> avatar-bg: Design.accent;
+
+    spacing: 8px;
+
+    Rectangle {
+        width: 28px;
+        height: 28px;
+        border-radius: 14px;
+        background: root.avatar-bg;
+        Text {
+            text: root.initial;
+            font-size: 12px;
+            font-weight: 700;
+            color: white;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            width: 100%;
+            height: 100%;
+        }
+    }
+    VerticalLayout {
+        spacing: 4px;
+        HorizontalLayout {
+            height: 16px;
+            spacing: 8px;
+            Text {
+                text: root.author;
+                font-size: 12px;
+                font-weight: 700;
+                color: Design.text-primary;
+                vertical-alignment: center;
+            }
+            Rectangle { horizontal-stretch: 1; }
+            Text {
+                text: root.time;
+                font-size: 11px;
+                color: Design.text-muted;
+                vertical-alignment: center;
+            }
+        }
+        Text {
+            text: root.body;
+            font-size: 12px;
+            color: Design.text-secondary;
+            wrap: word-wrap;
+        }
+    }
+}
+
+export component TrelloDetailPanel inherits Rectangle {
+    // --- Input dari AppWindow ---
+    in property <string> card-title;
+    in property <string> event-date;
+    in property <string> display-id;
+    in property <string> due-text;
+    in property <bool> is-manual;
+    in property <string> manual-url;
+    in property <string> category-label;
+    in property <color> accent;
+    in property <bool> done;
+    in property <string> description;
+    in property <length> panel-margin: 20px;
+    in property <length> title-size: 24px;
+    in property <color> panel-bg: Design.app-bg;
+    // Sub-panel aktif: "" (detail) / comments / checklist / move / attachments.
+    in-out property <string> sub-panel: "";
+    // Jumlah komentar tambahan (dari AppWindow, direset saat ganti kartu).
+    in-out property <int> added-count: 0;
+
+    callback close();
+    callback unlink();
+    callback show-toast(string);
+    callback send-comment();
+
+    property <string> comment-draft: "";
+    property <string> draft-1: "";
+    property <string> draft-2: "";
+    property <string> draft-3: "";
+    property <bool> show-activity: true;
+    property <string> move-board: "";
+    property <string> move-list: "";
+    property <bool> is-narrow: root.width < 360px;
+    property <bool> is-points: root.category-label == "POINTS";
+    property <string> progress-text: root.done ? "3/3" : "1/3";
+    property <string> card-url: root.is-manual ? root.manual-url : "https://trello.com/c/" + root.display-id;
+
+    send-comment => {
+        if (root.comment-draft == "") {
+            root.show-toast("Tulis komentar dulu");
+        } else if (root.added-count == 0) {
+            root.draft-1 = root.comment-draft;
+            root.added-count = 1;
+            root.comment-draft = "";
+        } else if (root.added-count == 1) {
+            root.draft-2 = root.comment-draft;
+            root.added-count = 2;
+            root.comment-draft = "";
+        } else if (root.added-count == 2) {
+            root.draft-3 = root.comment-draft;
+            root.added-count = 3;
+            root.comment-draft = "";
+        } else {
+            root.show-toast("Maks 3 komentar tambahan (mockup)");
+        }
+    }
+
+    background: root.panel-bg;
+    clip: true;
+
+    // Klik kanan latar detail = tutup (hanya saat di tampilan detail).
+    detail-back-touch := TouchArea {
+        width: 100%;
+        height: 100%;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right && root.sub-panel == "") {
+                root.close();
+            }
+        }
+    }
+
+    // ================= TAMPILAN DETAIL (kartu Trello) =================
+    // Layout setinggi panel (height: 100%). Catatan: sempat dilepas
+    // saat memburu gap deskripsi, lalu dipasang lagi saat memburu
+    // tombol yang "tidak bisa diklik" — keduanya ternyata BUKAN
+    // karena height ini (gap = label Description, tombol = salah
+    // koordinat klik y). Height ini dipertahankan karena benar
+    // secara layout (panel terisi penuh); jangan jadikan kambing
+    // hitam bila ada masalah hit-test lagi — ukur dulu posisi
+    // render tombolnya sebelum menyalahkan layout.
+    card-view := VerticalLayout {
+        x: 0; y: 0; width: 100%; height: 100%;
+        visible: root.sub-panel == "" && !root.is-points;
+        padding: root.panel-margin;
+        spacing: 12px;
+
+        // Baris chip: CoverDisplayName + EventDateText (11px SemiBold).
+        HorizontalLayout {
+            height: 26px;
+            spacing: 8px;
+            Rectangle {
+                width: cover-text.preferred-width + 20px;
+                background: Design.card-bg;
+                border-color: Design.separator;
+                border-width: 1px;
+                border-radius: 6px;
+                cover-text := Text {
+                    text: root.category-label;
+                    font-size: 11px;
+                    font-weight: 600;
+                    color: Design.text-primary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    width: 100%;
+                    height: 100%;
+                }
+            }
+            Rectangle {
+                width: date-text.preferred-width + 20px;
+                background: Design.card-bg;
+                border-color: Design.separator;
+                border-width: 1px;
+                border-radius: 6px;
+                date-text := Text {
+                    text: root.event-date;
+                    font-size: 11px;
+                    font-weight: 600;
+                    color: Design.text-primary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    width: 100%;
+                    height: 100%;
+                }
+            }
+        }
+
+        // Judul + PanelClose (×).
+        HorizontalLayout {
+            spacing: 12px;
+            Text {
+                text: root.card-title;
+                font-size: root.title-size;
+                font-weight: 700;
+                color: Design.text-primary;
+                wrap: word-wrap;
+                // Lebar EKSPLISIT (bukan horizontal-stretch): Slint
+                // menghitung preferred-height Text pembungkus SEBELUM
+                // lebar dari layout ditetapkan, sehingga untuk judul
+                // PENDEK tingginya mengembang (seolah membungkus pada
+                // lebar ~0) dan mengacaukan hit-test tombol di bawahnya
+                // (baris aksi + × tidak bisa diklik — hanya kartu
+                // berjudul pendek: TK ASSALAM, kartu manual, REVISI).
+                // Judul panjang "kebetulan" jalan karena membungkus
+                // ke 2 baris. Lebar eksplisit = lebar isi - tombol ×
+                // (32px) - spacing (12px); sama persis dengan yang
+                // diberikan stretch, tapi diketahui SEBELUM layout.
+                width: root.width - 2 * root.panel-margin - 44px;
+                vertical-alignment: top;
+            }
+            IconBtn {
+                glyph: "×";
+                variant: "ghost";
+                size: 32px;
+                clicked => { root.close(); }
+            }
+        }
+
+        // Meta baris 1: ID + Attachments + Due (bila muat).
+        HorizontalLayout {
+            height: 30px;
+            spacing: 8px;
+            if root.display-id != "" : Rectangle {
+                width: id-text.preferred-width + 20px;
+                background: Design.card-bg;
+                border-color: Design.separator;
+                border-width: 1px;
+                border-radius: 6px;
+                id-text := Text {
+                    text: "ID: " + root.display-id;
+                    font-size: 11px;
+                    font-weight: 600;
+                    color: Design.text-primary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    width: 100%;
+                    height: 100%;
+                }
+                id-touch := TouchArea {
+                    width: 100%; height: 100%;
+                    mouse-cursor: pointer;
+                    clicked => { root.show-toast("Buka spreadsheet untuk ID " + root.display-id + " (mockup — Fase 6)"); }
+                }
+            }
+            Rectangle {
+                width: att-text.preferred-width + 20px;
+                background: Design.card-bg;
+                border-color: Design.separator;
+                border-width: 1px;
+                border-radius: 6px;
+                att-text := Text {
+                    text: "Attachments: 0";
+                    font-size: 11px;
+                    font-weight: 600;
+                    color: Design.text-primary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    width: 100%;
+                    height: 100%;
+                }
+                att-touch := TouchArea {
+                    width: 100%; height: 100%;
+                    mouse-cursor: pointer;
+                    clicked => { root.sub-panel = "attachments"; }
+                }
+            }
+            if root.due-text != "" && !root.is-narrow : Rectangle {
+                width: due-text-1.preferred-width + 20px;
+                background: Design.card-bg;
+                border-color: Design.separator;
+                border-width: 1px;
+                border-radius: 6px;
+                due-text-1 := Text {
+                    text: root.due-text;
+                    font-size: 11px;
+                    font-weight: 600;
+                    color: Design.text-primary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    width: 100%;
+                    height: 100%;
+                }
+            }
+        }
+
+        // Meta baris 2: Due (saat sempit) + copy-link + open-in-browser.
+        // C# memakai WrapPanel — baris ini meniru hasil wrap-nya.
+        if (root.due-text != "" && root.is-narrow) || root.is-manual || root.display-id != "" : HorizontalLayout {
+            height: 30px;
+            spacing: 8px;
+            if root.due-text != "" && root.is-narrow : Rectangle {
+                width: due-text-2.preferred-width + 20px;
+                background: Design.card-bg;
+                border-color: Design.separator;
+                border-width: 1px;
+                border-radius: 6px;
+                due-text-2 := Text {
+                    text: root.due-text;
+                    font-size: 11px;
+                    font-weight: 600;
+                    color: Design.text-primary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    width: 100%;
+                    height: 100%;
+                }
+            }
+            if root.is-manual || root.display-id != "" : HorizontalLayout {
+                spacing: 8px;
+                IconBtn {
+                    glyph: "⎘";
+                    variant: "ghost";
+                    size: 30px;
+                    clicked => { root.show-toast("Link kartu: " + root.card-url); }
+                }
+                IconBtn {
+                    glyph: "↗";
+                    variant: "ghost";
+                    size: 30px;
+                    clicked => { root.show-toast("Buka kartu di Trello (mockup — Fase 6)"); }
+                }
+            }
+        }
+
+        HSeparator { }
+
+        // Baris aksi 32px: Comment (split ▸) + Checklist + Move/Unlink.
+        // Memakai Btn/IconBtn standar (menangani mode sempit via
+        // `small`). Catatan: sempat diganti inline karena klik pada
+        // kartu berjudul pendek dikira mati — ternyata itu salah
+        // ukur: baris aksi kartu 1 baris ada di y~295, bukan y~360
+        // (judul 2 baris + meta row 2 menggesernya ke bawah).
+        // Tombolnya tidak pernah rusak; yang salah koordinat kliknya.
+        HorizontalLayout {
+            height: 32px;
+            spacing: 8px;
+            HorizontalLayout {
+                spacing: 0px;
+                Btn {
+                    label: "Comment";
+                    variant: "secondary";
+                    scale: 0.89;
+                    small: root.is-narrow;
+                    clicked => { root.sub-panel = "comments"; }
+                }
+                IconBtn {
+                    glyph: "▸";
+                    variant: "ghost";
+                    size: 32px;
+                    clicked => { root.sub-panel = "comments"; }
+                }
+            }
+            Btn {
+                label: "Checklist";
+                variant: "secondary";
+                scale: 0.89;
+                small: root.is-narrow;
+                clicked => { root.sub-panel = "checklist"; }
+            }
+            if !root.is-manual : Btn {
+                label: "Move";
+                variant: "secondary";
+                scale: 0.89;
+                small: root.is-narrow;
+                clicked => { root.sub-panel = "move"; }
+            }
+            if root.is-manual : Btn {
+                label: "Unlink";
+                variant: "secondary";
+                scale: 0.89;
+                small: root.is-narrow;
+                clicked => { root.unlink(); }
+            }
+        }
+
+
+        HSeparator { }
+
+        // Description (13px SemiBold + isi 12px).
+        // Catatan: C# membatasi tinggi isi 240px + scroll; port
+        // menampilkan penuh (mockup 2 baris) — scroll ditambah
+        // di Fase 6 bila deskripsi asli Trello panjang.
+        Text {
+            text: "Description";
+            font-size: 13px;
+            font-weight: 600;
+            color: Design.text-primary;
+            // Tinggi eksplisit 18px: Text anak langsung VerticalLayout
+            // bisa mengembang preferred-height-nya (dihitung seolah
+            // lebar ~0) dan mendorong isi di bawahnya — label 1 baris
+            // 13px selalu 18px, jadi aman dipatok.
+            height: 18px;
+        }
+        Text {
+            text: root.description;
+            font-size: 12px;
+            color: Design.text-secondary;
+            wrap: word-wrap;
+            vertical-alignment: top;
+            // Lebar eksplisit supaya preferred-height dihitung pada
+            // lebar benar (bukan ~0) — tanpa ini teks bisa turun.
+            width: 100%;
+        }
+    }
+
+    // ================= TAMPILAN POINTS (breakdown) =================
+    // height: 100% — alasan sama seperti card-view (area hit-test).
+    points-view := VerticalLayout {
+        x: 0; y: 0; width: 100%; height: 100%;
+        visible: root.sub-panel == "" && root.is-points;
+        padding: root.panel-margin;
+        spacing: 12px;
+
+        HorizontalLayout {
+            spacing: 12px;
+            Text {
+                text: root.card-title;
+                font-size: root.title-size;
+                font-weight: 700;
+                color: Design.text-primary;
+                wrap: word-wrap;
+                // Lebar eksplisit — alasan sama seperti judul detail
+                // (preferred-height Text pembungkus bisa mengembang
+                // bila lebarnya dari stretch).
+                width: root.width - 2 * root.panel-margin - 44px;
+                vertical-alignment: top;
+            }
+            IconBtn {
+                glyph: "×";
+                variant: "ghost";
+                size: 32px;
+                clicked => { root.close(); }
+            }
+        }
+        HSeparator { }
+        HorizontalLayout {
+            height: 28px;
+            Text { text: "Minggu ini"; font-size: 13px; color: Design.text-secondary; vertical-alignment: center; }
+            Rectangle { horizontal-stretch: 1; }
+            Text { text: "+120"; font-size: 13px; font-weight: 700; color: Design.cat-points; vertical-alignment: center; }
+        }
+        HSeparator { }
+        HorizontalLayout {
+            height: 28px;
+            Text { text: "Bulan ini"; font-size: 13px; color: Design.text-secondary; vertical-alignment: center; }
+            Rectangle { horizontal-stretch: 1; }
+            Text { text: "+480"; font-size: 13px; font-weight: 700; color: Design.cat-points; vertical-alignment: center; }
+        }
+        HSeparator { }
+        HorizontalLayout {
+            height: 28px;
+            Text { text: "Total"; font-size: 13px; color: Design.text-secondary; vertical-alignment: center; }
+            Rectangle { horizontal-stretch: 1; }
+            Text { text: "1.280"; font-size: 18px; font-weight: 800; color: Design.cat-points; vertical-alignment: center; }
+        }
+    }
+
+    // ================= SUB-PANEL: COMMENTS =================
+    comments-panel := Rectangle {
+        x: 0; y: 0; width: 100%; height: 100%;
+        visible: root.sub-panel == "comments";
+        comments-back-touch := TouchArea {
+            width: 100%; height: 100%;
+            pointer-event(ev) => {
+                if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                    root.sub-panel = "";
+                }
+            }
+        }
+        VerticalLayout {
+            x: 0; y: 0; width: 100%; height: 100%;
+            padding: root.panel-margin;
+            spacing: 12px;
+            HorizontalLayout {
+                height: 28px;
+                spacing: 8px;
+                Text {
+                    text: "Comments";
+                    font-size: 18px;
+                    font-weight: 600;
+                    color: Design.text-primary;
+                    vertical-alignment: center;
+                }
+                Text {
+                    text: root.card-title;
+                    font-size: 12px;
+                    color: Design.text-secondary;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                }
+                IconBtn {
+                    glyph: root.show-activity ? "◉" : "○";
+                    variant: "ghost";
+                    size: 28px;
+                    clicked => {
+                        root.show-activity = !root.show-activity;
+                        root.show-toast(root.show-activity ? "Aktivitas ditampilkan" : "Aktivitas disembunyikan");
+                    }
+                }
+                IconBtn {
+                    glyph: "×";
+                    variant: "ghost";
+                    size: 28px;
+                    clicked => { root.sub-panel = ""; }
+                }
+            }
+            HSeparator { }
+            Rectangle {
+                vertical-stretch: 1;
+                clip: true;
+                comments-flick := Flickable {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    VerticalLayout {
+                        x: 0; width: parent.width;
+                        spacing: 12px;
+                        CommentRow {
+                            author: "Alif";
+                            time: "2 jam lalu";
+                            body: "Tolong perbaiki centering kepala, masih miring dikit.";
+                            initial: "A";
+                            avatar-bg: Design.accent;
+                        }
+                        CommentRow {
+                            author: "Surya";
+                            time: "5 jam lalu";
+                            body: "Sudah saya cek, tinggal 1 anak lagi.";
+                            initial: "S";
+                            avatar-bg: Design.status-success;
+                        }
+                        if root.added-count >= 1 : CommentRow {
+                            author: "abeng";
+                            time: "baru saja";
+                            body: root.draft-1;
+                            initial: "a";
+                            avatar-bg: Design.accent;
+                        }
+                        if root.added-count >= 2 : CommentRow {
+                            author: "abeng";
+                            time: "baru saja";
+                            body: root.draft-2;
+                            initial: "a";
+                            avatar-bg: Design.accent;
+                        }
+                        if root.added-count >= 3 : CommentRow {
+                            author: "abeng";
+                            time: "baru saja";
+                            body: root.draft-3;
+                            initial: "a";
+                            avatar-bg: Design.accent;
+                        }
+                    }
+                }
+            }
+            // Balasan cepat (C#: Quick Replies).
+            HorizontalLayout {
+                height: 28px;
+                spacing: 8px;
+                Btn {
+                    label: "Siap, diperbaiki.";
+                    variant: "ghost";
+                    small: true;
+                    clicked => { root.comment-draft = "Siap, diperbaiki."; }
+                }
+                Btn {
+                    label: "Sudah dicek.";
+                    variant: "ghost";
+                    small: true;
+                    clicked => { root.comment-draft = "Sudah dicek."; }
+                }
+            }
+            HorizontalLayout {
+                height: 36px;
+                spacing: 8px;
+                TextField {
+                    horizontal-stretch: 1;
+                    placeholder: "Write a comment... (@mention)";
+                    // Dua arah (<=>): TextField di dalam menulis balik
+                    // ke root.text saat user mengetik, yang akan
+                    // MEMUTUS binding satu arah — dengan <=> kedua sisi
+                    // tetap tersinkron (termasuk saat draft dikosongkan
+                    // oleh send-comment).
+                    text <=> root.comment-draft;
+                    accepted(text) => { root.send-comment(); }
+                }
+                IconBtn {
+                    glyph: "+";
+                    variant: "ghost";
+                    size: 36px;
+                    clicked => { root.show-toast("Lampirkan file ke komentar (mockup — Fase 6)"); }
+                }
+                IconBtn {
+                    glyph: "→";
+                    variant: "accent";
+                    size: 36px;
+                    clicked => { root.send-comment(); }
+                }
+            }
+        }
+    }
+
+    // ================= SUB-PANEL: CHECKLISTS =================
+    checklist-panel := Rectangle {
+        x: 0; y: 0; width: 100%; height: 100%;
+        visible: root.sub-panel == "checklist";
+        checklist-back-touch := TouchArea {
+            width: 100%; height: 100%;
+            pointer-event(ev) => {
+                if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                    root.sub-panel = "";
+                }
+            }
+        }
+        VerticalLayout {
+            x: 0; y: 0; width: 100%; height: 100%;
+            padding: root.panel-margin;
+            spacing: 12px;
+            HorizontalLayout {
+                height: 28px;
+                spacing: 8px;
+                Text {
+                    text: "Checklists";
+                    font-size: 18px;
+                    font-weight: 600;
+                    color: Design.text-primary;
+                    vertical-alignment: center;
+                }
+                Rectangle { horizontal-stretch: 1; }
+                IconBtn {
+                    glyph: "↻";
+                    variant: "ghost";
+                    size: 28px;
+                    clicked => { root.show-toast("Checklist disegarkan (mockup)"); }
+                }
+                IconBtn {
+                    glyph: "×";
+                    variant: "ghost";
+                    size: 28px;
+                    clicked => { root.sub-panel = ""; }
+                }
+            }
+            HSeparator { }
+            HorizontalLayout {
+                height: 20px;
+                spacing: 8px;
+                Text {
+                    text: "EDITING abeng";
+                    font-size: 15px;
+                    font-weight: 600;
+                    color: Design.text-primary;
+                    vertical-alignment: center;
+                }
+                Rectangle { horizontal-stretch: 1; }
+                Text {
+                    text: root.progress-text;
+                    font-size: 11px;
+                    color: Design.text-secondary;
+                    vertical-alignment: center;
+                }
+            }
+            for label[idx] in ["Crop foto", "Centering kepala di guide", "Logo terlihat"] : Rectangle {
+                height: 28px;
+                property <bool> checked: root.done ? true : idx == 0;
+                item-touch := TouchArea {
+                    width: 100%; height: 100%;
+                    mouse-cursor: pointer;
+                    clicked => {
+                        checked = !checked;
+                        root.show-toast(checked ? "Item checklist dicentang (mockup)" : "Centang item dibatalkan (mockup)");
+                    }
+                }
+                HorizontalLayout {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    spacing: 10px;
+                    Rectangle {
+                        width: 18px;
+                        height: 18px;
+                        border-radius: 4px;
+                        background: checked ? Design.accent : transparent;
+                        border-width: 1px;
+                        border-color: checked ? Design.accent : Design.border-default;
+                        Text {
+                            text: "✓";
+                            font-size: 12px;
+                            font-weight: 700;
+                            color: white;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            width: 100%;
+                            height: 100%;
+                            visible: checked;
+                        }
+                    }
+                    Text {
+                        text: label;
+                        font-size: 12px;
+                        color: Design.text-primary;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+            Btn {
+                label: "Duplicate Checklist";
+                variant: "primary";
+                width: 100%;
+                clicked => { root.show-toast("Checklist diduplikasi (mockup — Fase 6)"); }
+            }
+        }
+    }
+
+    // ================= SUB-PANEL: MOVE CARD =================
+    move-panel := Rectangle {
+        x: 0; y: 0; width: 100%; height: 100%;
+        visible: root.sub-panel == "move";
+        move-back-touch := TouchArea {
+            width: 100%; height: 100%;
+            pointer-event(ev) => {
+                if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                    root.sub-panel = "";
+                }
+            }
+        }
+        VerticalLayout {
+            x: 0; y: 0; width: 100%; height: 100%;
+            padding: root.panel-margin;
+            spacing: 12px;
+            HorizontalLayout {
+                height: 28px;
+                spacing: 8px;
+                Text {
+                    text: "Move Card";
+                    font-size: 18px;
+                    font-weight: 600;
+                    color: Design.text-primary;
+                    vertical-alignment: center;
+                }
+                Rectangle { horizontal-stretch: 1; }
+                IconBtn {
+                    glyph: "×";
+                    variant: "ghost";
+                    size: 28px;
+                    clicked => { root.sub-panel = ""; }
+                }
+            }
+            HSeparator { }
+            Text {
+                text: "Destination Board";
+                font-size: 12px;
+                font-weight: 600;
+                color: Design.text-primary;
+                height: 16px;
+            }
+            TextField {
+                placeholder: "Cari board...";
+                text <=> root.move-board;
+            }
+            Text {
+                text: "Destination List";
+                font-size: 12px;
+                font-weight: 600;
+                color: Design.text-primary;
+                height: 16px;
+            }
+            TextField {
+                placeholder: "Cari list...";
+                text <=> root.move-list;
+            }
+            Btn {
+                label: "Confirm Move";
+                variant: "primary";
+                scale: 1.06;
+                width: 100%;
+                clicked => {
+                    if (root.move-board == "" || root.move-list == "") {
+                        root.show-toast("Pilih board & list tujuan dulu");
+                    } else {
+                        root.show-toast("Kartu dipindah ke " + root.move-board + " / " + root.move-list + " (mockup)");
+                        root.move-board = "";
+                        root.move-list = "";
+                        root.sub-panel = "";
+                    }
+                }
+            }
+        }
+    }
+
+    // ================= SUB-PANEL: ATTACHMENTS =================
+    attachments-panel := Rectangle {
+        x: 0; y: 0; width: 100%; height: 100%;
+        visible: root.sub-panel == "attachments";
+        attachments-back-touch := TouchArea {
+            width: 100%; height: 100%;
+            pointer-event(ev) => {
+                if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                    root.sub-panel = "";
+                }
+            }
+        }
+        VerticalLayout {
+            x: 0; y: 0; width: 100%; height: 100%;
+            padding: root.panel-margin;
+            spacing: 12px;
+            HorizontalLayout {
+                height: 28px;
+                spacing: 8px;
+                Text {
+                    text: "Attachments";
+                    font-size: 18px;
+                    font-weight: 600;
+                    color: Design.text-primary;
+                    vertical-alignment: center;
+                }
+                Rectangle { horizontal-stretch: 1; }
+                IconBtn {
+                    glyph: "×";
+                    variant: "ghost";
+                    size: 28px;
+                    clicked => { root.sub-panel = ""; }
+                }
+            }
+            HSeparator { }
+            Rectangle {
+                vertical-stretch: 1;
+                Text {
+                    text: "No attachments.";
+                    font-size: 12px;
+                    color: Design.text-secondary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    width: 100%;
+                    height: 100%;
+                }
+            }
+        }
+    }
+}

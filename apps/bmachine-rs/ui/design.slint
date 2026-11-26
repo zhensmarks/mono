@@ -1,0 +1,613 @@
+// ============================================================
+// BMachine Design System — Rust/Slint
+// Token & komponen bersama. SATU-SATUNYA sumber kebenaran visual.
+// Jangan hardcode warna/radius/font di view — pakai token di sini.
+// Lihat DESIGN_SYSTEM.md untuk aturan lengkapnya.
+// ============================================================
+
+export global Design {
+    // ---------- Warna: tema gelap (sama seperti C# DarkTheme) ----------
+    in-out property <color> app-bg: #121212;
+    in-out property <color> card-bg: #1A1C20;
+    in-out property <color> surface-elevated: #202226;
+    in-out property <color> separator: #26282C;
+    in-out property <color> text-primary: #FFFFFF;
+    in-out property <color> text-secondary: #999999;
+    in-out property <color> text-muted: #71717A;
+    in-out property <color> accent: #3b82f6;
+    in-out property <color> accent-subtle: #1F2B40;
+    in-out property <color> bg-hover: #22272B;
+    in-out property <color> bg-input: #0C0C0E;
+    in-out property <color> border-default: #232326;
+    in-out property <color> border-hover: #3F3F46;
+    in-out property <color> border-focus: #4B4B52;
+    in-out property <color> ghost-hover: #28282D;
+    in-out property <color> ghost-pressed: #313136;
+    in-out property <color> toggle-off-bg: #2A2A2A;
+
+    // ---------- Status ----------
+    in-out property <color> status-danger: #ef4444;
+    in-out property <color> status-success: #4ade80;
+    in-out property <color> status-warning: #f59e0b;
+
+    // ---------- Kategori kartu Trello ----------
+    in-out property <color> cat-editing: #3b82f6;
+    in-out property <color> cat-revision: #f97316;
+    in-out property <color> cat-late: #ef4444;
+    in-out property <color> cat-points: #2dd4bf;
+
+    // ---------- Tombol ----------
+    in-out property <color> btn-primary-bg: #EDEDED;
+    in-out property <color> btn-primary-bg-hover: #FFFFFF;
+    in-out property <color> btn-primary-bg-pressed: #D4D4D4;
+    in-out property <color> btn-primary-fg: #111111;
+    in-out property <color> btn-secondary-bg: #1C1C1F;
+    in-out property <color> btn-secondary-bg-hover: #27272B;
+    in-out property <color> btn-secondary-bg-pressed: #222226;
+    in-out property <color> btn-secondary-fg: #E4E4E7;
+    in-out property <color> btn-secondary-border: #3F3F46;
+    in-out property <color> btn-danger-bg: #1C0F0F;
+    in-out property <color> btn-danger-bg-hover: #2A1010;
+    in-out property <color> btn-danger-fg: #A05252;
+    in-out property <color> btn-danger-border: #5A2020;
+
+    // ---------- Radius ----------
+    in-out property <length> radius-xxs: 2px;
+    in-out property <length> radius-xs: 4px;
+    in-out property <length> radius-sm: 6px;
+    in-out property <length> radius-md: 8px;
+    in-out property <length> radius-lg: 10px;
+    in-out property <length> radius-xl: 12px;
+    in-out property <length> radius-pill: 999px;
+
+    // ---------- Spacing ----------
+    in-out property <length> space-xs: 4px;
+    in-out property <length> space-sm: 8px;
+    in-out property <length> space-md: 12px;
+    in-out property <length> space-lg: 16px;
+    in-out property <length> space-xl: 20px;
+
+    // ---------- Font ----------
+    in-out property <length> font-caption: 11px;
+    in-out property <length> font-button: 12px;
+    in-out property <length> font-body: 13px;
+    in-out property <length> font-h3: 14px;
+    in-out property <length> font-h2: 18px;
+    in-out property <length> font-h1: 24px;
+
+    // ---------- Window ----------
+    in-out property <length> window-min-width: 520px;
+    in-out property <length> window-width: 1280px;
+    in-out property <length> window-height: 800px;
+
+    // ---------- Durasi transisi ----------
+    in-out property <duration> anim-fast: 120ms;
+    in-out property <duration> anim-normal: 150ms;
+    in-out property <duration> anim-slow: 250ms;
+}
+
+// ============================================================
+// Tombol — 5 varian. Tinggi 36, radius 6, font 12 SemiBold.
+// variant: "primary" | "secondary" | "ghost" | "danger" | "accent"
+// WAJIB punya hover + pressed + focus. Tidak ada tombol mati.
+// ============================================================
+export component Btn inherits Rectangle {
+    in property <string> label;
+    in property <string> variant: "secondary";
+    in property <bool> enabled: true;
+    // Varian kecil: font 11px + padding 10px (untuk tombol script
+    // bernama di footer BATCH — 5 tombol harus muat di 520px).
+    in property <bool> small: false;
+    // Skala fluid (1 = ukuran desain). Diberi pemakai via ui-scale.
+    in property <float> scale: 1;
+    callback clicked();
+
+    touch := TouchArea {
+        width: 100%; height: 100%;
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    property <bool> is-primary: variant == "primary";
+    property <bool> is-ghost: variant == "ghost";
+    property <bool> is-danger: variant == "danger";
+    property <bool> is-accent: variant == "accent";
+
+    height: 36px * scale;
+    border-radius: Design.radius-sm * scale;
+    opacity: enabled ? 1 : 0.4;
+
+    background: is-primary ? (touch.pressed ? Design.btn-primary-bg-pressed : touch.has-hover ? Design.btn-primary-bg-hover : Design.btn-primary-bg)
+        : is-danger ? (touch.has-hover ? Design.btn-danger-bg-hover : Design.btn-danger-bg)
+        : is-accent ? Design.card-bg
+        : is-ghost ? (touch.pressed ? Design.ghost-pressed : touch.has-hover ? Design.ghost-hover : transparent)
+        : (touch.pressed ? Design.btn-secondary-bg-pressed : touch.has-hover ? Design.btn-secondary-bg-hover : Design.btn-secondary-bg);
+
+    border-width: is-primary ? 0px : 1px;
+    border-color: is-danger ? Design.btn-danger-border
+        : is-accent ? Design.accent
+        : is-ghost ? transparent
+        : Design.btn-secondary-border;
+
+    animate background { duration: Design.anim-normal; easing: ease-out; }
+    animate border-color { duration: Design.anim-normal; easing: ease-out; }
+
+    // Label dibungkus layout ber-padding supaya teks tidak menempel
+    // ke tepi tombol (lebar tombol = teks + padding).
+    HorizontalLayout {
+        width: 100%;
+        height: 100%;
+        padding-left: root.small ? 10px * scale : 16px * scale;
+        padding-right: root.small ? 10px * scale : 16px * scale;
+        alignment: center;
+
+        Text {
+            text: label;
+            font-size: root.small ? 11px * scale : Design.font-button * scale;
+            font-weight: 600;
+            color: is-primary ? Design.btn-primary-fg
+                : is-danger ? Design.btn-danger-fg
+                : is-accent ? Design.accent
+                : Design.btn-secondary-fg;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// ============================================================
+// IconBtn — tombol ikon persegi untuk toolbar & baris aksi BATCH.
+// Varian: "secondary" (latar gelap + border), "ghost" (transparan,
+// hover saja), "danger" (latar merah gelap + teks merah, untuk
+// hapus). Glyph = satu karakter teks (bukan emoji) — mis. "＋",
+// "↻", "×". Ukuran sisi lewat `size` (default 32px); samakan
+// dengan tinggi baris (36px) bila bersebelahan dengan Btn.
+// ============================================================
+export component IconBtn inherits Rectangle {
+    in property <string> glyph;
+    in property <string> variant: "secondary";
+    in property <float> scale: 1;
+    in property <length> size: 32px;
+    callback clicked();
+
+    touch := TouchArea {
+        width: 100%; height: 100%;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    property <bool> is-ghost: variant == "ghost";
+    property <bool> is-danger: variant == "danger";
+
+    width: size * scale;
+    height: size * scale;
+    border-radius: Design.radius-sm * scale;
+
+    background: is-danger ? (touch.has-hover ? Design.btn-danger-bg-hover : Design.btn-danger-bg)
+        : is-ghost ? (touch.pressed ? Design.ghost-pressed : touch.has-hover ? Design.ghost-hover : transparent)
+        : (touch.pressed ? Design.btn-secondary-bg-pressed : touch.has-hover ? Design.btn-secondary-bg-hover : Design.btn-secondary-bg);
+
+    border-width: is-ghost ? 0px : 1px;
+    border-color: is-danger ? Design.btn-danger-border : Design.btn-secondary-border;
+
+    animate background { duration: Design.anim-normal; easing: ease-out; }
+    animate border-color { duration: Design.anim-normal; easing: ease-out; }
+
+    Text {
+        text: glyph;
+        font-size: 16px * scale;
+        font-weight: 700;
+        color: is-danger ? Design.btn-danger-fg : Design.btn-secondary-fg;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: 100%;
+        height: 100%;
+    }
+}
+
+// ============================================================
+// Card / Bento — bg card, border separator 1px, radius 10.
+// Isi diberi padding oleh pemakai (VerticalLayout padding 16).
+// Tanpa shadow/glow.
+// ============================================================
+export component Card inherits Rectangle {
+    background: Design.card-bg;
+    border-color: Design.separator;
+    border-width: 1px;
+    border-radius: Design.radius-lg;
+    clip: true;
+}
+
+// ============================================================
+// Separator horizontal 1px.
+// ============================================================
+export component HSeparator inherits Rectangle {
+    height: 1px;
+    background: Design.separator;
+}
+
+// ============================================================
+// Chip label kecil — bg hover, border warna label, radius 4.
+// Lebar diatur pemakai (label-width), tinggi 18.
+// ============================================================
+export component Chip inherits Rectangle {
+    in property <string> label;
+    in property <color> accent;
+
+    height: 18px;
+    background: Design.bg-hover;
+    border-color: accent;
+    border-width: 1px;
+    border-radius: Design.radius-xs;
+
+    Text {
+        text: label;
+        font-size: 10px;
+        font-weight: 600;
+        color: accent;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: 100%;
+        height: 100%;
+    }
+}
+
+// ============================================================
+// TextField — bg input, border default, radius 6, tinggi 36.
+// Border berubah saat focus. Font 13.
+// ============================================================
+export component TextField inherits Rectangle {
+    in property <string> placeholder;
+    in-out property <string> text;
+    callback accepted(string);
+    callback edited(string);
+
+    height: 36px;
+    background: Design.bg-input;
+    border-color: input.has-focus ? Design.border-focus : Design.border-default;
+    border-width: 1px;
+    border-radius: Design.radius-sm;
+    clip: true;
+
+    animate border-color { duration: Design.anim-normal; easing: ease-out; }
+
+    input := TextInput {
+        x: 10px;
+        width: parent.width - 20px;
+        height: 100%;
+        // Dua arah (<=>), BUKAN satu arah: binding satu arah
+        // `text: root.text` PUTUS saat user mengetik (assignment ke
+        // properti yang ter-binding memutuskan binding-nya), sehingga
+        // perubahan programatik sesudahnya (mis. pengosongan draft
+        // setelah komentar terkirim) tidak lagi tampil di field.
+        // Dengan <=> ketikan naik dan pengosongan turun sama-sama jalan.
+        text <=> root.text;
+        font-size: Design.font-body;
+        color: Design.text-primary;
+        selection-foreground-color: white;
+        selection-background-color: Design.accent;
+        vertical-alignment: center;
+        edited => { root.edited(self.text); }
+        accepted => { root.accepted(self.text); }
+    }
+
+    Text {
+        text: placeholder;
+        font-size: Design.font-body;
+        color: Design.text-muted;
+        vertical-alignment: center;
+        x: 10px;
+        visible: root.text == "" && !input.has-focus;
+    }
+}
+
+// ============================================================
+// Toggle switch — track 44x24, thumb 18, radius 12.
+// ============================================================
+export component Toggle inherits Rectangle {
+    in-out property <bool> checked;
+    callback toggled(bool);
+
+    width: 44px;
+    height: 24px;
+    background: checked ? Design.accent : Design.toggle-off-bg;
+    border-radius: Design.radius-xl;
+
+    animate background { duration: Design.anim-slow; easing: ease-in-out; }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.checked = !root.checked;
+            root.toggled(root.checked);
+        }
+    }
+
+    Rectangle {
+        width: 18px;
+        height: 18px;
+        x: checked ? parent.width - 21px : 3px;
+        y: 3px;
+        background: white;
+        border-radius: 9px;
+
+        animate x { duration: Design.anim-slow; easing: ease-in-out; }
+    }
+}
+
+// ============================================================
+// NavTab — pill navigasi (HOME / BATCH / LOCKER).
+// Aktif: bg accent-subtle + teks accent. Nonaktif: teks biasa.
+// ============================================================
+export component NavTab inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    // Skala fluid: mengikuti ukuran window (1 = ukuran desain).
+    in property <float> scale: 1;
+    callback clicked();
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    height: 32px * scale;
+    // Gaya Trello (contoh abeng, 26 Nov 14:18): tab aktif punya
+    // HIGHLIGHT latar (accent-subtle, biru gelap samar) + garis
+    // indikator aksen di bawah. Hover (tidak aktif) = bg-hover.
+    background: selected ? Design.accent-subtle : (touch.has-hover ? Design.bg-hover : transparent);
+    border-radius: Design.radius-sm;
+
+    animate background { duration: Design.anim-normal; easing: ease-out; }
+
+    // Label — lebar tab mengikuti isi (teks + padding 14 px), dan
+    // teks SELALU di tengah tab (horizontal + vertikal).
+    HorizontalLayout {
+        width: 100%;
+        height: 100%;
+        padding-left: 14px * scale;
+        padding-right: 14px * scale;
+        alignment: center;
+
+        Text {
+            text: label;
+            font-size: 12px * scale;
+            font-weight: 800;
+            letter-spacing: 1px * scale;
+            color: selected ? Design.accent : Design.btn-secondary-fg;
+            vertical-alignment: center;
+        }
+    }
+
+    // Garis indikator aktif — posisi ABSOLUT di bawah tengah tab
+    // (y = tinggi - 5 px), di luar alur layout teks. Jadi teks tetap
+    // di tengah sempurna, tidak terdorong ke atas oleh garisnya.
+    Rectangle {
+        x: (parent.width - 20px * scale) / 2;
+        y: parent.height - 5px * scale;
+        width: 20px * scale;
+        height: 3px * scale;
+        background: Design.accent;
+        border-radius: 2px * scale;
+        visible: selected;
+    }
+}
+
+// ============================================================
+// StatWidget — kartu statistik dashboard.
+// Dot warna + label (10px, weight 900, letter-spacing 1.5)
+// + tombol buka di window baru, nilai besar + suffix.
+// Hover: border jadi warna aksen. Klik: callback clicked.
+// ============================================================
+export component StatWidget inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    // Satuan di samping nilai (CARD / POIN), warna aksen.
+    in property <string> suffix;
+    in property <color> accent;
+    // Gaya latar widget — BISA DIPILIH USER (nanti di Settings).
+    // Nilai: "doodle" | "dots" | "impulse" | "none".
+    // Diatur AppWindow via properti `widget-bg` (setting global);
+    // Settings nanti tinggal mengubah `widget-bg` itu.
+    // Tambah varian baru = tambah satu wadah di bawah + satu nilai.
+    in property <string> bg: "doodle";
+    // Tinggi gelombang "impulse" (0..1) — 14 titik.
+    property <[float]> wave: [0.0, 0.3, 0.6, 0.9, 0.5, 0.1, 0.4, 0.8, 1.0, 0.6, 0.2, 0.5, 0.85, 0.35];
+    // Ukuran font nilai — PROPORSIONAL terhadap lebar kartu
+    // (root.width), BUKAN per kartu. Jadi SEMUA angka ukurannya
+    // SAMA (tidak ada yang beda), dan otomatis mengecil saat
+    // window kecil supaya "1.280 POIN" tetap muat. 0.18 dipilih
+    // supaya "1.280 POIN" muat di kartu 234 px (520×600) dan
+    // tetap besar di kartu 614 px (1280×800).
+    // Suffix = 25% dari font nilai. Rata bawah dihitung dari
+    // kedua ukuran ini.
+    property <length> val-size: root.width * 0.18;
+    property <length> suffix-size: root.val-size * 0.25;
+    // Skala fluid: mengikuti ukuran window (1 = ukuran desain,
+    // >1 saat window besar). Diberi AppWindow via card-scale.
+    in property <float> scale: 1;
+    callback clicked();
+    // Panah "→" di kanan atas = buka WINDOW kategori itu (C#:
+    // tombol panah di StatWidget membuka CardListWindow). TouchArea
+    // sendiri di area panah — klik panah TIDAK memicu klik badan.
+    callback arrow-clicked();
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    // Lapisan luar = warna aksen. Bentuknya (radius 12) adalah bentuk
+    // kartu, jadi garis aksen di tepi atas otomatis mengikuti lengkung
+    // sudut kartu — semua sudut tetap rounded, bukan cuma bawah.
+    background: accent;
+    border-radius: Design.radius-xl;
+
+    // Lapisan dalam = permukaan kartu. Digeser ke bawah setebal garis
+    // aksen, sehingga aksen hanya terlihat sebagai garis di tepi atas.
+    Rectangle {
+        x: 0;
+        y: 2px * scale;
+        width: 100%;
+        height: parent.height - 2px * scale;
+        background: Design.card-bg;
+        border-color: touch.has-hover ? accent : Design.separator;
+        border-width: 1px;
+        border-radius: Design.radius-xl;
+
+        animate border-color { duration: Design.anim-normal; easing: ease-out; }
+
+        // Gaya C# asli (pilihan abeng, 26 Nov 14:24 — opsi C: tanpa
+        // sub text). Atas: dot + label + panah buka. Bawah: nilai
+        // BESAR + suffix satuan warna aksen. Teks dibuat besar lagi
+        // supaya mengisi kartu. Latar doodle tetap ada (plus,
+        // lingkaran outline, titik) supaya kartu tidak kosong.
+
+        // --- Latar widget (PILIHAN — bisa diganti user di Settings) ---
+        // Tiap varian = satu wadah transparan seukuran kartu, hanya
+        // tampil saat `bg` cocok. "none" = tidak ada wadah (polos).
+        // Varian "doodle": plus + lingkaran outline + titik.
+        Rectangle {
+            x: 0; y: 0; width: 100%; height: 100%;
+            visible: root.bg == "doodle";
+            // Plus kiri atas.
+            Rectangle { x: 22px * scale; y: 22px * scale; width: 14px * scale; height: 2px * scale; background: accent; opacity: 0.18; }
+            Rectangle { x: 28px * scale; y: 16px * scale; width: 2px * scale; height: 14px * scale; background: accent; opacity: 0.18; }
+            // Lingkaran outline kanan atas.
+            Rectangle { x: parent.width - 84px * scale; y: 18px * scale; width: 56px * scale; height: 56px * scale; background: transparent; border-color: accent; border-width: 1.5px * scale; opacity: 0.20; border-radius: 999px * scale; }
+            // Plus kiri bawah.
+            Rectangle { x: 30px * scale; y: parent.height - 34px * scale; width: 12px * scale; height: 2px * scale; background: accent; opacity: 0.15; }
+            Rectangle { x: 35px * scale; y: parent.height - 39px * scale; width: 2px * scale; height: 12px * scale; background: accent; opacity: 0.15; }
+            // Lingkaran outline kecil kanan bawah.
+            Rectangle { x: parent.width - 52px * scale; y: parent.height - 52px * scale; width: 28px * scale; height: 28px * scale; background: transparent; border-color: accent; border-width: 1.5px * scale; opacity: 0.18; border-radius: 999px * scale; }
+            // Titik-titik kecil.
+            Rectangle { x: parent.width - 120px * scale; y: 30px * scale; width: 4px * scale; height: 4px * scale; background: accent; opacity: 0.22; border-radius: 999px * scale; }
+            Rectangle { x: 48px * scale; y: parent.height - 58px * scale; width: 4px * scale; height: 4px * scale; background: accent; opacity: 0.20; border-radius: 999px * scale; }
+            Rectangle { x: parent.width - 140px * scale; y: parent.height - 30px * scale; width: 3px * scale; height: 3px * scale; background: accent; opacity: 0.20; border-radius: 999px * scale; }
+        }
+        // Varian "dots": titik-titik halus di tepi atas & bawah kartu.
+        Rectangle {
+            x: 0; y: 0; width: 100%; height: 100%;
+            visible: root.bg == "dots";
+            for i in 12:
+                Rectangle {
+                    x: (i + 0.5) * parent.width / 12 - 1.5px * scale;
+                    y: 14px * scale;
+                    width: 3px * scale;
+                    height: 3px * scale;
+                    background: accent;
+                    opacity: 0.14;
+                    border-radius: 999px * scale;
+                }
+            for i in 12:
+                Rectangle {
+                    x: (i + 0.5) * parent.width / 12 - 1.5px * scale;
+                    y: parent.height - 17px * scale;
+                    width: 3px * scale;
+                    height: 3px * scale;
+                    background: accent;
+                    opacity: 0.14;
+                    border-radius: 999px * scale;
+                }
+        }
+        // Varian "impulse": gelombang pulsa — titik-titik yang naik
+        // turun membentuk gelombang di paruh bawah kartu. Dekorasi,
+        // bukan grafik data (tidak ada angka/sumbu/keterangan).
+        Rectangle {
+            x: 0; y: 0; width: 100%; height: 100%;
+            visible: root.bg == "impulse";
+            for i in 14:
+                Rectangle {
+                    x: (i + 0.5) * parent.width / 14 - 2px * scale;
+                    y: parent.height * 0.72 - root.wave[i] * 52px * scale;
+                    width: 4px * scale;
+                    height: 4px * scale;
+                    background: accent;
+                    opacity: 0.25;
+                    border-radius: 999px * scale;
+                }
+        }
+
+        // --- Isi (di atas doodle) ---
+        VerticalLayout {
+            x: 0;
+            y: 0;
+            width: 100%;
+            height: 100%;
+            padding: 20px * scale;
+            spacing: 8px * scale;
+
+            // Atas: dot + label + panah buka (kanan).
+            HorizontalLayout {
+                height: 20px * scale;
+                spacing: 8px * scale;
+                Text {
+                    text: "●";
+                    font-size: 8px * scale;
+                    color: accent;
+                    vertical-alignment: center;
+                }
+                Text {
+                    text: label;
+                    font-size: 13px * scale;
+                    font-weight: 600;
+                    color: Design.text-secondary;
+                    letter-spacing: 1px * scale;
+                    vertical-alignment: center;
+                }
+                Rectangle { horizontal-stretch: 1; }
+                // Panah buka-window — TouchArea sendiri di atas TouchArea
+                // badan (paling atas di area ini, jadi klik panah hanya
+                // memicu arrow-clicked, bukan clicked). Ukuran eksplisit
+                // supaya area sentuhnya tepat di glyph panah.
+                arrow-touch := TouchArea {
+                    width: 28px * scale;
+                    height: 100%;
+                    mouse-cursor: pointer;
+                    clicked => { root.arrow-clicked(); }
+                    Text {
+                        text: "→";
+                        font-size: 16px * scale;
+                        color: Design.text-muted;
+                        width: 100%;
+                        height: 100%;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            // Dorong nilai ke bawah kartu.
+            Rectangle { vertical-stretch: 1; }
+
+            // Bawah: nilai BESAR + suffix satuan (warna aksen).
+            // Rata bawah = BAWAH suffix sejajar dengan BAWAH angka
+            // (bukan rata tengah). Keduanya diposisikan absolut.
+            // Suffix y = val-size − suffix-size, supaya bawah
+            // keduanya di garis yang sama — seperti garis merah di
+            // contoh C# abeng (26 Nov 14:46). Ukuran font nilai
+            // SAMA untuk semua kartu (proporsional lebar kartu),
+            // jadi tidak ada angka yang ukurannya beda.
+            Rectangle {
+                height: root.val-size * 1.25;
+                val := Text {
+                    x: 0;
+                    y: 0;
+                    text: value;
+                    font-size: root.val-size;
+                    font-weight: 800;
+                    color: Design.text-primary;
+                }
+                Text {
+                    x: val.width + 8px * scale;
+                    y: root.val-size - root.suffix-size;
+                    text: suffix;
+                    font-size: root.suffix-size;
+                    font-weight: 800;
+                    color: accent;
+                    letter-spacing: 1px * scale;
+                }
+            }
+        }
+    }
+}

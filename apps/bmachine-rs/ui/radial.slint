@@ -1,0 +1,478 @@
+// Radial Menu — Fase 4 (port RadialMenuWindow C#).
+// Wheel 400x400 terpusat di overlay: cincin dalam 7 slot + cincin luar
+// (submenu) + dwell 300ms + hub tengah. Bukan window terpisah — overlay
+// in-app ("RADIAL"), seperti overlay lain di AppWindow.
+//
+// Model slot mengikuti RadialMenuViewModel C# (LoadScripts):
+// Action/*.jsx tanpa prefix "_" (kecuali TOOLBOX.jsx) + Scripts/*.pyw,
+// diurutkan Order lalu nama; grup TOOLBOX (_tb_*.jsx) jadi satu slot
+// grup di cincin dalam. MaxVisibleItems C# = 7 — 7 slot di sini pas
+// 7, jadi tidak ada tombol More/Back (BuildVisibleItems).
+//   TOOLBOX (grup, Order 0) · REPLACE (Order 1) · SAVE MASTER (2) ·
+//   BUCIN psdbucin_v3.pyw (5) · OPEN PSD (6) · SEND-LOGO · SEND-TEXT
+// Sudut mengikuti grid 8-slot C# (ArrangeItems): 0, 45, 315, 90, 270,
+// 135, 225 — slot Selatan (180) kosong karena tidak ada item nav.
+//
+// PENYEDERHANAAN PORT (dicatat, bukan disembunyikan):
+// - Cincin luar TOOLBOX di C# berisi 5 file _tb_*.jsx (C-REDAKSI,
+//   FOOTNOTE, IMAGE SIZE, NOMORSATSET, SELEKSI ALAM). Di port ini
+//   berisi 3 tab Mantra (MantraNama / MantraGanda / PsdBucin) yang
+//   membuka overlay TOOLBOX pada tab itu — sesuai tugas Fase 4 dan
+//   karena ToolboxView port hanya punya 3 tab itu.
+// - Cincin luar SEND-TEXT / SEND-LOGO di C# berisi tab DOC hasil
+//   QueryDocTabs (hanya bila > 1 tab). Port belum punya DOC, jadi
+//   cincin luarnya berisi 2 tab contoh ("Tab 1" / "Tab 2"); klik
+//   hanya toast mockup.
+// - Tidak ada PieWedge: Slint tidak punya primitif sektor lingkaran.
+//   Highlight slot memakai latar accent-subtle + border aksen
+//   (gaya aktif §10.2), bukan sektor menyala.
+// - Label slot horizontal (tidak dirotasi tangensial seperti C#)
+//   supaya tetap terbaca.
+// - Eksekusi nyata (kirim .jsx/.pyw ke Photoshop) belum ada —
+//   semua aksi slot = toast mockup / buka overlay (Fase 6).
+
+import { Design, IconBtn } from "design.slint";
+
+// Satu slot cincin dalam. Root 0x0 diposisikan TEPAT di pusat slot;
+// lingkaran 56px + label nama digambar relatif ke titik itu.
+component RadialSlot inherits Rectangle {
+    in property <string> code;        // kode singkat di lingkaran (mis. "REP")
+    in property <string> label;       // nama penuh (label luar + judul hub)
+    in property <bool> is-group;      // punya submenu (TOOLBOX / SEND-*)
+    in property <bool> hovered;
+    in property <bool> submenu-open;  // submenu milik slot ini sedang tampil
+    in property <length> label-dx;    // label: pusat label − pusat slot (x)
+    in property <length> label-dy;    // label: pusat label − pusat slot (y)
+    callback hover-changed(bool);
+    callback activate();
+    callback close-requested();
+
+    width: 0px;
+    height: 0px;
+
+    // Label nama penuh di sisi luar cincin (radius 171).
+    Text {
+        x: root.label-dx - 48px;
+        y: root.label-dy - 7px;
+        width: 96px;
+        height: 14px;
+        text: root.label;
+        font-size: Design.font-caption;
+        font-weight: 600;
+        color: root.hovered ? Design.text-primary : Design.text-secondary;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    // Lingkaran slot 56px (C#: tombol 32px di window 320 — diperbesar
+    // mengikuti skala wheel port 400px).
+    Rectangle {
+        x: -28px;
+        y: -28px;
+        width: 56px;
+        height: 56px;
+        border-radius: 28px;
+        background: root.hovered ? Design.accent-subtle : Design.card-bg;
+        border-color: root.submenu-open ? Design.accent : root.hovered ? Design.accent : Design.separator;
+        border-width: 1px;
+        animate background { duration: Design.anim-normal; }
+        animate border-color { duration: Design.anim-normal; }
+
+        Text {
+            text: root.code;
+            font-size: Design.font-button;
+            font-weight: 600;
+            color: Design.text-primary;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            width: 100%;
+            height: 100%;
+        }
+
+        slot-touch := TouchArea {
+            width: 100%;
+            height: 100%;
+            mouse-cursor: pointer;
+            changed has-hover => { root.hover-changed(self.has-hover); }
+            clicked => { root.activate(); }
+            pointer-event(ev) => {
+                // Klik kanan di mana pun di radial = tutup (§10.11).
+                if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                    root.close-requested();
+                }
+            }
+        }
+    }
+}
+
+// Satu item cincin luar (pil submenu). Root 0x0 di pusat pil.
+component RadialOuterItem inherits Rectangle {
+    in property <string> label;
+    in property <length> pill-width;
+    in property <bool> hovered;
+    callback hover-changed(bool);
+    callback activate();
+    callback close-requested();
+
+    width: 0px;
+    height: 0px;
+
+    Rectangle {
+        x: -root.pill-width / 2;
+        y: -14px;
+        width: root.pill-width;
+        height: 28px;
+        border-radius: Design.radius-sm;
+        background: root.hovered ? Design.accent-subtle : Design.card-bg;
+        border-color: root.hovered ? Design.accent : Design.separator;
+        border-width: 1px;
+        animate background { duration: Design.anim-normal; }
+        animate border-color { duration: Design.anim-normal; }
+
+        Text {
+            text: root.label;
+            font-size: Design.font-caption;
+            font-weight: 600;
+            color: root.hovered ? Design.text-primary : Design.text-secondary;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            width: 100%;
+            height: 100%;
+        }
+
+        outer-touch := TouchArea {
+            width: 100%;
+            height: 100%;
+            mouse-cursor: pointer;
+            changed has-hover => { root.hover-changed(self.has-hover); }
+            clicked => { root.activate(); }
+            pointer-event(ev) => {
+                if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                    root.close-requested();
+                }
+            }
+        }
+    }
+}
+
+export component RadialMenuView inherits Rectangle {
+    callback back();            // tutup radial (ke dashboard / overlay sebelumnya)
+    callback toast(string);
+    callback open-toolbox(string); // buka overlay TOOLBOX pada tab Mantra itu
+
+    // State tampil.
+    property <string> hovered-id: "";
+    property <string> hovered-name: "RADIAL";
+    property <bool> hovered-has-sub: false;
+    // Submenu yang sedang terbuka: "" | "TOOLBOX" | "SEND-LOGO" | "SEND-TEXT".
+    property <string> submenu-id: "";
+    // Kandidat dwell (C#: _dwellCandidate + SubmenuDwellMs 300ms).
+    property <string> dwell-id: "";
+
+    // --- Model slot cincin dalam (pusat slot di kotak wheel 400x400;
+    // cincin dalam radius 104px, sudut grid 8-slot C#) ---
+    property <[string]> slot-ids: ["TOOLBOX", "REPLACE", "SAVE", "BUCIN", "OPENPSD", "SEND-LOGO", "SEND-TEXT"];
+    property <[string]> slot-codes: ["TB", "REP", "SAVE", "BUC", "OPEN", "LOGO", "TEXT"];
+    property <[string]> slot-names: ["TOOLBOX", "REPLACE", "SAVE MASTER", "BUCIN", "OPEN PSD", "SEND LOGO", "SEND TEXT"];
+    property <[bool]> slot-sub: [true, false, false, false, false, true, true];
+    property <[length]> slot-cx: [200px, 273.5px, 126.5px, 304px, 96px, 273.5px, 126.5px];
+    property <[length]> slot-cy: [96px, 126.5px, 126.5px, 200px, 200px, 273.5px, 273.5px];
+    // Label di radius 171 (67px di luar pusat slot, searah sudut slot).
+    // 67px dipilih supaya teks (kotak 96px, label terlebar ~70px)
+    // tidak lagi tertutup lingkaran slot (jari-jari 28px): label
+    // kardinal butuh dx > 53px, label diagonal butuh dy > 35px —
+    // offset lama 36px membuat huruf tepi label hilang di balik
+    // lingkaran (terlihat di verifikasi live 26 Nov: "EPLACE",
+    // "SAVE MASTE", "UCIN"). Radius 171 juga menjaga label tetap
+    // di dalam piringan (radius 180).
+    property <[length]> label-dx: [0px, 47.4px, -47.4px, 67px, -67px, 47.4px, -47.4px];
+    property <[length]> label-dy: [-67px, -47.4px, -47.4px, 0px, 0px, 47.4px, 47.4px];
+
+    // --- Cincin luar TOOLBOX: 3 tab Mantra, radius 195, sudut -35/0/35
+    // mengelilingi slot induk (TOOLBOX di 0°), seperti BuildOuterToolboxSubmenu.
+    // Radius 195 + sudut ±35° (bukan 172 / ±45°): pil di 172/±45° akan
+    // menutupi label slot yang kini di radius 171 (pil 100x28 di
+    // (78,78) tepat menimpa label SAVE/REPLACE); di 195/±35° pil
+    // bersih dari label (jarak vertikal ≥ 17px) dan dari lingkaran slot.
+    property <[string]> tb-ids: ["MantraNama", "MantraGanda", "PsdBucin"];
+    property <[length]> tb-cx: [88.1px, 200px, 311.9px];
+    property <[length]> tb-cy: [40.3px, 5px, 40.3px];
+
+    // --- Cincin luar SEND-*: 2 tab DOC contoh, radius 172, sudut
+    // induk ±22.5° (seperti BuildOuterSubmenu). ---
+    property <[string]> doc-labels: ["Tab 1", "Tab 2"];
+    property <[length]> doc-logo-cx: [358.9px, 265.8px];
+    property <[length]> doc-logo-cy: [265.8px, 358.9px];
+    property <[length]> doc-text-cx: [134.2px, 41.1px];
+    property <[length]> doc-text-cy: [358.9px, 265.8px];
+
+    // Dwell 300ms (C#: SubmenuDwellMs) — hover slot ber-submenu
+    // sesaat membuka submenu (OnSubmenuDwellTick).
+    dwell-timer := Timer {
+        interval: 300ms;
+        triggered => {
+            if (root.dwell-id != "") {
+                root.submenu-id = root.dwell-id;
+            }
+            root.dwell-id = "";
+        }
+    }
+
+    // Dipanggil AppWindow tiap kali radial dibuka (komponen ini
+    // persisten — visible toggling saja — jadi state lama harus dibersihkan).
+    public function reset() {
+        root.hovered-id = "";
+        root.hovered-name = "RADIAL";
+        root.hovered-has-sub = false;
+        root.submenu-id = "";
+        root.dwell-id = "";
+        dwell-timer.stop();
+    }
+
+    // Hover slot dalam: kelola highlight + dwell + tutup submenu yatim
+    // (C#: UpdateSubmenuDwell / CloseOrphanSubmenu). Submenu TIDAK
+    // ditutup saat pointer lepas dari slot induk — pointer masih bisa
+    // jalan ke cincin luar; submenu ditutup saat hover slot lain.
+    function slot-hover(id: string, name: string, has-sub: bool, hovering: bool) {
+        if (hovering) {
+            root.hovered-id = id;
+            root.hovered-name = name;
+            root.hovered-has-sub = has-sub;
+            if (root.submenu-id != "" && root.submenu-id != id) {
+                root.submenu-id = "";
+            }
+            if (has-sub) {
+                root.dwell-id = id;
+                dwell-timer.restart();
+            } else {
+                root.dwell-id = "";
+                dwell-timer.stop();
+            }
+        } else {
+            if (root.hovered-id == id) {
+                root.hovered-id = "";
+                root.hovered-name = "RADIAL";
+                root.hovered-has-sub = false;
+            }
+            if (root.dwell-id == id) {
+                root.dwell-id = "";
+                dwell-timer.stop();
+            }
+        }
+    }
+
+    // Hover item cincin luar: hanya highlight + judul hub.
+    function outer-hover(id: string, name: string, hovering: bool) {
+        if (hovering) {
+            root.hovered-id = id;
+            root.hovered-name = name;
+            root.hovered-has-sub = false;
+        } else if (root.hovered-id == id) {
+            root.hovered-id = "";
+            root.hovered-name = "RADIAL";
+            root.hovered-has-sub = false;
+        }
+    }
+
+    // Klik slot dalam (C#: ExecuteItem). Slot grup tidak dieksekusi —
+    // klik membuka submenunya langsung (hover membukanya via dwell).
+    // BUCIN = psdbucin_v3.pyw, yang di C# membuka ToolboxWindow.
+    function slot-click(id: string) {
+        if (id == "TOOLBOX" || id == "SEND-LOGO" || id == "SEND-TEXT") {
+            root.submenu-id = id;
+            root.dwell-id = "";
+            dwell-timer.stop();
+            return;
+        }
+        if (id == "BUCIN") {
+            root.open-toolbox("PsdBucin");
+            return;
+        }
+        if (id == "REPLACE") {
+            root.toast("REPLACE: replace.jsx dikirim ke Photoshop (mockup).");
+        } else if (id == "SAVE") {
+            root.toast("SAVE MASTER: save_master.jsx dikirim ke Photoshop (mockup).");
+        } else if (id == "OPENPSD") {
+            root.toast("OPEN PSD: pilih file PSD… (mockup — dialog file di aplikasi asli).");
+        }
+        root.reset();
+        root.back();
+    }
+
+    // Klik item cincin luar. Mantra -> overlay TOOLBOX pada tab itu
+    // (tanpa back(): open-toolbox sudah mengganti overlay-view).
+    // Tab DOC -> toast mockup (DOC belum ada di port).
+    function outer-click(id: string, label: string) {
+        if (id == "MantraNama" || id == "MantraGanda" || id == "PsdBucin") {
+            root.open-toolbox(id);
+            return;
+        }
+        if (root.submenu-id == "SEND-LOGO") {
+            root.toast("SEND LOGO → " + label + " (mockup — dikirim ke Photoshop di aplikasi asli).");
+        } else {
+            root.toast("SEND TEXT → " + label + " (mockup — dikirim ke Photoshop di aplikasi asli).");
+        }
+        root.reset();
+        root.back();
+    }
+
+    // Dim latar (dipisah dari TouchArea supaya klik backdrop tetap jalan).
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: 100%;
+        height: 100%;
+        background: #000000;
+        opacity: 0.6;
+    }
+
+    // Klik backdrop = tutup (klik kiri). Klik kanan juga tutup (§10.11).
+    back-touch := TouchArea {
+        x: 0;
+        y: 0;
+        width: 100%;
+        height: 100%;
+        clicked => { root.reset(); root.back(); }
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                root.reset();
+                root.back();
+            }
+        }
+    }
+
+    // ===== Wheel 400x400 terpusat =====
+    Rectangle {
+        x: (root.width - 400px) / 2;
+        y: (root.height - 400px) / 2;
+        width: 400px;
+        height: 400px;
+
+        // Piringan dalam (C#: plate 200px di window 320) — radius 180
+        // supaya label (radius 171) tetap di dalam piringan.
+        Rectangle {
+            x: 20px;
+            y: 20px;
+            width: 360px;
+            height: 360px;
+            border-radius: 180px;
+            background: Design.surface-elevated;
+            border-color: Design.separator;
+            border-width: 1px;
+        }
+
+        // Ring panduan cincin luar (radius 190 — di luar pil submenu).
+        Rectangle {
+            x: 10px;
+            y: 10px;
+            width: 380px;
+            height: 380px;
+            border-radius: 190px;
+            background: transparent;
+            border-color: Design.separator;
+            border-width: 1px;
+        }
+
+        // --- Cincin dalam: 7 slot ---
+        for i in 7 : RadialSlot {
+            x: root.slot-cx[i];
+            y: root.slot-cy[i];
+            code: root.slot-codes[i];
+            label: root.slot-names[i];
+            is-group: root.slot-sub[i];
+            hovered: root.hovered-id == root.slot-ids[i];
+            submenu-open: root.submenu-id == root.slot-ids[i];
+            label-dx: root.label-dx[i];
+            label-dy: root.label-dy[i];
+            hover-changed(h) => { root.slot-hover(root.slot-ids[i], root.slot-names[i], root.slot-sub[i], h); }
+            activate => { root.slot-click(root.slot-ids[i]); }
+            close-requested => { root.reset(); root.back(); }
+        }
+
+        // --- Cincin luar TOOLBOX: 3 tab Mantra ---
+        for i in 3 : RadialOuterItem {
+            visible: root.submenu-id == "TOOLBOX";
+            x: root.tb-cx[i];
+            y: root.tb-cy[i];
+            label: root.tb-ids[i];
+            pill-width: 100px;
+            hovered: root.hovered-id == root.tb-ids[i];
+            hover-changed(h) => { root.outer-hover(root.tb-ids[i], root.tb-ids[i], h); }
+            activate => { root.outer-click(root.tb-ids[i], root.tb-ids[i]); }
+            close-requested => { root.reset(); root.back(); }
+        }
+
+        // --- Cincin luar SEND-*: 2 tab DOC contoh ---
+        for i in 2 : RadialOuterItem {
+            visible: root.submenu-id == "SEND-LOGO" || root.submenu-id == "SEND-TEXT";
+            x: root.submenu-id == "SEND-LOGO" ? root.doc-logo-cx[i] : root.doc-text-cx[i];
+            y: root.submenu-id == "SEND-LOGO" ? root.doc-logo-cy[i] : root.doc-text-cy[i];
+            label: root.doc-labels[i];
+            pill-width: 64px;
+            hovered: root.hovered-id == root.doc-labels[i];
+            hover-changed(h) => { root.outer-hover(root.doc-labels[i], root.doc-labels[i], h); }
+            activate => { root.outer-click(root.doc-labels[i], root.doc-labels[i]); }
+            close-requested => { root.reset(); root.back(); }
+        }
+
+        // --- Hub tengah (C#: 88px, judul + subjudul) ---
+        Rectangle {
+            x: 146px;
+            y: 146px;
+            width: 108px;
+            height: 108px;
+            border-radius: 54px;
+            background: Design.card-bg;
+            border-color: Design.separator;
+            border-width: 1px;
+
+            VerticalLayout {
+                x: 0;
+                y: 0;
+                width: 100%;
+                height: 100%;
+                padding: 12px;
+                spacing: 4px;
+                alignment: center;
+                Text {
+                    text: root.hovered-name;
+                    font-size: Design.font-caption;
+                    font-weight: 700;
+                    letter-spacing: 2px;
+                    color: Design.text-primary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    wrap: word-wrap;
+                }
+                Text {
+                    text: root.hovered-id == "" ? "pilih slot" : root.hovered-has-sub ? "klik / tahan — submenu" : "Pilih";
+                    font-size: Design.font-caption;
+                    color: Design.text-secondary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    wrap: word-wrap;
+                }
+            }
+        }
+    }
+
+    // Petunjuk trigger + penutup di bawah wheel.
+    Text {
+        x: 0;
+        y: (root.height - 400px) / 2 + 400px + 12px;
+        width: 100%;
+        text: "Shift + Klik Tengah di dashboard • Klik kanan / Esc untuk menutup";
+        font-size: Design.font-caption;
+        color: Design.text-muted;
+        horizontal-alignment: center;
+    }
+
+    // Tombol tutup × di sudut kanan-atas wheel.
+    IconBtn {
+        x: (root.width - 400px) / 2 + 400px - 32px;
+        y: (root.height - 400px) / 2;
+        glyph: "×";
+        variant: "ghost";
+        clicked => { root.reset(); root.back(); }
+    }
+}

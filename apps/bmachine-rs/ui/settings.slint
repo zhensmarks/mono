@@ -1,0 +1,1481 @@
+// SETTINGS — side panel + konten (DESIGN_SYSTEM.md §17).
+// Grup: Appearance (default), General, Explorer, Paths, About.
+// Side panel pola gambar referensi (26 Nov 16:54): judul "Settings" +
+// search bar (filter substring) + header grup kecil (App / Data /
+// Tentang) + item berikon, item terpilih highlight accent-subtle.
+// Pola "Visual style" dari gambar referensi (kartu preview color mode,
+// preset tema, swatch + hex, font, widget background, window chrome).
+// State lokal mockup yang fungsional; perubahan tampil di area PREVIEW
+// di layar settings. Koneksi nyata ke tema global = Fase 6.
+// Semua opsi ditumpuk (label di atas, kontrol di bawah) supaya muat di 520px.
+
+import { Design, Card, HSeparator, Btn, TextField, Toggle, StatWidget } from "design.slint";
+
+// Baris grup di side panel (ikon + label, gaya NavTab list).
+// Pola gambar referensi (26 Nov 16:54): ikon + label, item terpilih
+// highlight accent-subtle. `shown` = hasil filter search (tinggi 0 +
+// visible false — visible:false saja tetap makan ruang di Slint).
+component GroupRow inherits Rectangle {
+    in property <string> icon;
+    in property <string> label;
+    in property <bool> selected;
+    in property <bool> shown: true;
+    callback clicked();
+    height: shown ? 36px : 0px;
+    visible: shown;
+    background: selected ? Design.accent-subtle : (grow-touch.has-hover ? Design.bg-hover : transparent);
+    border-radius: Design.radius-sm;
+    grow-touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    HorizontalLayout {
+        width: 100%;
+        height: 100%;
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 8px;
+        Text {
+            text: icon;
+            font-size: 14px;
+            font-weight: 700;
+            color: selected ? Design.accent : Design.text-secondary;
+            vertical-alignment: center;
+            width: 16px;
+            horizontal-alignment: center;
+        }
+        Text {
+            text: label;
+            font-size: Design.font-body;
+            font-weight: selected ? 700 : 600;
+            color: selected ? Design.accent : Design.text-primary;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+    }
+}
+
+// Header grup kecil di side panel (11px muted, sejajar teks label).
+component GroupHeader inherits Rectangle {
+    in property <string> label;
+    in property <bool> shown: true;
+    height: shown ? 26px : 0px;
+    visible: shown;
+    Text {
+        text: label;
+        font-size: Design.font-caption;
+        font-weight: 700;
+        color: Design.text-muted;
+        vertical-alignment: center;
+        x: 12px;
+        height: 100%;
+    }
+}
+
+// Chip pilihan (kartu/chip, bukan dropdown generik).
+component OptionChip inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked();
+    // Tinggi 36px — SAMA dengan TextField / ThemeRow / Btn (satu tinggi kontrol di semua section).
+    height: 36px;
+    background: selected ? Design.accent-subtle : (ochip-touch.has-hover ? Design.bg-hover : transparent);
+    border-color: selected ? Design.accent : Design.separator;
+    border-width: 1px;
+    border-radius: Design.radius-sm;
+    ochip-touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    HorizontalLayout {
+        width: 100%;
+        height: 100%;
+        padding-left: 12px;
+        padding-right: 12px;
+        alignment: center;
+        Text {
+            text: label;
+            font-size: Design.font-button;
+            font-weight: 600;
+            color: selected ? Design.accent : Design.text-primary;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// Label + deskripsi satu opsi (judul 13/700, deskripsi 11 sekunder).
+component FieldLabel inherits VerticalLayout {
+    in property <string> title;
+    in property <string> desc;
+    spacing: 2px;
+    Text {
+        text: title;
+        font-size: Design.font-body;
+        font-weight: 700;
+        color: Design.text-primary;
+    }
+    Text {
+        text: desc;
+        font-size: Design.font-caption;
+        color: Design.text-secondary;
+        wrap: word-wrap;
+        visible: desc != "";
+    }
+}
+
+// Titik swatch warna (klik = pilih warna itu).
+// Wadah setinggi baris (36px): lingkaran 28px di tengah vertikal.
+// Anak layout menempel ke ATAS, jadi lingkaran langsung di baris 36px
+// kelihatan "ke atas" — dibungkus wadah setinggi baris + y eksplisit.
+component SwatchDot inherits Rectangle {
+    in property <color> swatch;
+    in property <bool> selected;
+    callback clicked();
+    width: 28px;
+    height: 36px;
+    circle := Rectangle {
+        width: 28px;
+        height: 28px;
+        x: 0px;
+        y: (root.height - 28px) / 2;
+        background: swatch;
+        border-color: selected ? Design.accent : Design.border-hover;
+        border-width: 2px;
+        border-radius: 999px;
+    }
+    dot-touch := TouchArea {
+        width: 28px;
+        height: 36px;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+// Kartu preview color mode (terang / gelap / ikut sistem).
+component ColorModeCard inherits Rectangle {
+    in property <string> mode;
+    in property <bool> selected;
+    callback clicked();
+    background: Design.card-bg;
+    border-color: selected ? Design.accent : Design.separator;
+    border-width: selected ? 2px : 1px;
+    border-radius: Design.radius-lg;
+    clip: true;
+    cm-touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+        padding: Design.space-sm;
+        spacing: 6px;
+        // Miniatur jendela: warna sesuai mode (nilai preview, bukan token app).
+        Rectangle {
+            vertical-stretch: 1;
+            background: mode == "dark" ? #191919 : #F5F5F5;
+            border-radius: Design.radius-sm;
+            clip: true;
+            // Mode "system": separuh terang + separuh gelap.
+            HorizontalLayout {
+                x: 0; y: 0; width: 100%; height: 100%;
+                Rectangle {
+                    horizontal-stretch: 1;
+                    background: mode == "dark" ? #191919 : #F5F5F5;
+                }
+                Rectangle {
+                    horizontal-stretch: 1;
+                    background: #191919;
+                    visible: mode == "system";
+                }
+            }
+            // Bar preview dibungkus container yang di mode "system" hanya
+            // selebar separuh terang — supaya bar tidak menyeberang garis
+            // belah terang/gelap dan terlihat terpotong di tengah (26 Nov).
+            Rectangle {
+                x: 0; y: 0; width: mode == "system" ? 50% : 100%; height: 100%;
+                clip: true;
+                Rectangle { x: 10px; y: 10px; width: 40%; height: 4px; background: #3b82f6; border-radius: 2px; }
+                Rectangle { x: 10px; y: 20px; width: 65%; height: 3px; background: mode == "light" ? #C9C9C9 : #3A3A3A; border-radius: 2px; }
+                Rectangle { x: 10px; y: 28px; width: 50%; height: 3px; background: mode == "light" ? #C9C9C9 : #3A3A3A; border-radius: 2px; }
+                Rectangle { x: 10px; y: 38px; width: 30%; height: 3px; background: #3b82f6; border-radius: 2px; }
+            }
+        }
+        Text {
+            text: mode == "light" ? "Terang" : mode == "dark" ? "Gelap" : "Ikut sistem";
+            font-size: Design.font-button;
+            font-weight: 700;
+            color: selected ? Design.accent : Design.text-primary;
+            horizontal-alignment: center;
+        }
+    }
+}
+
+// Kartu pilihan font — menampilkan contoh Regular + Bold + ExtraBold.
+component FontCard inherits Rectangle {
+    in property <string> font-name;
+    in property <string> font-family;
+    in property <bool> selected;
+    callback clicked();
+    // Tinggi responsif: di window sempit (520px) kartu lebih tinggi
+    // supaya contoh font yang ter-wrap 2 baris tidak terpotong.
+    height: root.width < 200px ? 140px : 108px;
+    background: Design.card-bg;
+    border-color: selected ? Design.accent : Design.separator;
+    border-width: selected ? 2px : 1px;
+    border-radius: Design.radius-lg;
+    clip: true;
+    fc-touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+        padding: Design.space-md;
+        spacing: 3px;
+        Text {
+            text: font-name;
+            font-size: Design.font-body;
+            font-weight: 700;
+            font-family: font-family;
+            color: Design.text-primary;
+        }
+        Text {
+            text: "Aa Bb Cc 0123 — Regular";
+            font-size: Design.font-button;
+            font-weight: 400;
+            font-family: font-family;
+            color: Design.text-secondary;
+            wrap: word-wrap;
+        }
+        Text {
+            text: "Aa Bb Cc 0123 — Bold";
+            font-size: Design.font-button;
+            font-weight: 700;
+            font-family: font-family;
+            color: Design.text-secondary;
+            wrap: word-wrap;
+        }
+        Text {
+            text: "Aa Bb Cc 0123 — ExtraBold";
+            font-size: Design.font-button;
+            font-weight: 800;
+            font-family: font-family;
+            color: Design.text-secondary;
+            wrap: word-wrap;
+        }
+    }
+}
+
+// Baris preset tema (daftar penuh, satu baris per preset).
+component ThemeRow inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked();
+    height: 36px;
+    background: selected ? Design.accent-subtle : (trow-touch.has-hover ? Design.bg-hover : transparent);
+    border-color: selected ? Design.accent : Design.separator;
+    border-width: 1px;
+    border-radius: Design.radius-sm;
+    trow-touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 8px;
+        Text {
+            text: label;
+            font-size: Design.font-body;
+            font-weight: 600;
+            color: selected ? Design.accent : Design.text-primary;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+        Text {
+            text: selected ? "✓" : "";
+            font-size: Design.font-body;
+            font-weight: 700;
+            color: Design.accent;
+            vertical-alignment: center;
+        }
+    }
+}
+
+export component SettingsView inherits Rectangle {
+    callback toast(string);
+    callback back();
+    // Widget background — terikat dua arah ke AppWindow (kartu dashboard ikut berubah).
+    in-out property <string> widget-bg: "doodle";
+
+    in-out property <string> group: "Appearance";
+
+    // --- Filter search side panel (internal, bukan interface publik) ---
+    // Slint 1.19 tidak punya string.contains — substring dicek lewat
+    // replace-all: kalau query ada di label, hasil replace != label.
+    // Case-insensitive (query di-lowercase, label sudah lowercase).
+    property <string> search-q: "";
+    property <bool> show-general: root.search-q == "" || "general".replace-all(root.search-q.to-lowercase(), "") != "general";
+    property <bool> show-appearance: root.search-q == "" || "appearance".replace-all(root.search-q.to-lowercase(), "") != "appearance";
+    property <bool> show-explorer: root.search-q == "" || "explorer".replace-all(root.search-q.to-lowercase(), "") != "explorer";
+    property <bool> show-paths: root.search-q == "" || "paths".replace-all(root.search-q.to-lowercase(), "") != "paths";
+    property <bool> show-about: root.search-q == "" || "about".replace-all(root.search-q.to-lowercase(), "") != "about";
+    // --- Appearance (state lokal mockup) ---
+    in-out property <string> color-mode: "dark";
+    in-out property <string> theme-preset: "BMachine Dark";
+    in-out property <color> accent-color: #339CFF;
+    in-out property <string> accent-hex: "#339CFF";
+    in-out property <string> accent-hex-good: "#339CFF";
+    in-out property <color> bg-color: #191919;
+    in-out property <string> bg-hex: "#191919";
+    in-out property <string> bg-hex-good: "#191919";
+    in-out property <color> fg-color: #FFFFFF;
+    in-out property <string> fg-hex: "#FFFFFF";
+    in-out property <string> fg-hex-good: "#FFFFFF";
+    in-out property <string> font-choice: "Inter";
+    in-out property <string> chrome: "custom";
+    // Baris hex responsif (26 Nov): di window sempit (<580px) field
+    // mengecil 120→96px dan jarak 8→2px supaya kelima dot tetap muat
+    // di konten (lebar konten = root.width − 232px = 288px di 520px);
+    // tinggi tetap 36px (swatch/field) + 28px (dot) di semua lebar —
+    // garis atas/bawah baris tetap lurus.
+    property <bool> hex-compact: root.width < 580px;
+
+    // --- General ---
+    in-out property <string> user-name: "abeng";
+    in-out property <string> lang: "Indonesia";
+    in-out property <bool> anim-startup: true;
+    in-out property <string> anim-speed: "Normal";
+    in-out property <string> trello-interval: "30";
+    in-out property <bool> smart-orb: true;
+
+    // --- Explorer (dari ExplorerSettings C#) ---
+    in-out property <string> exp-path: "D:\\#GAWENA";
+    in-out property <string> exp-view: "Details";
+    in-out property <string> exp-sort: "Name";
+    in-out property <string> exp-group: "None";
+    in-out property <bool> exp-hidden: false;
+    in-out property <bool> exp-ext: true;
+    in-out property <int> exp-zoom: 100;
+
+    // --- Paths ---
+    in-out property <string> path-local: "D:\\#GAWENA";
+    in-out property <string> path-okebase: "";
+    in-out property <string> path-photoshop: "";
+    in-out property <string> path-pasfoto: "D:\\#DATA ABENG\\MASTER\\PASFOTO";
+    in-out property <string> path-manasik: "D:\\#DATA ABENG\\MASTER\\MANASIK";
+    in-out property <string> path-wisuda: "D:\\#DATA ABENG\\MASTER\\WISUDA";
+    in-out property <string> path-profesi: "D:\\#DATA ABENG\\MASTER\\PROFESI";
+
+    // Warna preview (dihitung dari pilihan di atas).
+    property <color> pv-bg: root.color-mode == "light" ? #F2F2F2 : root.bg-color;
+    property <color> pv-fg: root.color-mode == "light" ? #111111 : root.fg-color;
+    property <color> pv-card: root.color-mode == "light" ? #FFFFFF : #232326;
+    property <color> pv-accent: root.accent-color;
+    property <color> pv-muted: root.color-mode == "light" ? #71717A : Design.text-muted;
+
+    // Tinggi area isi (judul 18px + spacing + padding bawah) — eksplisit,
+    // bukan stretch: rantai height: 100% + stretch pernah membuat tinggi
+    // konten jatuh ke preferred-height dan isi terdorong ke bawah (26 Nov).
+    // 30px = padding-bottom (header "SETTINGS" di atas konten
+    // dihapus 26 Nov — duplikat judul panel).
+    property <length> body-h: root.height - 30px;
+
+    // Klik kanan = kembali ke dashboard (C# OnEmbeddedViewPointerPressed:
+    // klik kanan = NavigateBack). TouchArea latar di belakang isi.
+    settings-back-touch := TouchArea {
+        width: 100%; height: 100%;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                root.back();
+            }
+        }
+    }
+
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+        padding-left: Design.space-xl;
+        padding-right: Design.space-xl;
+        padding-bottom: 30px;
+        spacing: Design.space-md;
+
+        HorizontalLayout {
+            height: root.body-h;
+            spacing: Design.space-md;
+
+            // ----- Side panel grup -----
+            Rectangle {
+                width: 180px;
+                height: root.body-h;
+                background: Design.card-bg;
+                border-color: Design.separator;
+                border-width: 1px;
+                border-radius: Design.radius-lg;
+                clip: true;
+                VerticalLayout {
+                    padding: Design.space-md;
+                    spacing: 2px;
+                    // Judul panel (18px/800, pola gambar referensi).
+                    Text {
+                        text: "Settings";
+                        font-size: Design.font-h2;
+                        font-weight: 800;
+                        color: Design.text-primary;
+                        vertical-alignment: center;
+                        height: 30px;
+                    }
+                    // Search bar: glyph ⌕ + TextInput + placeholder.
+                    // TextField tidak dipakai di sini — input-nya butuh
+                    // glyph di dalam bar, dan TextInput-nya TextField
+                    // mulai di x:10 (akan tertutup glyph).
+                    search-box := Rectangle {
+                        height: 36px;
+                        background: Design.bg-input;
+                        border-color: search-input.has-focus ? Design.border-focus : Design.border-default;
+                        border-width: 1px;
+                        border-radius: Design.radius-sm;
+                        clip: true;
+                        HorizontalLayout {
+                            width: 100%;
+                            height: 100%;
+                            padding-left: 10px;
+                            padding-right: 10px;
+                            spacing: 8px;
+                            Text {
+                                text: "⌕";
+                                font-size: 14px;
+                                font-weight: 700;
+                                color: Design.text-muted;
+                                vertical-alignment: center;
+                            }
+                            search-input := TextInput {
+                                horizontal-stretch: 1;
+                                text: root.search-q;
+                                font-size: Design.font-body;
+                                color: Design.text-primary;
+                                selection-foreground-color: white;
+                                selection-background-color: Design.accent;
+                                vertical-alignment: center;
+                                edited => { root.search-q = self.text; }
+                            }
+                        }
+                        Text {
+                            text: "Search";
+                            font-size: Design.font-body;
+                            color: Design.text-muted;
+                            vertical-alignment: center;
+                            x: 32px;
+                            height: 100%;
+                            visible: root.search-q == "" && !search-input.has-focus;
+                        }
+                    }
+                    Rectangle { height: 8px; }
+                    // Grup "App".
+                    GroupHeader {
+                        label: "App";
+                        shown: root.show-general || root.show-appearance;
+                    }
+                    GroupRow {
+                        icon: "⚙";
+                        label: "General";
+                        selected: root.group == "General";
+                        shown: root.show-general;
+                        clicked => { root.group = "General"; }
+                    }
+                    GroupRow {
+                        icon: "☀";
+                        label: "Appearance";
+                        selected: root.group == "Appearance";
+                        shown: root.show-appearance;
+                        clicked => { root.group = "Appearance"; }
+                    }
+                    // Grup "Data".
+                    GroupHeader {
+                        label: "Data";
+                        shown: root.show-explorer || root.show-paths;
+                    }
+                    GroupRow {
+                        icon: "▤";
+                        label: "Explorer";
+                        selected: root.group == "Explorer";
+                        shown: root.show-explorer;
+                        clicked => { root.group = "Explorer"; }
+                    }
+                    GroupRow {
+                        icon: "⧉";
+                        label: "Paths";
+                        selected: root.group == "Paths";
+                        shown: root.show-paths;
+                        clicked => { root.group = "Paths"; }
+                    }
+                    // Grup "Tentang".
+                    GroupHeader {
+                        label: "Tentang";
+                        shown: root.show-about;
+                    }
+                    GroupRow {
+                        icon: "ⓘ";
+                        label: "About";
+                        selected: root.group == "About";
+                        shown: root.show-about;
+                        clicked => { root.group = "About"; }
+                    }
+                }
+            }
+
+            // ----- Konten grup (menumpuk; tiap grup Flickable sendiri
+            // supaya konten panjang bisa di-scroll di window kecil) -----
+            // Lebar EKSPLISIT (window − side panel 180 − spacing 12 −
+            // padding 40): horizontal-stretch di Rectangle berisi
+            // Flickable tidak mengembang di Slint ini — sisa ruang malah
+            // jadi gap di tengah (terlihat di 520px, 26 Nov).
+            content-rect := Rectangle {
+                width: root.width - 232px;
+                height: root.body-h;
+
+                // ===== APPEARANCE =====
+                sv-appearance := Flickable {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    visible: root.group == "Appearance";
+                    VerticalLayout {
+                        x: 0; width: content-rect.width;
+                        spacing: Design.space-lg;
+                        padding-bottom: Design.space-lg;
+
+                        Text {
+                            text: "Visual style";
+                            font-size: Design.font-h3;
+                            font-weight: 800;
+                            color: Design.text-primary;
+                        }
+
+                        // Color mode.
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Color mode";
+                                desc: "Use light or dark colors, or follow your system setting";
+                            }
+                            HorizontalLayout {
+                                height: 118px;
+                                spacing: Design.space-sm;
+                                ColorModeCard {
+                                    mode: "light";
+                                    horizontal-stretch: 1;
+                                    selected: root.color-mode == "light";
+                                    clicked => { root.color-mode = "light"; root.toast("Disimpan: Color mode Terang"); }
+                                }
+                                ColorModeCard {
+                                    mode: "dark";
+                                    horizontal-stretch: 1;
+                                    selected: root.color-mode == "dark";
+                                    clicked => { root.color-mode = "dark"; root.toast("Disimpan: Color mode Gelap"); }
+                                }
+                                ColorModeCard {
+                                    mode: "system";
+                                    horizontal-stretch: 1;
+                                    selected: root.color-mode == "system";
+                                    clicked => { root.color-mode = "system"; root.toast("Disimpan: Color mode Ikut sistem"); }
+                                }
+                            }
+                        }
+
+                        // Theme preset.
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Theme";
+                                desc: "Start with a preset, then adjust its colors and fonts";
+                            }
+                            ThemeRow {
+                                label: "BMachine Dark";
+                                selected: root.theme-preset == "BMachine Dark";
+                                clicked => {
+                                    root.theme-preset = "BMachine Dark";
+                                    root.color-mode = "dark";
+                                    root.accent-color = #3b82f6; root.accent-hex = "#3b82f6"; root.accent-hex-good = "#3b82f6";
+                                    root.bg-color = #191919; root.bg-hex = "#191919"; root.bg-hex-good = "#191919";
+                                    root.fg-color = #FFFFFF; root.fg-hex = "#FFFFFF"; root.fg-hex-good = "#FFFFFF";
+                                    root.toast("Disimpan: Tema BMachine Dark");
+                                }
+                            }
+                            ThemeRow {
+                                label: "BMachine Light";
+                                selected: root.theme-preset == "BMachine Light";
+                                clicked => {
+                                    root.theme-preset = "BMachine Light";
+                                    root.color-mode = "light";
+                                    root.accent-color = #3b82f6; root.accent-hex = "#3b82f6"; root.accent-hex-good = "#3b82f6";
+                                    root.bg-color = #F5F5F5; root.bg-hex = "#F5F5F5"; root.bg-hex-good = "#F5F5F5";
+                                    root.fg-color = #111111; root.fg-hex = "#111111"; root.fg-hex-good = "#111111";
+                                    root.toast("Disimpan: Tema BMachine Light");
+                                }
+                            }
+                            ThemeRow {
+                                label: "Custom";
+                                selected: root.theme-preset == "Custom";
+                                clicked => {
+                                    root.theme-preset = "Custom";
+                                    root.color-mode = "dark";
+                                    root.accent-color = #339CFF; root.accent-hex = "#339CFF"; root.accent-hex-good = "#339CFF";
+                                    root.bg-color = #191919; root.bg-hex = "#191919"; root.bg-hex-good = "#191919";
+                                    root.fg-color = #FFFFFF; root.fg-hex = "#FFFFFF"; root.fg-hex-good = "#FFFFFF";
+                                    root.toast("Disimpan: Tema Custom");
+                                }
+                            }
+                        }
+
+                        // Accent.
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Accent";
+                                desc: "Set the color for highlights and selected controls";
+                            }
+                            HorizontalLayout {
+                                spacing: root.hex-compact ? 2px : 8px;
+                                height: 36px;
+                                Rectangle {
+                                    width: 36px; height: 36px;
+                                    background: root.accent-color;
+                                    border-color: Design.border-hover;
+                                    border-width: 1px;
+                                    border-radius: Design.radius-sm;
+                                }
+                                TextField {
+                                    width: root.hex-compact ? 96px : 120px;
+                                    text: root.accent-hex;
+                                    placeholder: "#339CFF";
+                                    edited(text) => { root.accent-hex = text; }
+                                    accepted(text) => {
+                                        if (text == "#3b82f6") { root.accent-color = #3b82f6; root.accent-hex-good = text; root.toast("Disimpan: Accent #3b82f6"); }
+                                        else if (text == "#339CFF") { root.accent-color = #339CFF; root.accent-hex-good = text; root.toast("Disimpan: Accent #339CFF"); }
+                                        else if (text == "#f97316") { root.accent-color = #f97316; root.accent-hex-good = text; root.toast("Disimpan: Accent #f97316"); }
+                                        else if (text == "#2dd4bf") { root.accent-color = #2dd4bf; root.accent-hex-good = text; root.toast("Disimpan: Accent #2dd4bf"); }
+                                        else if (text == "#8B5CF6") { root.accent-color = #8B5CF6; root.accent-hex-good = text; root.toast("Disimpan: Accent #8B5CF6"); }
+                                        else { root.toast("Hex belum didukung di mockup — pilih dari swatch."); root.accent-hex = root.accent-hex-good; }
+                                    }
+                                }
+                                SwatchDot {
+                                    swatch: #3b82f6;
+                                    selected: root.accent-color == #3b82f6;
+                                    clicked => { root.accent-color = #3b82f6; root.accent-hex = "#3b82f6"; root.accent-hex-good = "#3b82f6"; root.toast("Disimpan: Accent #3b82f6"); }
+                                }
+                                SwatchDot {
+                                    swatch: #339CFF;
+                                    selected: root.accent-color == #339CFF;
+                                    clicked => { root.accent-color = #339CFF; root.accent-hex = "#339CFF"; root.accent-hex-good = "#339CFF"; root.toast("Disimpan: Accent #339CFF"); }
+                                }
+                                SwatchDot {
+                                    swatch: #f97316;
+                                    selected: root.accent-color == #f97316;
+                                    clicked => { root.accent-color = #f97316; root.accent-hex = "#f97316"; root.accent-hex-good = "#f97316"; root.toast("Disimpan: Accent #f97316"); }
+                                }
+                                SwatchDot {
+                                    swatch: #2dd4bf;
+                                    selected: root.accent-color == #2dd4bf;
+                                    clicked => { root.accent-color = #2dd4bf; root.accent-hex = "#2dd4bf"; root.accent-hex-good = "#2dd4bf"; root.toast("Disimpan: Accent #2dd4bf"); }
+                                }
+                                SwatchDot {
+                                    swatch: #8B5CF6;
+                                    selected: root.accent-color == #8B5CF6;
+                                    clicked => { root.accent-color = #8B5CF6; root.accent-hex = "#8B5CF6"; root.accent-hex-good = "#8B5CF6"; root.toast("Disimpan: Accent #8B5CF6"); }
+                                }
+                            }
+                        }
+
+                        // Background.
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Background";
+                                desc: "Set the color behind app content";
+                            }
+                            HorizontalLayout {
+                                spacing: root.hex-compact ? 2px : 8px;
+                                height: 36px;
+                                Rectangle {
+                                    width: 36px; height: 36px;
+                                    background: root.bg-color;
+                                    border-color: Design.border-hover;
+                                    border-width: 1px;
+                                    border-radius: Design.radius-sm;
+                                }
+                                TextField {
+                                    width: root.hex-compact ? 96px : 120px;
+                                    text: root.bg-hex;
+                                    placeholder: "#191919";
+                                    edited(text) => { root.bg-hex = text; }
+                                    accepted(text) => {
+                                        if (text == "#191919") { root.bg-color = #191919; root.bg-hex-good = text; root.toast("Disimpan: Background #191919"); }
+                                        else if (text == "#121212") { root.bg-color = #121212; root.bg-hex-good = text; root.toast("Disimpan: Background #121212"); }
+                                        else if (text == "#1A1C20") { root.bg-color = #1A1C20; root.bg-hex-good = text; root.toast("Disimpan: Background #1A1C20"); }
+                                        else if (text == "#F5F5F5") { root.bg-color = #F5F5F5; root.bg-hex-good = text; root.toast("Disimpan: Background #F5F5F5"); }
+                                        else if (text == "#FFFFFF") { root.bg-color = #FFFFFF; root.bg-hex-good = text; root.toast("Disimpan: Background #FFFFFF"); }
+                                        else { root.toast("Hex belum didukung di mockup — pilih dari swatch."); root.bg-hex = root.bg-hex-good; }
+                                    }
+                                }
+                                SwatchDot {
+                                    swatch: #191919;
+                                    selected: root.bg-color == #191919;
+                                    clicked => { root.bg-color = #191919; root.bg-hex = "#191919"; root.bg-hex-good = "#191919"; root.toast("Disimpan: Background #191919"); }
+                                }
+                                SwatchDot {
+                                    swatch: #121212;
+                                    selected: root.bg-color == #121212;
+                                    clicked => { root.bg-color = #121212; root.bg-hex = "#121212"; root.bg-hex-good = "#121212"; root.toast("Disimpan: Background #121212"); }
+                                }
+                                SwatchDot {
+                                    swatch: #1A1C20;
+                                    selected: root.bg-color == #1A1C20;
+                                    clicked => { root.bg-color = #1A1C20; root.bg-hex = "#1A1C20"; root.bg-hex-good = "#1A1C20"; root.toast("Disimpan: Background #1A1C20"); }
+                                }
+                                SwatchDot {
+                                    swatch: #F5F5F5;
+                                    selected: root.bg-color == #F5F5F5;
+                                    clicked => { root.bg-color = #F5F5F5; root.bg-hex = "#F5F5F5"; root.bg-hex-good = "#F5F5F5"; root.toast("Disimpan: Background #F5F5F5"); }
+                                }
+                                SwatchDot {
+                                    swatch: #FFFFFF;
+                                    selected: root.bg-color == #FFFFFF;
+                                    clicked => { root.bg-color = #FFFFFF; root.bg-hex = "#FFFFFF"; root.bg-hex-good = "#FFFFFF"; root.toast("Disimpan: Background #FFFFFF"); }
+                                }
+                            }
+                        }
+
+                        // Foreground.
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Foreground";
+                                desc: "Choose the main text color";
+                            }
+                            HorizontalLayout {
+                                spacing: root.hex-compact ? 2px : 8px;
+                                height: 36px;
+                                Rectangle {
+                                    width: 36px; height: 36px;
+                                    background: root.fg-color;
+                                    border-color: Design.border-hover;
+                                    border-width: 1px;
+                                    border-radius: Design.radius-sm;
+                                }
+                                TextField {
+                                    width: root.hex-compact ? 96px : 120px;
+                                    text: root.fg-hex;
+                                    placeholder: "#FFFFFF";
+                                    edited(text) => { root.fg-hex = text; }
+                                    accepted(text) => {
+                                        if (text == "#FFFFFF") { root.fg-color = #FFFFFF; root.fg-hex-good = text; root.toast("Disimpan: Foreground #FFFFFF"); }
+                                        else if (text == "#111111") { root.fg-color = #111111; root.fg-hex-good = text; root.toast("Disimpan: Foreground #111111"); }
+                                        else if (text == "#E4E4E7") { root.fg-color = #E4E4E7; root.fg-hex-good = text; root.toast("Disimpan: Foreground #E4E4E7"); }
+                                        else if (text == "#999999") { root.fg-color = #999999; root.fg-hex-good = text; root.toast("Disimpan: Foreground #999999"); }
+                                        else if (text == "#3b82f6") { root.fg-color = #3b82f6; root.fg-hex-good = text; root.toast("Disimpan: Foreground #3b82f6"); }
+                                        else { root.toast("Hex belum didukung di mockup — pilih dari swatch."); root.fg-hex = root.fg-hex-good; }
+                                    }
+                                }
+                                SwatchDot {
+                                    swatch: #FFFFFF;
+                                    selected: root.fg-color == #FFFFFF;
+                                    clicked => { root.fg-color = #FFFFFF; root.fg-hex = "#FFFFFF"; root.fg-hex-good = "#FFFFFF"; root.toast("Disimpan: Foreground #FFFFFF"); }
+                                }
+                                SwatchDot {
+                                    swatch: #111111;
+                                    selected: root.fg-color == #111111;
+                                    clicked => { root.fg-color = #111111; root.fg-hex = "#111111"; root.fg-hex-good = "#111111"; root.toast("Disimpan: Foreground #111111"); }
+                                }
+                                SwatchDot {
+                                    swatch: #E4E4E7;
+                                    selected: root.fg-color == #E4E4E7;
+                                    clicked => { root.fg-color = #E4E4E7; root.fg-hex = "#E4E4E7"; root.fg-hex-good = "#E4E4E7"; root.toast("Disimpan: Foreground #E4E4E7"); }
+                                }
+                                SwatchDot {
+                                    swatch: #999999;
+                                    selected: root.fg-color == #999999;
+                                    clicked => { root.fg-color = #999999; root.fg-hex = "#999999"; root.fg-hex-good = "#999999"; root.toast("Disimpan: Foreground #999999"); }
+                                }
+                                SwatchDot {
+                                    swatch: #3b82f6;
+                                    selected: root.fg-color == #3b82f6;
+                                    clicked => { root.fg-color = #3b82f6; root.fg-hex = "#3b82f6"; root.fg-hex-good = "#3b82f6"; root.toast("Disimpan: Foreground #3b82f6"); }
+                                }
+                            }
+                        }
+
+                        // Font — hanya font ber-weight lengkap (§17.3).
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Font";
+                                desc: "Set the font for menus and controls — hanya font dengan keluarga weight lengkap";
+                            }
+                            HorizontalLayout {
+                                spacing: Design.space-sm;
+                                FontCard {
+                                    font-name: "Inter";
+                                    font-family: "Inter";
+                                    horizontal-stretch: 1;
+                                    selected: root.font-choice == "Inter";
+                                    clicked => { root.font-choice = "Inter"; root.toast("Disimpan: Font Inter"); }
+                                }
+                                FontCard {
+                                    font-name: "JetBrains Mono";
+                                    font-family: "JetBrains Mono";
+                                    horizontal-stretch: 1;
+                                    selected: root.font-choice == "JetBrains Mono";
+                                    clicked => { root.font-choice = "JetBrains Mono"; root.toast("Disimpan: Font JetBrains Mono"); }
+                                }
+                            }
+                        }
+
+                        // Widget background — mengubah widget-bg global.
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Widget background";
+                                desc: "Latar kartu statistik di dashboard — ganti satu tempat, semua kartu berubah";
+                            }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OptionChip {
+                                    label: "doodle";
+                                    horizontal-stretch: 1;
+                                    selected: root.widget-bg == "doodle";
+                                    clicked => { root.widget-bg = "doodle"; root.toast("Disimpan: Widget background doodle"); }
+                                }
+                                OptionChip {
+                                    label: "dots";
+                                    horizontal-stretch: 1;
+                                    selected: root.widget-bg == "dots";
+                                    clicked => { root.widget-bg = "dots"; root.toast("Disimpan: Widget background dots"); }
+                                }
+                                OptionChip {
+                                    label: "impulse";
+                                    horizontal-stretch: 1;
+                                    selected: root.widget-bg == "impulse";
+                                    clicked => { root.widget-bg = "impulse"; root.toast("Disimpan: Widget background impulse"); }
+                                }
+                                OptionChip {
+                                    label: "none";
+                                    horizontal-stretch: 1;
+                                    selected: root.widget-bg == "none";
+                                    clicked => { root.widget-bg = "none"; root.toast("Disimpan: Widget background none"); }
+                                }
+                            }
+                        }
+
+                        // Window chrome.
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Window chrome";
+                                desc: "Pakai window chrome bawaan OS, atau title bar custom BMachine (berlaku setelah restart di aplikasi asli)";
+                            }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OptionChip {
+                                    label: "Native OS";
+                                    horizontal-stretch: 1;
+                                    selected: root.chrome == "native";
+                                    clicked => { root.chrome = "native"; root.toast("Disimpan: Window chrome Native OS"); }
+                                }
+                                OptionChip {
+                                    label: "Custom BMachine";
+                                    horizontal-stretch: 1;
+                                    selected: root.chrome == "custom";
+                                    clicked => { root.chrome = "custom"; root.toast("Disimpan: Window chrome Custom BMachine"); }
+                                }
+                            }
+                        }
+
+                        // PREVIEW — miniatur jendela yang mencerminkan pilihan.
+                        VerticalLayout {
+                            spacing: 6px;
+                            Text {
+                                text: "Preview";
+                                font-size: Design.font-h3;
+                                font-weight: 800;
+                                color: Design.text-primary;
+                            }
+                            Rectangle {
+                                height: 240px;
+                                background: root.pv-bg;
+                                border-color: Design.separator;
+                                border-width: 1px;
+                                border-radius: Design.radius-lg;
+                                clip: true;
+                                VerticalLayout {
+                                    width: 100%;
+                                    height: 100%;
+                                    // Title bar mock (custom = traffic light + judul;
+                                    // native = teks keterangan).
+                                    Rectangle {
+                                        height: 30px;
+                                        background: root.pv-card;
+                                        HorizontalLayout {
+                                            padding-left: 10px;
+                                            padding-right: 10px;
+                                            spacing: 6px;
+                                            Rectangle {
+                                                width: 10px; height: 10px;
+                                                background: Design.status-danger;
+                                                border-radius: 999px;
+                                                visible: root.chrome == "custom";
+                                            }
+                                            Rectangle {
+                                                width: 10px; height: 10px;
+                                                background: Design.status-warning;
+                                                border-radius: 999px;
+                                                visible: root.chrome == "custom";
+                                            }
+                                            Rectangle {
+                                                width: 10px; height: 10px;
+                                                background: Design.status-success;
+                                                border-radius: 999px;
+                                                visible: root.chrome == "custom";
+                                            }
+                                            Text {
+                                                text: root.chrome == "custom" ? "BMachine" : "Title bar OS — bawaan sistem";
+                                                font-size: Design.font-button;
+                                                font-weight: 700;
+                                                font-family: root.font-choice == "JetBrains Mono" ? "JetBrains Mono" : "Inter";
+                                                color: root.pv-fg;
+                                                vertical-alignment: center;
+                                            }
+                                            Rectangle { horizontal-stretch: 1; }
+                                            Text {
+                                                text: root.chrome == "custom" ? "×" : "";
+                                                font-size: 16px;
+                                                font-weight: 700;
+                                                color: root.pv-fg;
+                                                vertical-alignment: center;
+                                            }
+                                        }
+                                    }
+                                    // Isi preview: kartu mini (warna preview + font
+                                    // pilihan) + StatWidget asli (widget-bg + accent).
+                                    HorizontalLayout {
+                                        vertical-stretch: 1;
+                                        padding: Design.space-md;
+                                        spacing: Design.space-md;
+                                        Rectangle {
+                                            // Lebar responsif: 220px di layar lebar, mengecil
+                                            // proporsional di 520px supaya tidak terpotong.
+                                            width: parent.width < 500px ? (parent.width - 36px) / 2 : 220px;
+                                            background: root.pv-card;
+                                            border-color: Design.separator;
+                                            border-width: 1px;
+                                            border-radius: Design.radius-lg;
+                                            VerticalLayout {
+                                                padding: Design.space-md;
+                                                spacing: 4px;
+                                                Text {
+                                                    text: "●  EDITING";
+                                                    font-size: 11px;
+                                                    font-weight: 700;
+                                                    font-family: root.font-choice == "JetBrains Mono" ? "JetBrains Mono" : "Inter";
+                                                    color: root.pv-accent;
+                                                    letter-spacing: 1px;
+                                                }
+                                                Rectangle { vertical-stretch: 1; }
+                                                HorizontalLayout {
+                                                    spacing: 6px;
+                                                    Text {
+                                                        text: "24";
+                                                        font-size: 28px;
+                                                        font-weight: 800;
+                                                        font-family: root.font-choice == "JetBrains Mono" ? "JetBrains Mono" : "Inter";
+                                                        color: root.pv-fg;
+                                                    }
+                                                    Text {
+                                                        text: "CARD";
+                                                        font-size: 10px;
+                                                        font-weight: 700;
+                                                        font-family: root.font-choice == "JetBrains Mono" ? "JetBrains Mono" : "Inter";
+                                                        color: root.pv-accent;
+                                                        letter-spacing: 1px;
+                                                        vertical-alignment: bottom;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        StatWidget {
+                                            // Sama seperti kartu mini di sebelahnya (lihat atas).
+                                            width: parent.width < 500px ? (parent.width - 36px) / 2 : 220px;
+                                            label: "POINTS";
+                                            value: "1.280";
+                                            suffix: "POIN";
+                                            accent: root.pv-accent;
+                                            bg: root.widget-bg;
+                                            scale: 1;
+                                            clicked => { root.toast("Preview StatWidget — widget-bg: " + root.widget-bg); }
+                                        }
+                                        Rectangle { horizontal-stretch: 1; }
+                                    }
+                                    Text {
+                                        text: "Preview memakai tema yang dipilih di atas (koneksi tema global = Fase 6).";
+                                        font-size: 11px;
+                                        color: root.pv-muted;
+                                        horizontal-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ===== GENERAL =====
+                sv-general := Flickable {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    visible: root.group == "General";
+                    VerticalLayout {
+                        x: 0; width: content-rect.width;
+                        spacing: Design.space-lg;
+                        padding-bottom: Design.space-lg;
+
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Nama user"; desc: "Nama yang tampil di profil & log"; }
+                            TextField {
+                                // Lebar penuh seperti semua field path — sejajar kanan-kiri dengan kontrol lain.
+                                horizontal-stretch: 1;
+                                text: "abeng";
+                                placeholder: "Nama user";
+                                edited(text) => { root.user-name = text; }
+                                accepted(text) => { root.toast("Disimpan: Nama user"); }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Bahasa"; desc: "Bahasa antarmuka aplikasi"; }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OptionChip {
+                                    label: "Indonesia";
+                                    horizontal-stretch: 1;
+                                    selected: root.lang == "Indonesia";
+                                    clicked => { root.lang = "Indonesia"; root.toast("Disimpan: Bahasa Indonesia"); }
+                                }
+                                OptionChip {
+                                    label: "English";
+                                    horizontal-stretch: 1;
+                                    selected: root.lang == "English";
+                                    clicked => { root.lang = "English"; root.toast("Disimpan: Bahasa English"); }
+                                }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Animasi startup"; desc: "Tampilkan animasi saat aplikasi dibuka"; }
+                            Toggle {
+                                checked: root.anim-startup;
+                                toggled(checked) => { root.anim-startup = checked; root.toast(checked ? "Disimpan: Animasi startup nyala" : "Disimpan: Animasi startup mati"); }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Kecepatan animasi statistik"; desc: "Kecepatan transisi angka di kartu dashboard"; }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OptionChip {
+                                    label: "Lambat";
+                                    horizontal-stretch: 1;
+                                    selected: root.anim-speed == "Lambat";
+                                    clicked => { root.anim-speed = "Lambat"; root.toast("Disimpan: Animasi Lambat"); }
+                                }
+                                OptionChip {
+                                    label: "Normal";
+                                    horizontal-stretch: 1;
+                                    selected: root.anim-speed == "Normal";
+                                    clicked => { root.anim-speed = "Normal"; root.toast("Disimpan: Animasi Normal"); }
+                                }
+                                OptionChip {
+                                    label: "Cepat";
+                                    horizontal-stretch: 1;
+                                    selected: root.anim-speed == "Cepat";
+                                    clicked => { root.anim-speed = "Cepat"; root.toast("Disimpan: Animasi Cepat"); }
+                                }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Interval refresh Trello"; desc: "Seberapa sering statistik Trello dimuat ulang"; }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField {
+                                    width: 80px;
+                                    text: "30";
+                                    placeholder: "30";
+                                    edited(text) => { root.trello-interval = text; }
+                                    accepted(text) => { root.toast("Disimpan: Interval refresh " + text + " detik"); }
+                                }
+                                Text {
+                                    text: "detik";
+                                    font-size: Design.font-body;
+                                    font-weight: 700;
+                                    color: Design.text-primary;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Smart Orb / Floating Widget"; desc: "Widget mini statistik yang mengambang di desktop"; }
+                            Toggle {
+                                checked: root.smart-orb;
+                                toggled(checked) => { root.smart-orb = checked; root.toast(checked ? "Disimpan: Smart Orb nyala" : "Disimpan: Smart Orb mati"); }
+                            }
+                        }
+                    }
+                }
+
+                // ===== EXPLORER =====
+                sv-explorer := Flickable {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    visible: root.group == "Explorer";
+                    VerticalLayout {
+                        x: 0; width: content-rect.width;
+                        spacing: Design.space-lg;
+                        padding-bottom: Design.space-lg;
+
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Default Explorer Path"; desc: "Folder yang dibuka pertama kali oleh Explorer"; }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField {
+                                    horizontal-stretch: 1;
+                                    text: root.exp-path;
+                                    placeholder: "D:\\#GAWENA";
+                                    edited(text) => { root.exp-path = text; }
+                                    accepted(text) => { root.toast("Disimpan: Default Explorer Path"); }
+                                }
+                                Btn {
+                                    label: "Browse";
+                                    variant: "secondary";
+                                    clicked => { root.toast("Pilih folder… (dialog file di aplikasi asli)"); }
+                                }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "View Mode"; desc: "Tampilan daftar file Explorer"; }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OptionChip {
+                                    label: "Details";
+                                    horizontal-stretch: 1;
+                                    selected: root.exp-view == "Details";
+                                    clicked => { root.exp-view = "Details"; root.toast("Disimpan: View Mode Details"); }
+                                }
+                                OptionChip {
+                                    label: "List";
+                                    horizontal-stretch: 1;
+                                    selected: root.exp-view == "List";
+                                    clicked => { root.exp-view = "List"; root.toast("Disimpan: View Mode List"); }
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OptionChip {
+                                    label: "Thumbnails";
+                                    horizontal-stretch: 1;
+                                    selected: root.exp-view == "Thumbnails";
+                                    clicked => { root.exp-view = "Thumbnails"; root.toast("Disimpan: View Mode Thumbnails"); }
+                                }
+                                OptionChip {
+                                    label: "Tiles";
+                                    horizontal-stretch: 1;
+                                    selected: root.exp-view == "Tiles";
+                                    clicked => { root.exp-view = "Tiles"; root.toast("Disimpan: View Mode Tiles"); }
+                                }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Sort"; desc: "Urutan file di Explorer"; }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OptionChip {
+                                    label: "Name";
+                                    horizontal-stretch: 1;
+                                    selected: root.exp-sort == "Name";
+                                    clicked => { root.exp-sort = "Name"; root.toast("Disimpan: Sort Name"); }
+                                }
+                                OptionChip {
+                                    label: "Date";
+                                    horizontal-stretch: 1;
+                                    selected: root.exp-sort == "Date";
+                                    clicked => { root.exp-sort = "Date"; root.toast("Disimpan: Sort Date"); }
+                                }
+                                OptionChip {
+                                    label: "Type";
+                                    horizontal-stretch: 1;
+                                    selected: root.exp-sort == "Type";
+                                    clicked => { root.exp-sort = "Type"; root.toast("Disimpan: Sort Type"); }
+                                }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Group"; desc: "Pengelompokan file di Explorer"; }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OptionChip {
+                                    label: "None";
+                                    horizontal-stretch: 1;
+                                    selected: root.exp-group == "None";
+                                    clicked => { root.exp-group = "None"; root.toast("Disimpan: Group None"); }
+                                }
+                                OptionChip {
+                                    label: "Date";
+                                    horizontal-stretch: 1;
+                                    selected: root.exp-group == "Date";
+                                    clicked => { root.exp-group = "Date"; root.toast("Disimpan: Group Date"); }
+                                }
+                                OptionChip {
+                                    label: "Type";
+                                    horizontal-stretch: 1;
+                                    selected: root.exp-group == "Type";
+                                    clicked => { root.exp-group = "Type"; root.toast("Disimpan: Group Type"); }
+                                }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Show hidden files"; desc: "Tampilkan file & folder tersembunyi"; }
+                            Toggle {
+                                checked: root.exp-hidden;
+                                toggled(checked) => { root.exp-hidden = checked; root.toast(checked ? "Disimpan: File tersembunyi ditampilkan" : "Disimpan: File tersembunyi disembunyikan"); }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Show file extensions"; desc: "Tampilkan ekstensi file (.psd, .jpg, …)"; }
+                            Toggle {
+                                checked: root.exp-ext;
+                                toggled(checked) => { root.exp-ext = checked; root.toast(checked ? "Disimpan: Ekstensi file ditampilkan" : "Disimpan: Ekstensi file disembunyikan"); }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Content zoom"; desc: "Zoom konten Explorer (75–200%)"; }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                Btn {
+                                    label: "−";
+                                    variant: "secondary";
+                                    clicked => { root.exp-zoom = max(75, root.exp-zoom - 25); }
+                                }
+                                Text {
+                                    width: 56px;
+                                    text: root.exp-zoom + "%";
+                                    font-size: Design.font-body;
+                                    font-weight: 700;
+                                    color: Design.text-primary;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                                Btn {
+                                    label: "+";
+                                    variant: "secondary";
+                                    clicked => { root.exp-zoom = min(200, root.exp-zoom + 25); }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ===== PATHS =====
+                sv-paths := Flickable {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    visible: root.group == "Paths";
+                    VerticalLayout {
+                        x: 0; width: content-rect.width;
+                        spacing: Design.space-lg;
+                        padding-bottom: Design.space-lg;
+
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Local Output"; desc: "Base folder OUTPUT (mis. D:\\#GAWENA)"; }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField {
+                                    horizontal-stretch: 1;
+                                    text: root.path-local;
+                                    edited(text) => { root.path-local = text; }
+                                    accepted(text) => { root.toast("Disimpan: Local Output"); }
+                                }
+                                Btn {
+                                    label: "Browse";
+                                    variant: "secondary";
+                                    clicked => { root.toast("Pilih folder Local Output… (dialog file di aplikasi asli)"); }
+                                }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "OKE BASE"; desc: "Share backup OKE BASE (jaringan)"; }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField {
+                                    horizontal-stretch: 1;
+                                    text: root.path-okebase;
+                                    placeholder: "Share OKE BASE (jaringan)";
+                                    edited(text) => { root.path-okebase = text; }
+                                    accepted(text) => { root.toast("Disimpan: OKE BASE"); }
+                                }
+                                Btn {
+                                    label: "Browse";
+                                    variant: "secondary";
+                                    clicked => { root.toast("Pilih folder OKE BASE… (dialog file di aplikasi asli)"); }
+                                }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Photoshop Path"; desc: "Executable Photoshop (untuk JSX & COM)"; }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField {
+                                    horizontal-stretch: 1;
+                                    text: root.path-photoshop;
+                                    placeholder: "Photoshop.exe";
+                                    edited(text) => { root.path-photoshop = text; }
+                                    accepted(text) => { root.toast("Disimpan: Photoshop Path"); }
+                                }
+                                Btn {
+                                    label: "Browse";
+                                    variant: "secondary";
+                                    clicked => { root.toast("Pilih Photoshop.exe… (dialog file di aplikasi asli)"); }
+                                }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Master Pas Foto"; desc: "Folder master pas foto"; }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField {
+                                    horizontal-stretch: 1;
+                                    text: root.path-pasfoto;
+                                    edited(text) => { root.path-pasfoto = text; }
+                                    accepted(text) => { root.toast("Disimpan: Master Pas Foto"); }
+                                }
+                                Btn {
+                                    label: "Browse";
+                                    variant: "secondary";
+                                    clicked => { root.toast("Pilih folder Master Pas Foto… (dialog file di aplikasi asli)"); }
+                                }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Master Manasik"; desc: "Folder master manasik"; }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField {
+                                    horizontal-stretch: 1;
+                                    text: root.path-manasik;
+                                    edited(text) => { root.path-manasik = text; }
+                                    accepted(text) => { root.toast("Disimpan: Master Manasik"); }
+                                }
+                                Btn {
+                                    label: "Browse";
+                                    variant: "secondary";
+                                    clicked => { root.toast("Pilih folder Master Manasik… (dialog file di aplikasi asli)"); }
+                                }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Master Wisuda"; desc: "Folder master wisuda"; }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField {
+                                    horizontal-stretch: 1;
+                                    text: root.path-wisuda;
+                                    edited(text) => { root.path-wisuda = text; }
+                                    accepted(text) => { root.toast("Disimpan: Master Wisuda"); }
+                                }
+                                Btn {
+                                    label: "Browse";
+                                    variant: "secondary";
+                                    clicked => { root.toast("Pilih folder Master Wisuda… (dialog file di aplikasi asli)"); }
+                                }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Master Profesi"; desc: "Folder master profesi"; }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField {
+                                    horizontal-stretch: 1;
+                                    text: root.path-profesi;
+                                    edited(text) => { root.path-profesi = text; }
+                                    accepted(text) => { root.toast("Disimpan: Master Profesi"); }
+                                }
+                                Btn {
+                                    label: "Browse";
+                                    variant: "secondary";
+                                    clicked => { root.toast("Pilih folder Master Profesi… (dialog file di aplikasi asli)"); }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ===== ABOUT =====
+                sv-about := Flickable {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    visible: root.group == "About";
+                    VerticalLayout {
+                        x: 0; width: content-rect.width;
+                        spacing: Design.space-lg;
+                        padding-bottom: Design.space-lg;
+                        Card {
+                            VerticalLayout {
+                                padding: Design.space-xl;
+                                spacing: Design.space-sm;
+                                Text {
+                                    text: "BMachine";
+                                    font-size: Design.font-h2;
+                                    font-weight: 800;
+                                    color: Design.text-primary;
+                                }
+                                Text {
+                                    text: "v6.5.0";
+                                    font-size: Design.font-body;
+                                    font-weight: 700;
+                                    color: Design.text-primary;
+                                }
+                                Text {
+                                    text: "Port Rust/Slint (mockup interaktif)";
+                                    font-size: Design.font-body;
+                                    color: Design.text-secondary;
+                                }
+                                Text {
+                                    text: "Dibangun dari BMachine C# (Avalonia/.NET 8).";
+                                    font-size: Design.font-caption;
+                                    color: Design.text-muted;
+                                }
+                                HorizontalLayout {
+                                    Btn {
+                                        label: "Periksa Update";
+                                        variant: "secondary";
+                                        clicked => { root.toast("Sudah versi terbaru"); }
+                                    }
+                                    Rectangle { horizontal-stretch: 1; }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

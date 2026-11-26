@@ -1,0 +1,49 @@
+// TABEL GLOBAL EXPLORER — digenerate tools/gen_explorer_data.py.
+// (folder-key, path, name, kind, ext, base, size, date, preview, loc)
+// Dipakai search (rekursif, substring case-insensitive) & type-ahead.
+static EXPLORER_ITEMS: &[(&str, &str, &str, &str, &str, &str, &str, &str, &str, &str)] = &[
+    ("root", "D:\\#GAWENA", "08 AGUSTUS 2026", "folder", "", "08 AGUSTUS 2026", "", "12 Agu 2026", "", "#GAWENA"),
+    ("root", "D:\\#GAWENA", "09 SEPTEMBER 2026", "folder", "", "09 SEPTEMBER 2026", "", "9 Sep 2026", "", "#GAWENA"),
+    ("root", "D:\\#GAWENA", "10 OKTOBER 2026", "folder", "", "10 OKTOBER 2026", "", "10 Okt 2026", "", "#GAWENA"),
+    ("root", "D:\\#GAWENA", "27_SDN RANCAIYUH I", "folder", "", "27_SDN RANCAIYUH I", "", "26 Nov 2026", "", "#GAWENA"),
+    ("root", "D:\\#GAWENA", "28_SDN BANTAR KAMBING 03", "folder", "", "28_SDN BANTAR KAMBING 03", "", "25 Nov 2026", "", "#GAWENA"),
+    ("root", "D:\\#GAWENA", "PAS FOTO.lnk", "link", ".lnk", "PAS FOTO", "1 KB", "26 Nov 2026", "", "#GAWENA"),
+    ("root", "D:\\#GAWENA", "catatan.txt", "file", ".txt", "catatan", "1 KB", "24 Nov 2026", "Catatan QC — cek logo sekolah sebelum kirim.\nKODE= MSK-001\nJangan lupa: centering kepala di guide.", "#GAWENA"),
+    ("root", "D:\\#GAWENA", "Panduan.docx", "file", ".docx", "Panduan", "15 KB", "20 Nov 2026", "", "#GAWENA"),
+    ("root", "D:\\#GAWENA", "README.md", "file", ".md", "README", "2 KB", "3 Nov 2026", "# BMachine\nFolder output lokal (D:\\#GAWENA).\nHasil olahan master tersimpan di sini.", "#GAWENA"),
+    ("a", "D:\\#GAWENA\\27_SDN RANCAIYUH I", "1. PAS FOTO", "folder", "", "1. PAS FOTO", "", "26 Nov 2026", "", "27_SDN RANCAIYUH I"),
+    ("a", "D:\\#GAWENA\\27_SDN RANCAIYUH I", "2. FOTO10RP_FREE SEKOLAH_GRAIS", "folder", "", "2. FOTO10RP_FREE SEKOLAH_GRAIS", "", "25 Nov 2026", "", "27_SDN RANCAIYUH I"),
+    ("a", "D:\\#GAWENA\\27_SDN RANCAIYUH I", "3. SOUVENIR_FREE ID CARD", "folder", "", "3. SOUVENIR_FREE ID CARD", "", "24 Nov 2026", "", "27_SDN RANCAIYUH I"),
+    ("a", "D:\\#GAWENA\\27_SDN RANCAIYUH I", "4. SOUVENIR_FREE KARTU PELAJA", "folder", "", "4. SOUVENIR_FREE KARTU PELAJA", "", "23 Nov 2026", "", "27_SDN RANCAIYUH I"),
+    ("a", "D:\\#GAWENA\\27_SDN RANCAIYUH I", "KODE= PFM-005.txt", "file", ".txt", "KODE= PFM-005", "1 KB", "26 Nov 2026", "KODE= PFM-005\nJenis: PAS FOTO\nSekolah: SDN RANCAIYUH I\nTemplate: PFM-005.psd", "27_SDN RANCAIYUH I"),
+    ("b", "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03", "1. PAS FOTO", "folder", "", "1. PAS FOTO", "", "25 Nov 2026", "", "28_SDN BANTAR KAMBING 03"),
+    ("b", "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03", "2. WISUDA", "folder", "", "2. WISUDA", "", "24 Nov 2026", "", "28_SDN BANTAR KAMBING 03"),
+    ("b", "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03", "3. ID CARD", "folder", "", "3. ID CARD", "", "23 Nov 2026", "", "28_SDN BANTAR KAMBING 03"),
+    ("b", "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03", "4. KARTU PELAJAR", "folder", "", "4. KARTU PELAJAR", "", "22 Nov 2026", "", "28_SDN BANTAR KAMBING 03"),
+    ("b", "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03", "KODE= MSK-001.txt", "file", ".txt", "KODE= MSK-001", "1 KB", "25 Nov 2026", "KODE= MSK-001\nJenis: MANASIK\nSekolah: SDN BANTAR KAMBING 03\nTemplate: MSK-001.psd", "28_SDN BANTAR KAMBING 03"),
+    ("pf", "D:\\#GAWENA\\27_SDN RANCAIYUH I\\1. PAS FOTO", "KELAS 1 B", "folder", "", "KELAS 1 B", "", "26 Nov 2026", "", "1. PAS FOTO"),
+    ("pf", "D:\\#GAWENA\\27_SDN RANCAIYUH I\\1. PAS FOTO", "Ahmad.jpg", "file", ".jpg", "Ahmad", "2,4 MB", "26 Nov 2026", "", "1. PAS FOTO"),
+    ("pf", "D:\\#GAWENA\\27_SDN RANCAIYUH I\\1. PAS FOTO", "Budi.jpg", "file", ".jpg", "Budi", "2,1 MB", "25 Nov 2026", "", "1. PAS FOTO"),
+    ("pf", "D:\\#GAWENA\\27_SDN RANCAIYUH I\\1. PAS FOTO", "template.psd", "file", ".psd", "template", "48,2 MB", "24 Nov 2026", "", "1. PAS FOTO"),
+    ("pfb", "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03\\1. PAS FOTO", "KELAS 1 B", "folder", "", "KELAS 1 B", "", "25 Nov 2026", "", "1. PAS FOTO"),
+    ("pfb", "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03\\1. PAS FOTO", "Dewi.jpg", "file", ".jpg", "Dewi", "2,3 MB", "25 Nov 2026", "", "1. PAS FOTO"),
+    ("pfb", "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03\\1. PAS FOTO", "Eko.jpg", "file", ".jpg", "Eko", "2,0 MB", "24 Nov 2026", "", "1. PAS FOTO"),
+    ("pfb", "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03\\1. PAS FOTO", "template.psd", "file", ".psd", "template", "48,2 MB", "24 Nov 2026", "", "1. PAS FOTO"),
+    ("gen", "D:\\#GAWENA\\08 AGUSTUS 2026", "foto_01.jpg", "file", ".jpg", "foto_01", "1,8 MB", "24 Nov 2026", "", "08 AGUSTUS 2026"),
+    ("gen", "D:\\#GAWENA\\08 AGUSTUS 2026", "foto_02.jpg", "file", ".jpg", "foto_02", "1,9 MB", "23 Nov 2026", "", "08 AGUSTUS 2026"),
+    ("gen", "D:\\#GAWENA\\08 AGUSTUS 2026", "template.psd", "file", ".psd", "template", "48,2 MB", "22 Nov 2026", "", "08 AGUSTUS 2026"),
+    ("master", "D:\\#DATA ABENG\\MASTER", "MSK-001.psd", "file", ".psd", "MSK-001", "49,7 MB", "25 Nov 2026", "", "MASTER"),
+    ("master", "D:\\#DATA ABENG\\MASTER", "PFM-005.psd", "file", ".psd", "PFM-005", "52,1 MB", "26 Nov 2026", "", "MASTER"),
+    ("master", "D:\\#DATA ABENG\\MASTER", "WSD-003.psd", "file", ".psd", "WSD-003", "51,3 MB", "24 Nov 2026", "", "MASTER"),
+];
+
+// Subtree tiap folder (search rekursif = folder ini + turunan).
+static EXPLORER_SUBTREE: &[(&str, &[&str])] = &[
+    ("root", &["root", "a", "b", "pf", "pfb", "gen"]),
+    ("a", &["a", "pf", "gen"]),
+    ("b", &["b", "pfb", "gen"]),
+    ("pf", &["pf", "gen"]),
+    ("pfb", &["pfb", "gen"]),
+    ("gen", &["gen"]),
+    ("master", &["master"]),
+];

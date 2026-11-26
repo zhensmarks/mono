@@ -11,6 +11,7 @@ File ini adalah sumber kebenaran untuk susunan folder, area kerja tim, dan alur 
 mono/
   apps/
     bmachine/        <- aplikasi BMachine (utuh: sln, src, Scripts)
+    bmachine-rs/     <- port BMachine ke Rust + Slint (lihat bagian 8)
     pixacompact/     <- aplikasi PixaCompact (utuh: csproj, Views, Services)
   shared/            <- kode bersama (BMachine.Shared.BugReporter: client laporan bug)
   BMachine/          <- hasil publish BMachine (BMachine.App.exe, di root agar cepat diakses)
@@ -220,3 +221,25 @@ powershell -File build.ps1 -App bmachine
 
 Untuk anggota tim, selalu bekerja di branch dan di folder area sendiri.
 Lihat bagian 2 untuk batasan folder per tim.
+
+---
+
+## 8. Port Rust/Slint — `apps/bmachine-rs/`
+
+Port BMachine (C#/.NET + Avalonia) ke Rust + Slint. Bukan replika
+piksel-per-piksel: tampilan boleh dirombak, tapi alur BATCH dan Explorer
+harus sama persis dengan C#, dan detail Trello harus sama persis
+(tampilan + perilaku).
+
+- **Commit langsung ke `main`** — instruksi abeng 26 Nov 2026, pengecualian
+  dari aturan branch di bagian 2, khusus untuk port ini.
+- **Aturan lanjutan lengkap ada di `apps/bmachine-rs/LANJUTKAN.md`** — baca
+  itu dulu sebelum lanjut kerja: cara build/tes, pelajaran yang jangan
+  diulang, status tiap fase, dan yang dilarang.
+- C# asli (`apps/bmachine/`) jangan disentuh dari port ini. Kalau C#
+  berubah, baca ulang source-nya, update `ANALISIS_BMACHINE.md` dan
+  `DESIGN_SYSTEM.md` di `apps/bmachine-rs/`, baru ubah port.
+- Status 26 Nov 2026: Fase 1–4 + detail Trello + Settings selesai dan
+  terverifikasi klik sungguhan. Belum: Fase 5 (sebagian) dan Fase 6
+  (koneksi Trello/Sheets/Drive asli, eksekusi Python/JSX, SQLite,
+  Photoshop). Semua data Trello/Sheets/Toolbox masih mockup.
