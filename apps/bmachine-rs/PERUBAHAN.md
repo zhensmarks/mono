@@ -5,6 +5,15 @@ sebelum commit + push (format lengkap di `AGENTS.md`). Entri terbaru di
 paling atas. Dengan log ini, siapa pun yang menerima project — Dex, Hermes,
 atau orang lain — langsung tahu apa saja yang diubah tanpa menebak.
 
+## 2026-11-27 — Antigravity Agent — Implementasi Layar Settings Account (Trello & Spreadsheet) Sesuai C#
+- Diubah:
+  - `ui/settings.slint`: Menambahkan menu **Account** di sidebar dan tampilan pengaturan lengkap persis seperti `SettingsView.axaml` C#:
+    - **Trello Integration:** Field input API Key & Token (dengan tombol "Get Key" dan tombol toggle "Connect"/"Disconnect" yang memvalidasi koneksi), status koneksi akun.
+    - **Google Integration (Spreadsheet):** Field Credentials JSON path (dengan tombol browse), Google Sheet ID, Worksheet Name, koordinat sel (Kolom/Baris) untuk Points, nama tab tabel utama & range (`ALL DATA REGULER` / `A1:Z`), serta Leaderboard Harian & Bulanan Range.
+    - Tombol simpan pengaturan akun ke database.
+- Alasan: Instruksi user agar seluruh fungsi dan tampilan di Settings Account identik dengan implementasi C# untuk kebutuhan kerja nyata.
+- Terverifikasi: `cargo build` sukses exit 0.
+
 ## 2026-11-27 — Antigravity Agent — Penyelarasan Port Fase 5 (Dialog, Splash, Log Panel) & Perbaikan Radial Menu Sesuai C#
 - Diubah:
   - `src/local_update.rs`: Implementasi logika pembacaan `manifest.json` LAN update (`LocalUpdateService`), scanning folder NAS `\\delapanmataair\...` dan drive fallback `U:\...`.

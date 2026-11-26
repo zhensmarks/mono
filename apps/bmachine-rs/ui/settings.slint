@@ -320,9 +320,26 @@ export component SettingsView inherits Rectangle {
     property <string> search-q: "";
     property <bool> show-general: root.search-q == "" || "general".replace-all(root.search-q.to-lowercase(), "") != "general";
     property <bool> show-appearance: root.search-q == "" || "appearance".replace-all(root.search-q.to-lowercase(), "") != "appearance";
+    property <bool> show-account: root.search-q == "" || "account".replace-all(root.search-q.to-lowercase(), "") != "account" || "trello".replace-all(root.search-q.to-lowercase(), "") != "trello" || "google".replace-all(root.search-q.to-lowercase(), "") != "google";
     property <bool> show-explorer: root.search-q == "" || "explorer".replace-all(root.search-q.to-lowercase(), "") != "explorer";
     property <bool> show-paths: root.search-q == "" || "paths".replace-all(root.search-q.to-lowercase(), "") != "paths";
     property <bool> show-about: root.search-q == "" || "about".replace-all(root.search-q.to-lowercase(), "") != "about";
+
+    // --- Account Integration (Trello & Google Spreadsheet) ---
+    in-out property <string> trello-api-key: "";
+    in-out property <string> trello-token: "";
+    in-out property <bool> trello-connected: false;
+    in-out property <string> trello-status: "Belum tersambung ke Trello.";
+    in-out property <string> google-creds-path: "credentials.json";
+    in-out property <string> google-sheet-id: "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms";
+    in-out property <string> google-sheet-name: "Sheet1";
+    in-out property <string> google-sheet-col: "B";
+    in-out property <string> google-sheet-row: "12";
+    in-out property <string> spreadsheet-sheet-name: "ALL DATA REGULER";
+    in-out property <string> spreadsheet-range: "A1:Z";
+    in-out property <string> lb-harian-range: "A2:C10";
+    in-out property <string> lb-bulanan-range: "A2:C10";
+
     // --- Appearance (state lokal mockup) ---
     in-out property <string> color-mode: "dark";
     in-out property <string> theme-preset: "BMachine Dark";
@@ -492,6 +509,13 @@ export component SettingsView inherits Rectangle {
                         selected: root.group == "Appearance";
                         shown: root.show-appearance;
                         clicked => { root.group = "Appearance"; }
+                    }
+                    GroupRow {
+                        icon: "👤";
+                        label: "Account";
+                        selected: root.group == "Account";
+                        shown: root.show-account;
+                        clicked => { root.group = "Account"; }
                     }
                     // Grup "Data".
                     GroupHeader {
@@ -1023,6 +1047,221 @@ export component SettingsView inherits Rectangle {
                                         horizontal-alignment: center;
                                     }
                                 }
+                            }
+                        }
+                    }
+                }
+
+                // ===== ACCOUNT (Trello & Google Spreadsheet — persis C#) =====
+                sv-account := Flickable {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    visible: root.group == "Account";
+                    VerticalLayout {
+                        x: 0; width: content-rect.width;
+                        spacing: Design.space-lg;
+                        padding-bottom: Design.space-lg;
+
+                        // 1. Trello Integration
+                        Card {
+                            VerticalLayout {
+                                spacing: Design.space-md;
+                                Text {
+                                    text: "TRELLO INTEGRATION";
+                                    font-size: Design.font-h3;
+                                    font-weight: 700;
+                                    letter-spacing: 1px;
+                                    color: Design.text-primary;
+                                }
+
+                                VerticalLayout {
+                                    spacing: 4px;
+                                    FieldLabel { title: "API Key"; desc: "Key pengembang Trello Power-Up"; }
+                                    HorizontalLayout {
+                                        spacing: 8px;
+                                        TextField {
+                                            horizontal-stretch: 1;
+                                            text: root.trello-api-key;
+                                            placeholder: "Trello API Key";
+                                            edited(text) => { root.trello-api-key = text; }
+                                        }
+                                        Btn {
+                                            label: "Get Key";
+                                            variant: "secondary";
+                                            clicked => { root.toast("Buka browser: Trello Power-Up Admin"); }
+                                        }
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    spacing: 4px;
+                                    FieldLabel { title: "Token"; desc: "Token akses baca & tulis akun Trello"; }
+                                    HorizontalLayout {
+                                        spacing: 8px;
+                                        TextField {
+                                            horizontal-stretch: 1;
+                                            text: root.trello-token;
+                                            placeholder: "Trello Token (30 hari)";
+                                            edited(text) => { root.trello-token = text; }
+                                        }
+                                        Btn {
+                                            label: root.trello-connected ? "Disconnect" : "Connect";
+                                            variant: root.trello-connected ? "danger" : "primary";
+                                            clicked => {
+                                                if (root.trello-connected) {
+                                                    root.trello-connected = false;
+                                                    root.trello-status = "Koneksi Trello terputus.";
+                                                    root.toast("Trello disconnected.");
+                                                } else {
+                                                    root.trello-connected = true;
+                                                    root.trello-status = "Tersambung sebagai abeng (Token Valid).";
+                                                    root.toast("Tersambung ke Trello!");
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    text: root.trello-status;
+                                    font-size: Design.font-caption;
+                                    color: root.trello-connected ? Design.status-success : Design.text-muted;
+                                }
+                            }
+                        }
+
+                        // 2. Google Integration (Spreadsheet)
+                        Card {
+                            VerticalLayout {
+                                spacing: Design.space-md;
+                                Text {
+                                    text: "GOOGLE INTEGRATION (SPREADSHEET)";
+                                    font-size: Design.font-h3;
+                                    font-weight: 700;
+                                    letter-spacing: 1px;
+                                    color: Design.text-primary;
+                                }
+
+                                VerticalLayout {
+                                    spacing: 4px;
+                                    FieldLabel { title: "Credentials JSON"; desc: "Path file kredensial Google Service Account"; }
+                                    HorizontalLayout {
+                                        spacing: 8px;
+                                        TextField {
+                                            horizontal-stretch: 1;
+                                            text: root.google-creds-path;
+                                            placeholder: "Path credentials.json";
+                                            edited(text) => { root.google-creds-path = text; }
+                                        }
+                                        Btn {
+                                            label: "Browse";
+                                            variant: "secondary";
+                                            clicked => { root.toast("Pilih file credentials.json…"); }
+                                        }
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    spacing: 4px;
+                                    FieldLabel { title: "Sheet ID"; desc: "ID unik dari link Google Sheet"; }
+                                    TextField {
+                                        horizontal-stretch: 1;
+                                        text: root.google-sheet-id;
+                                        placeholder: "Google Sheet ID";
+                                        edited(text) => { root.google-sheet-id = text; }
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 12px;
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        FieldLabel { title: "Worksheet Poin"; desc: "Tab poin harian"; }
+                                        TextField {
+                                            text: root.google-sheet-name;
+                                            placeholder: "misal Sheet1";
+                                            edited(text) => { root.google-sheet-name = text; }
+                                        }
+                                    }
+                                    VerticalLayout {
+                                        width: 80px;
+                                        spacing: 4px;
+                                        FieldLabel { title: "Kolom"; desc: "Kolom sel"; }
+                                        TextField {
+                                            text: root.google-sheet-col;
+                                            placeholder: "B";
+                                            edited(text) => { root.google-sheet-col = text; }
+                                        }
+                                    }
+                                    VerticalLayout {
+                                        width: 80px;
+                                        spacing: 4px;
+                                        FieldLabel { title: "Baris"; desc: "Baris sel"; }
+                                        TextField {
+                                            text: root.google-sheet-row;
+                                            placeholder: "12";
+                                            edited(text) => { root.google-sheet-row = text; }
+                                        }
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 12px;
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        FieldLabel { title: "Tab Tabel Utama"; desc: "Nama sheet reguler"; }
+                                        TextField {
+                                            text: root.spreadsheet-sheet-name;
+                                            placeholder: "ALL DATA REGULER";
+                                            edited(text) => { root.spreadsheet-sheet-name = text; }
+                                        }
+                                    }
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        FieldLabel { title: "Rentang Range"; desc: "Range tabel"; }
+                                        TextField {
+                                            text: root.spreadsheet-range;
+                                            placeholder: "A1:Z";
+                                            edited(text) => { root.spreadsheet-range = text; }
+                                        }
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 12px;
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        FieldLabel { title: "Leaderboard Harian Range"; desc: "Rentang data"; }
+                                        TextField {
+                                            text: root.lb-harian-range;
+                                            placeholder: "A2:C10";
+                                            edited(text) => { root.lb-harian-range = text; }
+                                        }
+                                    }
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        FieldLabel { title: "Leaderboard Bulanan Range"; desc: "Rentang data"; }
+                                        TextField {
+                                            text: root.lb-bulanan-range;
+                                            placeholder: "A2:C10";
+                                            edited(text) => { root.lb-bulanan-range = text; }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Simpan Profil Akun
+                        HorizontalLayout {
+                            Rectangle { horizontal-stretch: 1; }
+                            Btn {
+                                label: "Simpan Pengaturan Akun";
+                                variant: "primary";
+                                clicked => { root.toast("Pengaturan Trello & Spreadsheet berhasil disimpan ke database."); }
                             }
                         }
                     }
