@@ -149,18 +149,20 @@ function showAdvancedMode(){
  name.helpTip="Nama preset (untuk Simpan/Run di bawah). Kosongkan untuk Run Current tanpa nama."
  var desc=dlg.add("edittext",undefined,"");
  desc.helpTip="Keterangan bebas: jelaskan preset ini untuk apa. Muncul di tooltip tombol preset saat hover."
- var row=dlg.add("group");row.orientation="row";
- var master=row.add("checkbox",undefined,"Save PSD");master.value=true;
+ var row1=dlg.add("group");row1.orientation="row";
+ var master=row1.add("checkbox",undefined,"Save PSD");master.value=true;
  master.helpTip="Simpan master PSD (ukuran asli, tanpa crop) ke folder tujuan. Sumber raster (JPG/PNG) otomatis dikonversi ke PSD."
- var jpg=row.add("checkbox",undefined,"JPG");
+ var jpg=row1.add("checkbox",undefined,"JPG");
  jpg.helpTip="Export JPG kualitas 12 (flatten + tambah layer putih sebelum flatten). Jika BAHAN ON, hasil ke folder BAHAN JPG."
- var png=row.add("checkbox",undefined,"PNG");
+ var row2=dlg.add("group");row2.orientation="row";
+ var png=row2.add("checkbox",undefined,"PNG");
  png.helpTip="Export PNG transparan (mergeVisible, tanpa flatten supaya alpha terjaga). Jika BAHAN ON, hasil ke folder BAHAN PNG."
- var action=dlg.add("checkbox",undefined,"Run anti ramijud action");action.value=true;
+ var action=row2.add("checkbox",undefined,"Run anti ramijud action");action.value=true;
  action.helpTip="Jalankan action \"anti ramijud\" dari set \"starter pack\" pada duplicate sebelum export. Kalau BAHAN ON, ditambah UnsharpMask(50,2,0) identik NOISEWARE."
- var keep=dlg.add("checkbox",undefined,"Keep source open");keep.value=true;
+ var row3=dlg.add("group");row3.orientation="row";
+ var keep=row3.add("checkbox",undefined,"Keep source open");keep.value=true;
  keep.helpTip="Kalau dicentang: dokumen sumber tetap terbuka setelah selesai. Kalau kosong: dokumen ditutup otomatis (DONOTSAVECHANGES)."
- var batch=dlg.add("checkbox",undefined,"Batch: all open documents");batch.value=false;
+ var batch=row3.add("checkbox",undefined,"Batch: all open documents");batch.value=false;
  batch.helpTip="Kalau dicentang: semua dokumen terbuka diproses berurutan. Kalau kosong: hanya dokumen aktif."
  var cropRow=dlg.add("group");cropRow.orientation="row";
  cropRow.add("statictext",undefined,"Pas Foto (JPG):");
