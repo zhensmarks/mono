@@ -157,7 +157,10 @@ public partial class MantraGandaViewModel : ObservableObject
     [RelayCommand]
     public async Task ExecuteDuplicateAsync()
     {
-        if (string.IsNullOrWhiteSpace(MasterPath) || DuplicateCount <= 0 || IsProcessing) return;
+        if (string.IsNullOrWhiteSpace(MasterPath) || IsProcessing) return;
+        // Di mode folder data, jumlah duplikat manual tidak relevan — pakai panjang dataFiles.
+        // Tanpa data folder, jumlah duplikat harus > 0.
+        if (string.IsNullOrWhiteSpace(DataFolder) && DuplicateCount <= 0) return;
 
         IsProcessing = true;
         _isCancelled = false;
@@ -182,22 +185,38 @@ public partial class MantraGandaViewModel : ObservableObject
 
                     if (isMasterDir)
                     {
-                        var masterExtensions = DataFileFormat == 2
-                            ? new[] { ".psd", ".psb" }
-                            : new[] { ".jpg", ".jpeg", ".png" };
+                        // Cari PSD/PSB di master (source of truth) + gambar jika format gambar dipilih.
+                        // DataFileFormat menentukan format file DATA, bukan format MASTER.
+                        // Master tetap PSD agar layer tersimpan.
+                        var masterExtensions = new[] { ".psd", ".psb", ".jpg", ".jpeg", ".png" };
                         var masterFiles = Directory.GetFiles(MasterPath, "*.*", SearchOption.AllDirectories)
                                                    .Where(f => masterExtensions.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
                                                    .ToArray();
                                                    
                         var psdMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                        foreach (var mf in masterFiles)
+                        // PSD/PSB di-prefer untuk master; fallback ke gambar.
+                        var psdFiles = masterFiles
+                            .Where(f => f.EndsWith(".psd", StringComparison.OrdinalIgnoreCase) ||
+                                        f.EndsWith(".psb", StringComparison.OrdinalIgnoreCase))
+                            .ToArray();
+                        foreach (var mf in psdFiles)
                         {
                             var relDir = Path.GetDirectoryName(Path.GetRelativePath(MasterPath, mf))?.Replace('\\', '/').Trim() ?? "";
                             if (!psdMap.ContainsKey(relDir))
                                 psdMap[relDir] = mf;
                         }
+                        // Jika tidak ada PSD, pakai gambar sebagai fallback map
+                        if (psdMap.Count == 0)
+                        {
+                            foreach (var mf in masterFiles)
+                            {
+                                var relDir = Path.GetDirectoryName(Path.GetRelativePath(MasterPath, mf))?.Replace('\\', '/').Trim() ?? "";
+                                if (!psdMap.ContainsKey(relDir))
+                                    psdMap[relDir] = mf;
+                            }
+                        }
                         
-                        string? fallbackPsd = masterFiles.FirstOrDefault();
+                        string? fallbackPsd = psdFiles.FirstOrDefault() ?? masterFiles.FirstOrDefault();
 
                         bool usedParentMatch = false;
 
@@ -235,21 +254,23 @@ public partial class MantraGandaViewModel : ObservableObject
                                 });
                                 continue;
                             }
-                            
+                    
                             var dataName = Path.GetFileNameWithoutExtension(df);
                             var targetName = ComputeTargetName(dataName);
                             var masterExt = Path.GetExtension(selectedMaster);
-                            var targetDir = Path.Combine(MasterPath, Path.GetDirectoryName(relPath) ?? "");
-                            
+                            var targetDir = string.IsNullOrEmpty(relDir)
+                                ? MasterPath
+                                : Path.Combine(MasterPath, relDir.Replace('/', Path.DirectorySeparatorChar));
+                    
                             Directory.CreateDirectory(targetDir);
                             var targetPath = Path.Combine(targetDir, $"{targetName}{masterExt}");
-                            
+
                             if (!File.Exists(targetPath))
                             {
                                 File.Copy(selectedMaster, targetPath);
                                 Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
                                 {
-                                    Logs.Add($"[OK] Dibuat: {Path.GetFileName(targetPath)}");
+                                    Logs.Add($"[OK] Dibuat: {relPath} -> {Path.GetFileName(targetPath)}");
                                     ProgressValue = i + 1;
                                 });
                             }
@@ -257,7 +278,7 @@ public partial class MantraGandaViewModel : ObservableObject
                             {
                                 Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
                                 {
-                                    Logs.Add($"[SKIP] {Path.GetFileName(targetPath)} sudah ada");
+                                    Logs.Add($"[SKIP] {relPath} sudah ada di master");
                                     ProgressValue = i + 1;
                                 });
                             }
@@ -269,34 +290,43 @@ public partial class MantraGandaViewModel : ObservableObject
                     }
                     else
                     {
-                        var directory = Path.GetDirectoryName(MasterPath) ?? "";
-                        var extension = Path.GetExtension(MasterPath);
+                        // Single master file: salinan dibuat di struktur subfolder yang
+                        // sama dengan folder data, bukan semuanya menumpuk di root.
+                        var masterDir = Path.GetDirectoryName(MasterPath) ?? "";
+                        var masterFileName = Path.GetFileName(MasterPath);
 
                         for (int i = 0; i < dataFiles.Length; i++)
                         {
                             if (_isCancelled) break;
 
                             var df = dataFiles[i];
+                            var relPath = Path.GetRelativePath(DataFolder, df);
+                            var relDir = Path.GetDirectoryName(relPath)?.Replace('\\', '/')?.Trim() ?? "";
+
+                            var targetDir = string.IsNullOrEmpty(relDir)
+                                ? masterDir
+                                : Path.Combine(masterDir, relDir.Replace('/', Path.DirectorySeparatorChar));
+                            Directory.CreateDirectory(targetDir);
+
                             var dataName = Path.GetFileNameWithoutExtension(df);
                             var targetName = ComputeTargetName(dataName);
-                            
-                            var newFileName = $"{targetName}{extension}";
-                            var newPath = Path.Combine(directory, newFileName);
+                            var masterExt = Path.GetExtension(MasterPath);
+                            var newPath = Path.Combine(targetDir, $"{targetName}{masterExt}");
 
                             if (!File.Exists(newPath))
                             {
                                 File.Copy(MasterPath, newPath);
-                                Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+                                Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                                 {
-                                    Logs.Add($"[OK] Dibuat: {newFileName}");
+                                    Logs.Add($"[OK] Dibuat: {relPath}");
                                     ProgressValue = i + 1;
                                 });
                             }
                             else
                             {
-                                Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => 
+                                Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                                 {
-                                    Logs.Add($"[SKIP] {newFileName} sudah ada");
+                                    Logs.Add($"[SKIP] {relPath} sudah ada");
                                     ProgressValue = i + 1;
                                 });
                             }
