@@ -31,6 +31,7 @@ impl DocTabItem {
 
 pub struct DocManager {
     pub tabs: Vec<DocTabItem>,
+    #[allow(dead_code)]
     pub active_index: usize,
 }
 

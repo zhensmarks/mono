@@ -5,6 +5,13 @@ sebelum commit + push (format lengkap di `AGENTS.md`). Entri terbaru di
 paling atas. Dengan log ini, siapa pun yang menerima project — Dex, Hermes,
 atau orang lain — langsung tahu apa saja yang diubah tanpa menebak.
 
+## 2026-11-27 — Antigravity Agent — Implementasi Lengkap 7 Menu Settings C# (Extensions, Script Manager, Account, Wiring State Bersih)
+- Diubah:
+  - `ui/settings.slint`: Menambahkan menu **Extensions** (daftar plugin DLL, tombol Add/Disable/Delete) dan **Script Manager** (manajemen skrip Master, tombol reload `scripts.json`, dan peta 8 slot trigonometri Radial Menu). Sekarang 7 menu Settings lengkap persis susunan C#: `General`, `Appearance`, `Account`, `Extensions`, `Script Manager`, `Explorer/Paths`, `About`.
+  - `src/main.rs`, `src/doc_manager.rs`, `src/process_log.rs`, `src/local_update.rs`: Wiring fungsional state multi-tab DOC, watcher progress background, dan pembersihan seluruh compiler warning.
+- Alasan: Instruksi user agar seluruh fungsi dan tata letak benar-benar disamakan persis dengan implementasi C#.
+- Terverifikasi: `cargo build` sukses exit 0 tanpa warning sama sekali (0 warning).
+
 ## 2026-11-27 — Antigravity Agent — Implementasi Layar Settings Account (Trello & Spreadsheet) Sesuai C#
 - Diubah:
   - `ui/settings.slint`: Menambahkan menu **Account** di sidebar dan tampilan pengaturan lengkap persis seperti `SettingsView.axaml` C#:

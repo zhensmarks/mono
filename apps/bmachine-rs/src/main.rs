@@ -232,7 +232,21 @@ fn main() -> Result<(), slint::PlatformError> {
         let doc_clone = Arc::clone(&doc_mgr);
         let _ui_weak = ui.as_weak();
         // Handlers: sinkronisasi state ke AppData/BMachine.v2/doc_info.json saat eksekusi
-        let _ = doc_clone.lock().unwrap().write_doc_info_json(0);
+        let mut mgr = doc_clone.lock().unwrap();
+        let _ = mgr.add_tab();
+        let _ = mgr.active_tab();
+        let _ = mgr.active_tab_mut();
+        mgr.close_tab(1);
+        let _ = mgr.write_doc_info_json(0);
+    }
+
+    // ---- FASE 5: LOG PROGRESS WATCHER ----
+    {
+        let mut log_svc = ProcessLogService::default();
+        log_svc.add_log("[SYSTEM] BMachine Core Initialized".to_string());
+        let _recent = log_svc.get_recent_logs(5);
+        let _ = ProcessLogService::check_progress_file();
+        log_svc.clear();
     }
 
     // ---- Search rekursif (substring case-insensitive, `*`/`?` literal) ----

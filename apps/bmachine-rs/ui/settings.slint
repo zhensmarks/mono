@@ -321,6 +321,8 @@ export component SettingsView inherits Rectangle {
     property <bool> show-general: root.search-q == "" || "general".replace-all(root.search-q.to-lowercase(), "") != "general";
     property <bool> show-appearance: root.search-q == "" || "appearance".replace-all(root.search-q.to-lowercase(), "") != "appearance";
     property <bool> show-account: root.search-q == "" || "account".replace-all(root.search-q.to-lowercase(), "") != "account" || "trello".replace-all(root.search-q.to-lowercase(), "") != "trello" || "google".replace-all(root.search-q.to-lowercase(), "") != "google";
+    property <bool> show-extensions: root.search-q == "" || "extensions".replace-all(root.search-q.to-lowercase(), "") != "extensions" || "plugin".replace-all(root.search-q.to-lowercase(), "") != "plugin";
+    property <bool> show-scripts: root.search-q == "" || "scripts".replace-all(root.search-q.to-lowercase(), "") != "scripts" || "radial".replace-all(root.search-q.to-lowercase(), "") != "radial" || "master".replace-all(root.search-q.to-lowercase(), "") != "master";
     property <bool> show-explorer: root.search-q == "" || "explorer".replace-all(root.search-q.to-lowercase(), "") != "explorer";
     property <bool> show-paths: root.search-q == "" || "paths".replace-all(root.search-q.to-lowercase(), "") != "paths";
     property <bool> show-about: root.search-q == "" || "about".replace-all(root.search-q.to-lowercase(), "") != "about";
@@ -516,6 +518,20 @@ export component SettingsView inherits Rectangle {
                         selected: root.group == "Account";
                         shown: root.show-account;
                         clicked => { root.group = "Account"; }
+                    }
+                    GroupRow {
+                        icon: "🧩";
+                        label: "Extensions";
+                        selected: root.group == "Extensions";
+                        shown: root.show-extensions;
+                        clicked => { root.group = "Extensions"; }
+                    }
+                    GroupRow {
+                        icon: "⚡";
+                        label: "Script Manager";
+                        selected: root.group == "Script Manager";
+                        shown: root.show-scripts;
+                        clicked => { root.group = "Script Manager"; }
                     }
                     // Grup "Data".
                     GroupHeader {
@@ -1262,6 +1278,208 @@ export component SettingsView inherits Rectangle {
                                 label: "Simpan Pengaturan Akun";
                                 variant: "primary";
                                 clicked => { root.toast("Pengaturan Trello & Spreadsheet berhasil disimpan ke database."); }
+                            }
+                        }
+                    }
+                }
+
+                // ===== EXTENSIONS (Plugins DLL) =====
+                sv-extensions := Flickable {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    visible: root.group == "Extensions";
+                    VerticalLayout {
+                        x: 0; width: content-rect.width;
+                        spacing: Design.space-lg;
+                        padding-bottom: Design.space-lg;
+
+                        Card {
+                            VerticalLayout {
+                                spacing: Design.space-md;
+                                HorizontalLayout {
+                                    Text {
+                                        text: "INSTALLED EXTENSIONS / PLUGINS";
+                                        font-size: Design.font-h3;
+                                        font-weight: 700;
+                                        letter-spacing: 1px;
+                                        color: Design.text-primary;
+                                        vertical-alignment: center;
+                                    }
+                                    Rectangle { horizontal-stretch: 1; }
+                                    Btn {
+                                        label: "Add Plugin (.dll)";
+                                        variant: "primary";
+                                        clicked => { root.toast("Pilih file DLL ekstensi…"); }
+                                    }
+                                }
+
+                                Text {
+                                    text: "Folder: BMachine/plugins/";
+                                    font-size: Design.font-caption;
+                                    color: Design.text-muted;
+                                }
+
+                                // Mock Item Plugin
+                                Rectangle {
+                                    height: 52px;
+                                    background: Design.bg-hover;
+                                    border-radius: Design.radius-sm;
+                                    border-width: 1px;
+                                    border-color: Design.border-default;
+                                    HorizontalLayout {
+                                        padding-left: 12px;
+                                        padding-right: 12px;
+                                        spacing: 12px;
+                                        Text {
+                                            text: "🧩";
+                                            font-size: 18px;
+                                            vertical-alignment: center;
+                                        }
+                                        VerticalLayout {
+                                            alignment: center;
+                                            spacing: 2px;
+                                            Text {
+                                                text: "SampleExtension.dll";
+                                                font-size: Design.font-body;
+                                                font-weight: 600;
+                                                color: Design.text-primary;
+                                            }
+                                            Text {
+                                                text: "v1.0.0 · Active · External Extension";
+                                                font-size: Design.font-caption;
+                                                color: Design.text-muted;
+                                            }
+                                        }
+                                        Rectangle { horizontal-stretch: 1; }
+                                        Btn {
+                                            label: "Disable";
+                                            variant: "secondary";
+                                            clicked => { root.toast("Plugin dinonaktifkan (.disabled)"); }
+                                        }
+                                        Btn {
+                                            label: "Hapus";
+                                            variant: "danger";
+                                            clicked => { root.toast("Plugin dihapus."); }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ===== SCRIPT MANAGER (Master Scripts & Radial Actions) =====
+                sv-scripts := Flickable {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    visible: root.group == "Script Manager";
+                    VerticalLayout {
+                        x: 0; width: content-rect.width;
+                        spacing: Design.space-lg;
+                        padding-bottom: Design.space-lg;
+
+                        Card {
+                            VerticalLayout {
+                                spacing: Design.space-md;
+                                Text {
+                                    text: "SCRIPT MANAGER & RADIAL WHEEL CONFIGURATION";
+                                    font-size: Design.font-h3;
+                                    font-weight: 700;
+                                    letter-spacing: 1px;
+                                    color: Design.text-primary;
+                                }
+
+                                Text {
+                                    text: "Konfigurasi scripts.json, urutan script Master, dan penataan 8 slot Radial Menu.";
+                                    font-size: Design.font-caption;
+                                    color: Design.text-muted;
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 12px;
+                                    Btn {
+                                        label: "Buka Folder Scripts/Master";
+                                        variant: "secondary";
+                                        clicked => { root.toast("Buka D:\\#DATA ABENG\\#PROJECT\\mono\\apps\\bmachine\\Scripts\\Master"); }
+                                    }
+                                    Btn {
+                                        label: "Buka Folder Scripts/Action";
+                                        variant: "secondary";
+                                        clicked => { root.toast("Buka D:\\#DATA ABENG\\#PROJECT\\mono\\apps\\bmachine\\Scripts\\Action"); }
+                                    }
+                                    Btn {
+                                        label: "Reload scripts.json";
+                                        variant: "primary";
+                                        clicked => { root.toast("Metadata skrip berhasil direload."); }
+                                    }
+                                }
+                            }
+                        }
+
+                        Card {
+                            VerticalLayout {
+                                spacing: Design.space-md;
+                                Text {
+                                    text: "RADIAL WHEEL SLOTS (8 ARAH TRIGONOMETRI)";
+                                    font-size: Design.font-h3;
+                                    font-weight: 700;
+                                    letter-spacing: 1px;
+                                    color: Design.text-primary;
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    Rectangle {
+                                        width: 140px; height: 36px;
+                                        background: Design.bg-hover;
+                                        border-radius: Design.radius-sm;
+                                        Text { text: "0° (Utara): BUAT MASTER"; font-size: 10px; color: Design.text-primary; vertical-alignment: center; horizontal-alignment: center; }
+                                    }
+                                    Rectangle {
+                                        width: 140px; height: 36px;
+                                        background: Design.bg-hover;
+                                        border-radius: Design.radius-sm;
+                                        Text { text: "45° (Timur Laut): SEND-TEXT"; font-size: 10px; color: Design.text-primary; vertical-alignment: center; horizontal-alignment: center; }
+                                    }
+                                    Rectangle {
+                                        width: 140px; height: 36px;
+                                        background: Design.bg-hover;
+                                        border-radius: Design.radius-sm;
+                                        Text { text: "90° (Timur): SEND-LOGO"; font-size: 10px; color: Design.text-primary; vertical-alignment: center; horizontal-alignment: center; }
+                                    }
+                                    Rectangle {
+                                        width: 140px; height: 36px;
+                                        background: Design.bg-hover;
+                                        border-radius: Design.radius-sm;
+                                        Text { text: "135° (Tenggara): TOOLBOX"; font-size: 10px; color: Design.text-primary; vertical-alignment: center; horizontal-alignment: center; }
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    Rectangle {
+                                        width: 140px; height: 36px;
+                                        background: Design.bg-hover;
+                                        border-radius: Design.radius-sm;
+                                        Text { text: "180° (Selatan): MORE / NEXT"; font-size: 10px; color: Design.text-secondary; vertical-alignment: center; horizontal-alignment: center; }
+                                    }
+                                    Rectangle {
+                                        width: 140px; height: 36px;
+                                        background: Design.bg-hover;
+                                        border-radius: Design.radius-sm;
+                                        Text { text: "225° (Barat Daya): KOSONG"; font-size: 10px; color: Design.text-muted; vertical-alignment: center; horizontal-alignment: center; }
+                                    }
+                                    Rectangle {
+                                        width: 140px; height: 36px;
+                                        background: Design.bg-hover;
+                                        border-radius: Design.radius-sm;
+                                        Text { text: "270° (Barat): KOSONG"; font-size: 10px; color: Design.text-muted; vertical-alignment: center; horizontal-alignment: center; }
+                                    }
+                                    Rectangle {
+                                        width: 140px; height: 36px;
+                                        background: Design.bg-hover;
+                                        border-radius: Design.radius-sm;
+                                        Text { text: "315° (Barat Laut): KOSONG"; font-size: 10px; color: Design.text-muted; vertical-alignment: center; horizontal-alignment: center; }
+                                    }
+                                }
                             }
                         }
                     }
