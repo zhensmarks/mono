@@ -450,6 +450,18 @@ function main() {
         pnlLeft.text = selectedFiles.length > 0
             ? "File PSD/PSB - " + selectedFiles.length + " dipilih / " + total + " file (" + treeItems.length + " folder)"
             : "File PSD/PSB - " + total + " file (" + treeItems.length + " folder)";
+        // Tombol bawah mengikuti pilihan di list: ada yang terpilih ->
+        // "Buka Terpilih (N)", tanpa pilihan -> "Buka Semua".
+        // btnOpenAll dibuat di baris bawah dialog, jadi guard undefined.
+        if (btnOpenAll) {
+            if (selectedFiles.length > 0) {
+                btnOpenAll.text = "Buka Terpilih (" + selectedFiles.length + ")";
+                btnOpenAll.helpTip = "Buka hanya file yang dipilih di list (bukan semua yang tampil).";
+            } else {
+                btnOpenAll.text = "Buka Semua";
+                btnOpenAll.helpTip = "Buka semua file dari semua folder yang tampil.";
+            }
+        }
     }
 
     fileList.onChange = updateSelectionCount;
@@ -745,14 +757,14 @@ function main() {
 
         buildTree(shownFiles, true, statusNoteByFolder);
 
-        // Otomatis pilih semua hasil filter (TreeView native)
+        // Otomatis pilih semua hasil filter (listbox native).
+        // selectAllVisibleFiles -> updateSelectionCount ikut mengatur label
+        // tombol bawah jadi "Buka Terpilih (N)". Bila user menciutkan pilihan
+        // di list, tombol & aksinya membuka HANYA yang terpilih, bukan
+        // seluruh hasil filter.
         selectAllVisibleFiles();
-        updateSelectionCount();
 
-        setFilterStatus("OK: " + shownFiles.length + " file di " + treeItems.length + " folder" + (hasSection ? " (per section)" : ""), [40, 130, 40]);
-        // Setelah filter sukses, tombol bawah jelas membuka hasil filter saja.
-        btnOpenAll.text = "Buka Sesuai List";
-        btnOpenAll.helpTip = "Buka hanya file yang sedang tampil dari hasil filter.";
+        setFilterStatus("OK: " + shownFiles.length + " file di " + treeItems.length + " folder" + (hasSection ? " (per section)" : "") + ". Klik item di list untuk menciutkan pilihan.", [40, 130, 40]);
     }
 
     // === SECTION SELECTOR: dialog ceklis section -> buka semua file di folder yang cocok ===
@@ -853,9 +865,9 @@ function main() {
 
     btnReset.onClick = function () {
         txtFilter.text = "";
+        // buildTree -> updateSelectionCount: tanpa pilihan, label tombol
+        // bawah kembali "Buka Semua".
         buildTree(allPsdFiles, true);
-        btnOpenAll.text = "Buka Semua";
-        btnOpenAll.helpTip = "Buka semua file dari semua folder yang tampil.";
         setFilterStatus("Direset. Semua folder dan file tampil kembali.", [80, 80, 80]);
     };
     btnAutoRevisi.helpTip = "Buka SEMUA file di folder-folder yang cocok section (tanpa filter nomor).";
@@ -906,12 +918,26 @@ function main() {
     if (result !== 1 && result !== 3) return;
 
     var filesToOpen;
+    var openMode = "";
     if (result === 1) {
         filesToOpen = getSelectedFiles();
+        openMode = "terpilih di list";
     } else {
-        filesToOpen = [];
-        for (var g2 = 0; g2 < treeItems.length; g2++) {
-            for (var f2 = 0; f2 < treeItems[g2].files.length; f2++) filesToOpen.push(treeItems[g2].files[f2]);
+        // 3 = tombol "Buka Semua/Terpilih": ada yang terpilih di list ->
+        // buka HANYA yang terpilih (bukan seluruh hasil filter komen).
+        // Tanpa pilihan -> buka semua file yang tampil.
+        var selNow = getSelectedFiles();
+        var totalShown = 0;
+        for (var t2 = 0; t2 < treeItems.length; t2++) totalShown += treeItems[t2].files.length;
+        if (selNow.length > 0) {
+            filesToOpen = selNow;
+            openMode = "TERPILIH: " + selNow.length + " file";
+        } else {
+            filesToOpen = [];
+            for (var g2 = 0; g2 < treeItems.length; g2++) {
+                for (var f2 = 0; f2 < treeItems[g2].files.length; f2++) filesToOpen.push(treeItems[g2].files[f2]);
+            }
+            openMode = "SEMUA: " + totalShown + " file tampil";
         }
     }
 
@@ -932,7 +958,8 @@ function main() {
         }
     }
 
-    var msg = "Berhasil dibuka: " + successList.length + "\n";
+    var msg = "Mode buka: " + openMode + "\n"
+        + "Berhasil dibuka: " + successList.length + "\n";
     if (successList.length > 0) msg += successList.join("\n") + "\n\n";
     msg += "Gagal dibuka: " + failList.length + "\n";
     if (failList.length > 0) msg += failList.join("\n");
