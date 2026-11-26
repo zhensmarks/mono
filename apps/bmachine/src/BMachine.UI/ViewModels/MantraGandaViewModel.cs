@@ -58,21 +58,77 @@ public partial class MantraGandaViewModel : ObservableObject
     [ObservableProperty]
     private int _dataFileFormat = 0;
 
-    public string[] DataFileFormats { get; } = { "JPG", "PNG", "PSD", "JPG + PNG" };
+    // Items dropdown: auto-detected dari isi folder data.
+    // Index -1 = semua, index >= 0 = extension ke-i di DetectedSourceExtensions.
+    public ObservableCollection<string> DataFileFormatItems { get; } = new() { "Semua" };
 
     partial void OnDataFileFormatChanged(int value) => CheckState();
-    public IReadOnlyList<string> DataFileFormatItems => DataFileFormats;
+    public IReadOnlyList<string> DataFileFormatItemsList => DataFileFormatItems.ToList();
 
-    private static readonly string[][] SourceFileExtensions =
+    private string[] DetectedSourceExtensions { get; set; } = Array.Empty<string>();
+
+    private static readonly string[] AllKnownExtensions = { ".jpg", ".jpeg", ".png", ".psd", ".psb" };
+    private static readonly string[] JpgExtensions = { ".jpg", ".jpeg" };
+
+    private void DetectSourceExtensions()
     {
-        new[] { ".jpg", ".jpeg" },
-        new[] { ".png" },
-        new[] { ".psd", ".psb" },
-        new[] { ".jpg", ".jpeg", ".png" }
-    };
+        if (string.IsNullOrWhiteSpace(DataFolder) || !Directory.Exists(DataFolder))
+        {
+            DataFileFormatItems.Clear();
+            DataFileFormatItems.Add("Semua");
+            DetectedSourceExtensions = Array.Empty<string>();
+            DataFileFormat = 0;
+            return;
+        }
 
-    public IReadOnlyCollection<string> SelectedSourceFileExtensions =>
-        SourceFileExtensions[Math.Clamp(DataFileFormat, 0, 3)];
+        // Scan file di folder data, kumpulkan extension unik yang dikenal.
+        var found = new List<string>();
+        foreach (var f in Directory.GetFiles(DataFolder, "*.*", SearchOption.AllDirectories))
+        {
+            var ext = Path.GetExtension(f)?.ToLowerInvariant();
+            if (ext is null) continue;
+            if (!AllKnownExtensions.Contains(ext)) continue;
+            // JPG = .jpg + .jpeg (satu grup)
+            if ((ext == ".jpg" || ext == ".jpeg") && !found.Contains(".jpg"))
+                found.Add(".jpg");
+            else if (!found.Contains(ext))
+                found.Add(ext);
+        }
+
+        DetectedSourceExtensions = found.ToArray();
+        DataFileFormatItems.Clear();
+        DataFileFormatItems.Add("Semua");
+        foreach (var ext in DetectedSourceExtensions)
+        {
+            var label = ext == ".jpg" ? "JPG" : ext.TrimStart('.').ToUpperInvariant();
+            DataFileFormatItems.Add(label);
+        }
+
+        // Reset ke index 0 (Semua) kalau index lama keluar range.
+        if (DataFileFormat >= DataFileFormatItems.Count)
+            DataFileFormat = 0;
+    }
+
+    public IReadOnlyCollection<string> SelectedSourceFileExtensions
+    {
+        get
+        {
+            // Index 0 = Semua (Semua extension yang ada di folder data)
+            if (DataFileFormat == 0)
+                return DetectedSourceExtensions.Length > 0
+                    ? DetectedSourceExtensions
+                    : (IReadOnlyCollection<string>)AllKnownExtensions;
+
+            // Index i = extension ke-(i-1) di DetectedSourceExtensions
+            var idx = DataFileFormat - 1;
+            if (idx >= 0 && idx < DetectedSourceExtensions.Length)
+            {
+                var ext = DetectedSourceExtensions[idx];
+                return ext == ".jpg" ? JpgExtensions : new[] { ext };
+            }
+            return (IReadOnlyCollection<string>)AllKnownExtensions;
+        }
+    }
 
     public bool SourceFileMatches(string path) =>
         SelectedSourceFileExtensions.Any(ext => path.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
@@ -84,7 +140,11 @@ public partial class MantraGandaViewModel : ObservableObject
     public ObservableCollection<string> Logs { get; } = new();
 
     partial void OnMasterPathChanged(string value) => CheckState();
-    partial void OnDataFolderChanged(string value) => CheckState();
+    partial void OnDataFolderChanged(string value)
+    {
+        DetectSourceExtensions();
+        CheckState();
+    }
     partial void OnDuplicateCountChanged(int value) => CheckState();
 
     private void CheckState()
@@ -98,7 +158,7 @@ public partial class MantraGandaViewModel : ObservableObject
         }
         else if (!string.IsNullOrWhiteSpace(DataFolder))
         {
-            var sourceFormatLabel = DataFileFormats[Math.Clamp(DataFileFormat, 0, 3)];
+            var sourceFormatLabel = DataFileFormatItemsList.ElementAtOrDefault(Math.Clamp(DataFileFormat, 0, DataFileFormatItems.Count - 1)) ?? "Semua";
             StatusText = $"Siap menggandakan berdasarkan folder data ({sourceFormatLabel})";
             ActionButtonText = "Sesuaikan Ganda";
             // Tipe file sumber tetap harus bisa diubah walau folder data sudah terisi.
@@ -115,7 +175,7 @@ public partial class MantraGandaViewModel : ObservableObject
         }
         else
         {
-            var formatLabel = DataFileFormats[Math.Clamp(DataFileFormat, 0, 3)];
+            var formatLabel = DataFileFormatItemsList.ElementAtOrDefault(Math.Clamp(DataFileFormat, 0, DataFileFormatItems.Count - 1)) ?? "Semua";
             StatusText = $"Siap membuat {DuplicateCount} duplikat manual ({formatLabel})";
             ActionButtonText = "Gandakan Sekarang";
             IsManualConfigVisible = true;

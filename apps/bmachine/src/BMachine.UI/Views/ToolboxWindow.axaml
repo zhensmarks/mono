@@ -1282,6 +1282,18 @@
                                 </Grid>
                             </Border>
 
+                            <!-- Tipe file sumber: muncul saat folder data terisi, mengisi ruang bekas KONFIGURASI -->
+                            <Border x:Name="GandaSourceFormatInline" Classes="Card" Padding="16"
+                                    IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                                    <TextBlock Grid.Column="0" Classes="FieldLabel" Text="Tipe File Sumber" VerticalAlignment="Center"/>
+                                    <ComboBox Grid.Column="1" Classes="Input"
+                                              ItemsSource="{Binding MantraGandaVM.DataFileFormatItems}"
+                                              SelectedIndex="{Binding MantraGandaVM.DataFileFormat}"
+                                              HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+
                             <Border Classes="Card" IsVisible="{Binding MantraGandaVM.IsProcessing}">
                                 <StackPanel Spacing="10">
                                     <TextBlock Classes="Section" Text="MENGGANDAKAN"/>
@@ -1292,9 +1304,9 @@
 
                             <Border Classes="Card" IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}">
                                 <Grid RowDefinitions="Auto,Auto,Auto">
-                                    <TextBlock Grid.Row="0" Classes="Section" Text="KONFIGURASI" Margin="0,0,0,10" IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}"/>
-                                    <Rectangle Grid.Row="1" Classes="Divider" Margin="0,0,0,10" IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}"/>
-                                    <Grid x:Name="GandaConfigurationFields" Grid.Row="2" RowDefinitions="Auto,12,Auto,12,Auto" ColumnDefinitions="*,16,*">
+                                    <TextBlock Grid.Row="0" Classes="Section" Text="KONFIGURASI" Margin="0,0,0,10" IsVisible="{Binding MantraGandaVM.IsManualFieldsVisible}"/>
+                                    <Rectangle Grid.Row="1" Classes="Divider" Margin="0,0,0,10" IsVisible="{Binding MantraGandaVM.IsManualFieldsVisible}"/>
+                                    <Grid x:Name="GandaConfigurationFields" Grid.Row="2" RowDefinitions="Auto,12,Auto" ColumnDefinitions="*,16,*">
                                         <StackPanel x:Name="GandaDuplicateCountField" Grid.Row="0" Grid.Column="0" Spacing="6" IsVisible="{Binding MantraGandaVM.IsManualFieldsVisible}">
                                             <TextBlock Classes="FieldLabel" Text="Jumlah duplikat"/>
                                             <NumericUpDown Classes="Input" Value="{Binding MantraGandaVM.DuplicateCount}" Minimum="1" Maximum="10000"/>
@@ -1310,12 +1322,6 @@
                                         <StackPanel x:Name="GandaBaseNameField" Grid.Row="2" Grid.Column="2" Spacing="6" IsVisible="{Binding MantraGandaVM.IsManualFieldsVisible}">
                                             <TextBlock Classes="FieldLabel" Text="Nama Dasar (Opsional)"/>
                                             <TextBox Classes="Input" Text="{Binding MantraGandaVM.CustomBaseName}" Watermark="kosong = nama asli"/>
-                                        </StackPanel>
-                                        <StackPanel x:Name="GandaSourceFormatField" Grid.Row="4" Grid.Column="0" Spacing="6">
-                                            <TextBlock Classes="FieldLabel" Text="Tipe File Sumber"/>
-                                            <ComboBox Classes="Input"
-                                                      ItemsSource="{Binding MantraGandaVM.DataFileFormatItems}"
-                                                      SelectedIndex="{Binding MantraGandaVM.DataFileFormat}"/>
                                         </StackPanel>
                                     </Grid>
                                 </Grid>

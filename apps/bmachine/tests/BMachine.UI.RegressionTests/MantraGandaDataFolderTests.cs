@@ -77,7 +77,7 @@ public class MantraGandaDataFolderTests
             vm.MasterPath = masterDir;
             vm.DataFolder = dataDir;
             vm.DuplicateCount = 0; // Would have blocked the old guard
-            vm.DataFileFormat = 0;  // JPG
+            vm.DataFileFormat = 0;  // Semua (auto-detect: .jpg)
 
             var expectedA = Path.Combine(masterDir, "kelas_a", "foto1.psd");
             var expectedB = Path.Combine(masterDir, "kelas_b", "foto2.psd");
@@ -118,7 +118,8 @@ public class MantraGandaDataFolderTests
             vm.MasterPath = masterPsd;
             vm.DataFolder = dataDir;
             vm.DuplicateCount = 1;
-            vm.DataFileFormat = 3; // JPG + PNG
+            // Index 0 = Semua (auto-detect: .jpg, .png)
+            vm.DataFileFormat = 0;
 
             var expectedRoot = Path.Combine(masterDir, "root.psd");
             var expectedMid = Path.Combine(masterDir, "sub", "mid.psd");
