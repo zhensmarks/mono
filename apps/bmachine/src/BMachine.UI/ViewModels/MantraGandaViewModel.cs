@@ -58,6 +58,10 @@ public partial class MantraGandaViewModel : ObservableObject
     [ObservableProperty]
     private int _dataFileFormat = 0;
 
+    // True saat folder data terisi + master terisi (dropdown tipe file selalu tampil di baris path).
+    [ObservableProperty]
+    private bool _isDataFormatSelectorVisible = false;
+
     // Items dropdown: auto-detected dari isi folder data.
     // Index -1 = semua, index >= 0 = extension ke-i di DetectedSourceExtensions.
     public ObservableCollection<string> DataFileFormatItems { get; } = new() { "Semua" };
@@ -149,6 +153,12 @@ public partial class MantraGandaViewModel : ObservableObject
 
     private void CheckState()
     {
+        // Dropdown tipe file di baris path FOLDER DATA: selalu tampil
+        // saat master terisi + folder data terisi, tidak peduli mode manual/auto.
+        IsDataFormatSelectorVisible =
+            !string.IsNullOrWhiteSpace(MasterPath) &&
+            !string.IsNullOrWhiteSpace(DataFolder);
+
         if (string.IsNullOrWhiteSpace(MasterPath))
         {
             StatusText = "Pilih file/folder sumber terlebih dahulu";
