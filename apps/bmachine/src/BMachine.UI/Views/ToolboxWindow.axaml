@@ -1290,24 +1290,24 @@
                                 </StackPanel>
                             </Border>
 
-                            <Border Classes="Card">
+                            <Border Classes="Card" IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}">
                                 <Grid RowDefinitions="Auto,Auto,Auto">
                                     <TextBlock Grid.Row="0" Classes="Section" Text="KONFIGURASI" Margin="0,0,0,10" IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}"/>
                                     <Rectangle Grid.Row="1" Classes="Divider" Margin="0,0,0,10" IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}"/>
-                                    <Grid x:Name="GandaConfigurationFields" Grid.Row="2" RowDefinitions="Auto,12,Auto" ColumnDefinitions="*,16,*" IsVisible="{Binding MantraGandaVM.IsManualConfigVisible}">
-                                        <StackPanel x:Name="GandaDuplicateCountField" Grid.Row="0" Grid.Column="0" Spacing="6">
+                                    <Grid x:Name="GandaConfigurationFields" Grid.Row="2" RowDefinitions="Auto,12,Auto,12,Auto" ColumnDefinitions="*,16,*">
+                                        <StackPanel x:Name="GandaDuplicateCountField" Grid.Row="0" Grid.Column="0" Spacing="6" IsVisible="{Binding MantraGandaVM.IsManualFieldsVisible}">
                                             <TextBlock Classes="FieldLabel" Text="Jumlah duplikat"/>
                                             <NumericUpDown Classes="Input" Value="{Binding MantraGandaVM.DuplicateCount}" Minimum="1" Maximum="10000"/>
                                         </StackPanel>
-                                        <StackPanel x:Name="GandaStartNumberField" Grid.Row="0" Grid.Column="2" Spacing="6">
+                                        <StackPanel x:Name="GandaStartNumberField" Grid.Row="0" Grid.Column="2" Spacing="6" IsVisible="{Binding MantraGandaVM.IsManualFieldsVisible}">
                                             <TextBlock Classes="FieldLabel" Text="Mulai dari nomor"/>
                                             <NumericUpDown Classes="Input" Value="{Binding MantraGandaVM.StartNumber}" Minimum="0"/>
                                         </StackPanel>
-                                        <StackPanel x:Name="GandaSeparatorField" Grid.Row="2" Grid.Column="0" Spacing="6">
+                                        <StackPanel x:Name="GandaSeparatorField" Grid.Row="2" Grid.Column="0" Spacing="6" IsVisible="{Binding MantraGandaVM.IsManualFieldsVisible}">
                                             <TextBlock Classes="FieldLabel" Text="Pemisah (_, -, spasi)"/>
                                             <TextBox Classes="Input" Text="{Binding MantraGandaVM.Separator}"/>
                                         </StackPanel>
-                                        <StackPanel x:Name="GandaBaseNameField" Grid.Row="2" Grid.Column="2" Spacing="6">
+                                        <StackPanel x:Name="GandaBaseNameField" Grid.Row="2" Grid.Column="2" Spacing="6" IsVisible="{Binding MantraGandaVM.IsManualFieldsVisible}">
                                             <TextBlock Classes="FieldLabel" Text="Nama Dasar (Opsional)"/>
                                             <TextBox Classes="Input" Text="{Binding MantraGandaVM.CustomBaseName}" Watermark="kosong = nama asli"/>
                                         </StackPanel>

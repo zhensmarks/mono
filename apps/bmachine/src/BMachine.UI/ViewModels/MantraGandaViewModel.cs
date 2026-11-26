@@ -50,6 +50,11 @@ public partial class MantraGandaViewModel : ObservableObject
     [ObservableProperty]
     private bool _isManualConfigVisible = true;
 
+    // Di mode folder data (auto), hanya selector tipe file yang relevan.
+    // Field duplikat manual disembunyikan agar panel KONFIGURASI tidak kosong.
+    [ObservableProperty]
+    private bool _isManualFieldsVisible = true;
+
     [ObservableProperty]
     private int _dataFileFormat = 0;
 
@@ -89,18 +94,24 @@ public partial class MantraGandaViewModel : ObservableObject
             StatusText = "Pilih file/folder sumber terlebih dahulu";
             ActionButtonText = "Gandakan Sekarang";
             IsManualConfigVisible = string.IsNullOrWhiteSpace(DataFolder);
+            IsManualFieldsVisible = string.IsNullOrWhiteSpace(DataFolder);
         }
         else if (!string.IsNullOrWhiteSpace(DataFolder))
         {
-            StatusText = "Siap menggandakan berdasarkan folder data (Otomatis)";
+            var sourceFormatLabel = DataFileFormats[Math.Clamp(DataFileFormat, 0, 3)];
+            StatusText = $"Siap menggandakan berdasarkan folder data ({sourceFormatLabel})";
             ActionButtonText = "Sesuaikan Ganda";
-            IsManualConfigVisible = false;
+            // Tipe file sumber tetap harus bisa diubah walau folder data sudah terisi.
+            // Field manual (jumlah/mulai/pemisah/nama dasar) disembunyikan.
+            IsManualConfigVisible = true;
+            IsManualFieldsVisible = false;
         }
         else if (DuplicateCount <= 0)
         {
             StatusText = "Jumlah duplikat harus lebih dari 0";
             ActionButtonText = "Gandakan Sekarang";
             IsManualConfigVisible = true;
+            IsManualFieldsVisible = true;
         }
         else
         {
@@ -108,6 +119,7 @@ public partial class MantraGandaViewModel : ObservableObject
             StatusText = $"Siap membuat {DuplicateCount} duplikat manual ({formatLabel})";
             ActionButtonText = "Gandakan Sekarang";
             IsManualConfigVisible = true;
+            IsManualFieldsVisible = true;
         }
     }
 
