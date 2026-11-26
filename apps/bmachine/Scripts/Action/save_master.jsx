@@ -185,7 +185,7 @@ function showAdvancedMode(){
  var cancel=buttons.add("button",undefined,"Cancel");
  cancel.helpTip="Batal tanpa eksekusi, kembali ke dialog Save Master."
  function conf(){return{name:name.text,desc:desc.text,saveMaster:master.value,exportJpg:jpg.value,exportPng:png.value,processAction:action.value,keepOpen:keep.value,batch:batch.value,crop2x3:c23.value,crop4x6:c46.value,saveToBahan:bBahan.value,bahanPerKelas:bKelas.value};}
- function execute(c){if(!c.saveMaster&&!c.exportJpg&&!c.exportPng&&!c.crop2x3&&!c.crop4x6){alert("Aktifkan minimal satu proses.");return;}dlg.close(1);runAdvancedMode({saveMaster:!!c.saveMaster,exportJpg:!!c.exportJpg,exportPng:!!c.exportPng,processAction:!!c.processAction,keepOpen:!!c.keepOpen,batch:isBatchEnabled(c.batch),path:"",crop2x3:!!c.crop2x3,crop4x6:!!c.crop4x6,saveToBahan:!!c.saveToBahan,bahanPerKelas:!!c.bahanPerKelas});}
+ function execute(c){if(!c.saveMaster&&!c.exportJpg&&!c.exportPng&&!c.crop2x3&&!c.crop4x6&&!c.saveToBahan){alert("Aktifkan minimal satu proses.");return;}dlg.close(1);runAdvancedMode({saveMaster:!!c.saveMaster,exportJpg:!!c.exportJpg,exportPng:!!c.exportPng,processAction:!!c.processAction,keepOpen:!!c.keepOpen,batch:isBatchEnabled(c.batch),path:"",crop2x3:!!c.crop2x3,crop4x6:!!c.crop4x6,saveToBahan:!!c.saveToBahan,bahanPerKelas:!!c.bahanPerKelas});}
  function populate(){while(area.children.length)area.remove(area.children[0]);var r=null;for(var i=0;i<presets.length;i++){if(i%3===0){r=area.add("group");r.orientation="row";}var item=r.add("group");item.orientation="row";item.spacing=1;var b=item.add("button",undefined,presets[i].name);b.preferredSize=[88,25];b.idx=i;
  b.helpTip=buildPresetTip(presets[i]);b.onClick=function(){var c=presets[this.idx];if(typeof c.batch==="undefined")c.batch=false;if(typeof c.crop2x3==="undefined")c.crop2x3=false;if(typeof c.crop4x6==="undefined")c.crop4x6=false;if(typeof c.saveToBahan==="undefined")c.saveToBahan=false;if(typeof c.bahanPerKelas==="undefined")c.bahanPerKelas=false;execute(c);};var x=item.add("button",undefined,"X");x.preferredSize=[18,25];x.idx=i;x.helpTip="Hapus preset";x.onClick=function(){var idx=this.idx;if(!confirm("Hapus preset '"+presets[idx].name+"'?"))return;presets.splice(idx,1);if(!saveAdvancedPresets(presets)){alert("Gagal menghapus preset.");return;}populate();};}if(!presets.length)area.add("statictext",undefined,"Belum ada preset tersimpan.");area.layout.layout(true);panel.layout.layout(true);dlg.layout.layout(true);dlg.update();}
  populate();
@@ -293,6 +293,8 @@ function runAdvancedMode(c){
      docPathJpg=bahanTargets.jpg;
      docPathPng=bahanTargets.png;
      docPathPsd=bahanTargets.psd;
+     // Kalau tidak ada format (JPG/PNG) tapi Save PSD ON, folder BAHAN tetap dibuat
+     if(!docPathJpg&&docPathPsd){docPathJpg=docPathPsd;}
      docPath=docPathJpg?docPathJpg:docPathPsd;
     }else{
      if(c.saveMaster||c.exportJpg||c.exportPng||crop2x3||crop4x6){
@@ -1385,6 +1387,7 @@ function createCroppedVersion(sourceDoc, targetFolder, widthCm, heightCm, qualit
 
 // === BAHAN helpers (identik dengan "NOISEWARE" di 2.SAVE FORMAT.jsx) ===
 function saveJPGBahan(doc, baseName, targetFolder, runAction) {
+    createFolderIfNotExist(targetFolder);
     var tempDoc = doc.duplicate();
     app.activeDocument = tempDoc;
     try { tempDoc.artLayers.add(); } catch (eAdd) { }
@@ -1399,6 +1402,7 @@ function saveJPGBahan(doc, baseName, targetFolder, runAction) {
 }
 
 function savePngBahan(doc, baseName, targetFolder, runAction) {
+    createFolderIfNotExist(targetFolder);
     var tempDoc = doc.duplicate();
     app.activeDocument = tempDoc;
     try { executeAction(stringIDToTypeID("mergeVisible"), undefined, DialogModes.NO); } catch (eMerge) { }
