@@ -1132,6 +1132,33 @@ fn refresh_pet_lists(ui: &AppWindow, active_slug: &str) {
     ui.set_app_pet_active_index(idx as i32);
 }
 
+/// Gaya mata maskot yang valid ("nusa" | "baymax" | "bulat") —
+/// nilai tak dikenal (termasuk dari DB lama) → "nusa".
+/// Nilai DB bisa dikutip JSON (warisan C#) — kupas dulu.
+fn valid_eye_style(raw: &str) -> String {
+    match theme::unquote(raw).as_str() {
+        "baymax" => "baymax".to_string(),
+        "bulat" => "bulat".to_string(),
+        _ => "nusa".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod eye_style_tests {
+    use super::*;
+
+    #[test]
+    fn valid_eye_style_accepts_known_styles_and_defaults_unknown() {
+        assert_eq!(valid_eye_style("nusa"), "nusa");
+        assert_eq!(valid_eye_style("baymax"), "baymax");
+        assert_eq!(valid_eye_style("bulat"), "bulat");
+        assert_eq!(valid_eye_style(""), "nusa");
+        assert_eq!(valid_eye_style("kucing"), "nusa");
+        // Nilai DB warisan C# yang dikutip JSON.
+        assert_eq!(valid_eye_style("\"baymax\""), "baymax");
+    }
+}
+
 /// bisa di-drag + wander sendiri. Angka diisi dari properti
 /// AppWindow (sumber yang sama dengan widget dashboard) +
 /// notifikasi dari BarStore. Pola buka-ulang sama seperti
@@ -1361,6 +1388,14 @@ fn open_dynamic_bar_window(
             .map(|ui| ui.get_app_notch_mode().to_string())
             .unwrap_or_else(|| "notch".to_string());
         w.set_bar_mode(slint::SharedString::from(mode.as_str()));
+        // Gaya mata dari AppWindow (sumber kebenaran; Settings
+        // mengikat ke properti yang sama) — berlaku live ke
+        // window bar yang sedang tampil.
+        if let Some(ui) = ui_weak.upgrade() {
+            w.set_eye_style(slint::SharedString::from(valid_eye_style(
+                &ui.get_app_notch_eye_style(),
+            )));
+        }
         // Posisi: mode pet = simpanan dulu (default atas-tengah);
         // mode notch SELALU atas-tengah window utama, y=0
         // (menempel tepi atas — posisi simpanan lama dari pill
@@ -2062,6 +2097,13 @@ fn main() -> Result<(), slint::PlatformError> {
                 }
             }
             ui.set_app_notch_mode(slint::SharedString::from(notch_mode.as_str()));
+            // Gaya mata maskot (default "nusa"; nilai tak dikenal
+            // → "nusa" via valid_eye_style).
+            let mut eye_style = "nusa".to_string();
+            if let Some(v) = db_guard.get("Settings.Notch.EyeStyle") {
+                eye_style = valid_eye_style(&v);
+            }
+            ui.set_app_notch_eye_style(slint::SharedString::from(eye_style.as_str()));
             let mut vcfg = voice::VoiceConfig::default();
             if let Some(v) = db_guard.get("Settings.Notch.VoiceEnabled") {
                 vcfg.enabled = !(v == "false" || v == "0");
@@ -3556,6 +3598,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 return;
             };
             let mode = ui.get_app_notch_mode().to_string();
+            let eye_style = valid_eye_style(&ui.get_app_notch_eye_style());
             let enabled = ui.get_app_notch_voice_enabled();
             let vol_str = ui.get_app_notch_voice_volume().to_string();
             let volume = vol_str.parse::<i32>().unwrap_or(80).clamp(0, 100);
@@ -3577,6 +3620,7 @@ fn main() -> Result<(), slint::PlatformError> {
             if let Some(ref db_mutex) = db_clone {
                 if let Ok(mut guard) = db_mutex.lock() {
                     let _ = guard.set("Settings.Notch.Mode", &mode, "String");
+                    let _ = guard.set("Settings.Notch.EyeStyle", &eye_style, "String");
                     let _ = guard.set(
                         "Settings.Notch.VoiceEnabled",
                         if enabled { "true" } else { "false" },

@@ -489,6 +489,9 @@ export component SettingsView inherits Rectangle {
     // Notch hidup (rework 27 Nov 2026): mode notch / avatar pet +
     // voice SAPI (Windows). Terikat dua arah ke AppWindow.
     in-out property <string> notch-mode: "notch";
+    // Gaya mata maskot ("nusa" | "baymax" | "bulat") — berlaku ke
+    // mata notch + blob pet bawaan (bukan sprite PetDex).
+    in-out property <string> notch-eye-style: "nusa";
     in-out property <bool> notch-voice-enabled: true;
     in-out property <string> notch-voice-name: "";
     in-out property <string> notch-voice-volume: "80";
@@ -1344,6 +1347,42 @@ export component SettingsView inherits Rectangle {
                                     horizontal-stretch: 1;
                                     selected: root.notch-mode == "pet";
                                     clicked => { root.notch-mode = "pet"; root.notch-settings-changed(); root.toast("Mode notch: Avatar Pet"); }
+                                }
+                            }
+                        }
+
+                        // Gaya mata notch + blob pet bawaan (bukan
+                        // sprite PetDex). Nusa = oval putih bercahaya
+                        // (bawaan); Baymax = dua titik yang
+                        // dihubungkan garis (ref eyes-ref.gif —
+                        // warnanya dibalik jadi putih supaya terbaca
+                        // di atas pill hitam); Bulat = lingkaran
+                        // putih besar tanpa glow.
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Gaya mata";
+                                desc: "Bentuk mata maskot di notch dan blob pet bawaan — berlaku langsung tanpa restart";
+                            }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OptionChip {
+                                    label: "Nusa";
+                                    horizontal-stretch: 1;
+                                    selected: root.notch-eye-style == "nusa";
+                                    clicked => { root.notch-eye-style = "nusa"; root.notch-settings-changed(); root.toast("Gaya mata: Nusa"); }
+                                }
+                                OptionChip {
+                                    label: "Baymax";
+                                    horizontal-stretch: 1;
+                                    selected: root.notch-eye-style == "baymax";
+                                    clicked => { root.notch-eye-style = "baymax"; root.notch-settings-changed(); root.toast("Gaya mata: Baymax"); }
+                                }
+                                OptionChip {
+                                    label: "Bulat";
+                                    horizontal-stretch: 1;
+                                    selected: root.notch-eye-style == "bulat";
+                                    clicked => { root.notch-eye-style = "bulat"; root.notch-settings-changed(); root.toast("Gaya mata: Bulat"); }
                                 }
                             }
                         }

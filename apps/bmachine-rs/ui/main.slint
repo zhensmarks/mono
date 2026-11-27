@@ -195,6 +195,9 @@ export component AppWindow inherits Window {
     // voice SAPI (Windows). Default notch, voice nyala, volume 80,
     // suara otomatis (Indonesia bila ada di sistem).
     in-out property <string> app-notch-mode: "notch";
+    // Gaya mata maskot ("nusa" | "baymax" | "bulat") — DB
+    // Settings.Notch.EyeStyle, berlaku live tanpa restart.
+    in-out property <string> app-notch-eye-style: "nusa";
     in-out property <bool> app-notch-voice-enabled: true;
     in-out property <string> app-notch-voice-name: "";
     in-out property <string> app-notch-voice-volume: "80";
@@ -3336,6 +3339,7 @@ export component AppWindow inherits Window {
         trello-connected <=> root.app-trello-connected;
         trello-status <=> root.app-trello-status;
         notch-mode <=> root.app-notch-mode;
+        notch-eye-style <=> root.app-notch-eye-style;
         notch-voice-enabled <=> root.app-notch-voice-enabled;
         notch-voice-name <=> root.app-notch-voice-name;
         notch-voice-volume <=> root.app-notch-voice-volume;

@@ -720,18 +720,30 @@ export component CardListWindow inherits Window {
 // suara beneran, bukan bubble teks.
 // Notch sendiri selalu hitam (ala Nusa) di semua tema; panel
 // mengembang mengikuti token Design aktif (sync_design_to_bar).
+// Satu mata maskot. Gaya mata (eye-style) — "nusa" (oval putih
+// bercahaya + pupil hitam, bawaan), "baymax" (titik bundar tanpa
+// pupil — titiknya sendiri yang bergeser mengikuti kursor),
+// "bulat" (lingkaran putih besar + pupil, tanpa glow). Ukuran
+// mata (eye-w/eye-h) tetap dari mood window (idle/happy/
+// surprised/tidur/kedip) supaya semua animasi yang sudah ada
+// tetap jalan di semua gaya.
 component MascotEye inherits Rectangle {
     in property <length> eye-w: 14px;
     in property <length> eye-h: 18px;
     in property <length> pupil-dx: 0px;
     in property <length> pupil-dy: 0px;
     in property <bool> eye-closed: false;
+    in property <string> eye-style: "nusa";
+
+    // "bulat" = lingkaran: diameter = sisi terpanjang mata.
+    property <length> dot-w: root.eye-style == "bulat" ? max(root.eye-w, root.eye-h) : root.eye-w;
+    property <length> dot-h: root.eye-style == "bulat" ? max(root.eye-w, root.eye-h) : root.eye-h;
 
     width: root.eye-w + 10px;
     height: 34px;
 
-    // Glow putih di belakang mata.
-    Rectangle {
+    // Glow putih di belakang mata — hanya gaya Nusa.
+    if root.eye-style == "nusa" : Rectangle {
         width: root.eye-w + 8px;
         height: root.eye-h + 8px;
         x: (parent.width - self.width) / 2;
@@ -740,22 +752,70 @@ component MascotEye inherits Rectangle {
         background: #ffffff;
         opacity: 0.14;
     }
-    // Bola mata putih.
+    // Bola mata putih. Gaya Baymax: titiknya sendiri bergeser
+    // mengikuti kursor (tidak ada pupil).
     Rectangle {
-        width: root.eye-w;
-        height: root.eye-h;
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
-        border-radius: root.eye-w / 2;
+        width: root.dot-w;
+        height: root.dot-h;
+        x: (parent.width - self.width) / 2 + (root.eye-style == "baymax" ? root.pupil-dx : 0px);
+        y: (parent.height - self.height) / 2 + (root.eye-style == "baymax" ? root.pupil-dy : 0px);
+        border-radius: root.dot-w / 2;
         background: #ffffff;
-        // Pupil hitam — hilang saat mata terpejam/tidur.
-        if !root.eye-closed : Rectangle {
+        // Pupil hitam — hilang saat mata terpejam/tidur; gaya
+        // Baymax tidak punya pupil.
+        if !root.eye-closed && root.eye-style != "baymax" : Rectangle {
             width: 7px;
             height: 9px;
             x: (parent.width - self.width) / 2 + root.pupil-dx;
             y: (parent.height - self.height) / 2 + root.pupil-dy;
             border-radius: 4px;
             background: #0d0d0d;
+        }
+    }
+}
+
+// Sepasang mata maskot — dua MascotEye + garis penghubung gaya
+// Baymax (hanya bila eye-style == "baymax"): garis putih dari
+// tengah mata kiri ke tengah mata kanan, di belakang mata.
+// (Di GIF referensi titik + garisnya hitam di atas latar terang;
+// di atas pill hitam BMachine warnanya dibalik jadi putih supaya
+// terbaca — lihat DESIGN_SYSTEM.md §21.)
+component MascotEyes inherits Rectangle {
+    in property <length> eye-w: 14px;
+    in property <length> eye-h: 18px;
+    in property <length> pupil-dx: 0px;
+    in property <length> pupil-dy: 0px;
+    in property <bool> eye-closed: false;
+    in property <string> eye-style: "nusa";
+    in property <length> gap: 12px;
+
+    width: 2 * (root.eye-w + 10px) + root.gap;
+    height: 34px;
+
+    if root.eye-style == "baymax" : Rectangle {
+        x: (root.eye-w + 10px) / 2;
+        y: (parent.height - 2px) / 2;
+        width: (root.eye-w + 10px) + root.gap;
+        height: 2px;
+        background: #ffffff;
+    }
+    HorizontalLayout {
+        spacing: root.gap;
+        MascotEye {
+            eye-w: root.eye-w;
+            eye-h: root.eye-h;
+            pupil-dx: root.pupil-dx;
+            pupil-dy: root.pupil-dy;
+            eye-closed: root.eye-closed;
+            eye-style: root.eye-style;
+        }
+        MascotEye {
+            eye-w: root.eye-w;
+            eye-h: root.eye-h;
+            pupil-dx: root.pupil-dx;
+            pupil-dy: root.pupil-dy;
+            eye-closed: root.eye-closed;
+            eye-style: root.eye-style;
         }
     }
 }
@@ -852,6 +912,11 @@ export component DynamicBarWindow inherits Window {
     // Mode notch (pill atas-tengah, posisi tetap) atau pet
     // (avatar bulat bebas, bisa di-drag + wander sendiri).
     in-out property <string> bar-mode: "notch";
+    // Gaya mata maskot ("nusa" | "baymax" | "bulat") — dari
+    // Settings → Appearance → Notch, DB Settings.Notch.EyeStyle.
+    // Berlaku ke mata notch DAN mata blob pet bawaan (bukan
+    // sprite PetDex — sprite adalah wajahnya sendiri).
+    in-out property <string> eye-style: "nusa";
     // True saat mouse di dalam window (dipakai Rust: pet tidak
     // wander saat sedang di-hover).
     in-out property <bool> pet-hovering: false;
@@ -1068,20 +1133,14 @@ export component DynamicBarWindow inherits Window {
                 spacing: root.bar-mode == "pet" ? 7px : 0px;
                 HorizontalLayout {
                     alignment: center;
-                    spacing: root.bar-mode == "pet" ? 14px : 12px;
-                    MascotEye {
+                    MascotEyes {
                         eye-w: root.eye-w;
                         eye-h: root.eye-h;
                         pupil-dx: root.pupil-dx;
                         pupil-dy: root.pupil-dy;
                         eye-closed: root.sleeping || root.blinking || root.effective-mood == "happy" || root.effective-mood == "sleepy";
-                    }
-                    MascotEye {
-                        eye-w: root.eye-w;
-                        eye-h: root.eye-h;
-                        pupil-dx: root.pupil-dx;
-                        pupil-dy: root.pupil-dy;
-                        eye-closed: root.sleeping || root.blinking || root.effective-mood == "happy" || root.effective-mood == "sleepy";
+                        eye-style: root.eye-style;
+                        gap: root.bar-mode == "pet" ? 14px : 12px;
                     }
                 }
                 // Mulut — bentuk berubah per mood, morfing
