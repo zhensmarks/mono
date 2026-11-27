@@ -147,25 +147,256 @@ fn main() -> Result<(), slint::PlatformError> {
     let proc_log = Arc::new(Mutex::new(ProcessLogService::default()));
 
     // Sinkronisasi baca setting awal dari SQLite jika ada
+    let mut init_trello_key = String::new();
+    let mut init_trello_tok = String::new();
+    let mut init_edit_list = String::new();
+    let mut init_rev_list = String::new();
+    let mut init_late_list = String::new();
+
     if let Some(ref db_mutex) = db {
         if let Ok(db_guard) = db_mutex.lock() {
             if let Some(key) = db_guard.get("Trello.ApiKey") {
+                init_trello_key = key.clone();
                 ui.set_trello_api_key(slint::SharedString::from(key));
             }
             if let Some(token) = db_guard.get("Trello.Token") {
+                init_trello_tok = token.clone();
                 ui.set_trello_token(slint::SharedString::from(token));
+            }
+            if let Some(v) = db_guard.get("Trello.EditingBoardId") {
+                ui.set_editing_board_id(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Trello.EditingListId") {
+                init_edit_list = v.clone();
+                ui.set_editing_list_id(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Trello.RevisionBoardId") {
+                ui.set_revision_board_id(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Trello.RevisionListId") {
+                init_rev_list = v.clone();
+                ui.set_revision_list_id(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Trello.LateBoardId") {
+                ui.set_late_board_id(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Trello.LateListId") {
+                init_late_list = v.clone();
+                ui.set_late_list_id(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Trello.QcBoardId") {
+                ui.set_qc_board_id(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Trello.AccBoardId") {
+                ui.set_acc_board_id(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Trello.AccListId") {
+                ui.set_acc_list_id(slint::SharedString::from(v));
             }
             if let Some(sheet_id) = db_guard.get("Google.SheetId") {
                 ui.set_google_sheet_id(slint::SharedString::from(sheet_id));
             }
+            if let Some(v) = db_guard.get("Google.CredsPath") {
+                ui.set_google_creds_path(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Google.SheetName") {
+                ui.set_google_sheet_name(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Google.SheetColumn") {
+                ui.set_google_sheet_col(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Google.SheetRow") {
+                ui.set_google_sheet_row(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Spreadsheet.SheetName") {
+                ui.set_spreadsheet_sheet_name(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Spreadsheet.Range") {
+                ui.set_spreadsheet_range(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Leaderboard.Range") {
+                ui.set_lb_harian_range(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Leaderboard.MonthlyRange") {
+                ui.set_lb_bulanan_range(slint::SharedString::from(v));
+            }
+            if let Some(pts) = db_guard.get("Stat.Points") {
+                ui.set_stat_points(slint::SharedString::from(pts));
+            } else {
+                ui.set_stat_points(slint::SharedString::from("0"));
+            }
         }
     }
 
-    // Handlers untuk simpan setting ke SQLite nyata
-    if let Some(ref db_mutex) = db {
-        if let Ok(mut db_guard) = db_mutex.lock() {
-            let _ = db_guard.set("App.PortReady", "True", "String");
+    // Default widget status awal persis C# (0 jika belum tersambung, bukan angka demo)
+    ui.set_stat_editing(slint::SharedString::from("0"));
+    ui.set_stat_revision(slint::SharedString::from("0"));
+    ui.set_stat_late(slint::SharedString::from("0"));
+
+    // Baris sheet & leaderboard di-preload dari DB (Rust mengisi, bukan demo UI)
+    {
+        let mut sheet_rows: Vec<slint::SharedString> = vec![];
+        let mut lb_rows: Vec<slint::SharedString> = vec![];
+        if let Some(ref db_mutex) = db {
+            if let Ok(db_guard) = db_mutex.lock() {
+                for i in 1..=10 {
+                    let key = format!("Sheet.Row.{}", i);
+                    if let Some(v) = db_guard.get(&key) {
+                        sheet_rows.push(slint::SharedString::from(v.clone()));
+                    }
+                }
+                for i in 1..=10 {
+                    let key = format!("Lb.Row.{}", i);
+                    if let Some(v) = db_guard.get(&key) {
+                        lb_rows.push(slint::SharedString::from(v.clone()));
+                    }
+                }
+            }
         }
+        let sheet_count = sheet_rows.len() as i32;
+        let lb_count = lb_rows.len() as i32;
+        let sc0: Vec<slint::SharedString> = sheet_rows.iter().map(|r| slint::SharedString::from(r.split('\t').next().unwrap_or("").to_string())).collect();
+        let sc1: Vec<slint::SharedString> = sheet_rows.iter().map(|r| slint::SharedString::from(r.split('\t').nth(1).unwrap_or("").to_string())).collect();
+        let sc2: Vec<slint::SharedString> = sheet_rows.iter().map(|r| slint::SharedString::from(r.split('\t').nth(2).unwrap_or("").to_string())).collect();
+        let lc0: Vec<slint::SharedString> = lb_rows.iter().map(|r| slint::SharedString::from(r.split('\t').next().unwrap_or("").to_string())).collect();
+        let lc1: Vec<slint::SharedString> = lb_rows.iter().map(|r| slint::SharedString::from(r.split('\t').nth(1).unwrap_or("").to_string())).collect();
+        ui.set_sheet_rows(slint::ModelRc::new(slint::VecModel::from(sheet_rows)));
+        ui.set_lb_rows(slint::ModelRc::new(slint::VecModel::from(lb_rows)));
+        ui.set_sheet_row_count(sheet_count);
+        ui.set_lb_row_count(lb_count);
+        ui.set_sheet_col0(slint::ModelRc::new(slint::VecModel::from(sc0)));
+        ui.set_sheet_col1(slint::ModelRc::new(slint::VecModel::from(sc1)));
+        ui.set_sheet_col2(slint::ModelRc::new(slint::VecModel::from(sc2)));
+        ui.set_lb_col0(slint::ModelRc::new(slint::VecModel::from(lc0)));
+        ui.set_lb_col1(slint::ModelRc::new(slint::VecModel::from(lc1)));
+    }
+
+    // Tarik data live bila kredensial & list sudah ada di database
+    if !init_trello_key.is_empty() && !init_trello_tok.is_empty() {
+        let ui_weak = ui.as_weak();
+        let k = init_trello_key.clone();
+        let t = init_trello_tok.clone();
+        let el = init_edit_list.clone();
+        let rl = init_rev_list.clone();
+        let ll = init_late_list.clone();
+        std::thread::spawn(move || {
+            if !el.is_empty() {
+                if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &el) {
+                    let count = format!("{}", cards.len());
+                    let _ = ui_weak.upgrade_in_event_loop(move |u| {
+                        u.set_stat_editing(count.into());
+                    });
+                }
+            }
+            if !rl.is_empty() {
+                if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &rl) {
+                    let count = format!("{}", cards.len());
+                    let _ = ui_weak.upgrade_in_event_loop(move |u| {
+                        u.set_stat_revision(count.into());
+                    });
+                }
+            }
+            if !ll.is_empty() {
+                if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &ll) {
+                    let count = format!("{}", cards.len());
+                    let _ = ui_weak.upgrade_in_event_loop(move |u| {
+                        u.set_stat_late(count.into());
+                    });
+                }
+            }
+        });
+    }
+
+    // Callback simpan pengaturan akun ke SQLite nyata & trigger sync widget
+    {
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
+        ui.on_save_account_settings(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                let k = ui.get_trello_api_key().to_string();
+                let t = ui.get_trello_token().to_string();
+                let e_b = ui.get_editing_board_id().to_string();
+                let e_l = ui.get_editing_list_id().to_string();
+                let r_b = ui.get_revision_board_id().to_string();
+                let r_l = ui.get_revision_list_id().to_string();
+                let l_b = ui.get_late_board_id().to_string();
+                let l_l = ui.get_late_list_id().to_string();
+                let qc = ui.get_qc_board_id().to_string();
+                let a_b = ui.get_acc_board_id().to_string();
+                let a_l = ui.get_acc_list_id().to_string();
+                let g_c = ui.get_google_creds_path().to_string();
+                let g_s = ui.get_google_sheet_id().to_string();
+                let g_n = ui.get_google_sheet_name().to_string();
+                let g_col = ui.get_google_sheet_col().to_string();
+                let g_row = ui.get_google_sheet_row().to_string();
+                let sp_n = ui.get_spreadsheet_sheet_name().to_string();
+                let sp_r = ui.get_spreadsheet_range().to_string();
+                let lb_h = ui.get_lb_harian_range().to_string();
+                let lb_b = ui.get_lb_bulanan_range().to_string();
+
+                if let Some(ref db_mutex) = db_clone {
+                    if let Ok(mut db_guard) = db_mutex.lock() {
+                        let _ = db_guard.set("Trello.ApiKey", &k, "String");
+                        let _ = db_guard.set("Trello.Token", &t, "String");
+                        let _ = db_guard.set("Trello.EditingBoardId", &e_b, "String");
+                        let _ = db_guard.set("Trello.EditingListId", &e_l, "String");
+                        let _ = db_guard.set("Trello.RevisionBoardId", &r_b, "String");
+                        let _ = db_guard.set("Trello.RevisionListId", &r_l, "String");
+                        let _ = db_guard.set("Trello.LateBoardId", &l_b, "String");
+                        let _ = db_guard.set("Trello.LateListId", &l_l, "String");
+                        let _ = db_guard.set("Trello.QcBoardId", &qc, "String");
+                        let _ = db_guard.set("Trello.AccBoardId", &a_b, "String");
+                        let _ = db_guard.set("Trello.AccListId", &a_l, "String");
+                        let _ = db_guard.set("Google.CredsPath", &g_c, "String");
+                        let _ = db_guard.set("Google.SheetId", &g_s, "String");
+                        let _ = db_guard.set("Google.SheetName", &g_n, "String");
+                        let _ = db_guard.set("Google.SheetColumn", &g_col, "String");
+                        let _ = db_guard.set("Google.SheetRow", &g_row, "String");
+                        let _ = db_guard.set("Spreadsheet.SheetName", &sp_n, "String");
+                        let _ = db_guard.set("Spreadsheet.Range", &sp_r, "String");
+                        let _ = db_guard.set("Leaderboard.Range", &lb_h, "String");
+                        let _ = db_guard.set("Leaderboard.MonthlyRange", &lb_b, "String");
+                    }
+                }
+
+                // Lakukan sinkronisasi live ke endpoint Trello
+                let ui_bg = ui_weak.clone();
+                std::thread::spawn(move || {
+                    if !k.is_empty() && !t.is_empty() {
+                        if !e_l.is_empty() {
+                            if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &e_l) {
+                                let count = format!("{}", cards.len());
+                                let _ = ui_bg.upgrade_in_event_loop(move |u| {
+                                    u.set_stat_editing(count.into());
+                                });
+                            }
+                        } else {
+                            let _ = ui_bg.upgrade_in_event_loop(|u| u.set_stat_editing("-".into()));
+                        }
+                        if !r_l.is_empty() {
+                            if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &r_l) {
+                                let count = format!("{}", cards.len());
+                                let _ = ui_bg.upgrade_in_event_loop(move |u| {
+                                    u.set_stat_revision(count.into());
+                                });
+                            }
+                        } else {
+                            let _ = ui_bg.upgrade_in_event_loop(|u| u.set_stat_revision("-".into()));
+                        }
+                        if !l_l.is_empty() {
+                            if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &l_l) {
+                                let count = format!("{}", cards.len());
+                                let _ = ui_bg.upgrade_in_event_loop(move |u| {
+                                    u.set_stat_late(count.into());
+                                });
+                            }
+                        } else {
+                            let _ = ui_bg.upgrade_in_event_loop(|u| u.set_stat_late("-".into()));
+                        }
+                    }
+                });
+            }
+        });
     }
 
     // Helper trello & sheets service test
@@ -514,6 +745,7 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     }
 
+    // ui.run() mengambil alih event loop; show() sudah dipanggil di atas.
     ui.run()?;
     Ok(())
 }

@@ -332,15 +332,33 @@ export component SettingsView inherits Rectangle {
     in-out property <string> trello-token: "";
     in-out property <bool> trello-connected: false;
     in-out property <string> trello-status: "Belum tersambung ke Trello.";
+    in-out property <string> editing-board-id: "";
+    in-out property <string> editing-list-id: "";
+    in-out property <string> revision-board-id: "";
+    in-out property <string> revision-list-id: "";
+    in-out property <string> late-board-id: "";
+    in-out property <string> late-list-id: "";
+    in-out property <string> qc-board-id: "";
+    in-out property <string> acc-board-id: "";
+    in-out property <string> acc-list-id: "";
+    in-out property <string> refresh-editing: "15";
+    in-out property <string> refresh-revision: "15";
+    in-out property <string> refresh-late: "30";
+    in-out property <string> refresh-points: "60";
     in-out property <string> google-creds-path: "credentials.json";
-    in-out property <string> google-sheet-id: "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms";
+    in-out property <string> google-sheet-id: "";
     in-out property <string> google-sheet-name: "Sheet1";
     in-out property <string> google-sheet-col: "B";
     in-out property <string> google-sheet-row: "12";
+    in-out property <string> stat-editing: "0";
+    in-out property <string> stat-revision: "0";
+    in-out property <string> stat-late: "0";
+    in-out property <string> stat-points: "0";
     in-out property <string> spreadsheet-sheet-name: "ALL DATA REGULER";
     in-out property <string> spreadsheet-range: "A1:Z";
     in-out property <string> lb-harian-range: "A2:C10";
     in-out property <string> lb-bulanan-range: "A2:C10";
+    callback save-account-settings();
 
     // --- Appearance (state lokal mockup) ---
     in-out property <string> color-mode: "dark";
@@ -1025,7 +1043,7 @@ export component SettingsView inherits Rectangle {
                                                 HorizontalLayout {
                                                     spacing: 6px;
                                                     Text {
-                                                        text: "24";
+                                                        text: root.stat-editing;
                                                         font-size: 28px;
                                                         font-weight: 800;
                                                         font-family: root.font-choice == "JetBrains Mono" ? "JetBrains Mono" : "Inter";
@@ -1047,7 +1065,7 @@ export component SettingsView inherits Rectangle {
                                             // Sama seperti kartu mini di sebelahnya (lihat atas).
                                             width: parent.width < 500px ? (parent.width - 36px) / 2 : 220px;
                                             label: "POINTS";
-                                            value: "1.280";
+                                            value: root.stat-points;
                                             suffix: "POIN";
                                             accent: root.pv-accent;
                                             bg: root.widget-bg;
@@ -1271,13 +1289,184 @@ export component SettingsView inherits Rectangle {
                             }
                         }
 
+                        // 3. Board Synchronization (Trello)
+                        Card {
+                            VerticalLayout {
+                                spacing: Design.space-md;
+                                Text {
+                                    text: "BOARD & LIST SYNCHRONIZATION";
+                                    font-size: Design.font-h3;
+                                    font-weight: 700;
+                                    letter-spacing: 1px;
+                                    color: Design.text-primary;
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 12px;
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        FieldLabel { title: "Editing Board ID / Name"; desc: "Board kartu baru"; }
+                                        TextField {
+                                            text: root.editing-board-id;
+                                            placeholder: "Board ID";
+                                            edited(text) => { root.editing-board-id = text; }
+                                        }
+                                    }
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        FieldLabel { title: "Editing List ID"; desc: "List kartu editing aktif"; }
+                                        TextField {
+                                            text: root.editing-list-id;
+                                            placeholder: "List ID (mis. 660f...)";
+                                            edited(text) => { root.editing-list-id = text; }
+                                        }
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 12px;
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        FieldLabel { title: "Revisi Board ID"; desc: "Board revisi editor"; }
+                                        TextField {
+                                            text: root.revision-board-id;
+                                            placeholder: "Board ID";
+                                            edited(text) => { root.revision-board-id = text; }
+                                        }
+                                    }
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        FieldLabel { title: "Revisi List ID"; desc: "List kartu revisi aktif"; }
+                                        TextField {
+                                            text: root.revision-list-id;
+                                            placeholder: "List ID";
+                                            edited(text) => { root.revision-list-id = text; }
+                                        }
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 12px;
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        FieldLabel { title: "Susulan Board ID"; desc: "Board susulan/terlambat"; }
+                                        TextField {
+                                            text: root.late-board-id;
+                                            placeholder: "Board ID";
+                                            edited(text) => { root.late-board-id = text; }
+                                        }
+                                    }
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        FieldLabel { title: "Susulan List ID"; desc: "List kartu susulan"; }
+                                        TextField {
+                                            text: root.late-list-id;
+                                            placeholder: "List ID";
+                                            edited(text) => { root.late-list-id = text; }
+                                        }
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 12px;
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        FieldLabel { title: "Target Move Board (QC)"; desc: "Tujuan saat dipindah"; }
+                                        TextField {
+                                            text: root.qc-board-id;
+                                            placeholder: "Board QC ID";
+                                            edited(text) => { root.qc-board-id = text; }
+                                        }
+                                    }
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        FieldLabel { title: "Marketing ACC List ID"; desc: "List kartu disetujui"; }
+                                        TextField {
+                                            text: root.acc-list-id;
+                                            placeholder: "List ACC ID";
+                                            edited(text) => { root.acc-list-id = text; }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 4. Refresh Intervals (detik)
+                        Card {
+                            VerticalLayout {
+                                spacing: Design.space-md;
+                                Text {
+                                    text: "REFRESH INTERVALS (DETIK)";
+                                    font-size: Design.font-h3;
+                                    font-weight: 700;
+                                    letter-spacing: 1px;
+                                    color: Design.text-primary;
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 12px;
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        FieldLabel { title: "Editing Board (s)"; desc: "Interval polling detik"; }
+                                        TextField {
+                                            text: root.refresh-editing;
+                                            placeholder: "15";
+                                            edited(text) => { root.refresh-editing = text; }
+                                        }
+                                    }
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        FieldLabel { title: "Revision Board (s)"; desc: "Interval polling detik"; }
+                                        TextField {
+                                            text: root.refresh-revision;
+                                            placeholder: "15";
+                                            edited(text) => { root.refresh-revision = text; }
+                                        }
+                                    }
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        FieldLabel { title: "Late Board (s)"; desc: "Interval polling detik"; }
+                                        TextField {
+                                            text: root.refresh-late;
+                                            placeholder: "30";
+                                            edited(text) => { root.refresh-late = text; }
+                                        }
+                                    }
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        FieldLabel { title: "Points (Sheet) (s)"; desc: "Interval polling detik"; }
+                                        TextField {
+                                            text: root.refresh-points;
+                                            placeholder: "60";
+                                            edited(text) => { root.refresh-points = text; }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         // Simpan Profil Akun
                         HorizontalLayout {
                             Rectangle { horizontal-stretch: 1; }
                             Btn {
                                 label: "Simpan Pengaturan Akun";
                                 variant: "primary";
-                                clicked => { root.toast("Pengaturan Trello & Spreadsheet berhasil disimpan ke database."); }
+                                clicked => {
+                                    root.save-account-settings();
+                                    root.toast("Pengaturan Akun disimpan ke SQLite & sinkronisasi dimulai.");
+                                }
                             }
                         }
                     }

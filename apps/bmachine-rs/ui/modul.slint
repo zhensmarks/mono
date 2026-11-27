@@ -742,6 +742,13 @@ export component SheetsView inherits Rectangle {
     callback toast(string);
     in-out property <string> sheet-s1: "SDN RANCAIYUH I";
     in-out property <string> sheet-p1: "1.280";
+    // Baris sheet dari akun (Rust mengisi; kosong = sheet belum ada).
+    in-out property <[string]> sheet-rows: [];
+    in-out property <int> sheet-row-count: 0;
+    // Kolom sheet terpecah (Slint tidak punya split() string).
+    in-out property <[string]> sheet-col0: [];
+    in-out property <[string]> sheet-col1: [];
+    in-out property <[string]> sheet-col2: [];
 
     // --- Draft persisten (C# SpreadsheetDraftStore) ---
     // sheet-s1/sheet-p1 = nilai TERSIMPAN (yang terakhir di-commit ke
@@ -827,164 +834,100 @@ export component SheetsView inherits Rectangle {
                 }
                 HSeparator { }
 
-                // Baris 1 — sel Sekolah & Poin bisa diedit.
+                // Baris sheet (isi dari akun — Rust mengisi root.sheet-rows).
+                if root.sheet-row-count == 0 : HorizontalLayout {
+                    height: 36px;
+                    Text { width: 40px; text: "1"; font-size: Design.font-button; font-family: "JetBrains Mono"; color: Design.text-muted; vertical-alignment: center; }
+                    Text { horizontal-stretch: 1; text: "Sheet kosong — isi di kolom akun"; font-size: Design.font-body; color: Design.text-muted; vertical-alignment: center; }
+                    Text { width: 110px; text: ""; }
+                    Text { width: 80px; text: ""; }
+                }
+                for i in 10 : HorizontalLayout {
+                    visible: i < root.sheet-row-count;
+                    height: 36px; spacing: Design.space-sm;
+                    Text { width: 40px; text: i; font-size: Design.font-button; font-family: "JetBrains Mono"; color: Design.text-muted; vertical-alignment: center; }
+                    Text { horizontal-stretch: 1; text: root.sheet-col0[i]; font-size: Design.font-body; font-weight: 700; color: Design.text-primary; vertical-alignment: center; overflow: elide; }
+                    Text { width: 110px; text: root.sheet-col1[i]; font-size: Design.font-button; font-weight: 700; color: Design.text-muted; vertical-alignment: center; }
+                    Text { width: 80px; text: root.sheet-col2[i]; font-size: Design.font-body; font-weight: 700; color: Design.cat-points; vertical-alignment: center; }
+                }
+                // Baris status: penyelaras baris (C# SpreadsheetLoadAlignment —
+                // jangkar = awal range respons, jatuh kembali ke konfigurasi bila tak terurai).
+                HorizontalLayout {
+                    height: 28px;
+                    spacing: Design.space-sm;
+                    Text {
+                        text: root.external-changed
+                            ? "● Baris 4 di sheet berubah di luar — fingerprint tidak cocok (dimuat: 'SDN RANCAIYUH I')"
+                            : "● 6 baris selaras · grid 1–6 = sheet 4–9 · jangkar A3 · range A3:Z";
+                        font-size: Design.font-caption;
+                        font-weight: 700;
+                        color: root.external-changed ? Design.status-danger : Design.status-success;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                        overflow: elide;
+                    }
+                    Text {
+                        text: root.has-draft ? "● Draft — belum disimpan" : "";
+                        font-size: Design.font-button;
+                        font-weight: 700;
+                        color: Design.status-warning;
+                        vertical-alignment: center;
+                    }
+                }
+
                 HorizontalLayout {
                     height: 36px;
                     spacing: Design.space-sm;
-                    Text { width: 40px; text: "1"; font-size: Design.font-button; font-family: "JetBrains Mono"; color: Design.text-muted; vertical-alignment: center; }
-                    Rectangle {
-                        horizontal-stretch: 1;
-                        height: 28px;
-                        background: Design.bg-input;
-                        border-color: Design.border-default;
-                        border-width: 1px;
-                        border-radius: Design.radius-sm;
-                        TextInput {
-                            x: 8px; width: parent.width - 16px; height: 100%;
-                            text: root.draft-s1;
-                            font-size: Design.font-body;
-                            font-weight: 700;
-                            color: Design.text-primary;
-                            vertical-alignment: center;
-                            edited => { root.draft-s1 = self.text; }
+                    Btn {
+                        label: "Simpan";
+                        variant: "primary";
+                        clicked => {
+                            if (root.external-changed) {
+                                // Guard memblokir — persis C#:
+                                // CheckRowsStillAlignedAsync() membatalkan tulis
+                                // bila sidik jari tidak cocok; draft tetap ada.
+                                root.toast("Save diblokir — sheet berubah di luar (guard fingerprint). Muat ulang dulu; draft tetap tersimpan.");
+                            } else if (!root.has-draft) {
+                                root.toast("Tidak ada perubahan untuk disimpan");
+                            } else {
+                                root.sheet-s1 = root.draft-s1;
+                                root.sheet-p1 = root.draft-p1;
+                                root.toast("Tersimpan ke sheet");
+                            }
                         }
                     }
-                    Text { width: 110px; text: "Selesai"; font-size: Design.font-button; font-weight: 700; color: Design.status-success; vertical-alignment: center; }
-                    Rectangle {
-                        width: 80px;
-                        height: 28px;
-                        background: Design.bg-input;
-                        border-color: Design.border-default;
-                        border-width: 1px;
-                        border-radius: Design.radius-sm;
-                        TextInput {
-                            x: 8px; width: parent.width - 16px; height: 100%;
-                            text: root.draft-p1;
-                            font-size: Design.font-body;
-                            font-weight: 700;
-                            color: Design.cat-points;
-                            vertical-alignment: center;
-                            edited => { root.draft-p1 = self.text; }
+                    Btn {
+                        label: "Simulasikan perubahan di luar";
+                        variant: "secondary";
+                        clicked => {
+                            root.external-changed = true;
+                            root.toast("Simulasi: sheet berubah di luar — Simpan diblokir (guard fingerprint); draft tetap tersimpan.");
+                        }
+                    }
+                    Btn {
+                        label: "Muat ulang";
+                        variant: "secondary";
+                        clicked => {
+                            root.external-changed = false;
+                            if (root.has-draft) {
+                                root.toast("Sheet dimuat ulang — 6 baris selaras; draft belum disimpan tetap ada.");
+                            } else {
+                                root.toast("Sheet dimuat ulang — 6 baris selaras");
+                            }
                         }
                     }
                 }
-                // Baris 2–6 (baca saja, contoh).
-                HorizontalLayout {
-                    height: 36px; spacing: Design.space-sm;
-                    Text { width: 40px; text: "2"; font-size: Design.font-button; font-family: "JetBrains Mono"; color: Design.text-muted; vertical-alignment: center; }
-                    Text { horizontal-stretch: 1; text: "SDN BANTAR KAMBING 03"; font-size: Design.font-body; font-weight: 700; color: Design.text-primary; vertical-alignment: center; overflow: elide; }
-                    Text { width: 110px; text: "Revisi"; font-size: Design.font-button; font-weight: 700; color: Design.cat-revision; vertical-alignment: center; }
-                    Text { width: 80px; text: "980"; font-size: Design.font-body; font-weight: 700; color: Design.cat-points; vertical-alignment: center; }
-                }
-                HorizontalLayout {
-                    height: 36px; spacing: Design.space-sm;
-                    Text { width: 40px; text: "3"; font-size: Design.font-button; font-family: "JetBrains Mono"; color: Design.text-muted; vertical-alignment: center; }
-                    Text { horizontal-stretch: 1; text: "TK ISLAM ARAFAH"; font-size: Design.font-body; font-weight: 700; color: Design.text-primary; vertical-alignment: center; overflow: elide; }
-                    Text { width: 110px; text: "Editing"; font-size: Design.font-button; font-weight: 700; color: Design.cat-editing; vertical-alignment: center; }
-                    Text { width: 80px; text: "760"; font-size: Design.font-body; font-weight: 700; color: Design.cat-points; vertical-alignment: center; }
-                }
-                HorizontalLayout {
-                    height: 36px; spacing: Design.space-sm;
-                    Text { width: 40px; text: "4"; font-size: Design.font-button; font-family: "JetBrains Mono"; color: Design.text-muted; vertical-alignment: center; }
-                    Text { horizontal-stretch: 1; text: "PAUD CAHAYA UMMAT"; font-size: Design.font-body; font-weight: 700; color: Design.text-primary; vertical-alignment: center; overflow: elide; }
-                    Text { width: 110px; text: "Editing"; font-size: Design.font-button; font-weight: 700; color: Design.cat-editing; vertical-alignment: center; }
-                    Text { width: 80px; text: "640"; font-size: Design.font-body; font-weight: 700; color: Design.cat-points; vertical-alignment: center; }
-                }
-                HorizontalLayout {
-                    height: 36px; spacing: Design.space-sm;
-                    Text { width: 40px; text: "5"; font-size: Design.font-button; font-family: "JetBrains Mono"; color: Design.text-muted; vertical-alignment: center; }
-                    Text { horizontal-stretch: 1; text: "TK ASSALAM"; font-size: Design.font-body; font-weight: 700; color: Design.text-primary; vertical-alignment: center; overflow: elide; }
-                    Text { width: 110px; text: "Selesai"; font-size: Design.font-button; font-weight: 700; color: Design.status-success; vertical-alignment: center; }
-                    Text { width: 80px; text: "520"; font-size: Design.font-body; font-weight: 700; color: Design.cat-points; vertical-alignment: center; }
-                }
-                HorizontalLayout {
-                    height: 36px; spacing: Design.space-sm;
-                    Text { width: 40px; text: "6"; font-size: Design.font-button; font-family: "JetBrains Mono"; color: Design.text-muted; vertical-alignment: center; }
-                    Text { horizontal-stretch: 1; text: "PAUD HAUR WANGUN"; font-size: Design.font-body; font-weight: 700; color: Design.text-primary; vertical-alignment: center; overflow: elide; }
-                    Text { width: 110px; text: "Revisi"; font-size: Design.font-button; font-weight: 700; color: Design.cat-revision; vertical-alignment: center; }
-                    Text { width: 80px; text: "410"; font-size: Design.font-body; font-weight: 700; color: Design.cat-points; vertical-alignment: center; }
+                Rectangle { horizontal-stretch: 1; }
+            }
+                Text {
+                    text: "Guard fingerprint baris aktif — save diblokir bila sheet berubah di luar.";
+                    font-size: Design.font-caption;
+                    color: Design.text-muted;
+                    wrap: word-wrap;
                 }
             }
-        }
-
-        // Baris status: penyelaras baris (C# SpreadsheetLoadAlignment —
-        // jangkar = awal range respons, jatuh kembali ke konfigurasi bila
-        // tak terurai) + indikator draft. Pemetaan §19.3: grid baris i =
-        // sheet baris 3+i, range A3:Z — jadi grid 1–6 = sheet 4–9.
-        HorizontalLayout {
-            height: 28px;
-            spacing: Design.space-sm;
-            Text {
-                text: root.external-changed
-                    ? "● Baris 4 di sheet berubah di luar — fingerprint tidak cocok (dimuat: 'SDN RANCAIYUH I')"
-                    : "● 6 baris selaras · grid 1–6 = sheet 4–9 · jangkar A3 · range A3:Z";
-                font-size: Design.font-caption;
-                font-weight: 700;
-                color: root.external-changed ? Design.status-danger : Design.status-success;
-                vertical-alignment: center;
-                horizontal-stretch: 1;
-                overflow: elide;
-            }
-            Text {
-                text: root.has-draft ? "● Draft — belum disimpan" : "";
-                font-size: Design.font-button;
-                font-weight: 700;
-                color: Design.status-warning;
-                vertical-alignment: center;
-            }
-        }
-
-        HorizontalLayout {
-            height: 36px;
-            spacing: Design.space-sm;
-            Btn {
-                label: "Simpan";
-                variant: "primary";
-                clicked => {
-                    if (root.external-changed) {
-                        // Guard memblokir — persis C#:
-                        // CheckRowsStillAlignedAsync() membatalkan tulis
-                        // bila sidik jari tidak cocok; draft tetap ada.
-                        root.toast("Save diblokir — sheet berubah di luar (guard fingerprint). Muat ulang dulu; draft tetap tersimpan.");
-                    } else if (!root.has-draft) {
-                        root.toast("Tidak ada perubahan untuk disimpan");
-                    } else {
-                        root.sheet-s1 = root.draft-s1;
-                        root.sheet-p1 = root.draft-p1;
-                        root.toast("Tersimpan ke sheet");
-                    }
-                }
-            }
-            Btn {
-                label: "Simulasikan perubahan di luar";
-                variant: "secondary";
-                clicked => {
-                    root.external-changed = true;
-                    root.toast("Simulasi: sheet berubah di luar — Simpan diblokir (guard fingerprint); draft tetap tersimpan.");
-                }
-            }
-            Btn {
-                label: "Muat ulang";
-                variant: "secondary";
-                clicked => {
-                    root.external-changed = false;
-                    if (root.has-draft) {
-                        root.toast("Sheet dimuat ulang — 6 baris selaras; draft belum disimpan tetap ada.");
-                    } else {
-                        root.toast("Sheet dimuat ulang — 6 baris selaras");
-                    }
-                }
-            }
-            Rectangle { horizontal-stretch: 1; }
-        }
-        Text {
-            text: "Guard fingerprint baris aktif — save diblokir bila sheet berubah di luar.";
-            font-size: Design.font-caption;
-            color: Design.text-muted;
-            wrap: word-wrap;
         }
     }
-}
 
 // ================= LEADERBOARD =================
 // Poin harian/bulanan. Peringkat 1–3 pakai warna teks (emas/perak/perunggu),
@@ -1063,6 +1006,11 @@ export component LeaderboardView inherits Rectangle {
     callback back();
     callback toast(string);
     in-out property <string> period: "Harian";
+    // Papan skor dari akun (Rust mengisi; kosong = belum ada data).
+    in-out property <[string]> lb-rows: [];
+    in-out property <int> lb-row-count: 0;
+    in-out property <[string]> lb-col0: [];
+    in-out property <[string]> lb-col1: [];
 
     // Klik kanan = kembali ke dashboard (C# OnEmbeddedViewPointerPressed).
     leaderboard-back-touch := TouchArea {
@@ -1123,48 +1071,19 @@ export component LeaderboardView inherits Rectangle {
             VerticalLayout {
                 padding: Design.space-md;
                 spacing: Design.space-xs;
-                LeaderRow {
-                    rank: 1; name: "abeng";
-                    points: root.period == "Harian" ? "1.280" : "4.860";
+                if root.lb-row-count == 0 : Text {
+                    text: "Belum ada data leaderboard";
+                    font-size: Design.font-body;
+                    color: Design.text-muted;
+                }
+                for i in 10 : LeaderRow {
+                    visible: i < root.lb-row-count;
+                    rank: i;
+                    name: root.lb-col0[i];
+                    points: root.lb-col1[i];
                     frac: 1.0;
-                    rank-color: Design.status-warning;
-                    clicked => { root.toast("abeng — " + (root.period == "Harian" ? "1.280" : "4.860") + " poin (" + root.period + ")"); }
-                    right-clicked => { root.back(); }
-                }
-                LeaderRow {
-                    rank: 2; name: "nissa";
-                    points: root.period == "Harian" ? "980" : "4.210";
-                    frac: root.period == "Harian" ? 0.766 : 0.866;
-                    rank-color: Design.text-secondary;
-                    clicked => { root.toast("nissa — " + (root.period == "Harian" ? "980" : "4.210") + " poin (" + root.period + ")"); }
-                    right-clicked => { root.back(); }
-                }
-                LeaderRow {
-                    rank: 3; name: "fenti";
-                    points: root.period == "Harian" ? "760" : "3.980";
-                    frac: root.period == "Harian" ? 0.594 : 0.819;
-                    // Perunggu #cd7f32 — C# tidak punya warna medali (semua
-                    // peringkat TextSecondaryBrush); skema emas/perak/perunggu
-                    // adalah keputusan port (§19.4). Belum ada token perunggu
-                    // di Design — jadikan token bila design.slint disentuh.
-                    rank-color: #cd7f32;
-                    clicked => { root.toast("fenti — " + (root.period == "Harian" ? "760" : "3.980") + " poin (" + root.period + ")"); }
-                    right-clicked => { root.back(); }
-                }
-                LeaderRow {
-                    rank: 4; name: "surya";
-                    points: root.period == "Harian" ? "640" : "3.120";
-                    frac: root.period == "Harian" ? 0.5 : 0.642;
-                    rank-color: Design.text-muted;
-                    clicked => { root.toast("surya — " + (root.period == "Harian" ? "640" : "3.120") + " poin (" + root.period + ")"); }
-                    right-clicked => { root.back(); }
-                }
-                LeaderRow {
-                    rank: 5; name: "yoga";
-                    points: root.period == "Harian" ? "520" : "2.740";
-                    frac: root.period == "Harian" ? 0.406 : 0.564;
-                    rank-color: Design.text-muted;
-                    clicked => { root.toast("yoga — " + (root.period == "Harian" ? "520" : "2.740") + " poin (" + root.period + ")"); }
+                    rank-color: i == 0 ? Design.status-warning : i == 1 ? Design.text-secondary : i == 2 ? Design.medal-bronze : Design.text-muted;
+                    clicked => { root.toast(root.lb-col0[i] + " — " + root.lb-col1[i] + " poin"); }
                     right-clicked => { root.back(); }
                 }
             }

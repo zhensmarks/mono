@@ -15,6 +15,15 @@ pub struct TrelloListItem {
     pub id_board: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
+pub struct TrelloCardItem {
+    pub id: String,
+    pub name: String,
+    pub desc: Option<String>,
+    pub due: Option<String>,
+}
+
 pub struct TrelloApiService;
 
 impl TrelloApiService {
@@ -56,5 +65,25 @@ impl TrelloApiService {
 
         let lists: Vec<TrelloListItem> = res.json().map_err(|e| format!("JSON parse error: {}", e))?;
         Ok(lists)
+    }
+
+    pub fn fetch_cards(api_key: &str, token: &str, list_id: &str) -> Result<Vec<TrelloCardItem>, String> {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .map_err(|e| e.to_string())?;
+
+        let url = format!(
+            "https://api.trello.com/1/lists/{}/cards?key={}&token={}&fields=name,desc,due,id",
+            list_id, api_key, token
+        );
+
+        let res = client.get(&url).send().map_err(|e| format!("HTTP request gagal: {}", e))?;
+        if !res.status().is_success() {
+            return Err(format!("Trello API error: {}", res.status()));
+        }
+
+        let cards: Vec<TrelloCardItem> = res.json().map_err(|e| format!("JSON parse error: {}", e))?;
+        Ok(cards)
     }
 }

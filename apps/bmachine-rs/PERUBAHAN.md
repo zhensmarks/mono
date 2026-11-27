@@ -5,6 +5,22 @@ sebelum commit + push (format lengkap di `AGENTS.md`). Entri terbaru di
 paling atas. Dengan log ini, siapa pun yang menerima project — Dex, Hermes,
 atau orang lain — langsung tahu apa saja yang diubah tanpa menebak.
 
+## 2026-11-27 — Antigravity Agent — Polish Tampilan: Widget Live dari Akun, Tokenisasi Warna, No-Frame Window, Ukuran Jendela Pas
+- Diubah:
+  - `ui/design.slint`: Token warna baru `done-row-bg`, `done-row-border`, `done-text`, `done-text-alt`, `row-border-idle`, `row-text-dim`, `row-text-alt`, `overlay-dim`, `overlay-solid`, `medal-bronze` — menggantikan hardcoded hex di seluruh UI.
+  - `ui/main.slint`: Semua hardcoded warna diganti token `Design.*`. Window `no-frame: true` + tombol close kustom (×) di bar nav. `ui-scale` max 1.8 (bukan 2.5) agar card tidak membesar berlebihan. Tinggi card di-capping 240px. `padding-bottom` dashboard 24px.
+  - `ui/settings.slint`: Widget preview EDITING/POINTS kini membaca `stat-editing`/`stat-points` (live dari akun), bukan hardcoded "24"/"1.280".
+  - `ui/modul.slint`: Sheet rows & leaderboard rows kini di-drive oleh `sheet-rows`/`lb-rows` (Rust mengisi dari DB), bukan hardcoded sekolah/poin demo. Token `Design.medal-bronze` menggantikan `#cd7f32`.
+  - `ui/explorer.slint`: `#00000080` → `Design.overlay-dim`.
+  - `ui/radial.slint`: `#000000` → `Design.overlay-solid`.
+  - `src/main.rs`: Preload `Sheet.Row.*` & `Lb.Row.*` dari SQLite ke `sheet-rows`/`lb-rows` + kolom terpecah (`sheet-col0/1/2`, `lb-col0/1`) via `ModelRc<VecModel<SharedString>>`. Default stat-* = "0" (bukan demo).
+  - `Cargo.toml`: Fitur `slint` = `["std", "backend-winit"]`.
+  - `ui/design.slint`: `window-width` 960px, `window-height` 640px (pas di layar VM 1280x800).
+- Alasan: User minta "polish lagi tampilan yang masih jauh dari design" — tokenisasi warna, widget angka diambil dari setting akun (bukan demo), dan ukuran jendela pas.
+- Terverifikasi:
+  - `cargo build` exit 0, 0 warning.
+  - Screenshot di VM `Win10LTSC-Dev`: dashboard 2×2 kartu (EDITING 0, REVISION 0, LATE 0, POINTS 0) semua terlihat lengkap tanpa terpotong; tombol close (×) ada di bar nav; title bar custom (no-frame) gelap, bukan putih Windows. Screenshot: `D:/VMs/polish8.png`.
+
 ## 2026-11-27 — Antigravity Agent — Implementasi Backend Fase 6 (SQLite, Trello API, Executor Python/JSX, Sheets API) & Verifikasi Nyata di VM
 - Diubah:
   - `src/db.rs`: Database service nyata `BMachine.db` SQLite (AppData/BMachine) dengan tabel `KeyValueStore` & `Activities`, WAL mode, dan busy timeout 15 detik.
