@@ -309,8 +309,16 @@ fn flatten_node(node: &BatchNode, depth: i32, selected: &HashSet<String>, out: &
 pub fn flatten_source(roots: &[BatchRoot], selected: &HashSet<String>) -> Vec<FlatRow> {
     let mut out = Vec::new();
     if roots.len() == 1 {
-        for c in &roots[0].source_root.children {
-            flatten_node(c, 0, selected, &mut out, false);
+        if roots[0].source_root.children.is_empty() {
+            // Folder kosong: tampilkan root-nya sendiri sebagai satu
+            // baris — kalau tidak, src-rows kosong dan drop zone muncul
+            // lagi seolah folder tidak terpilih (temuan verifikasi Dex
+            // 28 Nov 2026: hanya toast yang membuktikan pilihannya).
+            flatten_node(&roots[0].source_root, 0, selected, &mut out, true);
+        } else {
+            for c in &roots[0].source_root.children {
+                flatten_node(c, 0, selected, &mut out, false);
+            }
         }
     } else {
         for r in roots {
@@ -716,7 +724,7 @@ pub fn scan_reguler(root: &Path) -> Vec<RegulerRow> {
         let Ok(sd) = std::fs::read_dir(&mpath) else {
             continue;
         };
-        let mut schools: Vec<(String, PathBuf)> = sd
+        let mut entries: Vec<(String, PathBuf)> = sd
             .flatten()
             .filter_map(|e| {
                 let name = e.file_name().to_string_lossy().into_owned();
@@ -728,18 +736,185 @@ pub fn scan_reguler(root: &Path) -> Vec<RegulerRow> {
                 }
             })
             .collect();
-        schools.sort_by(|a, b| natural_cmp(&a.0, &b.0));
-        for (sekolah, spath) in schools {
-            let marketing = marketing_from_note(&spath);
-            rows.push(RegulerRow {
-                bulan: bulan.clone(),
-                marketing,
-                sekolah,
-                path: spath.to_string_lossy().into_owned(),
-            });
+        entries.sort_by(|a, b| natural_cmp(&a.0, &b.0));
+        for (name, path) in entries {
+            // Dua bentuk layout bulan: langsung sekolah (bulan →
+            // sekolah, berisi file foto) atau lewat kategori bernomor
+            // (bulan → "1. PAS FOTO" → sekolah). Kategori dikenali
+            // karena isinya HANYA subfolder sekolah (tanpa file);
+            // sekolah dikenali karena berisi file (foto/catatan).
+            let child_dirs = subdirs_sorted(&path);
+            let has_files = std::fs::read_dir(&path)
+                .map(|rd| {
+                    rd.flatten().any(|e| {
+                        e.file_type().map(|t| t.is_file()).unwrap_or(false)
+                    })
+                })
+                .unwrap_or(false);
+            if !child_dirs.is_empty() && !has_files {
+                for (sekolah, spath) in child_dirs {
+                    let marketing = marketing_from_note(&spath);
+                    rows.push(RegulerRow {
+                        bulan: bulan.clone(),
+                        marketing,
+                        sekolah,
+                        path: spath.to_string_lossy().into_owned(),
+                    });
+                }
+            } else {
+                let marketing = marketing_from_note(&path);
+                rows.push(RegulerRow {
+                    bulan: bulan.clone(),
+                    marketing,
+                    sekolah: name,
+                    path: path.to_string_lossy().into_owned(),
+                });
+            }
         }
     }
     rows
+}
+
+/// Subdirektori (bukan file tersembunyi) satu folder, urut natural.
+fn subdirs_sorted(path: &Path) -> Vec<(String, PathBuf)> {
+    let Ok(rd) = std::fs::read_dir(path) else {
+        return Vec::new();
+    };
+    let mut v: Vec<(String, PathBuf)> = rd
+        .flatten()
+        .filter_map(|e| {
+            let name = e.file_name().to_string_lossy().into_owned();
+            let is_dir = e.file_type().map(|t| t.is_dir()).unwrap_or(false);
+            if is_dir && !is_hidden_name(&name) {
+                Some((name, e.path()))
+            } else {
+                None
+            }
+        })
+        .collect();
+    v.sort_by(|a, b| natural_cmp(&a.0, &b.0));
+    v
+}
+
+// ---------------------------------------------------------------------------
+// Folder Reguler — satu direktori kerja tersimpan (ala master_creator:
+// _dir_manager_*: dropdown + tombol hapus, status per-direktori dengan
+// warna, work lock, ingat konteks output per direktori).
+// Disimpan di DB `Batch.FolderReguler` sebagai JSON array.
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct RegulerDir {
+    pub path: String,
+    /// Kunci manual (pin): tidak bisa dihapus dari daftar selama terkunci.
+    #[serde(default)]
+    pub locked: bool,
+    /// Konteks output terakhir yang dipakai bersama direktori ini
+    /// (nilai `Paths.LocalOutput` saat run terakhir) — dipulihkan saat
+    /// direktori dipilih lagi (master_creator: _remember_output_context
+    /// / _dir_manager_restore_output_context).
+    #[serde(default)]
+    pub last_output: String,
+}
+
+impl RegulerDir {
+    pub fn new(path: &str) -> Self {
+        RegulerDir { path: path.to_string(), locked: false, last_output: String::new() }
+    }
+
+    /// Nama tampil di dropdown (nama folder terakhir).
+    pub fn display_name(&self) -> String {
+        std::path::Path::new(&self.path)
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| self.path.clone())
+    }
+}
+
+/// Status satu direktori reguler (teks kunci untuk .slint — warna
+/// dipetakan di sana; prioritas: hilang > dipakai > terkunci > kosong).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RegulerStatus {
+    Ready,
+    Empty,
+    Missing,
+    Locked,
+    InUse,
+}
+
+impl RegulerStatus {
+    pub fn key(&self) -> &'static str {
+        match self {
+            RegulerStatus::Ready => "ready",
+            RegulerStatus::Empty => "empty",
+            RegulerStatus::Missing => "missing",
+            RegulerStatus::Locked => "locked",
+            RegulerStatus::InUse => "inuse",
+        }
+    }
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            RegulerStatus::Ready => "Siap",
+            RegulerStatus::Empty => "Kosong",
+            RegulerStatus::Missing => "Tidak ada",
+            RegulerStatus::Locked => "Terkunci",
+            RegulerStatus::InUse => "Dipakai",
+        }
+    }
+}
+
+/// Apakah direktori punya minimal satu subfolder bulan
+/// (pola `DD BULAN YYYY`)?
+pub fn reguler_has_months(path: &Path) -> bool {
+    let Ok(rd) = std::fs::read_dir(path) else {
+        return false;
+    };
+    rd.flatten().any(|e| {
+        let name = e.file_name().to_string_lossy().into_owned();
+        e.file_type().map(|t| t.is_dir()).unwrap_or(false) && is_month_folder(&name)
+    })
+}
+
+pub fn reguler_status(dir: &RegulerDir, in_use: bool) -> RegulerStatus {
+    let p = std::path::Path::new(&dir.path);
+    if !p.is_dir() {
+        return RegulerStatus::Missing;
+    }
+    if in_use {
+        return RegulerStatus::InUse;
+    }
+    if dir.locked {
+        return RegulerStatus::Locked;
+    }
+    if reguler_has_months(p) {
+        RegulerStatus::Ready
+    } else {
+        RegulerStatus::Empty
+    }
+}
+
+/// Bulan-bulan unik dari hasil scan (urut natural), untuk filter bulan.
+pub fn reguler_months(rows: &[RegulerRow]) -> Vec<String> {
+    let mut months: Vec<String> = rows.iter().map(|r| r.bulan.clone()).collect();
+    months.sort_by(|a, b| natural_cmp(a, b));
+    months.dedup();
+    months
+}
+
+/// Filter baris scan: teks cari (nama sekolah, tak peka huruf besar) +
+/// bulan ("" = semua bulan).
+pub fn filter_reguler_rows(rows: &[RegulerRow], query: &str, month: &str) -> Vec<RegulerRow> {
+    let q = query.trim().to_ascii_lowercase();
+    rows.iter()
+        .filter(|r| {
+            (month.is_empty() || r.bulan == month)
+                && (q.is_empty()
+                    || r.sekolah.to_ascii_lowercase().contains(&q)
+                    || r.marketing.to_ascii_lowercase().contains(&q))
+        })
+        .cloned()
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -808,6 +983,52 @@ impl BatchTask {
         let done = self.phases.iter().filter(|p| p.state == PhaseState::Done).count() as i32;
         self.progress = done * 100 / total;
     }
+
+    /// Tandai fase yang labelnya sama dengan path root (cocokkan nama
+    /// folder terakhir) — dipakai timer drain saat RootDone tiba.
+    pub fn set_phase_by_root(&mut self, root_path: &str, state: PhaseState) {
+        let name = std::path::Path::new(root_path)
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| root_path.to_string());
+        if let Some(idx) = self.phases.iter().position(|p| p.label == name) {
+            self.set_phase(idx, state);
+        } else if let Some(idx) = self.phases.iter().position(|p| p.state == PhaseState::Running) {
+            self.set_phase(idx, state);
+        }
+    }
+
+    /// Tambah baris log ke detail tugas (hanya N terakhir disimpan).
+    pub fn append_line(&mut self, line: &str) {
+        self.lines.push(line.to_string());
+        if self.lines.len() > 40 {
+            let excess = self.lines.len() - 40;
+            self.lines.drain(..excess);
+        }
+    }
+
+    /// Kunci teks state untuk .slint (warna dipetakan di sana).
+    pub fn state_key(&self) -> &'static str {
+        match self.state {
+            TaskState::Queued => "queued",
+            TaskState::Running => "running",
+            TaskState::WaitingSave => "waiting",
+            TaskState::Done => "done",
+            TaskState::Failed => "failed",
+            TaskState::Cancelled => "cancelled",
+        }
+    }
+
+    pub fn state_label(&self) -> &'static str {
+        match self.state {
+            TaskState::Queued => "Antre",
+            TaskState::Running => "Berjalan",
+            TaskState::WaitingSave => "Menunggu save",
+            TaskState::Done => "Selesai",
+            TaskState::Failed => "Gagal",
+            TaskState::Cancelled => "Dibatalkan",
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -822,8 +1043,33 @@ pub struct BatchState {
     pub selection: BatchSelection,
     pub has_manifest: bool,
     /// Folder Reguler tersimpan (DB `Batch.FolderReguler`, JSON array).
-    pub reguler_dirs: Vec<String>,
+    pub reguler_dirs: Vec<RegulerDir>,
     pub reguler_active: String,
+    /// Tugas Task Manager (terbaru dulu, maks 8 — lihat `push_task`).
+    pub tasks: Vec<BatchTask>,
+    /// ID tugas run yang sedang aktif ("" = tidak ada).
+    pub current_task_id: String,
+}
+
+impl BatchState {
+    /// Tambah tugas baru di depan (maks 8, yang lama dibuang).
+    pub fn push_task(&mut self, task: BatchTask) {
+        self.current_task_id = task.id.clone();
+        self.tasks.insert(0, task);
+        self.tasks.truncate(8);
+    }
+
+    pub fn active_task_mut(&mut self) -> Option<&mut BatchTask> {
+        if self.current_task_id.is_empty() {
+            return None;
+        }
+        let id = self.current_task_id.clone();
+        self.tasks.iter_mut().find(|t| t.id == id)
+    }
+
+    pub fn task_mut(&mut self, id: &str) -> Option<&mut BatchTask> {
+        self.tasks.iter_mut().find(|t| t.id == id)
+    }
 }
 
 impl BatchState {
@@ -1099,7 +1345,14 @@ mod tests {
         assert_eq!(st.src_rows().len(), 1);
         fs::remove_dir(&sub).unwrap();
         remove_from_tree(&mut st.roots, BatchPanel::Source, &sub);
-        assert!(st.src_rows().is_empty());
+        // Root yang jadi kosong tetap tampil sebagai satu baris
+        // (fix folder kosong 28 Nov 2026) — bukan tree kosong.
+        let rows = st.src_rows();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(
+            rows[0].name,
+            d.file_name().unwrap().to_string_lossy().into_owned()
+        );
     }
 
     #[test]
@@ -1145,5 +1398,120 @@ mod tests {
         assert_eq!(rows[0].sekolah, "27_SDN RANCAIYUH I");
         assert_eq!(rows[0].marketing, "AMEL");
         assert_eq!(rows[1].marketing, "");
+    }
+
+    #[test]
+    fn empty_source_folder_still_shows_its_root_row() {
+        // Temuan verifikasi Dex 28 Nov 2026: folder kosong → src-rows
+        // kosong → drop zone muncul lagi. Root-nya sendiri harus tampil.
+        let d = tmpdir("empty-src");
+        let local = d.join("OUT");
+        let mut st = BatchState::default();
+        st.local_output = local.to_string_lossy().into_owned();
+        st.add_folder(&d);
+        let rows = st.src_rows();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].name, "bmachine-batch-test-empty-src");
+        assert!(rows[0].is_dir);
+    }
+
+    #[test]
+    fn nonempty_source_folder_keeps_old_flattening() {
+        let d = tmpdir("nonempty-src");
+        fs::create_dir(d.join("1. PAS FOTO")).unwrap();
+        let local = d.join("OUT");
+        let mut st = BatchState::default();
+        st.local_output = local.to_string_lossy().into_owned();
+        st.add_folder(&d);
+        let rows = st.src_rows();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].name, "1. PAS FOTO");
+        assert!(!rows[0].is_root);
+    }
+
+    #[test]
+    fn reguler_status_and_filter() {
+        let d = tmpdir("reguler-status");
+        let missing = RegulerDir::new("/tmp/tidak-ada-pasti-xyz-123");
+        assert_eq!(reguler_status(&missing, false), RegulerStatus::Missing);
+        let empty = RegulerDir::new(d.to_str().unwrap());
+        assert_eq!(reguler_status(&empty, false), RegulerStatus::Empty);
+        let m = d.join("07 Juli 2026");
+        fs::create_dir_all(m.join("27_SDN RANCAIYUH I")).unwrap();
+        assert_eq!(reguler_status(&empty, false), RegulerStatus::Ready);
+        assert_eq!(reguler_status(&empty, true), RegulerStatus::InUse);
+        let mut locked = RegulerDir::new(d.to_str().unwrap());
+        locked.locked = true;
+        assert_eq!(reguler_status(&locked, false), RegulerStatus::Locked);
+        // JSON lama (array string) tetap bisa dibaca → migrasi.
+        let old: Vec<RegulerDir> =
+            serde_json::from_str::<Vec<String>>("[\"/tmp/a\", \"/tmp/b\"]")
+                .unwrap()
+                .into_iter()
+                .map(|p| RegulerDir::new(&p))
+                .collect();
+        assert_eq!(old.len(), 2);
+        assert!(!old[0].locked);
+        // Filter: cari sekolah + bulan.
+        let rows = scan_reguler(&d);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(filter_reguler_rows(&rows, "rancaiyuh", "").len(), 1);
+        assert_eq!(filter_reguler_rows(&rows, "bantar", "").len(), 0);
+        assert_eq!(filter_reguler_rows(&rows, "", "07 Juli 2026").len(), 1);
+        assert_eq!(filter_reguler_rows(&rows, "", "02 AGUSTUS 2025").len(), 0);
+        assert_eq!(reguler_months(&rows), vec!["07 Juli 2026".to_string()]);
+    }
+
+    #[test]
+    fn scan_reguler_nested_category_and_flat() {
+        let d = tmpdir("reguler-scan-nested");
+        // Layout bersarang (asli DMA): bulan → kategori → sekolah.
+        let school_a = d
+            .join("07 Juli 2026")
+            .join("1. PAS FOTO")
+            .join("SDN Kedung Waringin 3");
+        fs::create_dir_all(&school_a).unwrap();
+        fs::write(school_a.join("foto_001.jpg"), b"x").unwrap();
+        fs::write(school_a.join("NOTE.txt"), "MARKETING: Nunuy\n").unwrap();
+        let school_b = d
+            .join("07 Juli 2026")
+            .join("2. PROFESI")
+            .join("SDN Bantar Kambing 03");
+        fs::create_dir_all(&school_b).unwrap();
+        fs::write(school_b.join("profesi_001.jpg"), b"x").unwrap();
+        // Layout datar: bulan → sekolah langsung.
+        let school_c = d.join("08 Agustus 2026").join("SDN Langsung");
+        fs::create_dir_all(&school_c).unwrap();
+        fs::write(school_c.join("foto.jpg"), b"x").unwrap();
+        let rows = scan_reguler(&d);
+        assert_eq!(rows.len(), 3);
+        let names: Vec<&str> = rows.iter().map(|r| r.sekolah.as_str()).collect();
+        assert!(names.contains(&"SDN Kedung Waringin 3"));
+        assert!(names.contains(&"SDN Bantar Kambing 03"));
+        assert!(names.contains(&"SDN Langsung"));
+        // Kategori ("1. PAS FOTO") TIDAK boleh muncul sebagai sekolah.
+        assert!(!names.iter().any(|n| n.contains("PAS FOTO")));
+        let a = rows.iter().find(|r| r.sekolah == "SDN Kedung Waringin 3").unwrap();
+        assert_eq!(a.bulan, "07 Juli 2026");
+        assert_eq!(a.marketing, "Nunuy");
+        let b = rows.iter().find(|r| r.sekolah == "SDN Bantar Kambing 03").unwrap();
+        assert_eq!(b.marketing, "");
+        assert_eq!(reguler_months(&rows).len(), 2);
+    }
+
+    #[test]
+    fn task_phase_progress_and_lines() {
+        let mut t = BatchTask::new("t1", "buat_master.py — 07 Juli 2026", &["07 Juli 2026", "08 Juli 2026"]);
+        assert_eq!(t.progress, 0);
+        t.set_phase_by_root("/x/07 Juli 2026", PhaseState::Done);
+        assert_eq!(t.progress, 50);
+        assert_eq!(t.state_key(), "queued");
+        for i in 0..45 {
+            t.append_line(&format!("baris {}", i));
+        }
+        assert_eq!(t.lines.len(), 40);
+        assert_eq!(t.lines[0], "baris 5");
+        t.followups.push("BUAT MASTER (duplikat)".to_string());
+        assert_eq!(t.followups.len(), 1);
     }
 }

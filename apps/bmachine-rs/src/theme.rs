@@ -1,5 +1,5 @@
 use crate::db::DatabaseService;
-use crate::{AppWindow, Design, DynamicBarWindow, RadialMenuWindow};
+use crate::{AppWindow, Design, DynamicBarWindow, RadialMenuWindow, TaskManagerWindow};
 use serde::{Deserialize, Serialize};
 use slint::{Color, Global, SharedString, VecModel};
 
@@ -733,6 +733,49 @@ pub fn sync_design_to_radial(ui: &AppWindow, radial: &RadialMenuWindow) {
     dst.set_radius_sm(src.get_radius_sm());
     dst.set_radius_md(src.get_radius_md());
     dst.set_font_family(src.get_font_family());
+}
+
+/// Sama seperti `sync_design_to_bar`, untuk TaskManagerWindow (OS window
+/// 340×600, tahap 5): salin token yang dipakai TaskCard + Btn di panel
+/// tugas (latar, teks, aksen, status, tombol) supaya panel mengikuti
+/// preset tema aktif. Dipanggil saat panel dibuka + tiap handler tema.
+pub fn sync_design_to_task(ui: &AppWindow, task: &TaskManagerWindow) {
+    let src = Design::get(ui);
+    let dst = Design::get(task);
+    dst.set_app_bg(src.get_app_bg());
+    dst.set_card_bg(src.get_card_bg());
+    dst.set_surface_elevated(src.get_surface_elevated());
+    dst.set_separator(src.get_separator());
+    dst.set_text_primary(src.get_text_primary());
+    dst.set_text_secondary(src.get_text_secondary());
+    dst.set_text_muted(src.get_text_muted());
+    dst.set_accent(src.get_accent());
+    dst.set_accent_subtle(src.get_accent_subtle());
+    dst.set_bg_hover(src.get_bg_hover());
+    dst.set_ghost_hover(src.get_ghost_hover());
+    dst.set_ghost_pressed(src.get_ghost_pressed());
+    dst.set_status_success(src.get_status_success());
+    dst.set_status_warning(src.get_status_warning());
+    dst.set_status_danger(src.get_status_danger());
+    dst.set_btn_secondary_bg(src.get_btn_secondary_bg());
+    dst.set_btn_secondary_bg_hover(src.get_btn_secondary_bg_hover());
+    dst.set_btn_secondary_bg_pressed(src.get_btn_secondary_bg_pressed());
+    dst.set_btn_secondary_fg(src.get_btn_secondary_fg());
+    dst.set_btn_secondary_border(src.get_btn_secondary_border());
+    dst.set_btn_primary_bg(src.get_btn_primary_bg());
+    dst.set_btn_primary_bg_hover(src.get_btn_primary_bg_hover());
+    dst.set_btn_primary_bg_pressed(src.get_btn_primary_bg_pressed());
+    dst.set_btn_primary_fg(src.get_btn_primary_fg());
+    dst.set_btn_danger_bg(src.get_btn_danger_bg());
+    dst.set_btn_danger_bg_hover(src.get_btn_danger_bg_hover());
+    dst.set_btn_danger_fg(src.get_btn_danger_fg());
+    dst.set_btn_danger_border(src.get_btn_danger_border());
+    dst.set_radius_sm(src.get_radius_sm());
+    dst.set_radius_md(src.get_radius_md());
+    dst.set_space_sm(src.get_space_sm());
+    dst.set_space_md(src.get_space_md());
+    dst.set_font_family(src.get_font_family());
+    dst.set_font_button(src.get_font_button());
 }
 
 /// Terapkan satu preset bawaan: set SEMUA properti tampilan dari

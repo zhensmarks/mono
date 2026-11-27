@@ -34,6 +34,39 @@ struct BatchRow {
     is-root: bool,
 }
 
+// Satu direktori Folder Reguler tersimpan (popup Kelola, tahap 4).
+// status: "ready" | "empty" | "missing" | "locked" | "inuse".
+struct RegulerDirRow {
+    path: string,
+    name: string,
+    status: string,
+    status-label: string,
+    locked: bool,
+    last-output: string,
+}
+
+// Satu baris sekolah hasil scan Folder Reguler (tahap 4).
+struct RegulerSchoolRow {
+    bulan: string,
+    marketing: string,
+    sekolah: string,
+    path: string,
+}
+
+// Satu tugas Task Manager (tahap 5). state: "queued" | "running" |
+// "waiting" | "done" | "failed" | "cancelled". phases/lines sudah
+// diformat Rust (tanda ✓ ▶ ○ ✗ … + 3 baris log terakhir).
+struct TaskRow {
+    id: string,
+    title: string,
+    state: string,
+    state-label: string,
+    progress: int,
+    phases: string,
+    followup: string,
+    lines: string,
+}
+
 component BatchTreeRow inherits Rectangle {
     in property <string> row-id: "";
     in property <string> row-name: "";
@@ -278,6 +311,201 @@ component BatchCtxMenu inherits Card {
                 vertical-alignment: center;
                 x: 10px;
                 height: 100%;
+            }
+        }
+    }
+}
+
+// Kartu satu tugas Task Manager (tahap 5) — judul + state + progress
+// + fase (✓ ▶ ○ ✗ …) + lanjutan (barrier save Photoshop) + 3 baris
+// log terakhir. Warna state: running=accent, waiting=warning,
+// done=success, failed=danger, lainnya=muted.
+component TaskCard inherits Card {
+    in property <string> task-id: "";
+    in property <string> task-title: "";
+    in property <string> task-state: "";
+    in property <string> task-state-label: "";
+    in property <int> task-progress: 0;
+    in property <string> task-phases: "";
+    in property <string> task-followup: "";
+    in property <string> task-lines: "";
+    callback cancel(string);
+    callback followup(string);
+
+    property <color> state-color: task-state == "running" ? Design.accent : task-state == "waiting" ? Design.status-warning : task-state == "done" ? Design.status-success : task-state == "failed" ? Design.status-danger : Design.text-muted;
+    property <bool> cancellable: task-state == "running" || task-state == "waiting" || task-state == "queued";
+
+    background: Design.card-bg;
+    border-color: Design.separator;
+    border-width: 1px;
+    border-radius: Design.radius-md;
+
+    VerticalLayout {
+        padding: Design.space-sm;
+        spacing: 6px;
+
+        HorizontalLayout {
+            spacing: 6px;
+            Text {
+                text: "●";
+                font-size: 10px;
+                color: state-color;
+                vertical-alignment: center;
+            }
+            Text {
+                text: task-title;
+                font-size: 12px;
+                font-weight: 700;
+                color: Design.text-primary;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                overflow: elide;
+            }
+            Text {
+                text: task-state-label;
+                font-size: 11px;
+                font-weight: 700;
+                color: state-color;
+                vertical-alignment: center;
+            }
+        }
+
+        // Bar progres (fase selesai / total fase).
+        Rectangle {
+            height: 6px;
+            background: Design.bg-hover;
+            border-radius: 3px;
+            Rectangle {
+                width: parent.width * task-progress / 100;
+                height: 100%;
+                background: state-color;
+                border-radius: 3px;
+            }
+        }
+
+        if task-phases != "" : Text {
+            text: task-phases;
+            font-size: 11px;
+            color: Design.text-secondary;
+            wrap: word-wrap;
+        }
+
+        // Barrier: Fase 1 selesai, menunggu save Photoshop — lanjut
+        // ke BUAT MASTER (fase 2) dari sini atau dari panel OUTPUT.
+        if task-followup != "" : HorizontalLayout {
+            spacing: 6px;
+            Text {
+                text: "Lanjutan: " + task-followup;
+                font-size: 11px;
+                font-weight: 700;
+                color: Design.status-warning;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                overflow: elide;
+            }
+            Btn {
+                label: "Lanjutkan";
+                variant: "secondary";
+                scale: 1;
+                small: true;
+                clicked => { root.followup(task-id); }
+            }
+        }
+
+        if task-lines != "" : Text {
+            text: task-lines;
+            font-size: 11px;
+            color: Design.text-muted;
+            wrap: word-wrap;
+        }
+
+        if cancellable : HorizontalLayout {
+            Rectangle { horizontal-stretch: 1; }
+            Btn {
+                label: "Batalkan";
+                variant: "ghost";
+                scale: 1;
+                small: true;
+                clicked => { root.cancel(task-id); }
+            }
+        }
+    }
+}
+
+// Task Manager (tahap 5) — window OS terpisah di samping window utama
+// (master_creator _position_task_panel: dock + main_geom + gap), BUKAN
+// log panel dan BUKAN dock dalam layout: min-width header BATCH ~1080px
+// membuat panel dalam-layout terdorong keluar layar (terbukti 28 Nov
+// 2026 — kartu menyusut tapi panel tak terlihat). Dibuka otomatis saat
+// run dimulai; × menutup; "☰ Tugas" membuka lagi. Memakai TaskCard
+// yang sama dengan panel dalam-layout (dihapus).
+export component TaskManagerWindow inherits Window {
+    title: "Tugas — BATCH";
+    width: 340px;
+    height: 600px;
+
+    in-out property <[TaskRow]> task-rows;
+    callback cancel(string);
+    callback followup(string);
+    callback closed();
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        background: Design.app-bg;
+        VerticalLayout {
+            padding: Design.space-md;
+            spacing: Design.space-sm;
+            HorizontalLayout {
+                height: 28px;
+                spacing: 8px;
+                Text {
+                    text: "TUGAS";
+                    font-size: 13px;
+                    font-weight: 800;
+                    color: Design.text-primary;
+                    vertical-alignment: center;
+                }
+                Text {
+                    text: task-rows.length + " tugas";
+                    font-size: 11px;
+                    color: Design.text-muted;
+                    vertical-alignment: center;
+                }
+                Rectangle { horizontal-stretch: 1; }
+                IconBtn {
+                    glyph: "×";
+                    variant: "ghost";
+                    scale: 1;
+                    size: 28px;
+                    clicked => { root.closed(); }
+                }
+            }
+            HSeparator { }
+            if task-rows.length == 0 : Text {
+                text: "Belum ada tugas.\nJalankan Fase 1 atau script master dari tab BATCH.";
+                font-size: 12px;
+                color: Design.text-muted;
+                wrap: word-wrap;
+                horizontal-stretch: 1;
+            }
+            task-list-scroll := Flickable {
+                vertical-stretch: 1;
+                task-list-layout := VerticalLayout {
+                    spacing: Design.space-sm;
+                    for t in task-rows : TaskCard {
+                        task-id: t.id;
+                        task-title: t.title;
+                        task-state: t.state;
+                        task-state-label: t.state-label;
+                        task-progress: t.progress;
+                        task-phases: t.phases;
+                        task-followup: t.followup;
+                        task-lines: t.lines;
+                        cancel(id) => { root.cancel(id); }
+                        followup(id) => { root.followup(id); }
+                    }
+                }
             }
         }
     }
@@ -864,6 +1092,20 @@ export component AppWindow inherits Window {
     // tersimpan + popup kelola (tabel bulan/marketing/sekolah).
     in-out property <[string]> batch-reguler-names: [];
     in-out property <int> batch-reguler-idx: -1;
+    // Popup Kelola Folder Reguler (tahap 4) — overlay di tab BATCH.
+    in-out property <bool> reguler-manage-open: false;
+    in-out property <[RegulerDirRow]> reguler-dirs: [];
+    // Direktori yang sedang di-scan tabel sekolahnya (-1 = belum ada).
+    in-out property <int> reguler-scan-dir-idx: -1;
+    in-out property <[RegulerSchoolRow]> reguler-scan-rows: [];
+    in-out property <string> reguler-scan-status: "";
+    in-out property <string> reguler-filter: "";
+    in-out property <[string]> reguler-months: ["Semua bulan"];
+    in-out property <int> reguler-month-idx: 0;
+    in-out property <int> reguler-selected-row: -1;
+    // Panel Task Manager (tahap 5) — dock kanan di tab BATCH.
+    in-out property <bool> task-manager-open: false;
+    in-out property <[TaskRow]> task-rows: [];
     // Footer: tombol script dari scripts.json (atau default 5).
     in-out property <[string]> batch-scripts: ["buat_master", "manasik", "wisuda", "pasfoto", "profesi"];
     in-out property <bool> batch-running: false;
@@ -898,7 +1140,18 @@ export component AppWindow inherits Window {
     callback batch-clear();
     callback batch-reguler-picked(int);
     callback batch-reguler-manage();
+    callback batch-reguler-close();
+    callback batch-reguler-add();
+    callback batch-reguler-remove(int);
+    callback batch-reguler-toggle-lock(int);
+    callback batch-reguler-select-dir(int);
+    callback batch-reguler-filter-changed(string);
+    callback batch-reguler-month-picked(int);
+    callback batch-reguler-row-clicked(int);
+    callback batch-reguler-load-selected();
     callback batch-open-task-manager();
+    callback batch-task-cancel(string);
+    callback batch-task-followup(string);
 
     // Skala fluid: font & padding widget mengikuti ukuran window.
     // 1 = ukuran desain (grid 600x400); naik saat window membesar
@@ -959,6 +1212,9 @@ export component AppWindow inherits Window {
             activated => {
                 if (root.dialog-open != "") {
                     root.dialog-open = "";
+                } else if (root.reguler-manage-open) {
+                    // Esc = tutup popup Kelola Folder Reguler.
+                    root.reguler-manage-open = false;
                 } else if (root.overlay-view == "EXPLORER") {
                     // Prioritas Esc Explorer: dialog → tab-ctx → ctx →
                     // rename → addr-edit → search → buffer type-ahead →
@@ -1862,12 +2118,17 @@ export component AppWindow inherits Window {
             // (butuh manifest fase 1); Replace single + multiple;
             // toolbar = launcher skrip. Tampilan awal HANYA drop zone;
             // tree muncul setelah folder dipilih (abeng 28 Nov 00:42).
-            VerticalLayout {
+            // Task Manager (tahap 5) dock di kanan tab — panel progres
+            // terpisah ala master_creator, bukan log panel.
+            HorizontalLayout {
                 x: 0; y: 0;
                 width: 100%; height: 100%;
                 visible: root.current-tab == "BATCH" && !root.src-empty;
-                padding-left: Design.space-xl;
-                padding-right: Design.space-xl;
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    height: 100%;
+                    padding-left: Design.space-xl;
+                    padding-right: Design.space-xl;
                 padding-top: Design.space-md;
                 padding-bottom: Design.space-xl;
                 spacing: Design.space-md;
@@ -2326,6 +2587,8 @@ export component AppWindow inherits Window {
                         }
                     }
                 }
+            }
+
             }
 
             // ----- BATCH kosong: SELURUH tab = satu drop zone (C#
@@ -3375,5 +3638,230 @@ export component AppWindow inherits Window {
         log2: root.splash-log2;
         log3: root.splash-log3;
     }
+    // ----- Popup Kelola Folder Reguler (tahap 4, ala
+    // master_creator open_folder_reguler_popup): overlay di
+    // tab BATCH — daftar direktori tersimpan (status warna,
+    // kunci, konteks output) + tabel sekolah hasil scan latar
+    // (bulan/marketing/sekolah, ketik untuk filter, filter
+    // bulan). Klik baris sekolah = pilih, klik ganda / tombol
+    // "Jadikan Source" = jadikan SOURCE BATCH. Tutup via ×,
+    // "Tutup", klik di luar kartu, klik kanan, atau Esc.
+    if root.current-tab == "BATCH" && root.reguler-manage-open : Rectangle {
+        x: 0; y: 0;
+        width: 100%; height: 100%;
+        background: #80000000;
+        reguler-dim-touch := TouchArea {
+            clicked => { root.batch-reguler-close(); }
+            pointer-event(ev) => {
+                if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.right) {
+                    root.batch-reguler-close();
+                }
+            }
+        }
+        Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: min(760px * root.ui-scale, parent.width - 32px);
+            height: min(560px * root.ui-scale, parent.height - 32px);
+            background: Design.surface-elevated;
+            border-color: Design.border-hover;
+            border-width: 1px;
+            border-radius: Design.radius-md;
+            VerticalLayout {
+                padding: Design.space-md;
+                spacing: Design.space-sm;
+                HorizontalLayout {
+                    height: 28px * root.ui-scale;
+                    spacing: 8px * root.ui-scale;
+                    Text {
+                        text: "Folder Reguler";
+                        font-size: 14px * root.ui-scale;
+                        font-weight: 800;
+                        color: Design.text-primary;
+                        vertical-alignment: center;
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    IconBtn {
+                        glyph: "×";
+                        variant: "ghost";
+                        scale: root.ui-scale;
+                        size: 28px;
+                        clicked => { root.batch-reguler-close(); }
+                    }
+                }
+                HSeparator { }
+                Text {
+                    text: "Direktori tersimpan";
+                    font-size: 11px * root.ui-scale;
+                    font-weight: 800;
+                    color: Design.text-muted;
+                    letter-spacing: 1px * root.ui-scale;
+                }
+                reguler-dirs-scroll := Flickable {
+                    height: 132px;
+                    reguler-dirs-layout := VerticalLayout {
+                        spacing: 2px;
+                        for d[idx] in root.reguler-dirs : Rectangle {
+                            height: 32px;
+                            background: root.reguler-scan-dir-idx == idx ? Design.accent-subtle : (dir-touch.has-hover ? Design.bg-hover : transparent);
+                            border-radius: Design.radius-sm;
+                            dir-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.batch-reguler-select-dir(idx); }
+                            }
+                            HorizontalLayout {
+                                padding-left: 8px;
+                                padding-right: 8px;
+                                spacing: 8px;
+                                Text {
+                                    text: "●";
+                                    font-size: 10px;
+                                    color: d.status == "ready" ? Design.status-success : d.status == "empty" ? Design.status-warning : d.status == "missing" ? Design.status-danger : d.status == "inuse" ? Design.accent : Design.text-muted;
+                                    vertical-alignment: center;
+                                }
+                                VerticalLayout {
+                                    spacing: 0px;
+                                    horizontal-stretch: 1;
+                                    Text {
+                                        text: d.name + "  ·  " + d.status-label;
+                                        font-size: 12px;
+                                        font-weight: 700;
+                                        color: Design.text-primary;
+                                        vertical-alignment: center;
+                                        overflow: elide;
+                                    }
+                                    Text {
+                                        text: d.last-output != "" ? d.path + "  →  " + d.last-output : d.path;
+                                        font-size: 11px;
+                                        color: Design.text-muted;
+                                        vertical-alignment: center;
+                                        overflow: elide;
+                                    }
+                                }
+                                IconBtn {
+                                    glyph: d.locked ? "🔒" : "🔓";
+                                    variant: "ghost";
+                                    scale: 1;
+                                    size: 28px;
+                                    clicked => { root.batch-reguler-toggle-lock(idx); }
+                                }
+                                IconBtn {
+                                    glyph: "×";
+                                    variant: "ghost";
+                                    scale: 1;
+                                    size: 28px;
+                                    opacity: d.locked ? 0.35 : 1;
+                                    clicked => { root.batch-reguler-remove(idx); }
+                                }
+                            }
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    height: 32px * root.ui-scale;
+                    spacing: 8px * root.ui-scale;
+                    Btn {
+                        label: "+ Tambah…";
+                        variant: "secondary";
+                        scale: root.ui-scale;
+                        small: true;
+                        clicked => { root.batch-reguler-add(); }
+                    }
+                    Text {
+                        text: "Klik direktori untuk melihat sekolah di dalamnya. Kunci = tidak bisa dihapus.";
+                        font-size: 11px * root.ui-scale;
+                        color: Design.text-muted;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                        wrap: word-wrap;
+                    }
+                }
+                HSeparator { }
+                HorizontalLayout {
+                    height: 28px * root.ui-scale;
+                    spacing: 8px * root.ui-scale;
+                    Text {
+                        text: "Sekolah";
+                        font-size: 11px * root.ui-scale;
+                        font-weight: 800;
+                        color: Design.text-muted;
+                        letter-spacing: 1px * root.ui-scale;
+                        vertical-alignment: center;
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    Text {
+                        text: root.reguler-scan-status;
+                        font-size: 11px * root.ui-scale;
+                        color: Design.text-muted;
+                        vertical-alignment: center;
+                    }
+                }
+                HorizontalLayout {
+                    height: 32px * root.ui-scale;
+                    spacing: 8px * root.ui-scale;
+                    TextField {
+                        placeholder: "Cari nama sekolah atau marketing…";
+                        text: root.reguler-filter;
+                        edited(text) => { root.reguler-filter = text; root.batch-reguler-filter-changed(text); }
+                        horizontal-stretch: 1;
+                    }
+                    ComboBox {
+                        width: 160px;
+                        model: root.reguler-months;
+                        current-index: root.reguler-month-idx;
+                        selected(index) => { root.batch-reguler-month-picked(index); }
+                    }
+                }
+                HorizontalLayout {
+                    height: 22px;
+                    spacing: 8px;
+                    Text { text: "BULAN"; font-size: 11px; font-weight: 800; color: Design.text-muted; width: 130px; vertical-alignment: center; }
+                    Text { text: "MARKETING"; font-size: 11px; font-weight: 800; color: Design.text-muted; width: 120px; vertical-alignment: center; }
+                    Text { text: "SEKOLAH"; font-size: 11px; font-weight: 800; color: Design.text-muted; horizontal-stretch: 1; vertical-alignment: center; }
+                }
+                reguler-schools-scroll := Flickable {
+                    vertical-stretch: 1;
+                    reguler-schools-layout := VerticalLayout {
+                        spacing: 1px;
+                        for r[idx] in root.reguler-scan-rows : Rectangle {
+                            height: 28px;
+                            background: root.reguler-selected-row == idx ? Design.accent-subtle : (row-touch.has-hover ? Design.bg-hover : transparent);
+                            border-radius: Design.radius-sm;
+                            row-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.batch-reguler-row-clicked(idx); }
+                            }
+                            HorizontalLayout {
+                                padding-left: 8px;
+                                padding-right: 8px;
+                                spacing: 8px;
+                                Text { text: r.bulan; font-size: 12px; color: Design.text-secondary; width: 130px; vertical-alignment: center; overflow: elide; }
+                                Text { text: r.marketing; font-size: 12px; color: Design.text-secondary; width: 120px; vertical-alignment: center; overflow: elide; }
+                                Text { text: r.sekolah; font-size: 12px; font-weight: 700; color: Design.text-primary; horizontal-stretch: 1; vertical-alignment: center; overflow: elide; }
+                            }
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    height: 36px * root.ui-scale;
+                    spacing: 8px * root.ui-scale;
+                    Btn {
+                        label: "Jadikan Source";
+                        variant: "secondary";
+                        scale: root.ui-scale;
+                        clicked => { root.batch-reguler-load-selected(); }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    Btn {
+                        label: "Tutup";
+                        variant: "ghost";
+                        scale: root.ui-scale;
+                        clicked => { root.batch-reguler-close(); }
+                    }
+                }
+            }
+        }
+    }
+
     } // tutup keys-scope FocusScope
 }

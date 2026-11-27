@@ -1168,6 +1168,111 @@ hanya placeholder toast ("Master File Browser akan hadir di
 side panel (bertahap)."). Lokasinya di side panel / Log Panel
 (lihat §20.5).
 
+### 16.8 Folder Reguler (tahap 4, 28 Nov 2026)
+
+Sumber: studi master_creator (`~/workspace/master-creator-study/`,
+`open_folder_reguler_popup` + `_RegularScanWorker` + `_dir_manager_*`).
+
+- **Kelola…** (header BATCH) membuka popup "Folder Reguler" (bukan
+  halaman baru). Isi: daftar direktori tersimpan (nama + status
+  berwarna + konteks output `dir → last_output` + ikon kunci + ×),
+  tombol "+ Tambah…", tabel sekolah (kolom BULAN / MARKETING /
+  SEKOLAH), kolom filter ketik ("Cari nama sekolah atau marketing…",
+  filter-as-you-type, substring case-insensitive atas nama sekolah
+  atau marketing), dropdown bulan, tombol "Jadikan Source" + "Tutup".
+- **Status direktori** (`RegulerStatus`, prioritas tertinggi dulu):
+  Hilang (path tidak ada) > Dipakai (root SOURCE sama/dibawahnya saat
+  run aktif) > Terkunci > Siap / Kosong. Warna mengikuti token status
+  (§22); dot hijau = Siap.
+- **Kunci (work lock):** direktori terkunci tidak bisa dihapus (klik ×
+  ditolak + toast); toggle lewat ikon gembok di baris; `locked`
+  tersimpan di `Batch.FolderReguler` (JSON `[{path, locked,
+  last_output}]`, migrasi otomatis dari format lama `Vec<String>`).
+- **Konteks output per direktori:** memilih direktori sebagai SOURCE
+  memulihkan `last_output`-nya menjadi `LocalOutput` (bila non-empty
+  dan berbeda) + persist ke `Paths.LocalOutput`; toast menyebutkannya.
+- **Scan latar:** pilih direktori → scan di thread latar (channel +
+  timer 250ms, pola `_sheets_inbox_timer`); UI tidak lag. Hasil scan
+  lama diabaikan bila user sudah pindah direktori. Heuristik scan:
+  anak folder bulan yang isinya HANYA subfolder (tanpa file) = kategori
+  (mis. "1. PAS FOTO") dan turun satu level; yang berisi file = sekolah.
+  Marketing dibaca dari `NOTE.txt` di folder sekolah (baris
+  `MARKETING:`). Bulan = nama folder bulan apa adanya ("07 Juli 2026").
+- **Filter bulan:** dropdown berisi "Semua bulan" + bulan-bulan unik
+  dari hasil scan (urut natural); pilihan tersimpan di
+  `Batch.FolderReguler.Month` dan dipulihkan saat popup dibuka.
+  CATATAN (defect terbuka, 28 Nov 2026): ComboBox bulan Slint di popup
+  ini tidak menerima klik item — klik pada item jatuh ke baris tabel
+  sekolah di bawah popup dan `selected` tidak pernah jalan, sehingga
+  pilihan bulan tidak tersimpan. Logika filter bulan sendiri benar
+  (unit test `reguler_status_and_filter` lolos; `filter_reguler_rows`
+  terbukti lewat filter teks). Perbaikan butuh dropdown kustom atau
+  pemindahan ComboBox agar tidak menumpuk tabel.
+- **Dropdown header** ("Folder Reguler" di header BATCH) memakai daftar
+  yang sama; memilih direktori = memuatnya sebagai SOURCE (sama seperti
+  Pilih Folder). Klik ganda baris sekolah = jadikan SOURCE + tutup
+  popup; klik tunggal = tandai baris; "Jadikan Source" memakai baris
+  yang ditandai.
+- **Tutup popup:** × / "Tutup" / klik di luar / klik kanan / Esc
+  (Esc menutup popup Kelola dulu sebelum yang lain).
+
+### 16.9 Task Manager — panel Tugas (tahap 5, 28 Nov 2026)
+
+Sumber: studi master_creator (`_position_task_panel`: panel Tasks
+menempel di samping main window, mode floating).
+
+- **Bentuk:** window OS TERPISAH ("Tugas — BATCH", 340×600), BUKAN
+  dock dalam layout dan BUKAN log panel. Alasan: panel dalam-layout
+  gagal total — header BATCH punya min-width efektif ~1080px sehingga
+  panel dock kanan terdorong keluar layar (terbukti 28 Nov 2026: kartu
+  SOURCE/OUTPUT menyusut saat auto-open tapi panel tetap tak terlihat).
+- **Posisi (dock):** menempel di KANAN window utama + gap 8px logis,
+  y sejajar atas window utama (`dock_task_panel_pos`, hasil physical
+  px untuk `set_position`; clamp >= 0). Posisi dihitung ulang tiap
+  kali panel dibuka / run baru dimulai. Di layar 1280px dengan window
+  utama 1280px, panel jatuh di x=1288 (di luar layar) — itu benar
+  secara rumus; untuk verifikasi panel digeser manual dengan
+  `xdotool windowmove`.
+- **Buka/tutup:** otomatis terbuka saat run dimulai; tombol "☰ Tugas"
+  di header BATCH toggle buka/tutup; × di panel menutup (hide +
+  bersihkan slot — buka-ulang selalu buat window BARU, karena reuse
+  hide→show tidak andal; JANGAN tahan `borrow_mut()` melewati
+  `push_tasks_to_panel` — panic "RefCell already mutably borrowed",
+  ditemukan 28 Nov 2026).
+- **Tema:** tiap window OS punya instance `Design` sendiri — token
+  disalin eksplisit via `theme::sync_design_to_task` saat panel dibuka
+  dan saat tema diterapkan/di-reset (pola `sync_design_to_bar`).
+- **Satu tugas per run** (judul `script — <nama folder>` atau
+  `script — N folder`, cap 8, terbaru dulu). Fase = tiap root SOURCE
+  (✓ Done / ▶ Running / ✗ Failed / … Waiting / ○ Pending).
+  Detail kartu: judul + label state, progress bar, teks fase, 3 baris
+  log terakhir (live dari `batch_exec` via drain timer 200ms),
+  follow-up ("Lanjutan: …" + tombol "Lanjutkan"), tombol "Batalkan"
+  bila state Antre/Berjalan/Menunggu save.
+- **State tugas:** Antre / Berjalan / Menunggu save / Selesai / Gagal /
+  Dibatalkan. Fase 1 (`buat_master.py`) sukses → "Menunggu save"
+  (barrier: menunggu semua save Photoshop sebelum lanjut) + follow-up
+  "BUAT MASTER (duplikat)". "Lanjutkan" (atau tombol BUAT MASTER di
+  panel OUTPUT) menjalankan Fase 2 (`buat_master_duplikat.py`, gate
+  manifest sama). Fase 2 sukses → tugas Fase 1 ikut "Selesai"
+  (fase "BUAT MASTER (duplikat)" ikut ✓); Fase 2 dibatalkan → tugas
+  Fase 1 kembali "Menunggu save" + follow-up utuh (bisa diulang);
+  Fase 2 gagal → tugas Fase 1 "Gagal". "Batalkan" pada tugas yang
+  sedang berjalan = `handle.stop()` (bunuh tree proses, sama seperti
+  tombol Stop); pada tugas antre/menunggu save = langsung "Dibatalkan"
+  + follow-up dibersihkan (tugas batal tidak bisa dilanjutkan lagi).
+- **Batasan stop (warisan tahap 3):** `stop_requested` hanya dicek
+  ANTAR root — run satu root tidak bisa dihentikan di tengah root
+  (selesai dulu baru berhenti). Batalkan tetap tercatat; efek
+  penghentian terasa pada run multi-root.
+- **Log panel TIDAK dihapus di tahap ini.** Cek dependensi 28 Nov 2026:
+  log panel menampung 4 alat yang hanya bisa dijangkau lewatnya — LOG
+  (process log + log run BATCH), EXPLORER (mini explorer), MASTER
+  (daftar template PSD), DOC (tab redaksi). Entry point: flyout switch
+  "Terminal", Ctrl+L (buka tab EXPLORER), arg `--log`, klik ganda file
+  teks di BATCH (tab LOG), tombol nav Explorer (tab EXPLORER).
+  Penghapusan diputuskan terpisah setelah panel Tugas terbukti.
+
 ## 17. Settings
 
 Settings BUKAN tab nav — dibuka via flyout profil (item

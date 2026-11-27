@@ -2586,6 +2586,15 @@ fn sync_radial_theme(ui: &AppWindow, cell: &std::rc::Rc<std::cell::RefCell<Optio
     }
 }
 
+/// Sinkronkan token Design ke panel Tugas terpisah bila sedang tampil
+/// (dipakai handler tema — panel punya instance Design sendiri,
+/// seperti bar/radial).
+fn sync_task_theme(ui: &AppWindow, cell: &std::rc::Rc<std::cell::RefCell<Option<TaskManagerWindow>>>) {
+    if let Some(w) = cell.borrow().as_ref() {
+        theme::sync_design_to_task(ui, w);
+    }
+}
+
 /// Dorong gaya chrome (style + gaya/posisi tombol) ke satu window
 /// sekunder ber-chrome. Dipakai saat window dibuat (nilai awal dari
 /// AppWindow) dan saat pengaturan chrome berubah.
@@ -3046,17 +3055,383 @@ fn push_batch_to_ui(ui: &AppWindow, st: &batch::BatchState) {
     ui.set_batch_out_pending(st.any_output_pending());
     ui.set_batch_sel_count(st.selection.ids.len() as i32);
     ui.set_has_manifest(st.has_manifest);
-    ui.set_batch_reguler_names(sheet_model(st.reguler_dirs.clone()));
+    ui.set_batch_reguler_names(sheet_model(
+        st.reguler_dirs.iter().map(|d| d.display_name()).collect(),
+    ));
     let idx = if st.reguler_active.is_empty() {
         -1
     } else {
         st.reguler_dirs
             .iter()
-            .position(|d| d == &st.reguler_active)
+            .position(|d| d.path == st.reguler_active)
             .map(|i| i as i32)
             .unwrap_or(-1)
     };
     ui.set_batch_reguler_idx(idx);
+    push_tasks_to_ui(ui, st);
+}
+
+/// Simpan daftar Folder Reguler ke DB (JSON array RegulerDir).
+fn persist_reguler_dirs(db: &Option<Arc<Mutex<DatabaseService>>>, dirs: &[batch::RegulerDir]) {
+    let Some(dbm) = db else { return };
+    if let Ok(mut g) = dbm.lock() {
+        if let Ok(json) = serde_json::to_string(dirs) {
+            let _ = g.set("Batch.FolderReguler", &json, "String");
+        }
+    }
+}
+
+/// State scan popup Kelola Folder Reguler (tahap 4).
+struct RegulerScanState {
+    dir: String,
+    all: Vec<batch::RegulerRow>,
+    filter: String,
+    month: String,
+    scanning: bool,
+}
+
+/// Jalankan scan satu direktori reguler di thread latar (supaya UI
+/// tidak lag — master_creator: _RegularScanWorker). Hasil dikirim
+/// lewat channel; timer 250ms membacanya.
+fn spawn_reguler_scan(
+    dir: &str,
+    rx_holder: &Arc<Mutex<Option<std::sync::mpsc::Receiver<(String, Vec<batch::RegulerRow>)>>>>,
+) {
+    let (tx, rx) = std::sync::mpsc::channel::<(String, Vec<batch::RegulerRow>)>();
+    *rx_holder.lock().unwrap() = Some(rx);
+    let dir_owned = dir.to_string();
+    std::thread::spawn(move || {
+        let rows = batch::scan_reguler(std::path::Path::new(&dir_owned));
+        let _ = tx.send((dir_owned, rows));
+    });
+}
+
+/// Dorong state popup Kelola Folder Reguler ke Slint: daftar direktori
+/// (status warna + kunci + konteks output) + tabel sekolah hasil scan
+/// (sudah difilter) + daftar bulan + status scan.
+fn push_reguler_popup_to_ui(
+    ui: &AppWindow,
+    st: &batch::BatchState,
+    scan: &RegulerScanState,
+    run_active: bool,
+) {
+    let in_use = |path: &str| {
+        run_active
+            && st.roots.iter().any(|r| {
+                let sp = r.source_path.to_string_lossy();
+                sp.as_ref() == path
+                    || (sp.starts_with(path)
+                        && sp[path.len()..].starts_with(std::path::MAIN_SEPARATOR))
+            })
+    };
+    let dirs: Vec<RegulerDirRow> = st
+        .reguler_dirs
+        .iter()
+        .map(|d| {
+            let status = batch::reguler_status(d, in_use(&d.path));
+            RegulerDirRow {
+                path: slint::SharedString::from(d.path.as_str()),
+                name: slint::SharedString::from(d.display_name().as_str()),
+                status: slint::SharedString::from(status.key()),
+                status_label: slint::SharedString::from(status.label()),
+                locked: d.locked,
+                last_output: slint::SharedString::from(d.last_output.as_str()),
+            }
+        })
+        .collect();
+    ui.set_reguler_dirs(slint::ModelRc::new(slint::VecModel::from(dirs)));
+    let scan_idx = if scan.dir.is_empty() {
+        -1
+    } else {
+        st.reguler_dirs
+            .iter()
+            .position(|d| d.path == scan.dir)
+            .map(|i| i as i32)
+            .unwrap_or(-1)
+    };
+    ui.set_reguler_scan_dir_idx(scan_idx);
+    let filtered = batch::filter_reguler_rows(&scan.all, &scan.filter, &scan.month);
+    let rows: Vec<RegulerSchoolRow> = filtered
+        .iter()
+        .map(|r| RegulerSchoolRow {
+            bulan: slint::SharedString::from(r.bulan.as_str()),
+            marketing: slint::SharedString::from(r.marketing.as_str()),
+            sekolah: slint::SharedString::from(r.sekolah.as_str()),
+            path: slint::SharedString::from(r.path.as_str()),
+        })
+        .collect();
+    ui.set_reguler_scan_rows(slint::ModelRc::new(slint::VecModel::from(rows)));
+    let mut months = vec!["Semua bulan".to_string()];
+    months.extend(batch::reguler_months(&scan.all));
+    let month_idx = if scan.month.is_empty() {
+        0
+    } else {
+        months
+            .iter()
+            .position(|m| m == &scan.month)
+            .map(|i| i as i32)
+            .unwrap_or(0)
+    };
+    ui.set_reguler_months(sheet_model(months));
+    ui.set_reguler_month_idx(month_idx);
+    let status = if scan.scanning {
+        "Memindai…".to_string()
+    } else if scan.dir.is_empty() {
+        "Pilih direktori dulu".to_string()
+    } else if filtered.is_empty() {
+        "Tidak ada sekolah".to_string()
+    } else {
+        format!("{} sekolah", filtered.len())
+    };
+    ui.set_reguler_scan_status(slint::SharedString::from(status.as_str()));
+    ui.set_reguler_selected_row(-1);
+}
+
+/// Dorong daftar tugas Task Manager ke Slint (dipanggil dari
+/// push_batch_to_ui + timer drain saat ada pesan run baru).
+/// Model baris tugas untuk Slint (dipakai window utama + panel Tugas
+/// terpisah — satu builder supaya isinya selalu sama).
+fn task_rows_model(st: &batch::BatchState) -> Vec<TaskRow> {
+    st.tasks
+        .iter()
+        .map(|t| {
+            let phases = t
+                .phases
+                .iter()
+                .map(|p| {
+                    let mark = match p.state {
+                        batch::PhaseState::Done => "✓",
+                        batch::PhaseState::Running => "▶",
+                        batch::PhaseState::Failed => "✗",
+                        batch::PhaseState::Waiting => "…",
+                        batch::PhaseState::Pending => "○",
+                    };
+                    format!("{} {}", mark, p.label)
+                })
+                .collect::<Vec<_>>()
+                .join("  ·  ");
+            let lines = t.lines.iter().rev().take(3).cloned().collect::<Vec<_>>();
+            let lines = lines.into_iter().rev().collect::<Vec<_>>().join("\n");
+            TaskRow {
+                id: slint::SharedString::from(t.id.as_str()),
+                title: slint::SharedString::from(t.title.as_str()),
+                state: slint::SharedString::from(t.state_key()),
+                state_label: slint::SharedString::from(t.state_label()),
+                progress: t.progress,
+                phases: slint::SharedString::from(phases.as_str()),
+                followup: slint::SharedString::from(
+                    t.followups.first().map(|s| s.as_str()).unwrap_or(""),
+                ),
+                lines: slint::SharedString::from(lines.as_str()),
+            }
+        })
+        .collect()
+}
+
+fn push_tasks_to_ui(ui: &AppWindow, st: &batch::BatchState) {
+    ui.set_task_rows(slint::ModelRc::new(slint::VecModel::from(
+        task_rows_model(st),
+    )));
+}
+
+/// Dorong tugas ke panel Tugas terpisah (bila sedang terbuka). Dipanggil
+/// di samping push_tasks_to_ui di semua titik yang mengubah tugas.
+fn push_tasks_to_panel(
+    cell: &std::rc::Rc<std::cell::RefCell<Option<TaskManagerWindow>>>,
+    st: &batch::BatchState,
+) {
+    if let Some(w) = cell.borrow().as_ref() {
+        w.set_task_rows(slint::ModelRc::new(slint::VecModel::from(
+            task_rows_model(st),
+        )));
+    }
+}
+
+/// Posisi panel Tugas terpisah (tahap 5, master_creator
+/// _position_task_panel: dock + main_geom + gap): menempel di KANAN
+/// window utama + gap 8px (logis), y sejajar atas window utama.
+/// Hasil physical px untuk set_position; clamp >= 0.
+fn dock_task_panel_pos(ui: &AppWindow) -> (i32, i32) {
+    let win = ui.window();
+    let pos = win.position();
+    let size = win.size();
+    let gap = 8;
+    ((pos.x + size.width as i32 + gap).max(0), pos.y.max(0))
+}
+
+/// Buka (atau buka-ulang) TaskManagerWindow: window OS terpisah di
+/// samping window utama. Pola sama seperti open_dynamic_bar_window:
+/// buka-ulang setelah tutup selalu buat window baru; posisi dihitung
+/// dari geometri window utama saat dibuka.
+#[allow(clippy::too_many_arguments)]
+fn open_task_manager_window(
+    ui: &AppWindow,
+    cell: &std::rc::Rc<std::cell::RefCell<Option<TaskManagerWindow>>>,
+    visible: &std::rc::Rc<std::cell::Cell<bool>>,
+    st: &Arc<Mutex<batch::BatchState>>,
+    handle: &Arc<batch_exec::BatchRunHandle>,
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+    pl: &Arc<Mutex<ProcessLogService>>,
+) {
+    // Bersihkan slot bila panel ditandai tertutup — buka-ulang selalu
+    // buat window baru (reuse hide→show tidak andal). Borrow dilepas
+    // sebelum push_tasks_to_panel di bawah (borrow_mut yang ditahan
+    // sambil borrow() = panic "RefCell already mutably borrowed").
+    if !visible.get() {
+        *cell.borrow_mut() = None;
+    }
+    if cell.borrow().is_none() {
+        if let Ok(w) = TaskManagerWindow::new() {
+            let ui_weak = ui.as_weak();
+            let st_c = st.clone();
+            let handle_c = handle.clone();
+            let pl_c = pl.clone();
+            let cell_c = cell.clone();
+            // Batalkan tugas dari panel (logika sama dengan tombol
+            // Batalkan di kartu tugas window utama).
+            w.on_cancel(move |id| {
+                let Some(ui) = ui_weak.upgrade() else {
+                    return;
+                };
+                batch_task_cancel_ui(&ui, &st_c, &handle_c, &pl_c, &cell_c, id.as_str());
+            });
+            let ui_weak = ui.as_weak();
+            let st_f = st.clone();
+            let handle_f = handle.clone();
+            let db_f = db.clone();
+            let pl_f = pl.clone();
+            let cell_f = cell.clone();
+            let vis_f = visible.clone();
+            // Lanjutan (follow-up) dari panel — sama seperti tombol
+            // "Lanjutkan" di kartu / BUAT MASTER di panel OUTPUT.
+            w.on_followup(move |id| {
+                let Some(ui) = ui_weak.upgrade() else {
+                    return;
+                };
+                batch_task_followup_ui(
+                    &ui, &st_f, &handle_f, &db_f, &pl_f, &cell_f, &vis_f, id.as_str(),
+                );
+            });
+            let ui_weak = ui.as_weak();
+            let cell_close = cell.clone();
+            let vis_close = visible.clone();
+            // × di panel: sembunyikan window + bersihkan slot agar
+            // buka-ulang membuat window baru (bukan orphan yang tetap
+            // tampil — on_closed lama hanya mengubah flag, window
+            // tidak pernah di-hide sehingga menumpuk).
+            w.on_closed(move || {
+                if let Some(w2) = cell_close.borrow().as_ref() {
+                    let _ = w2.hide();
+                }
+                *cell_close.borrow_mut() = None;
+                vis_close.set(false);
+                if let Some(ui) = ui_weak.upgrade() {
+                    ui.set_task_manager_open(false);
+                }
+            });
+            *cell.borrow_mut() = Some(w);
+        }
+    }
+    if let Some(w) = cell.borrow().as_ref() {
+        theme::sync_design_to_task(ui, w);
+        push_tasks_to_panel(cell, &st.lock().unwrap());
+        let (x, y) = dock_task_panel_pos(ui);
+        w.window()
+            .set_position(slint::PhysicalPosition::new(x, y));
+        let _ = w.show();
+        visible.set(true);
+        ui.set_task_manager_open(true);
+    }
+}
+
+/// Batalkan tugas Task Manager — dipakai tombol Batalkan di kartu tugas
+/// (window utama + panel terpisah). Tugas yang sedang berjalan = bunuh
+/// tree proses (sama seperti tombol Stop); tugas antre / menunggu save
+/// langsung ditandai Dibatalkan.
+fn batch_task_cancel_ui(
+    ui: &AppWindow,
+    st: &Arc<Mutex<batch::BatchState>>,
+    handle: &Arc<batch_exec::BatchRunHandle>,
+    pl: &Arc<Mutex<ProcessLogService>>,
+    task_cell: &std::rc::Rc<std::cell::RefCell<Option<TaskManagerWindow>>>,
+    id: &str,
+) {
+    let is_active = {
+        let mut s = st.lock().unwrap();
+        let is_current = !s.current_task_id.is_empty() && s.current_task_id == id;
+        is_current
+            && matches!(
+                s.task_mut(id).map(|t| t.state),
+                Some(batch::TaskState::Running) | Some(batch::TaskState::WaitingSave)
+            )
+    };
+    if is_active && handle.is_running() {
+        handle.stop();
+        pl.lock()
+            .unwrap()
+            .add_log("[WARNING] Proses dihentikan oleh User.".to_string());
+        push_log_lines(ui, pl);
+    } else {
+        let mut s = st.lock().unwrap();
+        if let Some(t) = s.task_mut(id) {
+            t.state = batch::TaskState::Cancelled;
+            // Dibatalkan = ditinggalkan: follow-up ikut hilang agar
+            // tombol "Lanjutkan" tidak membangkitkan tugas yang
+            // sudah dibatalkan.
+            t.followups.clear();
+        }
+        push_tasks_to_ui(ui, &s);
+        push_tasks_to_panel(task_cell, &s);
+    }
+    ui.set_toast(slint::SharedString::from("Tugas dibatalkan."));
+}
+
+/// Jalankan follow-up tugas yang menunggu save (Fase 2 =
+/// buat_master_duplikat.py, dengan gate manifest yang sama seperti
+/// tombol BUAT MASTER di panel OUTPUT). Dipakai kartu tugas window
+/// utama + panel terpisah.
+#[allow(clippy::too_many_arguments)]
+fn batch_task_followup_ui(
+    ui: &AppWindow,
+    st: &Arc<Mutex<batch::BatchState>>,
+    handle: &Arc<batch_exec::BatchRunHandle>,
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+    pl: &Arc<Mutex<ProcessLogService>>,
+    task_cell: &std::rc::Rc<std::cell::RefCell<Option<TaskManagerWindow>>>,
+    task_visible: &std::rc::Rc<std::cell::Cell<bool>>,
+    id: &str,
+) {
+    let followup = {
+        let s = st.lock().unwrap();
+        s.tasks
+            .iter()
+            .find(|t| t.id == id)
+            .and_then(|t| t.followups.first().cloned())
+    };
+    let Some(f) = followup else {
+        return;
+    };
+    if f == "BUAT MASTER (duplikat)" {
+        let has_manifest = st.lock().unwrap().has_manifest;
+        if !has_manifest {
+            ui.set_toast(slint::SharedString::from(
+                "Manifest belum ada — jalankan Fase 1 (buat_master.py) dulu.",
+            ));
+            return;
+        }
+        if let Err(msg) = batch_start_run(
+            ui,
+            handle,
+            db,
+            st,
+            pl,
+            task_cell,
+            task_visible,
+            "buat_master_duplikat.py",
+        ) {
+            ui.set_toast(slint::SharedString::from(msg));
+        }
+    }
 }
 
 /// Baca satu key DB (port dulu, lalu key C# sebagai fallback — DB asli
@@ -3345,6 +3720,8 @@ fn batch_start_run(
     db: &Option<Arc<Mutex<DatabaseService>>>,
     st: &Arc<Mutex<batch::BatchState>>,
     pl: &Arc<Mutex<ProcessLogService>>,
+    task_cell: &std::rc::Rc<std::cell::RefCell<Option<TaskManagerWindow>>>,
+    task_visible: &std::rc::Rc<std::cell::Cell<bool>>,
     script_file: &str,
 ) -> Result<(), String> {
     if handle.is_running() {
@@ -3415,6 +3792,60 @@ fn batch_start_run(
         lg.add_log(format!("[INFO] Memproses {} folder...", roots.len()));
     }
     push_log_lines(ui, pl);
+    // Task Manager (tahap 5): satu tugas per run — fasenya = tiap
+    // root SOURCE. Fase 2 (duplikat) yang dipicu dari panel akan
+    // melanjutkan tugas Fase 1 yang sedang menunggu save.
+    {
+        let mut s = st.lock().unwrap();
+        let is_duplikat = script_file.to_ascii_lowercase().contains("duplikat");
+        if is_duplikat {
+            for t in s.tasks.iter_mut() {
+                if t.state == batch::TaskState::WaitingSave {
+                    t.state = batch::TaskState::Running;
+                    t.phases.push(batch::TaskPhase {
+                        label: "BUAT MASTER (duplikat)".to_string(),
+                        state: batch::PhaseState::Running,
+                    });
+                    t.followups.clear();
+                }
+            }
+        }
+        let labels: Vec<String> = roots
+            .iter()
+            .map(|(src, _)| {
+                std::path::Path::new(src)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| src.clone())
+            })
+            .collect();
+        let title = if labels.len() == 1 {
+            format!("{} — {}", script_file, labels[0])
+        } else {
+            format!("{} — {} folder", script_file, labels.len())
+        };
+        let id = format!(
+            "{}-{}",
+            script_file,
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis())
+                .unwrap_or(0)
+        );
+        let label_refs: Vec<&str> = labels.iter().map(|l| l.as_str()).collect();
+        let mut task = batch::BatchTask::new(&id, &title, &label_refs);
+        task.state = batch::TaskState::Running;
+        if let Some(first) = task.phases.first_mut() {
+            first.state = batch::PhaseState::Running;
+        }
+        s.push_task(task);
+        push_tasks_to_ui(ui, &s);
+        push_tasks_to_panel(task_cell, &s);
+    }
+    // Task Manager tampil otomatis saat run dimulai (window terpisah
+    // di samping window utama, ala master_creator) — user menutupnya
+    // via × di panel atau tombol "☰ Tugas".
+    open_task_manager_window(ui, task_cell, task_visible, st, handle, db, pl);
     batch_exec::start_batch_run(
         Arc::clone(handle),
         wrapper,
@@ -3587,8 +4018,16 @@ fn main() -> Result<(), slint::PlatformError> {
         if let Some(ref dbm) = db {
             if let Ok(g) = dbm.lock() {
                 if let Some(v) = g.get("Batch.FolderReguler") {
-                    if let Ok(list) = serde_json::from_str::<Vec<String>>(v.as_str()) {
-                        st.reguler_dirs = list.into_iter().filter(|p| !p.trim().is_empty()).collect();
+                    // Format baru: JSON array RegulerDir {path, locked,
+                    // last_output}; format lama (array string) dimigrasi.
+                    if let Ok(list) = serde_json::from_str::<Vec<batch::RegulerDir>>(v.as_str()) {
+                        st.reguler_dirs = list.into_iter().filter(|d| !d.path.trim().is_empty()).collect();
+                    } else if let Ok(list) = serde_json::from_str::<Vec<String>>(v.as_str()) {
+                        st.reguler_dirs = list
+                            .into_iter()
+                            .filter(|p| !p.trim().is_empty())
+                            .map(|p| batch::RegulerDir::new(&p))
+                            .collect();
                     }
                 }
                 if let Some(v) = g.get("Batch.FolderReguler.Active") {
@@ -3617,6 +4056,32 @@ fn main() -> Result<(), slint::PlatformError> {
             ui.set_batch_scripts(sheet_model(names));
         }
     }
+
+    // Folder Reguler — state scan popup Kelola (tahap 4): hasil scan
+    // penuh + filter aktif. Scan jalan di thread latar; hasilnya masuk
+    // lewat channel, dibaca timer 250ms (pola _sheets_inbox_timer).
+    let reguler_scan_state = Arc::new(Mutex::new(RegulerScanState {
+        dir: String::new(),
+        all: Vec::new(),
+        filter: String::new(),
+        month: db
+            .as_ref()
+            .and_then(|m| m.lock().ok())
+            .and_then(|g| g.get("Batch.FolderReguler.Month"))
+            .unwrap_or_default(),
+        scanning: false,
+    }));
+    let reguler_scan_rx: Arc<
+        Mutex<Option<std::sync::mpsc::Receiver<(String, Vec<batch::RegulerRow>)>>>,
+    > = Arc::new(Mutex::new(None));
+
+    // Task Manager — window OS terpisah (tahap 5): cell + flag tampil,
+    // pola sama seperti sheet_win / DynamicBarWindow (buka-ulang selalu
+    // buat window baru).
+    let task_win: std::rc::Rc<std::cell::RefCell<Option<TaskManagerWindow>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(None));
+    let task_win_visible: std::rc::Rc<std::cell::Cell<bool>> =
+        std::rc::Rc::new(std::cell::Cell::new(false));
 
     {
         // Benih log startup nyata (mencerminkan langkah bootstrapper C#).
@@ -4429,6 +4894,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let db_clone = db.clone();
         let bar_cell_sync = bar_win_cell.clone();
         let radial_cell_sync = radial_win_cell.clone();
+        let task_cell_sync = task_win.clone();
         let sheet_cell_sync = sheet_win_cell.clone();
         let toolbox_cell_sync = toolbox_win_cell.clone();
         let card_cell_sync = card_win_cell.clone();
@@ -4443,6 +4909,7 @@ fn main() -> Result<(), slint::PlatformError> {
                         }
                         sync_bar_theme(&ui, &bar_cell_sync);
                         sync_radial_theme(&ui, &radial_cell_sync);
+                        sync_task_theme(&ui, &task_cell_sync);
                         sync_chrome_to_windows(
                             &ui,
                             &sheet_cell_sync,
@@ -4462,6 +4929,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let db_clone = db.clone();
         let bar_cell_sync = bar_win_cell.clone();
         let radial_cell_sync = radial_win_cell.clone();
+        let task_cell_sync = task_win.clone();
         let sheet_cell_sync = sheet_win_cell.clone();
         let toolbox_cell_sync = toolbox_win_cell.clone();
         let card_cell_sync = card_win_cell.clone();
@@ -4497,6 +4965,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 let _ = theme::apply_appearance(&ui);
                 sync_bar_theme(&ui, &bar_cell_sync);
                 sync_radial_theme(&ui, &radial_cell_sync);
+                sync_task_theme(&ui, &task_cell_sync);
                 sync_chrome_to_windows(
                     &ui,
                     &sheet_cell_sync,
@@ -4520,6 +4989,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let db_clone = db.clone();
         let bar_cell_sync = bar_win_cell.clone();
         let radial_cell_sync = radial_win_cell.clone();
+        let task_cell_sync = task_win.clone();
         ui.on_apply_theme_preset(move |id| {
             if let Some(ui) = ui_weak.upgrade() {
                 match theme::apply_preset(&ui, id.as_str()) {
@@ -4531,6 +5001,7 @@ fn main() -> Result<(), slint::PlatformError> {
                         }
                         sync_bar_theme(&ui, &bar_cell_sync);
                         sync_radial_theme(&ui, &radial_cell_sync);
+                        sync_task_theme(&ui, &task_cell_sync);
                         let name = theme::palette_for(id.as_str())
                             .map(|p| p.name)
                             .unwrap_or_else(|| id.to_string());
@@ -4594,6 +5065,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let db_clone = db.clone();
         let bar_cell_sync = bar_win_cell.clone();
         let radial_cell_sync = radial_win_cell.clone();
+        let task_cell_sync = task_win.clone();
         ui.on_apply_user_theme(move |id| {
             if let Some(ui) = ui_weak.upgrade() {
                 let found: Option<theme::ThemePalette> = (|| {
@@ -4615,6 +5087,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                 }
                                 sync_bar_theme(&ui, &bar_cell_sync);
                                 sync_radial_theme(&ui, &radial_cell_sync);
+                                sync_task_theme(&ui, &task_cell_sync);
                                 ui.set_toast(slint::SharedString::from(format!(
                                     "Tema {} diterapkan",
                                     name
@@ -5470,13 +5943,14 @@ fn main() -> Result<(), slint::PlatformError> {
         let st = batch_state.clone();
         let db_c = db.clone();
         ui.on_batch_reguler_picked(move |idx| {
-            let path = {
+            let dir = {
                 let s = st.lock().unwrap();
                 s.reguler_dirs.get(idx as usize).cloned()
             };
-            let Some(path) = path else {
+            let Some(dir) = dir else {
                 return;
             };
+            let path = dir.path.clone();
             let p = std::path::PathBuf::from(&path);
             let msg = {
                 let mut s = st.lock().unwrap();
@@ -5484,18 +5958,33 @@ fn main() -> Result<(), slint::PlatformError> {
                     format!("Folder Reguler tidak ditemukan: {}", path)
                 } else {
                     s.reguler_active = path.clone();
+                    // Pulihkan konteks output direktori ini (bila ada) —
+                    // master_creator mengingat output per direktori.
+                    let mut restored = String::new();
+                    if !dir.last_output.trim().is_empty() && dir.last_output != s.local_output {
+                        restored = dir.last_output.clone();
+                        s.local_output = restored.clone();
+                    }
                     s.add_folder(&p);
-                    format!(
-                        "Folder Reguler: {}",
-                        p.file_name()
-                            .map(|n| n.to_string_lossy().into_owned())
-                            .unwrap_or(path.clone())
-                    )
+                    let name = p
+                        .file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or(path.clone());
+                    if restored.is_empty() {
+                        format!("Folder Reguler: {}", name)
+                    } else {
+                        format!("Folder Reguler: {} — Output: {}", name, restored)
+                    }
                 }
             };
             if let Some(ref dbm) = db_c {
                 if let Ok(mut g) = dbm.lock() {
                     let _ = g.set("Batch.FolderReguler.Active", &path, "String");
+                    // Simpan juga LocalOutput bila dipulihkan dari dir ini.
+                    let lo = st.lock().unwrap().local_output.clone();
+                    if !lo.trim().is_empty() {
+                        let _ = g.set("Paths.LocalOutput", &lo, "String");
+                    }
                 }
             }
             if let Some(ui) = ui_weak.upgrade() {
@@ -5505,14 +5994,345 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     }
     {
-        // -- Folder Reguler: kelola (tahap 4, lengkap: tambah/hapus/scan). --
+        // -- Folder Reguler: buka popup Kelola (tahap 4). Scan direktori
+        // aktif (atau pertama) di thread latar; daftar + tabel sekolah
+        // didorong ke UI oleh push_reguler_popup_to_ui.
         let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        let scan = reguler_scan_state.clone();
+        let rxh = reguler_scan_rx.clone();
+        let handle = batch_run_handle.clone();
         ui.on_batch_reguler_manage(move || {
-            if let Some(ui) = ui_weak.upgrade() {
-                ui.set_toast(slint::SharedString::from(
-                    "Kelola Folder Reguler menyusul (tahap 4: daftar + scan latar).",
-                ));
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let dir = {
+                let s = st.lock().unwrap();
+                if !s.reguler_active.is_empty()
+                    && s.reguler_dirs.iter().any(|d| d.path == s.reguler_active)
+                {
+                    s.reguler_active.clone()
+                } else {
+                    s.reguler_dirs
+                        .first()
+                        .map(|d| d.path.clone())
+                        .unwrap_or_default()
+                }
+            };
+            {
+                let mut sc = scan.lock().unwrap();
+                sc.dir = dir.clone();
+                sc.all.clear();
+                sc.scanning = !dir.is_empty();
             }
+            if !dir.is_empty() {
+                spawn_reguler_scan(&dir, &rxh);
+            }
+            let run_active = handle.is_running();
+            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active);
+            ui.set_reguler_manage_open(true);
+        });
+    }
+    {
+        // -- Folder Reguler: tutup popup Kelola (×, Tutup, klik di luar,
+        // klik kanan, Esc).
+        let ui_weak = ui.as_weak();
+        ui.on_batch_reguler_close(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_reguler_manage_open(false);
+            }
+        });
+    }
+    {
+        // -- Folder Reguler: tambah direktori (dialog pilih folder).
+        let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        let db_c = db.clone();
+        let scan = reguler_scan_state.clone();
+        let handle = batch_run_handle.clone();
+        ui.on_batch_reguler_add(move || {
+            let ui_w = ui_weak.clone();
+            let st_c = st.clone();
+            let db_cc = db_c.clone();
+            let scan_c = scan.clone();
+            let handle_c = handle.clone();
+            std::thread::spawn(move || {
+                match platform::pick_folder("Pilih Folder Reguler") {
+                    platform::PickResult::Picked(path) => {
+                        let p = std::path::PathBuf::from(&path);
+                        let msg = {
+                            let mut s = st_c.lock().unwrap();
+                            if !p.is_dir() {
+                                format!("Bukan folder: {}", path)
+                            } else if s
+                                .reguler_dirs
+                                .iter()
+                                .any(|d| d.path.to_ascii_lowercase() == path.to_ascii_lowercase())
+                            {
+                                format!("Sudah ada di daftar: {}", path)
+                            } else {
+                                s.reguler_dirs.push(batch::RegulerDir::new(&path));
+                                persist_reguler_dirs(&db_cc, &s.reguler_dirs);
+                                format!("Folder Reguler ditambah: {}", path)
+                            }
+                        };
+                        let _ = ui_w.upgrade_in_event_loop(move |ui| {
+                            let run_active = handle_c.is_running();
+                            push_reguler_popup_to_ui(
+                                &ui,
+                                &st_c.lock().unwrap(),
+                                &scan_c.lock().unwrap(),
+                                run_active,
+                            );
+                            push_batch_to_ui(&ui, &st_c.lock().unwrap());
+                            ui.set_toast(slint::SharedString::from(msg));
+                        });
+                    }
+                    _ => {}
+                }
+            });
+        });
+    }
+    {
+        // -- Folder Reguler: hapus direktori (terkunci = tolak).
+        let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        let db_c = db.clone();
+        let scan = reguler_scan_state.clone();
+        let handle = batch_run_handle.clone();
+        ui.on_batch_reguler_remove(move |idx| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let msg = {
+                let mut s = st.lock().unwrap();
+                let Some(d) = s.reguler_dirs.get(idx as usize) else {
+                    return;
+                };
+                if d.locked {
+                    format!("Direktori terkunci — buka kunci dulu: {}", d.display_name())
+                } else {
+                    let removed = d.path.clone();
+                    s.reguler_dirs.remove(idx as usize);
+                    persist_reguler_dirs(&db_c, &s.reguler_dirs);
+                    let mut sc = scan.lock().unwrap();
+                    if sc.dir == removed {
+                        sc.dir.clear();
+                        sc.all.clear();
+                        sc.scanning = false;
+                    }
+                    format!("Folder Reguler dihapus: {}", removed)
+                }
+            };
+            let run_active = handle.is_running();
+            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active);
+            push_batch_to_ui(&ui, &st.lock().unwrap());
+            ui.set_toast(slint::SharedString::from(msg));
+        });
+    }
+    {
+        // -- Folder Reguler: kunci/buka kunci direktori.
+        let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        let db_c = db.clone();
+        let scan = reguler_scan_state.clone();
+        let handle = batch_run_handle.clone();
+        ui.on_batch_reguler_toggle_lock(move |idx| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            {
+                let mut s = st.lock().unwrap();
+                if let Some(d) = s.reguler_dirs.get_mut(idx as usize) {
+                    d.locked = !d.locked;
+                }
+                persist_reguler_dirs(&db_c, &s.reguler_dirs);
+            }
+            let run_active = handle.is_running();
+            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active);
+        });
+    }
+    {
+        // -- Folder Reguler: pilih direktori → scan ulang latar.
+        let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        let scan = reguler_scan_state.clone();
+        let rxh = reguler_scan_rx.clone();
+        let handle = batch_run_handle.clone();
+        ui.on_batch_reguler_select_dir(move |idx| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let dir = {
+                let s = st.lock().unwrap();
+                s.reguler_dirs
+                    .get(idx as usize)
+                    .map(|d| d.path.clone())
+                    .unwrap_or_default()
+            };
+            if dir.is_empty() {
+                return;
+            }
+            {
+                let mut sc = scan.lock().unwrap();
+                sc.dir = dir.clone();
+                sc.all.clear();
+                sc.scanning = true;
+            }
+            spawn_reguler_scan(&dir, &rxh);
+            let run_active = handle.is_running();
+            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active);
+        });
+    }
+    {
+        // -- Folder Reguler: ketik di kolom cari → filter tabel.
+        let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        let scan = reguler_scan_state.clone();
+        let handle = batch_run_handle.clone();
+        ui.on_batch_reguler_filter_changed(move |text| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            {
+                let mut sc = scan.lock().unwrap();
+                sc.filter = text.to_string();
+            }
+            let run_active = handle.is_running();
+            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active);
+        });
+    }
+    {
+        // -- Folder Reguler: filter bulan (dipersisten ke DB).
+        let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        let db_c = db.clone();
+        let scan = reguler_scan_state.clone();
+        let handle = batch_run_handle.clone();
+        ui.on_batch_reguler_month_picked(move |idx| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let month = {
+                let sc = scan.lock().unwrap();
+                if idx <= 0 {
+                    String::new()
+                } else {
+                    let mut months = vec!["Semua bulan".to_string()];
+                    months.extend(batch::reguler_months(&sc.all));
+                    months.get(idx as usize).cloned().unwrap_or_default()
+                }
+            };
+            {
+                let mut sc = scan.lock().unwrap();
+                sc.month = month.clone();
+            }
+            if let Some(ref dbm) = db_c {
+                if let Ok(mut g) = dbm.lock() {
+                    let _ = g.set("Batch.FolderReguler.Month", &month, "String");
+                }
+            }
+            let run_active = handle.is_running();
+            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active);
+        });
+    }
+    {
+        // -- Folder Reguler: klik baris sekolah (klik ganda = jadikan
+        // SOURCE). Klik tunggal hanya menandai baris.
+        let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        let db_c = db.clone();
+        let scan = reguler_scan_state.clone();
+        ui.on_batch_reguler_row_clicked(move |idx| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let (path, school) = {
+                let sc = scan.lock().unwrap();
+                let rows = batch::filter_reguler_rows(&sc.all, &sc.filter, &sc.month);
+                match rows.get(idx as usize) {
+                    Some(r) => (r.path.clone(), r.sekolah.clone()),
+                    None => return,
+                }
+            };
+            let is_dbl = batch::is_double_click(
+                &mut BATCH_LAST_CLICK.lock().unwrap(),
+                "REGULER",
+                &path,
+                std::time::Instant::now(),
+            );
+            if is_dbl {
+                let dir = scan.lock().unwrap().dir.clone();
+                let msg = {
+                    let mut s = st.lock().unwrap();
+                    let p = std::path::PathBuf::from(&path);
+                    if !p.is_dir() {
+                        format!("Folder sekolah tidak ditemukan: {}", path)
+                    } else {
+                        s.reguler_active = dir.clone();
+                        s.add_folder(&p);
+                        format!("Folder Reguler: {}", school)
+                    }
+                };
+                if let Some(ref dbm) = db_c {
+                    if let Ok(mut g) = dbm.lock() {
+                        let _ = g.set("Batch.FolderReguler.Active", &dir, "String");
+                    }
+                }
+                push_batch_to_ui(&ui, &st.lock().unwrap());
+                ui.set_reguler_manage_open(false);
+                ui.set_toast(slint::SharedString::from(msg));
+            } else {
+                ui.set_reguler_selected_row(idx);
+            }
+        });
+    }
+    {
+        // -- Folder Reguler: tombol "Jadikan Source" — baris sekolah
+        // terpilih jadi SOURCE BATCH, popup tertutup.
+        let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        let db_c = db.clone();
+        let scan = reguler_scan_state.clone();
+        ui.on_batch_reguler_load_selected(move || {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let idx = ui.get_reguler_selected_row();
+            if idx < 0 {
+                ui.set_toast(slint::SharedString::from(
+                    "Pilih satu baris sekolah dulu.",
+                ));
+                return;
+            }
+            let (path, school) = {
+                let sc = scan.lock().unwrap();
+                let rows = batch::filter_reguler_rows(&sc.all, &sc.filter, &sc.month);
+                match rows.get(idx as usize) {
+                    Some(r) => (r.path.clone(), r.sekolah.clone()),
+                    None => return,
+                }
+            };
+            let dir = scan.lock().unwrap().dir.clone();
+            let msg = {
+                let mut s = st.lock().unwrap();
+                let p = std::path::PathBuf::from(&path);
+                if !p.is_dir() {
+                    format!("Folder sekolah tidak ditemukan: {}", path)
+                } else {
+                    s.reguler_active = dir.clone();
+                    s.add_folder(&p);
+                    format!("Folder Reguler: {}", school)
+                }
+            };
+            if let Some(ref dbm) = db_c {
+                if let Ok(mut g) = dbm.lock() {
+                    let _ = g.set("Batch.FolderReguler.Active", &dir, "String");
+                }
+            }
+            push_batch_to_ui(&ui, &st.lock().unwrap());
+            ui.set_reguler_manage_open(false);
+            ui.set_toast(slint::SharedString::from(msg));
         });
     }
     {
@@ -5525,6 +6345,8 @@ fn main() -> Result<(), slint::PlatformError> {
         let db_c = db.clone();
         let pl = proc_log.clone();
         let scripts = batch_scripts.clone();
+        let task_cell = task_win.clone();
+        let task_visible = task_win_visible.clone();
         ui.on_batch_run_script(move |name| {
             let Some(ui) = ui_weak.upgrade() else {
                 return;
@@ -5552,7 +6374,9 @@ fn main() -> Result<(), slint::PlatformError> {
                         }
                     })
             };
-            if let Err(msg) = batch_start_run(&ui, &handle, &db_c, &st, &pl, &filename) {
+            if let Err(msg) = batch_start_run(
+                &ui, &handle, &db_c, &st, &pl, &task_cell, &task_visible, &filename,
+            ) {
                 ui.set_toast(slint::SharedString::from(msg));
             }
         });
@@ -5565,13 +6389,22 @@ fn main() -> Result<(), slint::PlatformError> {
         let st = batch_state.clone();
         let db_c = db.clone();
         let pl = proc_log.clone();
+        let task_cell = task_win.clone();
+        let task_visible = task_win_visible.clone();
         ui.on_batch_phase1(move || {
             let Some(ui) = ui_weak.upgrade() else {
                 return;
             };
-            if let Err(msg) =
-                batch_start_run(&ui, &handle, &db_c, &st, &pl, "buat_master.py")
-            {
+            if let Err(msg) = batch_start_run(
+                &ui,
+                &handle,
+                &db_c,
+                &st,
+                &pl,
+                &task_cell,
+                &task_visible,
+                "buat_master.py",
+            ) {
                 ui.set_toast(slint::SharedString::from(msg));
             }
         });
@@ -5601,6 +6434,8 @@ fn main() -> Result<(), slint::PlatformError> {
         let st = batch_state.clone();
         let db_c = db.clone();
         let pl = proc_log.clone();
+        let task_cell = task_win.clone();
+        let task_visible = task_win_visible.clone();
         ui.on_batch_copy_master(move || {
             let Some(ui) = ui_weak.upgrade() else {
                 return;
@@ -5618,6 +6453,8 @@ fn main() -> Result<(), slint::PlatformError> {
                 &db_c,
                 &st,
                 &pl,
+                &task_cell,
+                &task_visible,
                 "buat_master_duplikat.py",
             ) {
                 ui.set_toast(slint::SharedString::from(msg));
@@ -5625,14 +6462,79 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     }
     {
-        // -- Task Manager (tahap 5: panel progres terpisah). --
+        // -- Task Manager (tahap 5): buka/tutup panel tugas terpisah
+        // (window OS di samping window utama). Panel tampil otomatis
+        // saat run dimulai.
         let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        let handle = batch_run_handle.clone();
+        let db_c = db.clone();
+        let pl = proc_log.clone();
+        let task_cell = task_win.clone();
+        let task_visible = task_win_visible.clone();
         ui.on_batch_open_task_manager(move || {
-            if let Some(ui) = ui_weak.upgrade() {
-                ui.set_toast(slint::SharedString::from(
-                    "Task Manager menyusul (tahap 5: panel progres terpisah).",
-                ));
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            if task_visible.get() {
+                task_visible.set(false);
+                if let Some(w) = task_cell.borrow().as_ref() {
+                    let _ = w.hide();
+                }
+                ui.set_task_manager_open(false);
+            } else {
+                open_task_manager_window(
+                    &ui,
+                    &task_cell,
+                    &task_visible,
+                    &st,
+                    &handle,
+                    &db_c,
+                    &pl,
+                );
             }
+        });
+    }
+    {
+        // -- Task Manager: batalkan tugas (logika bersama — lihat
+        // batch_task_cancel_ui; panel terpisah memanggil yang sama).
+        let ui_weak = ui.as_weak();
+        let handle = batch_run_handle.clone();
+        let st = batch_state.clone();
+        let pl = proc_log.clone();
+        let task_cell = task_win.clone();
+        ui.on_batch_task_cancel(move |id| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            batch_task_cancel_ui(&ui, &st, &handle, &pl, &task_cell, id.as_str());
+        });
+    }
+    {
+        // -- Task Manager: jalankan follow-up tugas yang menunggu save
+        // (Fase 2 = buat_master_duplikat.py — logika bersama, lihat
+        // batch_task_followup_ui; panel terpisah memanggil yang sama).
+        let ui_weak = ui.as_weak();
+        let handle = batch_run_handle.clone();
+        let st = batch_state.clone();
+        let db_c = db.clone();
+        let pl = proc_log.clone();
+        let task_cell = task_win.clone();
+        let task_visible = task_win_visible.clone();
+        ui.on_batch_task_followup(move |id| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            batch_task_followup_ui(
+                &ui,
+                &st,
+                &handle,
+                &db_c,
+                &pl,
+                &task_cell,
+                &task_visible,
+                id.as_str(),
+            );
         });
     }
 
@@ -8749,6 +9651,7 @@ fn main() -> Result<(), slint::PlatformError> {
             let handle = batch_run_handle.clone();
             let st = batch_state.clone();
             let pl = proc_log.clone();
+            let task_cell = task_win.clone();
             move || {
                 let Some(ui) = ui_weak.upgrade() else {
                     return;
@@ -8762,7 +9665,15 @@ fn main() -> Result<(), slint::PlatformError> {
                 while let Ok(msg) = rx.try_recv() {
                     match msg {
                         batch_exec::BatchExecMsg::Line(l) => {
-                            pl.lock().unwrap().add_log(l);
+                            pl.lock().unwrap().add_log(l.clone());
+                            // Task Manager (tahap 5): baris log hidup
+                            // masuk ke detail tugas aktif.
+                            let mut s = st.lock().unwrap();
+                            if let Some(t) = s.active_task_mut() {
+                                t.append_line(&l);
+                                push_tasks_to_ui(&ui, &s);
+                                push_tasks_to_panel(&task_cell, &s);
+                            }
                             changed = true;
                         }
                         batch_exec::BatchExecMsg::RootDone { root, code } => {
@@ -8772,10 +9683,34 @@ fn main() -> Result<(), slint::PlatformError> {
                             } else {
                                 lg.add_log(format!("[ERROR] Gagal (exit {}): {}", code, root));
                             }
+                            // Task Manager: fase root ini selesai.
+                            let mut s = st.lock().unwrap();
+                            if let Some(t) = s.active_task_mut() {
+                                t.set_phase_by_root(
+                                    &root,
+                                    if code == 0 {
+                                        batch::PhaseState::Done
+                                    } else {
+                                        batch::PhaseState::Failed
+                                    },
+                                );
+                                push_tasks_to_ui(&ui, &s);
+                                push_tasks_to_panel(&task_cell, &s);
+                            }
                             changed = true;
                         }
                         batch_exec::BatchExecMsg::Error(e) => {
                             pl.lock().unwrap().add_log(format!("[ERROR] {}", e));
+                            // Task Manager: tugas gagal (AllDone yang
+                            // datang sesudahnya tidak menimpa status
+                            // ini — lihat penjaga `Failed` di bawah).
+                            let mut s = st.lock().unwrap();
+                            if let Some(t) = s.active_task_mut() {
+                                t.state = batch::TaskState::Failed;
+                                t.append_line(&e);
+                                push_tasks_to_ui(&ui, &s);
+                                push_tasks_to_panel(&task_cell, &s);
+                            }
                             changed = true;
                         }
                         batch_exec::BatchExecMsg::AllDone => {
@@ -8799,8 +9734,104 @@ fn main() -> Result<(), slint::PlatformError> {
                                 s.has_manifest = true;
                             }
                         }
+                        // Task Manager (tahap 5): selesaikan tugas
+                        // aktif — atau masuk "Menunggu save" bila ini
+                        // Fase 1 (buat_master, bukan duplikat) dan ada
+                        // Fase 2 yang harus jalan setelah Photoshop
+                        // selesai menyimpan.
+                        if let Some(t) = s.active_task_mut() {
+                            let title = t.title.to_ascii_lowercase();
+                            let is_fase1 =
+                                title.contains("buat_master") && !title.contains("duplikat");
+                            let failed_before = t.state == batch::TaskState::Failed;
+                            if ok && is_fase1 && !failed_before {
+                                t.state = batch::TaskState::WaitingSave;
+                                t.followups = vec!["BUAT MASTER (duplikat)".to_string()];
+                                for p in t.phases.iter_mut() {
+                                    if p.state == batch::PhaseState::Running {
+                                        p.state = batch::PhaseState::Done;
+                                    }
+                                }
+                            } else {
+                                t.state = if ok && !failed_before {
+                                    batch::TaskState::Done
+                                } else {
+                                    batch::TaskState::Failed
+                                };
+                                for p in t.phases.iter_mut() {
+                                    if p.state == batch::PhaseState::Running {
+                                        p.state = if ok && !failed_before {
+                                            batch::PhaseState::Done
+                                        } else {
+                                            batch::PhaseState::Failed
+                                        };
+                                    }
+                                }
+                                // Fase 2 selesai → tugas Fase 1 yang
+                                // dilanjutkan ikut selesai (atau kembali
+                                // menunggu save bila Fase 2 dibatalkan).
+                                // Tugas itu dikenali dari fase
+                                // "BUAT MASTER (duplikat)": saat duplikat
+                                // dimulai, batch_start_run mengubahnya
+                                // jadi Running + menambah fase itu — jadi
+                                // state WaitingSave sudah tidak ada dan
+                                // pencarian WaitingSave tidak pernah
+                                // cocok (bug: tugas Fase 1 macet
+                                // "Berjalan" selamanya).
+                                if title.contains("duplikat") {
+                                    for other in s.tasks.iter_mut() {
+                                        // Hanya tugas yang masih berjalan
+                                        // (jangan bangkitkan yang sudah
+                                        // Dibatalkan user saat Fase 2 jalan).
+                                        if other.state != batch::TaskState::Running {
+                                            continue;
+                                        }
+                                        let has_dup_phase = other.phases.iter().any(|p| {
+                                            p.label == "BUAT MASTER (duplikat)"
+                                        });
+                                        if !has_dup_phase {
+                                            continue;
+                                        }
+                                        if !ok {
+                                            // Dibatalkan: kembali ke posisi
+                                            // sebelum Fase 2 — menunggu save,
+                                            // follow-up utuh lagi.
+                                            other.state = batch::TaskState::WaitingSave;
+                                            other.followups =
+                                                vec!["BUAT MASTER (duplikat)".to_string()];
+                                            other.phases.retain(|p| {
+                                                p.label != "BUAT MASTER (duplikat)"
+                                            });
+                                        } else if !failed_before {
+                                            other.state = batch::TaskState::Done;
+                                            other.followups.clear();
+                                            for p in other.phases.iter_mut() {
+                                                if p.state == batch::PhaseState::Running
+                                                    || p.state == batch::PhaseState::Pending
+                                                {
+                                                    p.state = batch::PhaseState::Done;
+                                                }
+                                            }
+                                        } else {
+                                            other.state = batch::TaskState::Failed;
+                                            for p in other.phases.iter_mut() {
+                                                if p.label == "BUAT MASTER (duplikat)" {
+                                                    p.state = batch::PhaseState::Failed;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if !ok {
+                            if let Some(t) = s.active_task_mut() {
+                                t.state = batch::TaskState::Cancelled;
+                            }
+                        }
                     }
                     push_batch_to_ui(&ui, &st.lock().unwrap());
+                    push_tasks_to_panel(&task_cell, &st.lock().unwrap());
                     ui.set_batch_running(false);
                     let toast = if ok {
                         if handle.failed.load(Ordering::SeqCst) {
@@ -8814,6 +9845,51 @@ fn main() -> Result<(), slint::PlatformError> {
                     ui.set_toast(slint::SharedString::from(toast));
                     pl.lock().unwrap().add_log(toast.to_string());
                     push_log_lines(&ui, &pl);
+                }
+            }
+        },
+    );
+
+    // Folder Reguler: kuras hasil scan latar tiap 250ms (pola
+    // _batch_exec_timer). Hasil scan masuk ke popup Kelola bila popup
+    // sedang terbuka; bulan dipilih ulang dari hasil scan.
+    let _reguler_scan_timer = slint::Timer::default();
+    _reguler_scan_timer.start(
+        slint::TimerMode::Repeated,
+        std::time::Duration::from_millis(250),
+        {
+            let ui_weak = ui.as_weak();
+            let st = batch_state.clone();
+            let scan = reguler_scan_state.clone();
+            let rxh = reguler_scan_rx.clone();
+            let handle = batch_run_handle.clone();
+            move || {
+                let Some(ui) = ui_weak.upgrade() else {
+                    return;
+                };
+                if !ui.get_reguler_manage_open() {
+                    return;
+                }
+                let mut rx_guard = rxh.lock().unwrap();
+                let Some(rx) = rx_guard.as_mut() else {
+                    return;
+                };
+                let mut got: Option<(String, Vec<batch::RegulerRow>)> = None;
+                while let Ok(msg) = rx.try_recv() {
+                    got = Some(msg);
+                }
+                drop(rx_guard);
+                if let Some((dir, rows)) = got {
+                    let mut sc = scan.lock().unwrap();
+                    // Abaikan hasil scan lama bila pengguna sudah pindah
+                    // direktori sementara scan lama masih berjalan.
+                    if sc.dir != dir {
+                        return;
+                    }
+                    sc.all = rows;
+                    sc.scanning = false;
+                    let run_active = handle.is_running();
+                    push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &sc, run_active);
                 }
             }
         },
