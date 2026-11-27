@@ -138,6 +138,9 @@ export component AppWindow inherits Window {
     // Dynamic Bar (floating mini-bar): buka/tutup dari flyout profil.
     callback open-dynamic-bar();
     callback hide-dynamic-bar();
+    // Notch hidup: pengaturan mode + voice (Settings > Notch).
+    callback notch-settings-changed();
+    callback test-notch-voice();
 
     // ---- Appearance & Customization (persisted in SQLite) ----
     in-out property <string> app-color-mode: "dark";
@@ -179,6 +182,16 @@ export component AppWindow inherits Window {
     // ---- General & Paths (persisted in SQLite) ----
     // Dynamic Bar tampil atau tidak (key Settings.DynamicBar.Visible).
     in-out property <bool> app-dynamic-bar-visible: true;
+    // Notch hidup (rework 27 Nov 2026): mode notch / avatar pet +
+    // voice SAPI (Windows). Default notch, voice nyala, volume 80,
+    // suara otomatis (Indonesia bila ada di sistem).
+    in-out property <string> app-notch-mode: "notch";
+    in-out property <bool> app-notch-voice-enabled: true;
+    in-out property <string> app-notch-voice-name: "";
+    in-out property <string> app-notch-voice-volume: "80";
+    in-out property <[string]> app-notch-voices: [];
+    in-out property <[string]> app-notch-voice-names: [];
+    in-out property <int> app-notch-voice-index: 0;
     in-out property <string> app-user-name: "abeng";
     in-out property <string> app-lang: "Indonesia";
     in-out property <bool> app-anim-startup: true;
@@ -3330,6 +3343,15 @@ export component AppWindow inherits Window {
         is-output-explorer-visible <=> root.is-output-explorer-visible;
         trello-connected <=> root.app-trello-connected;
         trello-status <=> root.app-trello-status;
+        notch-mode <=> root.app-notch-mode;
+        notch-voice-enabled <=> root.app-notch-voice-enabled;
+        notch-voice-name <=> root.app-notch-voice-name;
+        notch-voice-volume <=> root.app-notch-voice-volume;
+        notch-voices <=> root.app-notch-voices;
+        notch-voice-names <=> root.app-notch-voice-names;
+        notch-voice-index <=> root.app-notch-voice-index;
+        notch-settings-changed() => { root.notch-settings-changed(); }
+        test-notch-voice() => { root.test-notch-voice(); }
         path-local <=> root.app-path-local;
         path-okebase <=> root.app-path-okebase;
         path-photoshop <=> root.app-path-photoshop;

@@ -394,6 +394,8 @@ export component SettingsView inherits Rectangle {
     callback save-paths-settings();
     callback browse-path(string);
     callback test-trello();
+    callback notch-settings-changed();
+    callback test-notch-voice();
     callback open-url(string);
     // ShortcutConfig sama seperti C#: trigger direkam, disimpan ke SQLite, lalu hook aktif diperbarui.
     callback start-recording-shortcut();
@@ -404,6 +406,15 @@ export component SettingsView inherits Rectangle {
     in-out property <string> widget-bg: "doodle";
     // Gaya latar widget — terikat dua arah ke AppWindow (permukaan kartu ikut berubah).
     in-out property <string> widget-style: "solid";
+    // Notch hidup (rework 27 Nov 2026): mode notch / avatar pet +
+    // voice SAPI (Windows). Terikat dua arah ke AppWindow.
+    in-out property <string> notch-mode: "notch";
+    in-out property <bool> notch-voice-enabled: true;
+    in-out property <string> notch-voice-name: "";
+    in-out property <string> notch-voice-volume: "80";
+    in-out property <[string]> notch-voices: [];
+    in-out property <[string]> notch-voice-names: [];
+    in-out property <int> notch-voice-index: 0;
 
     in-out property <string> group: "General";
 
@@ -1212,6 +1223,89 @@ export component SettingsView inherits Rectangle {
                                     horizontal-stretch: 1;
                                     selected: root.widget-style == "outline";
                                     clicked => { root.theme-preset = "custom"; root.widget-style = "outline"; root.appearance-changed(); root.toast("Gaya latar widget: Outline"); }
+                                }
+                            }
+                        }
+
+                        // Notch hidup (rework 27 Nov 2026, referensi
+                        // Nusa): mode Notch / Avatar Pet + voice SAPI
+                        // (Windows). Semua perubahan disimpan +
+                        // diterapkan langsung tanpa restart.
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Notch";
+                                desc: "Notch hidup di atas layar — pill hitam kecil berisi mata; hover untuk mengembang. Mode Avatar Pet: maskot bisa di-drag ke mana saja dan bergerak sendiri";
+                            }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OptionChip {
+                                    label: "Notch";
+                                    horizontal-stretch: 1;
+                                    selected: root.notch-mode == "notch";
+                                    clicked => { root.notch-mode = "notch"; root.notch-settings-changed(); root.toast("Mode notch: Notch"); }
+                                }
+                                OptionChip {
+                                    label: "Avatar Pet";
+                                    horizontal-stretch: 1;
+                                    selected: root.notch-mode == "pet";
+                                    clicked => { root.notch-mode = "pet"; root.notch-settings-changed(); root.toast("Mode notch: Avatar Pet"); }
+                                }
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Suara maskot";
+                                desc: "Maskot bicara saat ada kartu baru masuk atau poin bertambah (Windows SAPI — offline, gratis; di Linux tidak ada suara)";
+                            }
+                            Toggle {
+                                checked: root.notch-voice-enabled;
+                                toggled(checked) => { root.notch-voice-enabled = checked; root.notch-settings-changed(); root.toast(checked ? "Suara maskot nyala" : "Suara maskot mati"); }
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Pilih suara";
+                                desc: "Suara Windows yang terpasang — Otomatis memakai Bahasa Indonesia bila ada";
+                            }
+                            ComboBox {
+                                width: 260px;
+                                model: root.notch-voices;
+                                current-index: root.notch-voice-index;
+                                selected(index) => {
+                                    root.notch-voice-index = index;
+                                    root.notch-settings-changed();
+                                    root.toast("Suara: " + (index == 0 ? "Otomatis" : root.notch-voices[index]));
+                                }
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Volume suara";
+                                desc: "Keras suara maskot, 0–100";
+                            }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField {
+                                    width: 80px;
+                                    text: root.notch-voice-volume;
+                                    placeholder: "80";
+                                    edited(text) => { root.notch-voice-volume = text; }
+                                    accepted(text) => {
+                                        root.notch-settings-changed();
+                                        root.toast("Volume suara: " + text);
+                                    }
+                                }
+                                Btn {
+                                    label: "Tes suara";
+                                    variant: "secondary";
+                                    clicked => { root.test-notch-voice(); }
                                 }
                             }
                         }

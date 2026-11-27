@@ -10,6 +10,8 @@ mod sheets_api;
 mod spreadsheet_guard;
 mod theme;
 mod trello_api;
+mod voice;
+mod volume;
 
 use db::DatabaseService;
 #[allow(unused_imports)]
@@ -22,6 +24,7 @@ use local_update::LocalUpdateService;
 use process_log::ProcessLogService;
 use rdev::{Button, Event, EventType, Key};
 use std::cell::Cell;
+use std::time::Instant;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
@@ -511,6 +514,11 @@ struct BarState {
     synced_lists: std::collections::HashSet<String>,
     last_points: Option<i64>,
     notifications: Vec<BarNotification>,
+    /// Mood maskot dari event terakhir: ("happy"|"surprised",
+    /// sampai-kapan). Timer 2 detik membacanya dan mendorong ke
+    /// properti `pet-mood` window bar; kedaluwarsa → "idle".
+    /// Tidur/sapa dihitung sisi Slint (effective-mood).
+    pet_mood_until: Option<(String, Instant)>,
 }
 
 type BarStore = Arc<Mutex<BarState>>;
@@ -524,12 +532,15 @@ const BAR_MAX_NEW_PER_SYNC: usize = 3;
 /// ikut berbunyi saat aplikasi dibuka). Maks
 /// BAR_MAX_NEW_PER_SYNC notifikasi per sync supaya satu refresh
 /// besar tidak membanjiri panel.
+/// Mengembalikan jumlah kartu BARU yang dicatat (0 bila
+/// baseline / tidak ada yang baru) — dipakai pemanggil untuk
+/// memicu ucapan voice maskot.
 fn record_list_sync(
     state: &mut BarState,
     list_id: &str,
     category: &str,
     cards: &[(String, String)],
-) {
+) -> usize {
     let baseline = !state.synced_lists.contains(list_id);
     state.synced_lists.insert(list_id.to_string());
     let seen = state.seen_cards.entry(list_id.to_string()).or_default();
@@ -542,6 +553,7 @@ fn record_list_sync(
             seen.insert(id.clone());
         }
     }
+    let fresh_count = fresh.len();
     for (_id, name) in fresh {
         state.notifications.insert(
             0,
@@ -554,6 +566,7 @@ fn record_list_sync(
         );
     }
     state.notifications.truncate(BAR_MAX_NOTIFICATIONS);
+    fresh_count
 }
 
 /// Catat nilai Stat.Points sekarang: naik dari baseline terakhir
@@ -996,18 +1009,24 @@ fn open_toolbox_window(
     }
 }
 
-/// Buka (atau buka-ulang) DynamicBarWindow. Posisi: simpanan
-/// DynamicBar.X/Y, atau atas-tengah window utama (default).
-/// Angka diisi dari properti AppWindow (sumber yang sama dengan
-/// widget dashboard) + notifikasi dari BarStore. Pola buka-ulang
-/// sama seperti ToolboxWindow: hide->show reuse tidak andal,
-/// jadi window yang sudah ditutup selalu dibuat baru.
+/// Buka (atau buka-ulang) DynamicBarWindow sebagai NOTCH HIDUP
+/// (rework 27 Nov 2026, referensi Nusa).
+/// Mode notch: pill 150×32 di atas-tengah window utama, y=0
+/// (menempel tepi atas layar seperti notch beneran); tidak bisa
+/// di-drag — posisinya tetap. Mode pet: avatar bulat 84×84 di
+/// posisi tersimpan DynamicBar.X/Y (atau default atas-tengah),
+/// bisa di-drag + wander sendiri. Angka diisi dari properti
+/// AppWindow (sumber yang sama dengan widget dashboard) +
+/// notifikasi dari BarStore. Pola buka-ulang sama seperti
+/// ToolboxWindow: hide->show reuse tidak andal, jadi window
+/// yang sudah ditutup selalu dibuat baru.
 fn open_dynamic_bar_window(
     cell: &std::rc::Rc<std::cell::RefCell<Option<DynamicBarWindow>>>,
     visible: &std::rc::Rc<std::cell::Cell<bool>>,
     ui_weak: &slint::Weak<AppWindow>,
     bar_store: &BarStore,
     db: &Option<Arc<Mutex<DatabaseService>>>,
+    pet_last_drag: &Arc<Mutex<Instant>>,
 ) {
     let mut opt = cell.borrow_mut();
     // Buka-ulang setelah tutup selalu buat window baru (alasan sama
@@ -1040,24 +1059,115 @@ fn open_dynamic_bar_window(
                     ui.set_app_dynamic_bar_visible(false);
                 }
             });
-            // Drag bar.
+            // Drag bar (hanya mode pet yang menggerakkan window —
+            // .slint sudah membatasi drag ke mode pet). Panel yang
+            // sedang mengembang ditahan di dalam window utama
+            // supaya tidak keluar layar; pet yang mengecil bebas
+            // di-drag ke mana saja. (Dalam praktik drag selalu
+            // mulai dari panel mengembang — hover mengembang
+            // sebelum mousedown.)
             let w_weak2 = w.as_weak();
+            let ui_weak_move = ui_weak.clone();
             w.on_move_window(move |dx, dy| {
                 if let Some(w) = w_weak2.upgrade() {
                     let scale = w.window().scale_factor();
                     let pos = w.window().position();
-                    let nx = pos.x + (dx * scale) as i32;
-                    let ny = pos.y + (dy * scale) as i32;
+                    let mut nx = pos.x + (dx * scale) as i32;
+                    let mut ny = pos.y + (dy * scale) as i32;
+                    if w.get_expanded() {
+                        if let Some(ui) = ui_weak_move.upgrade() {
+                            let win = ui.window();
+                            let mpos = win.position();
+                            let msize = win.size();
+                            let size = w.window().size();
+                            nx = nx.clamp(
+                                mpos.x,
+                                (mpos.x + msize.width as i32 - size.width as i32).max(mpos.x),
+                            );
+                            ny = ny.clamp(
+                                mpos.y,
+                                (mpos.y + msize.height as i32 - size.height as i32).max(mpos.y),
+                            );
+                        }
+                    }
                     w.window()
                         .set_position(slint::PhysicalPosition::new(nx, ny));
                 }
             });
-            // Simpan posisi saat drag selesai.
+            // Posisi pet sebelum panel mengembang — dipakai
+            // mengembalikan pet ke tempat semula saat panel
+            // mengecil. Dibatalkan (None) bila user men-drag
+            // saat panel terbuka: pet tetap di tempat di-drop.
+            let pet_pos_before_expand: std::rc::Rc<std::cell::RefCell<Option<(i32, i32)>>> =
+                std::rc::Rc::new(std::cell::RefCell::new(None));
+            // Simpan posisi saat drag selesai + catat waktu drag
+            // terakhir (pet tidak wander 5 detik setelah di-drag).
             let w_weak3 = w.as_weak();
             let db_save = db.clone();
+            let drag_stamp = pet_last_drag.clone();
+            let pet_pos_drag = pet_pos_before_expand.clone();
             w.on_save_position(move || {
+                if let Ok(mut t) = drag_stamp.lock() {
+                    *t = Instant::now();
+                }
+                // Drag saat panel terbuka = posisi baru pet;
+                // jangan kembalikan ke posisi sebelum mengembang.
+                *pet_pos_drag.borrow_mut() = None;
                 if let Some(w) = w_weak3.upgrade() {
                     save_bar_position(w.window(), &db_save);
+                }
+            });
+            // Notch mengembang/mengecil mengubah lebar window
+            // (150 <-> 560) sementara tepi kiri OS diam — pusatkan
+            // ulang secara horizontal bila mode notch. Mode pet:
+            // panel 560×~420 mengembang dari posisi pet — tahan
+            // di dalam window utama supaya tidak keluar layar,
+            // lalu kembalikan pet saat mengecil lagi. Kedua mode:
+            // panel mengembang menampilkan kontrol volume —
+            // segarkan nilainya dari OS saat mengembang.
+            let w_weak_exp = w.as_weak();
+            let ui_weak_exp = ui_weak.clone();
+            let pet_pos_exp = pet_pos_before_expand.clone();
+            w.on_expanded_changed(move |expanded| {
+                let Some(w) = w_weak_exp.upgrade() else {
+                    return;
+                };
+                let Some(ui) = ui_weak_exp.upgrade() else {
+                    return;
+                };
+                if expanded {
+                    refresh_bar_volume(&w);
+                }
+                if ui.get_app_notch_mode().as_str() == "notch" {
+                    recenter_notch(&w, &ui, expanded);
+                    return;
+                }
+                if expanded {
+                    let pos = w.window().position();
+                    *pet_pos_exp.borrow_mut() = Some((pos.x, pos.y));
+                    let win = ui.window();
+                    let mpos = win.position();
+                    let msize = win.size();
+                    let scale = win.scale_factor();
+                    // Lebar panel 560px; tinggi maks 420px (5
+                    // notifikasi + baris volume) — clamp
+                    // konservatif supaya panel tidak pernah keluar
+                    // window utama.
+                    let pw = (560f32 * scale) as i32;
+                    let ph = (420f32 * scale) as i32;
+                    let nx = pos
+                        .x
+                        .clamp(mpos.x, (mpos.x + msize.width as i32 - pw).max(mpos.x));
+                    let ny = pos
+                        .y
+                        .clamp(mpos.y, (mpos.y + msize.height as i32 - ph).max(mpos.y));
+                    if nx != pos.x || ny != pos.y {
+                        w.window()
+                            .set_position(slint::PhysicalPosition::new(nx, ny));
+                    }
+                } else if let Some((px, py)) = *pet_pos_exp.borrow() {
+                    w.window()
+                        .set_position(slint::PhysicalPosition::new(px, py));
                 }
             });
             // Klik angka widget → window utama ke tampilan terkait.
@@ -1095,35 +1205,74 @@ fn open_dynamic_bar_window(
             let ui_weak_dash = ui_weak.clone();
             w.on_open_dashboard(move || {
                 if let Some(ui) = ui_weak_dash.upgrade() {
-                    ui.window().show();
+                    let _ = ui.window().show();
                     ui.set_current_tab(slint::SharedString::from("HOME"));
                     ui.set_list_category(slint::SharedString::from(""));
                     ui.set_selected_card(slint::SharedString::from(""));
                     ui.set_overlay_view(slint::SharedString::from(""));
                 }
             });
+            // Volume OS dari panel mengembang (slider + bisukan).
+            // Slider di-debounce sisi Rust (volume::set_volume)
+            // supaya drag tidak membanjiri OS dengan subprocess.
+            let w_weak_vol = w.as_weak();
+            w.on_volume_changed(move |f| {
+                let pct = (f.clamp(0.0, 1.0) * 100.0).round() as u8;
+                volume::set_volume(pct);
+                if let Some(w) = w_weak_vol.upgrade() {
+                    w.set_volume_f(f.clamp(0.0, 1.0));
+                }
+            });
+            let w_weak_mute = w.as_weak();
+            w.on_volume_mute_clicked(move || {
+                let Some(w) = w_weak_mute.upgrade() else {
+                    return;
+                };
+                let muted = !w.get_volume_muted();
+                volume::set_muted(muted);
+                w.set_volume_muted(muted);
+            });
             *opt = Some(w);
         }
     }
     if let Some(w) = opt.as_ref() {
-        // Posisi: simpanan dulu; bila belum ada, atas-tengah
-        // window utama (12px dari atas).
+        // Mode dari AppWindow (sumber kebenaran; Settings
+        // mengikat ke properti yang sama).
+        let mode = ui_weak
+            .upgrade()
+            .map(|ui| ui.get_app_notch_mode().to_string())
+            .unwrap_or_else(|| "notch".to_string());
+        w.set_bar_mode(slint::SharedString::from(mode.as_str()));
+        // Posisi: mode pet = simpanan dulu (default atas-tengah);
+        // mode notch SELALU atas-tengah window utama, y=0
+        // (menempel tepi atas — posisi simpanan lama dari pill
+        // 560px sengaja diabaikan supaya notch kembali ke tengah).
         let scale = w.window().scale_factor();
-        if let Some((x, y)) = read_bar_position(db) {
-            w.window().set_position(slint::PhysicalPosition::new(
-                ((x.max(0)) as f32 * scale) as i32,
-                ((y.max(0)) as f32 * scale) as i32,
-            ));
+        if mode == "pet" {
+            if let Some((x, y)) = read_bar_position(db) {
+                w.window().set_position(slint::PhysicalPosition::new(
+                    ((x.max(0)) as f32 * scale) as i32,
+                    ((y.max(0)) as f32 * scale) as i32,
+                ));
+            } else if let Some(ui) = ui_weak.upgrade() {
+                let win = ui.window();
+                let pos = win.position();
+                let size = win.size();
+                let mscale = win.scale_factor();
+                let bw = (84f32 * mscale) as i32;
+                let cx = (pos.x + (size.width as i32 - bw) / 2).max(0);
+                let cy = (pos.y + (60f32 * mscale) as i32).max(0);
+                w.window()
+                    .set_position(slint::PhysicalPosition::new(cx, cy));
+            }
         } else if let Some(ui) = ui_weak.upgrade() {
             let win = ui.window();
             let pos = win.position();
             let size = win.size();
             let mscale = win.scale_factor();
-            let bw = (560f32 * mscale) as i32;
+            let bw = (150f32 * mscale) as i32;
             let cx = (pos.x + (size.width as i32 - bw) / 2).max(0);
-            let cy = (pos.y + (12f32 * mscale) as i32).max(0);
-            w.window()
-                .set_position(slint::PhysicalPosition::new(cx, cy));
+            w.window().set_position(slint::PhysicalPosition::new(cx, 0));
         }
         // Isi angka dari AppWindow (sumber yang sama dengan widget
         // dashboard) + notifikasi dari store. Tema disalin eksplisit
@@ -1138,6 +1287,9 @@ fn open_dynamic_bar_window(
         if let Ok(st) = bar_store.lock() {
             push_notifs_to_bar(w, &st.notifications);
         }
+        // Segarkan volume OS saat bar dibuka (panel mengembang
+        // menampilkan nilai sebenarnya, bukan tebakan).
+        refresh_bar_volume(w);
         // Hide + show = naik ke depan (Slint tidak punya Activate).
         let _ = w.hide();
         let _ = w.show();
@@ -1151,6 +1303,44 @@ fn open_dynamic_bar_window(
             ui.set_app_dynamic_bar_visible(true);
         }
     }
+}
+
+/// Segarkan kontrol volume panel mengembang dari OS (Windows:
+/// Core Audio; Linux: pactl/wpctl). Berjalan di thread sendiri
+/// supaya subprocess (~0,1–0,5 detik) tidak memblokir UI; bila
+/// OS tidak menyediakan kontrol volume, slider dinonaktifkan
+/// (volume-available=false), bukan error.
+fn refresh_bar_volume(w: &DynamicBarWindow) {
+    let w_weak = w.as_weak();
+    std::thread::spawn(move || {
+        let vol = volume::get_volume();
+        let _ = w_weak.upgrade_in_event_loop(move |w| match vol {
+            Some(v) => {
+                w.set_volume_available(true);
+                w.set_volume_f(v.level as f32 / 100.0);
+                w.set_volume_muted(v.muted);
+            }
+            None => {
+                w.set_volume_available(false);
+            }
+        });
+    });
+}
+
+/// Pusatkan notch secara horizontal di atas window utama.
+/// Dipakai saat notch mengembang/mengecil (lebar window berubah
+/// 150 <-> 560 sementara tepi kiri OS diam — tanpa ini, notch
+/// yang mengembang bergeser ke kanan). `y` tidak disentuh.
+fn recenter_notch(w: &DynamicBarWindow, ui: &AppWindow, expanded: bool) {
+    let win = ui.window();
+    let pos = win.position();
+    let size = win.size();
+    let mscale = win.scale_factor();
+    let bw = ((if expanded { 560f32 } else { 150f32 }) * mscale) as i32;
+    let cx = (pos.x + (size.width as i32 - bw) / 2).max(0);
+    let cur = w.window().position();
+    w.window()
+        .set_position(slint::PhysicalPosition::new(cx, cur.y));
 }
 
 /// Sembunyikan Dynamic Bar (dari flyout profil / toggle):
@@ -1993,6 +2183,10 @@ fn main() -> Result<(), slint::PlatformError> {
     // tema berubah.
     let bar_win_cell: std::rc::Rc<std::cell::RefCell<Option<DynamicBarWindow>>> =
         std::rc::Rc::new(std::cell::RefCell::new(None));
+    // Waktu drag terakhir mode pet (wander tidak jalan 5 detik
+    // setelah user selesai men-drag avatar).
+    let pet_last_drag: Arc<Mutex<Instant>> =
+        Arc::new(Mutex::new(Instant::now()));
     let bar_visible: std::rc::Rc<std::cell::Cell<bool>> =
         std::rc::Rc::new(std::cell::Cell::new(false));
 
@@ -2114,6 +2308,64 @@ fn main() -> Result<(), slint::PlatformError> {
             if let Some(v) = db_guard.get("Settings.DynamicBar.Visible") {
                 ui.set_app_dynamic_bar_visible(!(v == "false" || v == "0"));
             }
+            // Notch hidup: mode + voice (default: notch, voice
+            // nyala, volume 80, suara otomatis = Bahasa Indonesia
+            // bila ada voice id-ID di sistem, kalau tidak ada
+            // pakai suara default sistem).
+            let mut notch_mode = "notch".to_string();
+            if let Some(v) = db_guard.get("Settings.Notch.Mode") {
+                if v == "pet" {
+                    notch_mode = "pet".to_string();
+                }
+            }
+            ui.set_app_notch_mode(slint::SharedString::from(notch_mode.as_str()));
+            let mut vcfg = voice::VoiceConfig::default();
+            if let Some(v) = db_guard.get("Settings.Notch.VoiceEnabled") {
+                vcfg.enabled = !(v == "false" || v == "0");
+            }
+            if let Some(v) = db_guard.get("Settings.Notch.VoiceName") {
+                vcfg.voice_name = v;
+            }
+            if let Some(v) = db_guard.get("Settings.Notch.VoiceVolume") {
+                if let Ok(n) = v.parse::<i32>() {
+                    vcfg.volume = n.clamp(0, 100);
+                }
+            }
+            ui.set_app_notch_voice_enabled(vcfg.enabled);
+            ui.set_app_notch_voice_name(slint::SharedString::from(vcfg.voice_name.as_str()));
+            ui.set_app_notch_voice_volume(slint::SharedString::from(vcfg.volume.to_string()));
+            voice::set_config(vcfg.clone());
+            // Daftar suara SAPI (Windows saja; di Linux kosong —
+            // ComboBox di Settings hanya menampilkan "Otomatis").
+            // Di Windows enumerasi ini ~0,5 detik.
+            let voices = voice::list_voices();
+            let mut voice_display: Vec<slint::SharedString> =
+                vec![slint::SharedString::from("Otomatis (Indonesia bila ada)")];
+            let mut voice_names: Vec<slint::SharedString> =
+                vec![slint::SharedString::from("")];
+            for v in &voices {
+                voice_display.push(slint::SharedString::from(format!(
+                    "{} ({})",
+                    v.name, v.culture
+                )));
+                voice_names.push(slint::SharedString::from(v.name.as_str()));
+            }
+            ui.set_app_notch_voices(slint::ModelRc::new(slint::VecModel::from(
+                voice_display,
+            )));
+            ui.set_app_notch_voice_names(slint::ModelRc::new(slint::VecModel::from(
+                voice_names,
+            )));
+            let voice_idx = if vcfg.voice_name.is_empty() {
+                0
+            } else {
+                voices
+                    .iter()
+                    .position(|v| v.name == vcfg.voice_name)
+                    .map(|i| i + 1)
+                    .unwrap_or(0)
+            };
+            ui.set_app_notch_voice_index(voice_idx as i32);
             if let Some(v) = db_guard.get("User.Name") {
                 ui.set_app_user_name(slint::SharedString::from(v));
             }
@@ -2305,7 +2557,7 @@ fn main() -> Result<(), slint::PlatformError> {
                         synced += cards.len();
                         // Dynamic Bar: kartu baru di list ini.
                         if let Ok(mut st) = bar_store.lock() {
-                            record_list_sync(
+                            let fresh = record_list_sync(
                                 &mut st,
                                 &el,
                                 "EDITING",
@@ -2314,6 +2566,15 @@ fn main() -> Result<(), slint::PlatformError> {
                                     .map(|c| (c.id.clone(), c.name.clone()))
                                     .collect::<Vec<_>>(),
                             );
+                            if fresh > 0 {
+                                voice::speak_event("Ada kartu baru masuk di EDITING.");
+                                // Maskot kaget sebentar (ekspresi blob, lihat
+                                // effective-mood di DynamicBarWindow).
+                                st.pet_mood_until = Some((
+                                    "surprised".to_string(),
+                                    Instant::now() + std::time::Duration::from_secs(3),
+                                ));
+                            }
                         }
                         let count = format!("{}", cards.len());
                         let titles: Vec<slint::SharedString> = cards
@@ -2387,7 +2648,7 @@ fn main() -> Result<(), slint::PlatformError> {
                         synced += cards.len();
                         // Dynamic Bar: kartu baru di list ini.
                         if let Ok(mut st) = bar_store.lock() {
-                            record_list_sync(
+                            let fresh = record_list_sync(
                                 &mut st,
                                 &rl,
                                 "REVISION",
@@ -2396,6 +2657,15 @@ fn main() -> Result<(), slint::PlatformError> {
                                     .map(|c| (c.id.clone(), c.name.clone()))
                                     .collect::<Vec<_>>(),
                             );
+                            if fresh > 0 {
+                                voice::speak_event("Ada kartu baru masuk di REVISION.");
+                                // Maskot kaget sebentar (ekspresi blob, lihat
+                                // effective-mood di DynamicBarWindow).
+                                st.pet_mood_until = Some((
+                                    "surprised".to_string(),
+                                    Instant::now() + std::time::Duration::from_secs(3),
+                                ));
+                            }
                         }
                         let count = format!("{}", cards.len());
                         let titles: Vec<slint::SharedString> = cards
@@ -2458,7 +2728,7 @@ fn main() -> Result<(), slint::PlatformError> {
                         synced += cards.len();
                         // Dynamic Bar: kartu baru di list ini.
                         if let Ok(mut st) = bar_store.lock() {
-                            record_list_sync(
+                            let fresh = record_list_sync(
                                 &mut st,
                                 &ll,
                                 "LATE",
@@ -2467,6 +2737,15 @@ fn main() -> Result<(), slint::PlatformError> {
                                     .map(|c| (c.id.clone(), c.name.clone()))
                                     .collect::<Vec<_>>(),
                             );
+                            if fresh > 0 {
+                                voice::speak_event("Ada kartu baru masuk di LATE.");
+                                // Maskot kaget sebentar (ekspresi blob, lihat
+                                // effective-mood di DynamicBarWindow).
+                                st.pet_mood_until = Some((
+                                    "surprised".to_string(),
+                                    Instant::now() + std::time::Duration::from_secs(3),
+                                ));
+                            }
                         }
                         let count = format!("{}", cards.len());
                         let titles: Vec<slint::SharedString> = cards
@@ -3425,8 +3704,9 @@ fn main() -> Result<(), slint::PlatformError> {
         let ui_weak = ui.as_weak();
         let store = bar_store.clone();
         let db_clone = db.clone();
+        let pet_last_drag = pet_last_drag.clone();
         ui.on_open_dynamic_bar(move || {
-            open_dynamic_bar_window(&cell, &vis, &ui_weak, &store, &db_clone);
+            open_dynamic_bar_window(&cell, &vis, &ui_weak, &store, &db_clone, &pet_last_drag);
         });
     }
     {
@@ -3436,6 +3716,96 @@ fn main() -> Result<(), slint::PlatformError> {
         let db_clone = db.clone();
         ui.on_hide_dynamic_bar(move || {
             hide_dynamic_bar_window(&cell, &vis, &ui_weak, &db_clone);
+        });
+    }
+
+    // ---- Notch hidup: pengaturan mode + voice (Settings >
+    // Appearance > Notch). Mode diterapkan langsung tanpa
+    // restart — bar yang sedang tampil dibuka-ulang di mode
+    // baru (notch: atas-tengah; pet: posisi tersimpan).
+    {
+        let cell = bar_win_cell.clone();
+        let vis = bar_visible.clone();
+        let ui_weak = ui.as_weak();
+        let store = bar_store.clone();
+        let db_clone = db.clone();
+        let pet_last_drag = pet_last_drag.clone();
+        ui.on_notch_settings_changed(move || {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let mode = ui.get_app_notch_mode().to_string();
+            let enabled = ui.get_app_notch_voice_enabled();
+            let vol_str = ui.get_app_notch_voice_volume().to_string();
+            let volume = vol_str.parse::<i32>().unwrap_or(80).clamp(0, 100);
+            let idx = ui.get_app_notch_voice_index();
+            let name = if idx <= 0 {
+                String::new()
+            } else {
+                ui.get_app_notch_voice_names()
+                    .iter()
+                    .nth(idx as usize)
+                    .map(|s| s.to_string())
+                    .unwrap_or_default()
+            };
+            voice::set_config(voice::VoiceConfig {
+                enabled,
+                voice_name: name.clone(),
+                volume,
+            });
+            if let Some(ref db_mutex) = db_clone {
+                if let Ok(mut guard) = db_mutex.lock() {
+                    let _ = guard.set("Settings.Notch.Mode", &mode, "String");
+                    let _ = guard.set(
+                        "Settings.Notch.VoiceEnabled",
+                        if enabled { "true" } else { "false" },
+                        "Bool",
+                    );
+                    let _ = guard.set("Settings.Notch.VoiceName", &name, "String");
+                    let _ = guard.set(
+                        "Settings.Notch.VoiceVolume",
+                        &volume.to_string(),
+                        "String",
+                    );
+                }
+            }
+            // Mode baru langsung berlaku: bila bar sedang tampil,
+            // buka-ulang di mode baru (notch kembali ke atas-tengah,
+            // pet ke posisi tersimpan); bila bar tertutup, cukup
+            // simpan — posisi diterapkan saat dibuka lagi.
+            if vis.get() {
+                open_dynamic_bar_window(
+                    &cell,
+                    &vis,
+                    &ui_weak,
+                    &store,
+                    &db_clone,
+                    &pet_last_drag,
+                );
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_test_notch_voice(move || {
+            #[cfg(not(target_os = "windows"))]
+            {
+                if let Some(ui) = ui_weak.upgrade() {
+                    ui.set_toast(slint::SharedString::from(
+                        "Voice hanya tersedia di Windows (SAPI).",
+                    ));
+                }
+            }
+            #[cfg(target_os = "windows")]
+            {
+                // Preview sengaja mengabaikan toggle aktif (lihat
+                // voice::speak_test) tapi memakai suara + volume
+                // yang dipilih di Settings.
+                voice::speak_test("Halo, saya maskot BMachine. Notch hidup siap membantu.");
+                if let Some(ui) = ui_weak.upgrade() {
+                    ui.set_toast(slint::SharedString::from("Mengucapkan tes suara…"));
+                }
+            }
         });
     }
 
@@ -3733,7 +4103,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                 let count = format!("{}", cards.len());
                                 // Dynamic Bar: kartu baru di list ini.
                                 if let Ok(mut st) = bar_store_bg.lock() {
-                                    record_list_sync(
+                                    let fresh = record_list_sync(
                                         &mut st,
                                         &e_l,
                                         "EDITING",
@@ -3742,6 +4112,15 @@ fn main() -> Result<(), slint::PlatformError> {
                                             .map(|c| (c.id.clone(), c.name.clone()))
                                             .collect::<Vec<_>>(),
                                     );
+                                    if fresh > 0 {
+                                        voice::speak_event("Ada kartu baru masuk di EDITING.");
+                                        // Maskot kaget sebentar (ekspresi blob, lihat
+                                        // effective-mood di DynamicBarWindow).
+                                        st.pet_mood_until = Some((
+                                            "surprised".to_string(),
+                                            Instant::now() + std::time::Duration::from_secs(3),
+                                        ));
+                                    }
                                 }
                                 let _ = ui_bg.upgrade_in_event_loop(move |u| {
                                     u.set_stat_editing(count.into());
@@ -3757,7 +4136,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                 let count = format!("{}", cards.len());
                                 // Dynamic Bar: kartu baru di list ini.
                                 if let Ok(mut st) = bar_store_bg.lock() {
-                                    record_list_sync(
+                                    let fresh = record_list_sync(
                                         &mut st,
                                         &r_l,
                                         "REVISION",
@@ -3766,6 +4145,15 @@ fn main() -> Result<(), slint::PlatformError> {
                                             .map(|c| (c.id.clone(), c.name.clone()))
                                             .collect::<Vec<_>>(),
                                     );
+                                    if fresh > 0 {
+                                        voice::speak_event("Ada kartu baru masuk di REVISION.");
+                                        // Maskot kaget sebentar (ekspresi blob, lihat
+                                        // effective-mood di DynamicBarWindow).
+                                        st.pet_mood_until = Some((
+                                            "surprised".to_string(),
+                                            Instant::now() + std::time::Duration::from_secs(3),
+                                        ));
+                                    }
                                 }
                                 let _ = ui_bg.upgrade_in_event_loop(move |u| {
                                     u.set_stat_revision(count.into());
@@ -3782,7 +4170,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                 let count = format!("{}", cards.len());
                                 // Dynamic Bar: kartu baru di list ini.
                                 if let Ok(mut st) = bar_store_bg.lock() {
-                                    record_list_sync(
+                                    let fresh = record_list_sync(
                                         &mut st,
                                         &l_l,
                                         "LATE",
@@ -3791,6 +4179,15 @@ fn main() -> Result<(), slint::PlatformError> {
                                             .map(|c| (c.id.clone(), c.name.clone()))
                                             .collect::<Vec<_>>(),
                                     );
+                                    if fresh > 0 {
+                                        voice::speak_event("Ada kartu baru masuk di LATE.");
+                                        // Maskot kaget sebentar (ekspresi blob, lihat
+                                        // effective-mood di DynamicBarWindow).
+                                        st.pet_mood_until = Some((
+                                            "surprised".to_string(),
+                                            Instant::now() + std::time::Duration::from_secs(3),
+                                        ));
+                                    }
                                 }
                                 let _ = ui_bg.upgrade_in_event_loop(move |u| {
                                     u.set_stat_late(count.into());
@@ -4531,7 +4928,24 @@ fn main() -> Result<(), slint::PlatformError> {
                                 ui.set_stat_points(slint::SharedString::from(pts.as_str()));
                             }
                             if let Ok(mut st) = bar_store_timer.lock() {
-                                record_points(&mut st, &pts);
+                                if let Some((_prev, cur)) = record_points(&mut st, &pts) {
+                                    // Maskot bicara (SAPI, Windows
+                                    // saja; di Linux speak_event
+                                    // no-op). Angka ditulis polos —
+                                    // SAPI mengucapkannya sebagai
+                                    // bilangan, bukan digit per digit.
+                                    voice::speak_event(&format!(
+                                        "Poin bertambah menjadi {}.",
+                                        cur
+                                    ));
+                                    // Maskot senang sebentar (ekspresi
+                                    // blob, lihat effective-mood).
+                                    st.pet_mood_until = Some((
+                                        "happy".to_string(),
+                                        Instant::now()
+                                            + std::time::Duration::from_secs(4),
+                                    ));
+                                }
                             }
                         }
                     }
@@ -4553,6 +4967,131 @@ fn main() -> Result<(), slint::PlatformError> {
                 if let Ok(st) = bar_store_timer.lock() {
                     push_notifs_to_bar(w, &st.notifications);
                 }
+                // Mood maskot dari event terakhir (kartu baru →
+                // kaget, poin naik → senang); kedaluwarsa → idle.
+                // Tidur/sapa dihitung sisi Slint (effective-mood).
+                if let Ok(st) = bar_store_timer.lock() {
+                    let mood = match &st.pet_mood_until {
+                        Some((m, until)) if *until > Instant::now() => m.clone(),
+                        _ => "idle".to_string(),
+                    };
+                    w.set_pet_mood(slint::SharedString::from(mood.as_str()));
+                }
+            }
+        },
+    );
+
+    // ---- Mode pet: idle wander HALUS (SYARAT TEGAS abeng) ----
+    // Timer 120 ms menggeser avatar beberapa px per tick menuju
+    // satu titik target (ease-out: 8% sisa jarak, 1–5 px/tick)
+    // — gerakan meluncur, BUKAN teleport tiap 2 detik seperti
+    // wander lama. Target baru diambil tiap 4–8 detik / saat
+    // tercapai, selalu di dalam area window utama. Tidak jalan
+    // saat di-hover, saat panel mengembang, atau 5 detik setelah
+    // di-drag. Mode notch tidak wander.
+    let pet_wander_target: std::rc::Rc<std::cell::RefCell<Option<(i32, i32)>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(None));
+    let pet_wander_deadline: std::rc::Rc<std::cell::RefCell<Instant>> =
+        std::rc::Rc::new(std::cell::RefCell::new(Instant::now()));
+    let _pet_wander_timer = slint::Timer::default();
+    _pet_wander_timer.start(
+        slint::TimerMode::Repeated,
+        std::time::Duration::from_millis(120),
+        {
+            let ui_weak = ui.as_weak();
+            let bar_cell = bar_win_cell.clone();
+            let pet_last_drag = pet_last_drag.clone();
+            let target_cell = pet_wander_target.clone();
+            let deadline_cell = pet_wander_deadline.clone();
+            move || {
+                let Some(ui) = ui_weak.upgrade() else {
+                    return;
+                };
+                if ui.get_app_notch_mode().as_str() != "pet" {
+                    return;
+                }
+                let bar_borrow = bar_cell.borrow();
+                let Some(w) = bar_borrow.as_ref() else {
+                    return;
+                };
+                if w.get_pet_hovering() || w.get_expanded() {
+                    return;
+                }
+                let last_drag = pet_last_drag
+                    .lock()
+                    .map(|t| *t)
+                    .unwrap_or(Instant::now());
+                if last_drag.elapsed() <= std::time::Duration::from_secs(5) {
+                    return;
+                }
+                let win = ui.window();
+                let mpos = win.position();
+                let msize = win.size();
+                let scale = w.window().scale_factor();
+                if scale <= 0.0 {
+                    return;
+                }
+                let pet = (84f32 * scale) as i32;
+                let min_x = mpos.x;
+                let max_x = (mpos.x + msize.width as i32 - pet).max(min_x);
+                let min_y = mpos.y + (28f32 * scale) as i32;
+                let max_y = (mpos.y + msize.height as i32 - pet).max(min_y);
+                let pos = w.window().position();
+                let now = Instant::now();
+                // Target baru bila belum ada, sudah tercapai
+                // (±4 px), atau tenggat lewat.
+                let need_new = match *target_cell.borrow() {
+                    None => true,
+                    Some((tx, ty)) => {
+                        (pos.x - tx).abs() <= 4 && (pos.y - ty).abs() <= 4
+                    }
+                } || *deadline_cell.borrow() <= now;
+                if need_new {
+                    // Acak dari jam nano (tanpa crate rand) —
+                    // target min 60 px dari posisi sekarang.
+                    let nanos = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.subsec_nanos())
+                        .unwrap_or(0);
+                    let mut nx = pos.x;
+                    let mut ny = pos.y;
+                    for i in 0..6u32 {
+                        let seed = nanos.wrapping_add(i.wrapping_mul(2654435761));
+                        let cx = min_x
+                            + ((seed / 97) % ((max_x - min_x).max(1) as u32)) as i32;
+                        let cy = min_y
+                            + ((seed / 131) % ((max_y - min_y).max(1) as u32)) as i32;
+                        if (cx - pos.x).abs() + (cy - pos.y).abs() >= 60 {
+                            nx = cx;
+                            ny = cy;
+                            break;
+                        }
+                        if i == 5 {
+                            nx = cx;
+                            ny = cy;
+                        }
+                    }
+                    *target_cell.borrow_mut() = Some((nx, ny));
+                    *deadline_cell.borrow_mut() =
+                        now + std::time::Duration::from_secs(4 + (nanos % 4) as u64);
+                }
+                // Satu langkah halus menuju target (ease-out).
+                let Some((tx, ty)) = *target_cell.borrow() else {
+                    return;
+                };
+                let dx = tx - pos.x;
+                let dy = ty - pos.y;
+                if dx == 0 && dy == 0 {
+                    return;
+                }
+                let step_x = ((dx as f32 * 0.08) as i32).clamp(-5, 5);
+                let step_x = if step_x == 0 { dx.signum() } else { step_x };
+                let step_y = ((dy as f32 * 0.08) as i32).clamp(-5, 5);
+                let step_y = if step_y == 0 { dy.signum() } else { step_y };
+                w.window().set_position(slint::PhysicalPosition::new(
+                    pos.x + step_x,
+                    pos.y + step_y,
+                ));
             }
         },
     );
@@ -4570,10 +5109,11 @@ fn main() -> Result<(), slint::PlatformError> {
             let vis = bar_visible.clone();
             let store = bar_store.clone();
             let db_clone = db.clone();
+            let pet_last_drag = pet_last_drag.clone();
             move || {
                 if let Some(ui) = ui_weak.upgrade() {
                     if ui.get_app_dynamic_bar_visible() {
-                        open_dynamic_bar_window(&cell, &vis, &ui_weak, &store, &db_clone);
+                        open_dynamic_bar_window(&cell, &vis, &ui_weak, &store, &db_clone, &pet_last_drag);
                     }
                 }
             }

@@ -31,6 +31,18 @@ langsung tahu apa yang diubah, tanpa menebak.**
 1. **Verifikasi sungguhan:** `cargo build` harus exit 0, lalu tes dengan
    klik sungguhan + screenshot. "Belum terbukti jalan tidak boleh diklaim
    beres." Tulis apa yang dites dan hasilnya di entri log.
+
+### Alat tes GUI (Xvfb :98)
+
+- Kirim tombol global: `/tmp/sendkey2 :98 <mode>` — display adalah argumen
+  PERTAMA, mode kedua (mis. `ctrlcomma`, `esc`, `ctrll`). Bentuk
+  `/tmp/sendkey2:98 ...` (titik dua menempel nama file) SALAH — file itu
+  tidak ada; bentuk `/tmp/sendkey2 ctrlcomma:98` juga salah ("GAGAL buka
+  ctrlcomma"). Scroll: `xdotool click 5` = ke bawah, `click 4` = ke atas.
+- Screenshot: `ffmpeg -y -f x11grab -video_size 1280x800 -i :98
+  -frames:v 1 <file>.png` (spasi setelah `-i` wajib).
+- Matikan instance tes berdasarkan window ID saja
+  (`xdotool windowkill <id>`), JANGAN `pkill -f bmachine`.
 2. **Tulis entri di `PERUBAHAN.md`** (format di bawah) — apa yang diubah,
    kenapa, apa yang terverifikasi, apa yang masih terbuka. Ini yang bikin
    Dex tidak bingung saat project diserahkan lagi.

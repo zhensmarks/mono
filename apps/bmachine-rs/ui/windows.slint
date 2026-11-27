@@ -723,10 +723,127 @@ export component CardListWindow inherits Window {
 // (Rust menyalin properti AppWindow tiap 2 detik — bukan angka
 // baru; lihat main.rs `bar sync timer`).
 // ============================================================
+// ===== Dynamic Bar — NOTCH HIDUP (rework 27 Nov 2026) =====
+// Referensi: Nusa (rama2555.github.io/nusa) — "a living notch
+// for Windows", native Rust. Keadaan diam = pill hitam kecil di
+// atas-tengah layar berisi maskot sepasang mata putih bercahaya
+// (TIDAK ada angka yang terlihat langsung). Hover → mengembang
+// menampilkan status widget dashboard + notifikasi; mouse
+// menjauh → mengecil lagi (Nusa: "Hover the notch to open it.
+// Move away and it closes.").
+// Mata berkedip (timer), pupil mengikuti kursor, tertidur
+// setelah 45 detik tanpa aktivitas, menyapa (mata membesar)
+// saat user kembali — perilaku maskot Nusa.
+// Mode "pet": maskot jadi avatar bulat yang bisa di-drag ke mana
+// saja dan bergerak sendiri (idle wander dari timer Rust).
+// Voice: maskot bicara via SAPI Windows (Rust, src/voice.rs) —
+// suara beneran, bukan bubble teks.
+// Notch sendiri selalu hitam (ala Nusa) di semua tema; panel
+// mengembang mengikuti token Design aktif (sync_design_to_bar).
+component MascotEye inherits Rectangle {
+    in property <length> eye-w: 14px;
+    in property <length> eye-h: 18px;
+    in property <length> pupil-dx: 0px;
+    in property <length> pupil-dy: 0px;
+    in property <bool> eye-closed: false;
+
+    width: root.eye-w + 10px;
+    height: 34px;
+
+    // Glow putih di belakang mata.
+    Rectangle {
+        width: root.eye-w + 8px;
+        height: root.eye-h + 8px;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        border-radius: 12px;
+        background: #ffffff;
+        opacity: 0.14;
+    }
+    // Bola mata putih.
+    Rectangle {
+        width: root.eye-w;
+        height: root.eye-h;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        border-radius: root.eye-w / 2;
+        background: #ffffff;
+        // Pupil hitam — hilang saat mata terpejam/tidur.
+        if !root.eye-closed : Rectangle {
+            width: 7px;
+            height: 9px;
+            x: (parent.width - self.width) / 2 + root.pupil-dx;
+            y: (parent.height - self.height) / 2 + root.pupil-dy;
+            border-radius: 4px;
+            background: #0d0d0d;
+        }
+    }
+}
+
+// Slider volume OS di panel mengembang (ala overlay volume
+// Nusa). Nilai 0..1; drag/klik di track langsung mengubahnya.
+// `changed` dipanggil tiap gerakan — Rust men-debounce ke OS.
+component VolumeSlider inherits Rectangle {
+    in-out property <float> value: 0.5;
+    in property <bool> enabled: true;
+    callback changed(float);
+
+    property <bool> pressed: false;
+    height: 28px;
+
+    // Track.
+    Rectangle {
+        width: 100%;
+        height: 6px;
+        y: (parent.height - self.height) / 2;
+        border-radius: 3px;
+        background: Design.separator;
+    }
+    // Fill (level saat ini).
+    Rectangle {
+        width: parent.width * root.value;
+        height: 6px;
+        y: (parent.height - self.height) / 2;
+        border-radius: 3px;
+        background: root.enabled ? Design.accent : Design.text-muted;
+    }
+    // Thumb.
+    Rectangle {
+        width: 14px;
+        height: 14px;
+        x: clamp(parent.width * root.value - 7px, 0px, parent.width - 14px);
+        y: (parent.height - self.height) / 2;
+        border-radius: 7px;
+        background: #ffffff;
+        border-color: root.enabled ? Design.accent : Design.text-muted;
+        border-width: 1px;
+    }
+    slider-touch := TouchArea {
+        width: 100%;
+        height: 100%;
+        mouse-cursor: pointer;
+        enabled: root.enabled;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                root.pressed = true;
+                root.value = clamp(self.mouse-x / self.width, 0, 1);
+                root.changed(root.value);
+            } else if (ev.kind == PointerEventKind.up) {
+                root.pressed = false;
+            } else if (ev.kind == PointerEventKind.cancel) {
+                root.pressed = false;
+            } else if (ev.kind == PointerEventKind.move && root.pressed) {
+                root.value = clamp(self.mouse-x / self.width, 0, 1);
+                root.changed(root.value);
+            }
+        }
+    }
+}
+
 export component DynamicBarWindow inherits Window {
     title: "BMachine — Dynamic Bar";
-    width: 560px;
-    height: root.expanded ? root.expanded-height : 46px;
+    width: root.expanded ? 560px : (root.bar-mode == "pet" ? 84px : 150px);
+    height: root.expanded ? root.expanded-height : root.pill-h;
     background: transparent;
     no-frame: true;
     always-on-top: true;
@@ -738,6 +855,9 @@ export component DynamicBarWindow inherits Window {
     callback open-category(string);
     callback open-notification(int);
     callback open-dashboard();
+    callback expanded-changed(bool);
+    callback volume-changed(float);
+    callback volume-mute-clicked();
 
     in-out property <string> stat-editing: "0";
     in-out property <string> stat-revision: "0";
@@ -749,24 +869,131 @@ export component DynamicBarWindow inherits Window {
     in-out property <[string]> notif-kinds: [];
     in-out property <[string]> notif-cats: [];
     in-out property <bool> expanded: false;
+    // Mode notch (pill atas-tengah, posisi tetap) atau pet
+    // (avatar bulat bebas, bisa di-drag + wander sendiri).
+    in-out property <string> bar-mode: "notch";
+    // True saat mouse di dalam window (dipakai Rust: pet tidak
+    // wander saat sedang di-hover).
+    in-out property <bool> pet-hovering: false;
+    // Volume OS (panel mengembang; Windows: Core Audio,
+    // Linux: pactl/wpctl; bila tidak ada → slider nonaktif).
+    in-out property <float> volume-f: 0.5;
+    in-out property <bool> volume-muted: false;
+    in-out property <bool> volume-available: true;
+    // Mood maskot (diisi Rust dari event terakhir; "idle" bila
+    // tidak ada): "idle" | "happy" | "surprised". Tidur dan
+    // sapa dihitung sisi Slint (effective-mood di bawah).
+    in-out property <string> pet-mood: "idle";
 
-    // Tinggi mengembang: pill 46 + gap 8 + panel (padding 16 +
-    // baris notifikasi maks 5 × 40 + footer 36).
-    property <length> expanded-height: 106px + max(1, min(root.notif-titles.length, 5)) * 40px;
+    // Tinggi pill dan panel mengembang.
+    property <length> pill-h: root.bar-mode == "pet" ? 84px : 32px;
+    property <length> pill-w: root.bar-mode == "pet" ? 84px : 150px;
+    // Panel: padding 8 + baris chip 40 + baris volume 36 + baris
+    // notifikasi maks 5 × 40 (atau 40 bila kosong) + footer 36
+    // + padding 8.
+    property <length> panel-h: 128px + max(1, min(root.notif-titles.length, 5)) * 40px;
+    property <length> expanded-height: root.pill-h + 8px + root.panel-h;
 
-    // State drag bersama — dipakai semua TouchArea di bar ini.
-    // (Ambang 5px membedakan drag vs klik, pola yang sama dengan
-    // drag titlebar SpreadsheetWindow.)
+    // --- Maskot: mata ---
+    property <bool> blinking: false;
+    property <bool> sleeping: false;
+    property <bool> greeting: false;
+    // Penghitung hover: tiap TouchArea di window ini menambah 1
+    // saat di-hover, kurang 1 saat ditinggal. Panel hanya
+    // menutup bila penghitung 0 (mouse benar-benar di luar
+    // window) — supaya panel tidak menutup saat mouse pindah
+    // dari notch ke chip/baris di dalam panel.
+    property <int> hover-hold: 0;
+    changed hover-hold => { root.pet-hovering = root.hover-hold > 0; }
+
+    // Mood efektif maskot (bahasa ekspresi blob, ref
+    // pet-ref-1.jpg): tidur → sleepy; sapa saat kembali →
+    // happy; selebihnya mood dari Rust (idle/happy/surprised).
+    // Semua transisi mata + mulut di-interpolasi (SYARAT
+    // TEGAS abeng: gerakan pet harus smooth, jangan lompat).
+    property <string> effective-mood: root.sleeping ? "sleepy" : (root.greeting ? "happy" : root.pet-mood);
+    property <length> eye-w: root.effective-mood == "surprised" ? 22px : (root.bar-mode == "pet" ? 20px : 14px);
+    property <length> eye-h: root.sleeping || root.blinking ? 2px : (root.effective-mood == "happy" ? (root.bar-mode == "pet" ? 8px : 12px) : (root.effective-mood == "surprised" ? (root.bar-mode == "pet" ? 30px : 22px) : (root.bar-mode == "pet" ? 24px : 18px)));
+    animate eye-h { duration: 250ms; easing: ease-in-out; }
+    animate eye-w { duration: 250ms; easing: ease-in-out; }
+    // Mulut blob (hanya mode pet — pill notch 32px terlalu
+    // pendek): idle garis tipis, happy senyum lebar,
+    // surprised "o" kecil, sleepy garis sangat tipis.
+    property <length> mouth-w: root.effective-mood == "happy" ? 22px : (root.effective-mood == "surprised" ? 10px : (root.effective-mood == "sleepy" ? 8px : 14px));
+    property <length> mouth-h: root.effective-mood == "happy" ? 11px : (root.effective-mood == "surprised" ? 13px : (root.effective-mood == "sleepy" ? 2px : 3px));
+    property <length> mouth-r: root.effective-mood == "surprised" ? 6px : 5px;
+    // Pusat pill (untuk arah pupil) — berubah saat mengembang:
+    // notch mengembang = pill 150px di tengah window 560px.
+    property <length> pill-cx: root.expanded ? (root.bar-mode == "pet" ? 50px : 280px) : (root.bar-mode == "pet" ? 42px : 75px);
+    property <length> pill-cy: root.bar-mode == "pet" ? 42px : 16px;
+    property <length> pupil-dx: root.hover-hold > 0 ? clamp((bar-touch.mouse-x - root.pill-cx) / 60px, -1, 1) * 3px : 0px;
+    property <length> pupil-dy: root.hover-hold > 0 ? clamp((bar-touch.mouse-y - root.pill-cy) / 40px, -1, 1) * 2px : 0px;
+
+    // Kedip tiap ~3,4 detik (tutup 140ms).
+    blink-timer := Timer {
+        interval: 3400ms;
+        running: true;
+        triggered => {
+            root.blinking = true;
+            blink-off.restart();
+        }
+    }
+    blink-off := Timer {
+        interval: 140ms;
+        triggered => { root.blinking = false; }
+    }
+    // Tidur setelah 45 detik tanpa hover; bangun + sapa
+    // (mata membesar 1,6 detik) saat user kembali.
+    sleep-timer := Timer {
+        interval: 45s;
+        running: true;
+        triggered => { root.sleeping = true; }
+    }
+    greet-timer := Timer {
+        interval: 1600ms;
+        triggered => { root.greeting = false; }
+    }
+    // Jeda tutup: panel menutup 400ms setelah mouse keluar.
+    close-timer := Timer {
+        interval: 400ms;
+        triggered => {
+            if (root.hover-hold <= 0) {
+                root.expanded = false;
+            }
+        }
+    }
+
+    changed expanded => { root.expanded-changed(root.expanded); }
+
+    // State drag bersama — hanya mode pet yang bisa di-drag
+    // (notch diam di atas-tengah seperti Nusa).
     property <length> drag-press-x: 0px;
     property <length> drag-press-y: 0px;
     property <bool> drag-pressed: false;
     property <bool> drag-dragging: false;
 
-    // Latar sentuh seluruh window (paling bawah): drag dari area
-    // kosong + klik = kembang/kempis + klik kanan = tutup bar.
+    // Latar sentuh seluruh window (paling bawah): hover →
+    // mengembang; klik area kosong → buka dashboard; klik
+    // kanan → tutup bar.
     bar-touch := TouchArea {
         x: 0; y: 0; width: 100%; height: 100%;
         mouse-cursor: pointer;
+        changed has-hover => {
+            if (self.has-hover) {
+                root.hover-hold += 1;
+                root.expanded = true;
+                root.sleeping = false;
+                root.greeting = true;
+                greet-timer.restart();
+                sleep-timer.restart();
+            } else {
+                root.hover-hold -= 1;
+                if (root.hover-hold <= 0) {
+                    root.hover-hold = 0;
+                    close-timer.restart();
+                }
+            }
+        }
         pointer-event(ev) => {
             if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
                 root.drag-press-x = self.mouse-x;
@@ -777,14 +1004,14 @@ export component DynamicBarWindow inherits Window {
                 if (root.drag-dragging) {
                     root.save-position();
                 } else {
-                    root.expanded = !root.expanded;
+                    root.open-dashboard();
                 }
                 root.drag-pressed = false;
                 root.drag-dragging = false;
             } else if (ev.kind == PointerEventKind.cancel) {
                 root.drag-pressed = false;
                 root.drag-dragging = false;
-            } else if (ev.kind == PointerEventKind.move && root.drag-pressed) {
+            } else if (ev.kind == PointerEventKind.move && root.drag-pressed && root.bar-mode == "pet") {
                 if (abs(self.mouse-x - root.drag-press-x) > 5px || abs(self.mouse-y - root.drag-press-y) > 5px) {
                     root.drag-dragging = true;
                 }
@@ -801,348 +1028,77 @@ export component DynamicBarWindow inherits Window {
         padding: 0;
         spacing: 8px;
 
-        // ----- Pill utama 46px -----
+        // ----- Pill notch / badan pet (hitam, mata putih) -----
         Rectangle {
-            height: 46px;
-            background: Design.surface-elevated;
-            border-color: Design.separator;
+            width: root.pill-w;
+            x: root.expanded ? (root.bar-mode == "pet" ? 8px : (parent.width - root.pill-w) / 2) : 0px;
+            height: root.pill-h;
+            background: #0d0d0d;
+            border-color: root.notif-count > 0 ? Design.accent : #ffffff26;
             border-width: 1px;
-            border-radius: 23px;
+            border-radius: root.bar-mode == "pet" ? 42px : 16px;
 
-            HorizontalLayout {
-                padding-left: 14px;
-                padding-right: 10px;
-                spacing: 4px;
-
-                // Chip EDITING
-                Rectangle {
-                    height: 30px;
-                    y: (parent.height - self.height) / 2;
-                    border-radius: Design.radius-sm;
-                    background: chip-ed-touch.has-hover ? Design.bg-hover : transparent;
-                    chip-ed-touch := TouchArea {
-                        mouse-cursor: pointer;
-                        pointer-event(ev) => {
-                            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
-                                root.drag-press-x = self.mouse-x;
-                                root.drag-press-y = self.mouse-y;
-                                root.drag-pressed = true;
-                                root.drag-dragging = false;
-                            } else if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.left) {
-                                if (root.drag-dragging) {
-                                    root.save-position();
-                                } else {
-                                    root.open-category("EDITING");
-                                }
-                                root.drag-pressed = false;
-                                root.drag-dragging = false;
-                            } else if (ev.kind == PointerEventKind.cancel) {
-                                root.drag-pressed = false;
-                                root.drag-dragging = false;
-                            } else if (ev.kind == PointerEventKind.move && root.drag-pressed) {
-                                if (abs(self.mouse-x - root.drag-press-x) > 5px || abs(self.mouse-y - root.drag-press-y) > 5px) {
-                                    root.drag-dragging = true;
-                                }
-                                if (root.drag-dragging) {
-                                    root.move-window(self.mouse-x - root.drag-press-x, self.mouse-y - root.drag-press-y);
-                                }
-                            } else if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
-                                root.close-window();
-                            }
-                        }
+            // Wajah maskot (blob, ref pet-ref-1.jpg): mata +
+            // mulut putih, di tengah pill. Mode notch hanya
+            // mata (pill 32px); mode pet mata + mulut.
+            VerticalLayout {
+                width: 100%;
+                y: (parent.height - self.height) / 2;
+                alignment: center;
+                spacing: root.bar-mode == "pet" ? 7px : 0px;
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: root.bar-mode == "pet" ? 14px : 12px;
+                    MascotEye {
+                        eye-w: root.eye-w;
+                        eye-h: root.eye-h;
+                        pupil-dx: root.pupil-dx;
+                        pupil-dy: root.pupil-dy;
+                        eye-closed: root.sleeping || root.blinking || root.effective-mood == "happy" || root.effective-mood == "sleepy";
                     }
-                    HorizontalLayout {
-                        padding-left: 8px;
-                        padding-right: 8px;
-                        spacing: 6px;
-                        Rectangle {
-                            width: 8px; height: 8px;
-                            y: (parent.height - self.height) / 2;
-                            border-radius: 4px;
-                            background: Design.cat-editing;
-                        }
-                        Text {
-                            text: "EDITING";
-                            font-size: 10px;
-                            font-weight: 700;
-                            color: Design.text-muted;
-                            vertical-alignment: center;
-                        }
-                        Text {
-                            text: root.stat-editing;
-                            font-size: 14px;
-                            font-weight: 800;
-                            color: Design.text-primary;
-                            vertical-alignment: center;
-                        }
+                    MascotEye {
+                        eye-w: root.eye-w;
+                        eye-h: root.eye-h;
+                        pupil-dx: root.pupil-dx;
+                        pupil-dy: root.pupil-dy;
+                        eye-closed: root.sleeping || root.blinking || root.effective-mood == "happy" || root.effective-mood == "sleepy";
                     }
                 }
-
-                // Chip REVISION
-                Rectangle {
-                    height: 30px;
-                    y: (parent.height - self.height) / 2;
-                    border-radius: Design.radius-sm;
-                    background: chip-rev-touch.has-hover ? Design.bg-hover : transparent;
-                    chip-rev-touch := TouchArea {
-                        mouse-cursor: pointer;
-                        pointer-event(ev) => {
-                            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
-                                root.drag-press-x = self.mouse-x;
-                                root.drag-press-y = self.mouse-y;
-                                root.drag-pressed = true;
-                                root.drag-dragging = false;
-                            } else if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.left) {
-                                if (root.drag-dragging) {
-                                    root.save-position();
-                                } else {
-                                    root.open-category("REVISION");
-                                }
-                                root.drag-pressed = false;
-                                root.drag-dragging = false;
-                            } else if (ev.kind == PointerEventKind.cancel) {
-                                root.drag-pressed = false;
-                                root.drag-dragging = false;
-                            } else if (ev.kind == PointerEventKind.move && root.drag-pressed) {
-                                if (abs(self.mouse-x - root.drag-press-x) > 5px || abs(self.mouse-y - root.drag-press-y) > 5px) {
-                                    root.drag-dragging = true;
-                                }
-                                if (root.drag-dragging) {
-                                    root.move-window(self.mouse-x - root.drag-press-x, self.mouse-y - root.drag-press-y);
-                                }
-                            } else if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
-                                root.close-window();
-                            }
-                        }
-                    }
-                    HorizontalLayout {
-                        padding-left: 8px;
-                        padding-right: 8px;
-                        spacing: 6px;
-                        Rectangle {
-                            width: 8px; height: 8px;
-                            y: (parent.height - self.height) / 2;
-                            border-radius: 4px;
-                            background: Design.cat-revision;
-                        }
-                        Text {
-                            text: "REVISION";
-                            font-size: 10px;
-                            font-weight: 700;
-                            color: Design.text-muted;
-                            vertical-alignment: center;
-                        }
-                        Text {
-                            text: root.stat-revision;
-                            font-size: 14px;
-                            font-weight: 800;
-                            color: Design.text-primary;
-                            vertical-alignment: center;
-                        }
-                    }
-                }
-
-                // Chip LATE
-                Rectangle {
-                    height: 30px;
-                    y: (parent.height - self.height) / 2;
-                    border-radius: Design.radius-sm;
-                    background: chip-late-touch.has-hover ? Design.bg-hover : transparent;
-                    chip-late-touch := TouchArea {
-                        mouse-cursor: pointer;
-                        pointer-event(ev) => {
-                            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
-                                root.drag-press-x = self.mouse-x;
-                                root.drag-press-y = self.mouse-y;
-                                root.drag-pressed = true;
-                                root.drag-dragging = false;
-                            } else if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.left) {
-                                if (root.drag-dragging) {
-                                    root.save-position();
-                                } else {
-                                    root.open-category("LATE");
-                                }
-                                root.drag-pressed = false;
-                                root.drag-dragging = false;
-                            } else if (ev.kind == PointerEventKind.cancel) {
-                                root.drag-pressed = false;
-                                root.drag-dragging = false;
-                            } else if (ev.kind == PointerEventKind.move && root.drag-pressed) {
-                                if (abs(self.mouse-x - root.drag-press-x) > 5px || abs(self.mouse-y - root.drag-press-y) > 5px) {
-                                    root.drag-dragging = true;
-                                }
-                                if (root.drag-dragging) {
-                                    root.move-window(self.mouse-x - root.drag-press-x, self.mouse-y - root.drag-press-y);
-                                }
-                            } else if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
-                                root.close-window();
-                            }
-                        }
-                    }
-                    HorizontalLayout {
-                        padding-left: 8px;
-                        padding-right: 8px;
-                        spacing: 6px;
-                        Rectangle {
-                            width: 8px; height: 8px;
-                            y: (parent.height - self.height) / 2;
-                            border-radius: 4px;
-                            background: Design.cat-late;
-                        }
-                        Text {
-                            text: "LATE";
-                            font-size: 10px;
-                            font-weight: 700;
-                            color: Design.text-muted;
-                            vertical-alignment: center;
-                        }
-                        Text {
-                            text: root.stat-late;
-                            font-size: 14px;
-                            font-weight: 800;
-                            color: Design.text-primary;
-                            vertical-alignment: center;
-                        }
-                    }
-                }
-
-                // Chip POINTS
-                Rectangle {
-                    height: 30px;
-                    y: (parent.height - self.height) / 2;
-                    border-radius: Design.radius-sm;
-                    background: chip-pts-touch.has-hover ? Design.bg-hover : transparent;
-                    chip-pts-touch := TouchArea {
-                        mouse-cursor: pointer;
-                        pointer-event(ev) => {
-                            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
-                                root.drag-press-x = self.mouse-x;
-                                root.drag-press-y = self.mouse-y;
-                                root.drag-pressed = true;
-                                root.drag-dragging = false;
-                            } else if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.left) {
-                                if (root.drag-dragging) {
-                                    root.save-position();
-                                } else {
-                                    root.open-category("POINTS");
-                                }
-                                root.drag-pressed = false;
-                                root.drag-dragging = false;
-                            } else if (ev.kind == PointerEventKind.cancel) {
-                                root.drag-pressed = false;
-                                root.drag-dragging = false;
-                            } else if (ev.kind == PointerEventKind.move && root.drag-pressed) {
-                                if (abs(self.mouse-x - root.drag-press-x) > 5px || abs(self.mouse-y - root.drag-press-y) > 5px) {
-                                    root.drag-dragging = true;
-                                }
-                                if (root.drag-dragging) {
-                                    root.move-window(self.mouse-x - root.drag-press-x, self.mouse-y - root.drag-press-y);
-                                }
-                            } else if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
-                                root.close-window();
-                            }
-                        }
-                    }
-                    HorizontalLayout {
-                        padding-left: 8px;
-                        padding-right: 8px;
-                        spacing: 6px;
-                        Rectangle {
-                            width: 8px; height: 8px;
-                            y: (parent.height - self.height) / 2;
-                            border-radius: 4px;
-                            background: Design.cat-points;
-                        }
-                        Text {
-                            text: "POINTS";
-                            font-size: 10px;
-                            font-weight: 700;
-                            color: Design.text-muted;
-                            vertical-alignment: center;
-                        }
-                        Text {
-                            text: root.stat-points;
-                            font-size: 14px;
-                            font-weight: 800;
-                            color: Design.text-primary;
-                            vertical-alignment: center;
-                        }
-                    }
-                }
-
-                Rectangle { horizontal-stretch: 1; }
-
-                // Lonceng notifikasi + badge jumlah.
-                Rectangle {
-                    width: 32px;
-                    height: 32px;
-                    y: (parent.height - self.height) / 2;
-                    border-radius: 16px;
-                    background: bell-touch.has-hover ? Design.bg-hover : transparent;
-                    bell-touch := TouchArea {
-                        mouse-cursor: pointer;
-                        pointer-event(ev) => {
-                            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
-                                root.drag-press-x = self.mouse-x;
-                                root.drag-press-y = self.mouse-y;
-                                root.drag-pressed = true;
-                                root.drag-dragging = false;
-                            } else if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.left) {
-                                if (root.drag-dragging) {
-                                    root.save-position();
-                                } else {
-                                    root.expanded = !root.expanded;
-                                }
-                                root.drag-pressed = false;
-                                root.drag-dragging = false;
-                            } else if (ev.kind == PointerEventKind.cancel) {
-                                root.drag-pressed = false;
-                                root.drag-dragging = false;
-                            } else if (ev.kind == PointerEventKind.move && root.drag-pressed) {
-                                if (abs(self.mouse-x - root.drag-press-x) > 5px || abs(self.mouse-y - root.drag-press-y) > 5px) {
-                                    root.drag-dragging = true;
-                                }
-                                if (root.drag-dragging) {
-                                    root.move-window(self.mouse-x - root.drag-press-x, self.mouse-y - root.drag-press-y);
-                                }
-                            } else if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
-                                root.close-window();
-                            }
-                        }
-                    }
-                    VerticalLayout {
-                        alignment: center;
-                        SvgIcon {
-                            name: "bell";
-                            size: 16px;
-                            icon-color: root.notif-count > 0 ? Design.accent : Design.text-secondary;
-                        }
-                    }
-                    if root.notif-count > 0 : Rectangle {
-                        x: 18px;
-                        y: -2px;
-                        width: 16px;
-                        height: 16px;
-                        border-radius: 8px;
-                        background: Design.status-danger;
-                        Text {
-                            text: root.notif-count > 9 ? "9+" : "" + root.notif-count;
-                            font-size: 9px;
-                            font-weight: 800;
-                            color: #ffffff;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                            width: 100%;
-                            height: 100%;
-                        }
+                // Mulut — bentuk berubah per mood, morfing
+                // dianimasikan (smooth, bukan lompat). Dibungkus
+                // HorizontalLayout supaya selalu di tengah
+                // (anak VerticalLayout dengan lebar eksplisit
+                // akan menempel kiri bila tidak dibungkus).
+                if root.bar-mode == "pet" : HorizontalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: root.mouth-w;
+                        height: root.mouth-h;
+                        border-radius: root.mouth-r;
+                        background: #ffffff;
+                        animate width { duration: 250ms; easing: ease-in-out; }
+                        animate height { duration: 250ms; easing: ease-in-out; }
+                        animate border-radius { duration: 250ms; easing: ease-in-out; }
                     }
                 }
             }
+
+            // Titik aksen di ujung kanan bila ada notifikasi
+            // belum dibaca (hanya mode notch — pet memakai
+            // border aksen).
+            if root.notif-count > 0 && root.bar-mode == "notch" : Rectangle {
+                x: parent.width - 18px;
+                y: (parent.height - self.height) / 2;
+                width: 8px;
+                height: 8px;
+                border-radius: 4px;
+                background: Design.accent;
+            }
         }
 
-        // ----- Panel notifikasi (hanya saat mengembang) -----
+        // ----- Panel mengembang (hanya saat hover) -----
         if root.expanded : Rectangle {
-            height: root.expanded-height - 54px;
+            height: root.panel-h;
             background: Design.surface-elevated;
             border-color: Design.separator;
             border-width: 1px;
@@ -1152,6 +1108,392 @@ export component DynamicBarWindow inherits Window {
             VerticalLayout {
                 padding: 8px;
                 spacing: 0;
+
+                // Baris 4 chip angka (status widget dashboard).
+                HorizontalLayout {
+                    height: 40px;
+                    spacing: 4px;
+
+                    // Chip EDITING
+                    Rectangle {
+                        height: 30px;
+                        y: (parent.height - self.height) / 2;
+                        border-radius: Design.radius-sm;
+                        background: chip-ed-touch.has-hover ? Design.bg-hover : transparent;
+                        chip-ed-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            changed has-hover => {
+                                if (self.has-hover) { root.hover-hold += 1; } else { root.hover-hold -= 1; if (root.hover-hold < 0) { root.hover-hold = 0; } }
+                            }
+                            pointer-event(ev) => {
+                                if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                                    root.drag-press-x = self.mouse-x;
+                                    root.drag-press-y = self.mouse-y;
+                                    root.drag-pressed = true;
+                                    root.drag-dragging = false;
+                                } else if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.left) {
+                                    if (root.drag-dragging) {
+                                        root.save-position();
+                                    } else {
+                                        root.open-category("EDITING");
+                                    }
+                                    root.drag-pressed = false;
+                                    root.drag-dragging = false;
+                                } else if (ev.kind == PointerEventKind.cancel) {
+                                    root.drag-pressed = false;
+                                    root.drag-dragging = false;
+                                } else if (ev.kind == PointerEventKind.move && root.drag-pressed && root.bar-mode == "pet") {
+                                    if (abs(self.mouse-x - root.drag-press-x) > 5px || abs(self.mouse-y - root.drag-press-y) > 5px) {
+                                        root.drag-dragging = true;
+                                    }
+                                    if (root.drag-dragging) {
+                                        root.move-window(self.mouse-x - root.drag-press-x, self.mouse-y - root.drag-press-y);
+                                    }
+                                } else if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                                    root.close-window();
+                                }
+                            }
+                        }
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            spacing: 6px;
+                            Rectangle {
+                                width: 8px; height: 8px;
+                                y: (parent.height - self.height) / 2;
+                                border-radius: 4px;
+                                background: Design.cat-editing;
+                            }
+                            Text {
+                                text: "EDITING";
+                                font-size: 10px;
+                                font-weight: 700;
+                                color: Design.text-muted;
+                                vertical-alignment: center;
+                            }
+                            Text {
+                                text: root.stat-editing;
+                                font-size: 14px;
+                                font-weight: 800;
+                                color: Design.text-primary;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    // Chip REVISION
+                    Rectangle {
+                        height: 30px;
+                        y: (parent.height - self.height) / 2;
+                        border-radius: Design.radius-sm;
+                        background: chip-rev-touch.has-hover ? Design.bg-hover : transparent;
+                        chip-rev-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            changed has-hover => {
+                                if (self.has-hover) { root.hover-hold += 1; } else { root.hover-hold -= 1; if (root.hover-hold < 0) { root.hover-hold = 0; } }
+                            }
+                            pointer-event(ev) => {
+                                if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                                    root.drag-press-x = self.mouse-x;
+                                    root.drag-press-y = self.mouse-y;
+                                    root.drag-pressed = true;
+                                    root.drag-dragging = false;
+                                } else if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.left) {
+                                    if (root.drag-dragging) {
+                                        root.save-position();
+                                    } else {
+                                        root.open-category("REVISION");
+                                    }
+                                    root.drag-pressed = false;
+                                    root.drag-dragging = false;
+                                } else if (ev.kind == PointerEventKind.cancel) {
+                                    root.drag-pressed = false;
+                                    root.drag-dragging = false;
+                                } else if (ev.kind == PointerEventKind.move && root.drag-pressed && root.bar-mode == "pet") {
+                                    if (abs(self.mouse-x - root.drag-press-x) > 5px || abs(self.mouse-y - root.drag-press-y) > 5px) {
+                                        root.drag-dragging = true;
+                                    }
+                                    if (root.drag-dragging) {
+                                        root.move-window(self.mouse-x - root.drag-press-x, self.mouse-y - root.drag-press-y);
+                                    }
+                                } else if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                                    root.close-window();
+                                }
+                            }
+                        }
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            spacing: 6px;
+                            Rectangle {
+                                width: 8px; height: 8px;
+                                y: (parent.height - self.height) / 2;
+                                border-radius: 4px;
+                                background: Design.cat-revision;
+                            }
+                            Text {
+                                text: "REVISION";
+                                font-size: 10px;
+                                font-weight: 700;
+                                color: Design.text-muted;
+                                vertical-alignment: center;
+                            }
+                            Text {
+                                text: root.stat-revision;
+                                font-size: 14px;
+                                font-weight: 800;
+                                color: Design.text-primary;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    // Chip LATE
+                    Rectangle {
+                        height: 30px;
+                        y: (parent.height - self.height) / 2;
+                        border-radius: Design.radius-sm;
+                        background: chip-late-touch.has-hover ? Design.bg-hover : transparent;
+                        chip-late-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            changed has-hover => {
+                                if (self.has-hover) { root.hover-hold += 1; } else { root.hover-hold -= 1; if (root.hover-hold < 0) { root.hover-hold = 0; } }
+                            }
+                            pointer-event(ev) => {
+                                if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                                    root.drag-press-x = self.mouse-x;
+                                    root.drag-press-y = self.mouse-y;
+                                    root.drag-pressed = true;
+                                    root.drag-dragging = false;
+                                } else if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.left) {
+                                    if (root.drag-dragging) {
+                                        root.save-position();
+                                    } else {
+                                        root.open-category("LATE");
+                                    }
+                                    root.drag-pressed = false;
+                                    root.drag-dragging = false;
+                                } else if (ev.kind == PointerEventKind.cancel) {
+                                    root.drag-pressed = false;
+                                    root.drag-dragging = false;
+                                } else if (ev.kind == PointerEventKind.move && root.drag-pressed && root.bar-mode == "pet") {
+                                    if (abs(self.mouse-x - root.drag-press-x) > 5px || abs(self.mouse-y - root.drag-press-y) > 5px) {
+                                        root.drag-dragging = true;
+                                    }
+                                    if (root.drag-dragging) {
+                                        root.move-window(self.mouse-x - root.drag-press-x, self.mouse-y - root.drag-press-y);
+                                    }
+                                } else if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                                    root.close-window();
+                                }
+                            }
+                        }
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            spacing: 6px;
+                            Rectangle {
+                                width: 8px; height: 8px;
+                                y: (parent.height - self.height) / 2;
+                                border-radius: 4px;
+                                background: Design.cat-late;
+                            }
+                            Text {
+                                text: "LATE";
+                                font-size: 10px;
+                                font-weight: 700;
+                                color: Design.text-muted;
+                                vertical-alignment: center;
+                            }
+                            Text {
+                                text: root.stat-late;
+                                font-size: 14px;
+                                font-weight: 800;
+                                color: Design.text-primary;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    // Chip POINTS
+                    Rectangle {
+                        height: 30px;
+                        y: (parent.height - self.height) / 2;
+                        border-radius: Design.radius-sm;
+                        background: chip-pts-touch.has-hover ? Design.bg-hover : transparent;
+                        chip-pts-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            changed has-hover => {
+                                if (self.has-hover) { root.hover-hold += 1; } else { root.hover-hold -= 1; if (root.hover-hold < 0) { root.hover-hold = 0; } }
+                            }
+                            pointer-event(ev) => {
+                                if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                                    root.drag-press-x = self.mouse-x;
+                                    root.drag-press-y = self.mouse-y;
+                                    root.drag-pressed = true;
+                                    root.drag-dragging = false;
+                                } else if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.left) {
+                                    if (root.drag-dragging) {
+                                        root.save-position();
+                                    } else {
+                                        root.open-category("POINTS");
+                                    }
+                                    root.drag-pressed = false;
+                                    root.drag-dragging = false;
+                                } else if (ev.kind == PointerEventKind.cancel) {
+                                    root.drag-pressed = false;
+                                    root.drag-dragging = false;
+                                } else if (ev.kind == PointerEventKind.move && root.drag-pressed && root.bar-mode == "pet") {
+                                    if (abs(self.mouse-x - root.drag-press-x) > 5px || abs(self.mouse-y - root.drag-press-y) > 5px) {
+                                        root.drag-dragging = true;
+                                    }
+                                    if (root.drag-dragging) {
+                                        root.move-window(self.mouse-x - root.drag-press-x, self.mouse-y - root.drag-press-y);
+                                    }
+                                } else if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                                    root.close-window();
+                                }
+                            }
+                        }
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            spacing: 6px;
+                            Rectangle {
+                                width: 8px; height: 8px;
+                                y: (parent.height - self.height) / 2;
+                                border-radius: 4px;
+                                background: Design.cat-points;
+                            }
+                            Text {
+                                text: "POINTS";
+                                font-size: 10px;
+                                font-weight: 700;
+                                color: Design.text-muted;
+                                vertical-alignment: center;
+                            }
+                            Text {
+                                text: root.stat-points;
+                                font-size: 14px;
+                                font-weight: 800;
+                                color: Design.text-primary;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    Rectangle { horizontal-stretch: 1; }
+
+                    // Lonceng notifikasi + badge jumlah (klik =
+                    // tutup panel manual).
+                    Rectangle {
+                        width: 32px;
+                        height: 32px;
+                        y: (parent.height - self.height) / 2;
+                        border-radius: 16px;
+                        background: bell-touch.has-hover ? Design.bg-hover : transparent;
+                        bell-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            changed has-hover => {
+                                if (self.has-hover) { root.hover-hold += 1; } else { root.hover-hold -= 1; if (root.hover-hold < 0) { root.hover-hold = 0; } }
+                            }
+                            pointer-event(ev) => {
+                                if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                                    root.drag-press-x = self.mouse-x;
+                                    root.drag-press-y = self.mouse-y;
+                                    root.drag-pressed = true;
+                                    root.drag-dragging = false;
+                                } else if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.left) {
+                                    if (root.drag-dragging) {
+                                        root.save-position();
+                                    } else {
+                                        root.expanded = !root.expanded;
+                                    }
+                                    root.drag-pressed = false;
+                                    root.drag-dragging = false;
+                                } else if (ev.kind == PointerEventKind.cancel) {
+                                    root.drag-pressed = false;
+                                    root.drag-dragging = false;
+                                } else if (ev.kind == PointerEventKind.move && root.drag-pressed && root.bar-mode == "pet") {
+                                    if (abs(self.mouse-x - root.drag-press-x) > 5px || abs(self.mouse-y - root.drag-press-y) > 5px) {
+                                        root.drag-dragging = true;
+                                    }
+                                    if (root.drag-dragging) {
+                                        root.move-window(self.mouse-x - root.drag-press-x, self.mouse-y - root.drag-press-y);
+                                    }
+                                } else if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                                    root.close-window();
+                                }
+                            }
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            SvgIcon {
+                                name: "bell";
+                                size: 16px;
+                                icon-color: root.notif-count > 0 ? Design.accent : Design.text-secondary;
+                            }
+                        }
+                        if root.notif-count > 0 : Rectangle {
+                            x: 18px;
+                            y: -2px;
+                            width: 16px;
+                            height: 16px;
+                            border-radius: 8px;
+                            background: Design.status-danger;
+                            Text {
+                                text: root.notif-count > 9 ? "9+" : "" + root.notif-count;
+                                font-size: 9px;
+                                font-weight: 800;
+                                color: #ffffff;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                                width: 100%;
+                                height: 100%;
+                            }
+                        }
+                    }
+                }
+
+                // Baris volume OS (ala overlay volume Nusa) —
+                // ganti shortcut radial volume yang dibatalkan
+                // 27 Nov 20:41. Slider + persen + bisukan.
+                HorizontalLayout {
+                    height: 36px;
+                    spacing: 8px;
+                    vol-icon-touch := TouchArea {
+                        width: 28px;
+                        mouse-cursor: pointer;
+                        enabled: root.volume-available;
+                        changed has-hover => {
+                            if (self.has-hover) { root.hover-hold += 1; } else { root.hover-hold -= 1; if (root.hover-hold < 0) { root.hover-hold = 0; } }
+                        }
+                        clicked => { root.volume-mute-clicked(); }
+                        VerticalLayout {
+                            alignment: center;
+                            SvgIcon {
+                                name: root.volume-muted ? "volume-x" : "volume";
+                                size: 16px;
+                                icon-color: root.volume-available ? Design.text-primary : Design.text-muted;
+                            }
+                        }
+                    }
+                    VolumeSlider {
+                        horizontal-stretch: 1;
+                        value <=> root.volume-f;
+                        enabled: root.volume-available && !root.volume-muted;
+                        changed(v) => { root.volume-changed(v); }
+                    }
+                    Text {
+                        width: 44px;
+                        text: !root.volume-available ? "—" : (root.volume-muted ? "Bisukan" : "" + Math.round(root.volume-f * 100) + "%");
+                        font-size: 12px;
+                        font-weight: 700;
+                        color: root.volume-available ? Design.text-primary : Design.text-muted;
+                        vertical-alignment: center;
+                        horizontal-alignment: right;
+                    }
+                }
 
                 if root.notif-titles.length == 0 : Rectangle {
                     height: 40px;
@@ -1172,6 +1514,9 @@ export component DynamicBarWindow inherits Window {
                     background: row-touch.has-hover ? Design.bg-hover : transparent;
                     row-touch := TouchArea {
                         mouse-cursor: pointer;
+                        changed has-hover => {
+                            if (self.has-hover) { root.hover-hold += 1; } else { root.hover-hold -= 1; if (root.hover-hold < 0) { root.hover-hold = 0; } }
+                        }
                         pointer-event(ev) => {
                             if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
                                 root.drag-press-x = self.mouse-x;
@@ -1189,7 +1534,7 @@ export component DynamicBarWindow inherits Window {
                             } else if (ev.kind == PointerEventKind.cancel) {
                                 root.drag-pressed = false;
                                 root.drag-dragging = false;
-                            } else if (ev.kind == PointerEventKind.move && root.drag-pressed) {
+                            } else if (ev.kind == PointerEventKind.move && root.drag-pressed && root.bar-mode == "pet") {
                                 if (abs(self.mouse-x - root.drag-press-x) > 5px || abs(self.mouse-y - root.drag-press-y) > 5px) {
                                     root.drag-dragging = true;
                                 }
@@ -1239,6 +1584,9 @@ export component DynamicBarWindow inherits Window {
                     background: dash-touch.has-hover ? Design.bg-hover : transparent;
                     dash-touch := TouchArea {
                         mouse-cursor: pointer;
+                        changed has-hover => {
+                            if (self.has-hover) { root.hover-hold += 1; } else { root.hover-hold -= 1; if (root.hover-hold < 0) { root.hover-hold = 0; } }
+                        }
                         pointer-event(ev) => {
                             if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
                                 root.drag-press-x = self.mouse-x;
@@ -1256,7 +1604,7 @@ export component DynamicBarWindow inherits Window {
                             } else if (ev.kind == PointerEventKind.cancel) {
                                 root.drag-pressed = false;
                                 root.drag-dragging = false;
-                            } else if (ev.kind == PointerEventKind.move && root.drag-pressed) {
+                            } else if (ev.kind == PointerEventKind.move && root.drag-pressed && root.bar-mode == "pet") {
                                 if (abs(self.mouse-x - root.drag-press-x) > 5px || abs(self.mouse-y - root.drag-press-y) > 5px) {
                                     root.drag-dragging = true;
                                 }
