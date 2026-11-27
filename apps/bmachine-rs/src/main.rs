@@ -612,6 +612,30 @@ fn record_points(state: &mut BarState, current: &str) -> Option<(i64, i64)> {
     }
 }
 
+/// Parse angka stat ("24", "4.180", "-") → f64; gagal → 0.
+fn parse_stat_num(s: &str) -> f64 {
+    let t = s.trim().replace('.', "").replace(',', "");
+    t.parse::<f64>().unwrap_or(0.0)
+}
+
+/// Rasio gauge template widget (DESIGN_SYSTEM.md §22): tiap nilai
+/// dibagi nilai TERBESAR keempat widget (EDITING/REVISION/LATE/
+/// POINTS) → 0..1. Dipanggil timer sinkronisasi bar tiap 2 detik,
+/// jadi rasio menyusul perubahan stat paling lambat 2 detik — sama
+/// seperti salinan stat ke bar. Semua nol → semua rasio 0.
+fn update_gauge_ratios(ui: &AppWindow) {
+    let e = parse_stat_num(&ui.get_stat_editing());
+    let r = parse_stat_num(&ui.get_stat_revision());
+    let l = parse_stat_num(&ui.get_stat_late());
+    let p = parse_stat_num(&ui.get_stat_points());
+    let max = e.max(r).max(l).max(p);
+    let ratio = |v: f64| if max > 0.0 { (v / max) as f32 } else { 0.0f32 };
+    ui.set_gauge_editing(ratio(e));
+    ui.set_gauge_revision(ratio(r));
+    ui.set_gauge_late(ratio(l));
+    ui.set_gauge_points(ratio(p));
+}
+
 /// Dorong daftar notifikasi ke window bar (wholesale replace —
 /// Slint tidak bisa append array). Hanya 5 terbaru yang ditampilkan
 /// (panel mengembang maks 5 baris); `notif-count` tetap total.
@@ -9170,6 +9194,9 @@ fn main() -> Result<(), slint::PlatformError> {
                         }
                     }
                 }
+                // Rasio gauge template widget — menyusul stat
+                // (timer ini juga yang menyalin stat ke bar).
+                update_gauge_ratios(&ui);
                 let bar_borrow = bar_cell.borrow();
                 let Some(w) = bar_borrow.as_ref() else {
                     return;
@@ -9200,6 +9227,9 @@ fn main() -> Result<(), slint::PlatformError> {
             }
         },
     );
+
+    // Rasio gauge pertama (sebelum tick timer 2 detik pertama).
+    update_gauge_ratios(&ui);
 
     // ---- Trello auto-refresh: timer 1 detik (ala C#
     // DashboardViewModel: DispatcherTimer 1 detik + cek elapsed per
@@ -10090,6 +10120,16 @@ mod tests {
         assert_eq!(range_start_row("ALL DATA REGULER!A3:Z"), 3);
         assert_eq!(range_start_row("EDITOR HARIAN!J14"), 14);
         assert_eq!(range_start_row(""), 1);
+    }
+
+    #[test]
+    fn gauge_stat_num_parsing() {
+        assert_eq!(parse_stat_num("24"), 24.0);
+        assert_eq!(parse_stat_num("4.180"), 4180.0);
+        assert_eq!(parse_stat_num("0"), 0.0);
+        assert_eq!(parse_stat_num("-"), 0.0);
+        assert_eq!(parse_stat_num(""), 0.0);
+        assert_eq!(parse_stat_num(" 12 "), 12.0);
     }
 
     #[test]

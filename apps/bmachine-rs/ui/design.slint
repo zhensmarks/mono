@@ -916,11 +916,30 @@ export component StatWidget inherits Rectangle {
     // tema (sistem tema §22). Nilai: "solid" (datar, bawaan) |
     // "gradient" (tinta aksen memudar dari atas) | "glass"
     // (permukaan terangkat + border tinta aksen) | "outline"
-    // (transparan, border aksen penuh, tanpa garis atas). C# TIDAK
-    // punya padanan (kartu C# selalu solid CardBackgroundBrush +
-    // bar aksen) — ini tambahan port yang konsisten dengan design
+    // (transparan, border aksen penuh, tanpa garis atas) | "gauge"
+    // (template arc gauge bercahaya + angka besar tengah + badge
+    // status, ref widget-template-ref.jpg). C# TIDAK punya
+    // padanan (kartu C# selalu solid CardBackgroundBrush + bar
+    // aksen) — ini tambahan port yang konsisten dengan design
     // system. Diatur AppWindow via properti `widget-style`.
     in property <string> bg-style: "solid";
+    // Rasio gauge 0..1 — diisi Rust (nilai widget / nilai terbesar
+    // keempat widget, lihat update_gauge_ratios di main.rs).
+    in property <float> gauge-ratio: 0;
+    property <bool> is-gauge: root.bg-style == "gauge";
+    // Geometri busur (viewbox 100×42): busur elips dari (6,40) ke
+    // (94,40) lewat puncak (50,12). Sudut theta = 180° saat rasio
+    // 0 (ujung kiri) → 0° saat rasio 1 (ujung kanan).
+    property <float> gauge-ratio-c: min(max(root.gauge-ratio, 0), 1);
+    property <angle> gauge-theta: (1 - root.gauge-ratio-c) * 180deg;
+    property <float> gauge-end-x: 50 + 44 * cos(root.gauge-theta);
+    property <float> gauge-end-y: 40 - 28 * sin(root.gauge-theta);
+    // Status dari rasio: >=0.75 Tinggi, >=0.35 Sedang, else Rendah.
+    property <string> gauge-status: root.gauge-ratio-c >= 0.75 ? "Tinggi" : root.gauge-ratio-c >= 0.35 ? "Sedang" : "Rendah";
+    // Angka gauge lebih kecil dari angka mode biasa (ruang dipakai
+    // arc + caption + badge): 62% dari val-size.
+    property <length> gauge-val-size: root.val-size * 0.62;
+    property <length> gauge-suffix-size: root.gauge-val-size * 0.25;
     // Tinggi gelombang "impulse" (0..1) — 14 titik.
     property <[float]> wave: [0.0, 0.3, 0.6, 0.9, 0.5, 0.1, 0.4, 0.8, 1.0, 0.6, 0.2, 0.5, 0.85, 0.35];
     // Ukuran font nilai — PROPORSIONAL terhadap lebar kartu
@@ -949,9 +968,9 @@ export component StatWidget inherits Rectangle {
 
     // Turunan gaya permukaan (dihitung sekali, dipakai wadah dalam).
     property <color> surface-bg: root.bg-style == "glass" ? Design.surface-elevated : root.bg-style == "outline" ? transparent : Design.card-bg;
-    property <color> surface-border: root.bg-style == "outline" ? accent : root.bg-style == "glass" ? (touch.has-hover ? accent : accent.with-alpha(0.45)) : (touch.has-hover ? accent : Design.separator);
+    property <color> surface-border: root.bg-style == "outline" ? accent : root.bg-style == "glass" ? (touch.has-hover ? accent : accent.with-alpha(0.45)) : root.is-gauge ? (touch.has-hover ? accent : accent.with-alpha(0.35)) : (touch.has-hover ? accent : Design.separator);
     property <length> surface-border-width: root.bg-style == "outline" ? 1.5px * scale : 1px;
-    property <bool> show-top-bar: root.bg-style != "outline";
+    property <bool> show-top-bar: root.bg-style != "outline" && !root.is-gauge;
 
     // Lapisan luar = warna aksen. Bentuknya (radius 12) adalah bentuk
     // kartu, jadi garis aksen di tepi atas otomatis mengikuti lengkung
@@ -988,7 +1007,7 @@ export component StatWidget inherits Rectangle {
         // Varian "doodle": plus + lingkaran outline + titik.
         Rectangle {
             x: 0; y: 0; width: 100%; height: 100%;
-            visible: root.bg == "doodle";
+            visible: root.bg == "doodle" && !root.is-gauge;
             // Plus kiri atas.
             Rectangle { x: 22px * scale; y: 22px * scale; width: 14px * scale; height: 2px * scale; background: accent; opacity: 0.18; }
             Rectangle { x: 28px * scale; y: 16px * scale; width: 2px * scale; height: 14px * scale; background: accent; opacity: 0.18; }
@@ -1007,7 +1026,7 @@ export component StatWidget inherits Rectangle {
         // Varian "dots": titik-titik halus di tepi atas & bawah kartu.
         Rectangle {
             x: 0; y: 0; width: 100%; height: 100%;
-            visible: root.bg == "dots";
+            visible: root.bg == "dots" && !root.is-gauge;
             for i in 12:
                 Rectangle {
                     x: (i + 0.5) * parent.width / 12 - 1.5px * scale;
@@ -1034,7 +1053,7 @@ export component StatWidget inherits Rectangle {
         // bukan grafik data (tidak ada angka/sumbu/keterangan).
         Rectangle {
             x: 0; y: 0; width: 100%; height: 100%;
-            visible: root.bg == "impulse";
+            visible: root.bg == "impulse" && !root.is-gauge;
             for i in 14:
                 Rectangle {
                     x: (i + 0.5) * parent.width / 14 - 2px * scale;
@@ -1066,6 +1085,7 @@ export component StatWidget inherits Rectangle {
             height: 100%;
             padding: 20px * scale;
             spacing: 8px * scale;
+            visible: !root.is-gauge;
 
             // Atas: dot + label + panah buka (kanan).
             HorizontalLayout {
@@ -1134,6 +1154,179 @@ export component StatWidget inherits Rectangle {
                     font-weight: 800;
                     color: accent;
                     letter-spacing: 1px * scale;
+                }
+            }
+        }
+
+        // --- Template "Gauge" (abeng 27 Nov 21:15, ref
+        // widget-template-ref.jpg): arc bercahaya + angka besar di
+        // tengah + badge status. Arc = nilai widget relatif terhadap
+        // nilai TERBESAR keempat widget (gauge-ratio 0..1, dihitung
+        // Rust tiap 2 detik — update_gauge_ratios di main.rs).
+        // Warna mengikuti aksen widget + token tema (card-bg /
+        // text-*), jadi gelap/terang ikut tema aktif — bukan kartu
+        // gelap tetap seperti ref.
+        VerticalLayout {
+            x: 0;
+            y: 0;
+            width: 100%;
+            height: 100%;
+            padding: 16px * scale;
+            spacing: 4px * scale;
+            visible: root.is-gauge;
+
+            // Atas: dot + label + panah (sama seperti mode biasa).
+            HorizontalLayout {
+                height: 20px * scale;
+                spacing: 8px * scale;
+                Text {
+                    text: "●";
+                    font-size: 8px * scale;
+                    color: accent;
+                    vertical-alignment: center;
+                }
+                Text {
+                    text: label;
+                    font-size: 13px * scale;
+                    font-weight: 800;
+                    color: Design.text-secondary;
+                    letter-spacing: 1px * scale;
+                    vertical-alignment: center;
+                }
+                Rectangle { horizontal-stretch: 1; }
+                arrow-touch-gauge := TouchArea {
+                    width: 28px * scale;
+                    height: 100%;
+                    mouse-cursor: pointer;
+                    clicked => { root.arrow-clicked(); }
+                    SvgIcon {
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        name: "arrow-right";
+                        size: 15px * scale;
+                        icon-color: arrow-touch-gauge.has-hover ? accent : Design.text-muted;
+                    }
+                }
+            }
+
+            // Arc: viewbox 100×42, busur elips (6,40) → (94,40)
+            // lewat puncak (50,12). Bagian terisi = busur penuh
+            // yang di-clip selebar titik ujung (x monoton sepanjang
+            // busur, jadi potongan vertikal = busur sampai sudut
+            // rasio). Glow = 3 lapis stroke + wash radial.
+            gauge-arc-area := Rectangle {
+                vertical-stretch: 1;
+                Rectangle {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    background: @radial-gradient(circle, accent.with-alpha(0.16) 0%, transparent 70%);
+                }
+                Path {
+                    width: 100%; height: 100%;
+                    viewbox-x: 0; viewbox-y: 0; viewbox-width: 100; viewbox-height: 42;
+                    // fit: fill — WAJIB: default Path = contain
+                    // (letterbox, aspek dipertahankan) sehingga busur
+                    // menyusut ke tengah dan dot/clip (yang memakai
+                    // koordinat elemen penuh) tidak sejajar.
+                    fit: fill;
+                    fill: transparent;
+                    stroke: accent.with-alpha(0.20);
+                    stroke-width: 3px;
+                    stroke-line-cap: round;
+                    commands: "M 6 40 A 44 28 0 0 1 94 40";
+                }
+                Rectangle {
+                    x: 0; y: 0;
+                    width: parent.width * root.gauge-end-x / 100;
+                    height: 100%;
+                    clip: true;
+                    visible: root.gauge-ratio-c > 0.001;
+                    Path {
+                        width: gauge-arc-area.width; height: gauge-arc-area.height;
+                        viewbox-x: 0; viewbox-y: 0; viewbox-width: 100; viewbox-height: 42;
+                        fit: fill;
+                        fill: transparent;
+                        stroke: accent.with-alpha(0.12);
+                        stroke-width: 9px;
+                        stroke-line-cap: round;
+                        commands: "M 6 40 A 44 28 0 0 1 94 40";
+                    }
+                    Path {
+                        width: gauge-arc-area.width; height: gauge-arc-area.height;
+                        viewbox-x: 0; viewbox-y: 0; viewbox-width: 100; viewbox-height: 42;
+                        fit: fill;
+                        fill: transparent;
+                        stroke: accent.with-alpha(0.22);
+                        stroke-width: 5px;
+                        stroke-line-cap: round;
+                        commands: "M 6 40 A 44 28 0 0 1 94 40";
+                    }
+                    Path {
+                        width: gauge-arc-area.width; height: gauge-arc-area.height;
+                        viewbox-x: 0; viewbox-y: 0; viewbox-width: 100; viewbox-height: 42;
+                        fit: fill;
+                        fill: transparent;
+                        stroke: accent;
+                        stroke-width: 2.5px;
+                        stroke-line-cap: round;
+                        commands: "M 6 40 A 44 28 0 0 1 94 40";
+                    }
+                }
+                Rectangle {
+                    visible: root.gauge-ratio-c > 0.001;
+                    width: 9px * scale; height: 9px * scale;
+                    border-radius: 999px * scale;
+                    background: accent;
+                    x: root.gauge-end-x / 100 * parent.width - self.width / 2;
+                    y: root.gauge-end-y / 42 * parent.height - self.height / 2;
+                }
+            }
+
+            // Bawah: caption + angka besar + badge status — tengah.
+            Text {
+                text: root.suffix == "POIN" ? "Total poin" : "Jumlah card";
+                font-size: 11px * scale;
+                color: Design.text-secondary;
+                horizontal-alignment: center;
+            }
+            Rectangle {
+                height: root.gauge-val-size * 1.25;
+                gauge-val := Text {
+                    x: (parent.width - self.width - 8px * scale - gauge-suf.width) / 2;
+                    y: 0;
+                    text: value;
+                    font-size: root.gauge-val-size;
+                    font-weight: 800;
+                    color: Design.text-primary;
+                }
+                gauge-suf := Text {
+                    x: gauge-val.x + gauge-val.width + 8px * scale;
+                    y: root.gauge-val-size - root.gauge-suffix-size;
+                    text: suffix;
+                    font-size: root.gauge-suffix-size;
+                    font-weight: 800;
+                    color: accent;
+                    letter-spacing: 1px * scale;
+                }
+            }
+            HorizontalLayout {
+                alignment: center;
+                Rectangle {
+                    height: 22px * scale;
+                    width: gauge-badge-text.width + 20px * scale;
+                    background: accent.with-alpha(0.14);
+                    border-color: accent.with-alpha(0.45);
+                    border-width: 1px;
+                    border-radius: 999px * scale;
+                    gauge-badge-text := Text {
+                        x: 10px * scale;
+                        y: 0;
+                        height: 100%;
+                        text: root.gauge-status;
+                        font-size: 11px * scale;
+                        font-weight: 700;
+                        color: accent;
+                        vertical-alignment: center;
+                    }
                 }
             }
         }

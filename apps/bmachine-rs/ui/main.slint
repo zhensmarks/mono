@@ -560,6 +560,12 @@ export component AppWindow inherits Window {
     in-out property <string> stat-revision: "0";
     in-out property <string> stat-late: "0";
     in-out property <string> stat-points: "0";
+    // Rasio gauge 0..1 per widget (nilai / nilai terbesar keempat
+    // widget, dihitung Rust tiap 2 detik — update_gauge_ratios).
+    in-out property <float> gauge-editing: 0;
+    in-out property <float> gauge-revision: 0;
+    in-out property <float> gauge-late: 0;
+    in-out property <float> gauge-points: 0;
 
     // Baris sheet & leaderboard dari akun (Rust mengisi dari DB/Sheet).
     in-out property <[string]> sheet-rows: [];
@@ -1441,6 +1447,7 @@ export component AppWindow inherits Window {
                         width: (root.content-width - 52px) / 2;
                         label: "EDITING"; value: root.stat-editing; suffix: "CARD";
                         accent: Design.cat-editing;
+                        gauge-ratio: root.gauge-editing;
                         bg: root.widget-bg;
                         bg-style: root.widget-style;
                         scale: root.card-scale;
@@ -1466,6 +1473,7 @@ export component AppWindow inherits Window {
                         width: (root.content-width - 52px) / 2;
                         label: "REVISION"; value: root.stat-revision; suffix: "CARD";
                         accent: Design.cat-revision;
+                        gauge-ratio: root.gauge-revision;
                         bg: root.widget-bg;
                         bg-style: root.widget-style;
                         scale: root.card-scale;
@@ -1495,6 +1503,7 @@ export component AppWindow inherits Window {
                         width: (root.content-width - 52px) / 2;
                         label: "LATE"; value: root.stat-late; suffix: "CARD";
                         accent: Design.cat-late;
+                        gauge-ratio: root.gauge-late;
                         bg: root.widget-bg;
                         bg-style: root.widget-style;
                         scale: root.card-scale;
@@ -1520,6 +1529,7 @@ export component AppWindow inherits Window {
                         width: (root.content-width - 52px) / 2;
                         label: "POINTS"; value: root.stat-points; suffix: "POIN";
                         accent: Design.cat-points;
+                        gauge-ratio: root.gauge-points;
                         bg: root.widget-bg;
                         bg-style: root.widget-style;
                         scale: root.card-scale;

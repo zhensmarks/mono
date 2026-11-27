@@ -1318,7 +1318,7 @@ export component SettingsView inherits Rectangle {
                             spacing: 6px;
                             FieldLabel {
                                 title: "Gaya latar widget";
-                                desc: "Permukaan kartu statistik di dashboard — Solid datar, Gradien tinta aksen, Kaca terangkat, atau Outline border aksen";
+                                desc: "Permukaan kartu statistik di dashboard — Solid datar, Gradien tinta aksen, Kaca terangkat, Outline border aksen, atau Gauge arc bercahaya + angka besar + badge status";
                             }
                             HorizontalLayout {
                                 spacing: 6px;
@@ -1345,6 +1345,12 @@ export component SettingsView inherits Rectangle {
                                     horizontal-stretch: 1;
                                     selected: root.widget-style == "outline";
                                     clicked => { root.theme-preset = "custom"; root.widget-style = "outline"; root.appearance-changed(); root.toast("Gaya latar widget: Outline"); }
+                                }
+                                OptionChip {
+                                    label: "Gauge";
+                                    horizontal-stretch: 1;
+                                    selected: root.widget-style == "gauge";
+                                    clicked => { root.theme-preset = "custom"; root.widget-style = "gauge"; root.appearance-changed(); root.toast("Gaya latar widget: Gauge"); }
                                 }
                             }
                         }
@@ -1951,6 +1957,8 @@ export component SettingsView inherits Rectangle {
                                             accent: root.pv-accent;
                                             bg: root.widget-bg;
                                             bg-style: root.widget-style;
+                                            // Nilai demo supaya arc gauge terisi di pratinjau.
+                                            gauge-ratio: 0.72;
                                             scale: 1;
                                             clicked => { root.toast("Preview StatWidget — pola: " + root.widget-bg + ", gaya: " + root.widget-style); }
                                         }

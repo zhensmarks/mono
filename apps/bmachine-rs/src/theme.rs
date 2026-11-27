@@ -25,7 +25,7 @@ pub struct ThemePalette {
     pub late: String,
     pub points: String,
     /// Gaya permukaan kartu widget ("solid" | "gradient" | "glass" |
-    /// "outline"). `#[serde(default)]` supaya tema user lama (JSON
+    /// "outline" | "gauge"). `#[serde(default)]` supaya tema user lama (JSON
     /// tanpa field ini) tetap terbaca — default "solid".
     #[serde(default = "default_widget_style")]
     pub widget_style: String,
@@ -42,6 +42,7 @@ pub fn valid_widget_style(raw: &str) -> String {
         "gradient" => "gradient".to_string(),
         "glass" => "glass".to_string(),
         "outline" => "outline".to_string(),
+        "gauge" => "gauge".to_string(),
         _ => "solid".to_string(),
     }
 }
@@ -1300,6 +1301,7 @@ mod tests {
         assert_eq!(valid_widget_style("gradient"), "gradient");
         assert_eq!(valid_widget_style("glass"), "glass");
         assert_eq!(valid_widget_style("outline"), "outline");
+        assert_eq!(valid_widget_style("gauge"), "gauge");
         assert_eq!(valid_widget_style("solid"), "solid");
         assert_eq!(valid_widget_style("tidak-ada"), "solid");
         assert_eq!(valid_widget_style(""), "solid");
