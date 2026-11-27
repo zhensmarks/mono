@@ -4,6 +4,7 @@ mod db;
 mod doc_manager;
 mod executor;
 mod local_update;
+mod petdex;
 mod platform;
 mod process_log;
 mod sheets_api;
@@ -1015,6 +1016,127 @@ fn open_toolbox_window(
 /// (menempel tepi atas layar seperti notch beneran); tidak bisa
 /// di-drag — posisinya tetap. Mode pet: avatar bulat 84×84 di
 /// posisi tersimpan DynamicBar.X/Y (atau default atas-tengah),
+/// Runtime pet PetDex aktif — dibagikan timer frame, pembuka bar,
+/// dan handler Settings. Sheet di-decode sekali saat pet dipilih,
+/// lalu dipakai ulang (gambar Slint + geometri frame). "" = blob
+/// bawaan (tanpa sprite).
+struct PetRuntime {
+    active_slug: String,
+    sheet: Option<petdex::DecodedSheet>,
+    image: Option<slint::Image>,
+    engine: petdex::PetAnimationEngine,
+    last_frame: (u32, u32),
+    last_x: Option<i32>,
+}
+
+impl PetRuntime {
+    fn new() -> Self {
+        Self {
+            active_slug: String::new(),
+            sheet: None,
+            image: None,
+            engine: petdex::PetAnimationEngine::new(),
+            last_frame: (0, 0),
+            last_x: None,
+        }
+    }
+
+    /// Muat pet aktif dari folder (`""` = blob bawaan). Sheet rusak /
+    /// tidak ada → fallback blob (sprite None), jangan crash.
+    fn load_active(&mut self, slug: &str) {
+        self.active_slug = slug.to_string();
+        self.engine = petdex::PetAnimationEngine::new();
+        self.last_frame = (0, 0);
+        self.last_x = None;
+        if slug.is_empty() {
+            self.sheet = None;
+            self.image = None;
+            return;
+        }
+        match petdex::load_sheet(slug) {
+            Ok(sheet) => {
+                let img = slint::Image::from_rgba8(
+                    slint::SharedPixelBuffer::<slint::Rgba8Pixel>::clone_from_slice(
+                        &sheet.rgba,
+                        sheet.width,
+                        sheet.height,
+                    ),
+                );
+                self.image = Some(img);
+                self.sheet = Some(sheet);
+            }
+            Err(e) => {
+                eprintln!("PetDex: sheet '{slug}' gagal dimuat ({e}) — pakai blob bawaan.");
+                self.sheet = None;
+                self.image = None;
+            }
+        }
+    }
+}
+
+/// Terapkan pet aktif ke window bar (dipanggil saat bar dibuka).
+/// Mode pet + sprite ada → tampilkan sprite; selebihnya blob.
+fn apply_pet_to_bar(w: &DynamicBarWindow, runtime: &PetRuntime, is_pet_mode: bool) {
+    if !is_pet_mode {
+        w.set_pet_sprite_active(false);
+        return;
+    }
+    if let (Some(sheet), Some(img)) = (&runtime.sheet, &runtime.image) {
+        // Satu frame tampil setinggi pill pet (84px); lebar ikut
+        // rasio frame asli (192×208 → ~77px).
+        let frame_h = 84.0f32;
+        let frame_w = frame_h * sheet.frame_w as f32 / sheet.frame_h as f32;
+        w.set_pet_sprite(img.clone());
+        w.set_pet_sprite_active(true);
+        w.set_pet_frame_w(frame_w);
+        w.set_pet_frame_h(frame_h);
+        w.set_pet_sheet_cols(petdex::ATLAS_COLS as i32);
+        w.set_pet_sheet_rows(sheet.rows as i32);
+        let f = runtime.engine.current_frame();
+        w.set_pet_frame_row(f.row as i32);
+        w.set_pet_frame_col(f.col as i32);
+        w.set_pet_sprite_opacity(1.0);
+    } else {
+        w.set_pet_sprite_active(false);
+    }
+}
+
+/// Dorong daftar pet ter-install + pet aktif ke properti AppWindow
+/// (ComboBox + daftar di Settings). Index 0 = blob bawaan.
+fn refresh_pet_lists(ui: &AppWindow, active_slug: &str) {
+    let installed = petdex::list_installed();
+    let mut names: Vec<slint::SharedString> = vec![slint::SharedString::from("Blob bawaan")];
+    let mut authors: Vec<slint::SharedString> = vec![slint::SharedString::from("")];
+    let mut slugs: Vec<slint::SharedString> = vec![slint::SharedString::from("")];
+    let mut in_names: Vec<slint::SharedString> = Vec::new();
+    let mut in_authors: Vec<slint::SharedString> = Vec::new();
+    let mut in_slugs: Vec<slint::SharedString> = Vec::new();
+    for p in &installed {
+        names.push(slint::SharedString::from(p.display_name.as_str()));
+        authors.push(slint::SharedString::from(p.submitted_by.as_str()));
+        slugs.push(slint::SharedString::from(p.slug.as_str()));
+        in_names.push(slint::SharedString::from(p.display_name.as_str()));
+        in_authors.push(slint::SharedString::from(p.submitted_by.as_str()));
+        in_slugs.push(slint::SharedString::from(p.slug.as_str()));
+    }
+    ui.set_app_pet_names(slint::ModelRc::new(slint::VecModel::from(names)));
+    ui.set_app_pet_authors(slint::ModelRc::new(slint::VecModel::from(authors)));
+    ui.set_app_pet_slugs(slint::ModelRc::new(slint::VecModel::from(slugs)));
+    ui.set_app_pet_installed_names(slint::ModelRc::new(slint::VecModel::from(in_names)));
+    ui.set_app_pet_installed_authors(slint::ModelRc::new(slint::VecModel::from(in_authors)));
+    ui.set_app_pet_installed_slugs(slint::ModelRc::new(slint::VecModel::from(in_slugs)));
+    let idx = if active_slug.is_empty() {
+        0
+    } else {
+        installed
+            .iter()
+            .position(|p| p.slug == active_slug)
+            .map(|i| i + 1)
+            .unwrap_or(0)
+    };
+    ui.set_app_pet_active_index(idx as i32);
+}
+
 /// bisa di-drag + wander sendiri. Angka diisi dari properti
 /// AppWindow (sumber yang sama dengan widget dashboard) +
 /// notifikasi dari BarStore. Pola buka-ulang sama seperti
@@ -1027,6 +1149,7 @@ fn open_dynamic_bar_window(
     bar_store: &BarStore,
     db: &Option<Arc<Mutex<DatabaseService>>>,
     pet_last_drag: &Arc<Mutex<Instant>>,
+    pet_runtime: &std::rc::Rc<std::cell::RefCell<PetRuntime>>,
 ) {
     let mut opt = cell.borrow_mut();
     // Buka-ulang setelah tutup selalu buat window baru (alasan sama
@@ -1286,6 +1409,12 @@ fn open_dynamic_bar_window(
         }
         if let Ok(st) = bar_store.lock() {
             push_notifs_to_bar(w, &st.notifications);
+        }
+        // Pet PetDex aktif (mode pet): tampilkan sprite; mode
+        // notch / blob → wajah blob biasa.
+        {
+            let rt = pet_runtime.borrow();
+            apply_pet_to_bar(w, &rt, mode == "pet");
         }
         // Segarkan volume OS saat bar dibuka (panel mengembang
         // menampilkan nilai sebenarnya, bukan tebakan).
@@ -2190,6 +2319,10 @@ fn main() -> Result<(), slint::PlatformError> {
     // setelah user selesai men-drag avatar).
     let pet_last_drag: Arc<Mutex<Instant>> =
         Arc::new(Mutex::new(Instant::now()));
+    // Pet PetDex aktif — runtime sheet + mesin animasi (dibagi
+    // timer frame, pembuka bar, handler Settings).
+    let pet_runtime: std::rc::Rc<std::cell::RefCell<PetRuntime>> =
+        std::rc::Rc::new(std::cell::RefCell::new(PetRuntime::new()));
     let bar_visible: std::rc::Rc<std::cell::Cell<bool>> =
         std::rc::Rc::new(std::cell::Cell::new(false));
 
@@ -2379,6 +2512,14 @@ fn main() -> Result<(), slint::PlatformError> {
                     .unwrap_or(0)
             };
             ui.set_app_notch_voice_index(voice_idx as i32);
+            // Pet PetDex aktif ("" = blob bawaan) + daftar
+            // ter-install (ComboBox + daftar di Settings).
+            let mut active_pet = String::new();
+            if let Some(v) = db_guard.get("Settings.Notch.Pet") {
+                active_pet = v;
+            }
+            pet_runtime.borrow_mut().load_active(&active_pet);
+            refresh_pet_lists(&ui, &active_pet);
             if let Some(v) = db_guard.get("User.Name") {
                 ui.set_app_user_name(slint::SharedString::from(v));
             }
@@ -3763,8 +3904,17 @@ fn main() -> Result<(), slint::PlatformError> {
         let store = bar_store.clone();
         let db_clone = db.clone();
         let pet_last_drag = pet_last_drag.clone();
+        let pet_runtime = pet_runtime.clone();
         ui.on_open_dynamic_bar(move || {
-            open_dynamic_bar_window(&cell, &vis, &ui_weak, &store, &db_clone, &pet_last_drag);
+            open_dynamic_bar_window(
+                &cell,
+                &vis,
+                &ui_weak,
+                &store,
+                &db_clone,
+                &pet_last_drag,
+                &pet_runtime,
+            );
         });
     }
     {
@@ -3788,6 +3938,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let store = bar_store.clone();
         let db_clone = db.clone();
         let pet_last_drag = pet_last_drag.clone();
+        let pet_runtime = pet_runtime.clone();
         ui.on_notch_settings_changed(move || {
             let Some(ui) = ui_weak.upgrade() else {
                 return;
@@ -3839,6 +3990,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     &store,
                     &db_clone,
                     &pet_last_drag,
+                    &pet_runtime,
                 );
             }
         });
@@ -3862,6 +4014,182 @@ fn main() -> Result<(), slint::PlatformError> {
                 voice::speak_test("Halo, saya maskot BMachine. Notch hidup siap membantu.");
                 if let Some(ui) = ui_weak.upgrade() {
                     ui.set_toast(slint::SharedString::from("Mengucapkan tes suara…"));
+                }
+            }
+        });
+    }
+
+    // ---- Pet PetDex: pilih aktif / install / hapus / buka halaman.
+    // Semua perubahan berlaku langsung tanpa restart (bar yang sedang
+    // tampil dibuka-ulang dengan pet baru; install jalan di thread
+    // sendiri supaya unduhan tidak memblokir UI).
+    {
+        let cell = bar_win_cell.clone();
+        let vis = bar_visible.clone();
+        let ui_weak = ui.as_weak();
+        let store = bar_store.clone();
+        let db_clone = db.clone();
+        let pet_last_drag = pet_last_drag.clone();
+        let pet_runtime = pet_runtime.clone();
+        ui.on_pet_active_changed(move |idx| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let installed = petdex::list_installed();
+            let slug = if idx <= 0 {
+                String::new()
+            } else {
+                installed
+                    .get((idx - 1) as usize)
+                    .map(|p| p.slug.clone())
+                    .unwrap_or_default()
+            };
+            pet_runtime.borrow_mut().load_active(&slug);
+            if let Some(ref db_mutex) = db_clone {
+                if let Ok(mut guard) = db_mutex.lock() {
+                    let _ = guard.set("Settings.Notch.Pet", &slug, "String");
+                }
+            }
+            ui.set_app_pet_active_index(idx);
+            if vis.get() {
+                open_dynamic_bar_window(
+                    &cell,
+                    &vis,
+                    &ui_weak,
+                    &store,
+                    &db_clone,
+                    &pet_last_drag,
+                    &pet_runtime,
+                );
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
+        ui.on_pet_install_requested(move |query| {
+            let query = query.trim().to_string();
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            if query.is_empty() {
+                ui.set_toast(slint::SharedString::from(
+                    "Ketik slug atau nama pet dulu.",
+                ));
+                return;
+            }
+            ui.set_app_pet_install_busy(true);
+            let ui_weak2 = ui_weak.clone();
+            let db_clone2 = db_clone.clone();
+            std::thread::spawn(move || {
+                // Cari di manifest galeri, lalu unduh + install.
+                let result = (|| -> Result<petdex::InstalledPet, String> {
+                    let manifest = petdex::fetch_manifest()?;
+                    let entry = petdex::find_in_manifest(&manifest, &query)
+                        .ok_or_else(|| format!("Pet '{query}' tidak ada di galeri PetDex"))?;
+                    petdex::install_pet(entry)
+                })();
+                let _ = ui_weak2.upgrade_in_event_loop(move |ui| {
+                    ui.set_app_pet_install_busy(false);
+                    match result {
+                        Ok(pet) => {
+                            let active = db_clone2
+                                .as_ref()
+                                .and_then(|m| m.lock().ok())
+                                .and_then(|g| g.get("Settings.Notch.Pet"))
+                                .unwrap_or_default();
+                            refresh_pet_lists(&ui, &active);
+                            ui.set_app_pet_install_input(slint::SharedString::from(""));
+                            let credit = if pet.submitted_by.is_empty() {
+                                String::new()
+                            } else {
+                                format!(" oleh {}", pet.submitted_by)
+                            };
+                            ui.set_toast(slint::SharedString::from(format!(
+                                "Pet {} ter-install{} — pilih di Pet aktif.",
+                                pet.display_name, credit
+                            )));
+                        }
+                        Err(e) => {
+                            ui.set_toast(slint::SharedString::from(format!(
+                                "Install pet gagal: {e}"
+                            )));
+                        }
+                    }
+                });
+            });
+        });
+    }
+    {
+        let cell = bar_win_cell.clone();
+        let vis = bar_visible.clone();
+        let ui_weak = ui.as_weak();
+        let store = bar_store.clone();
+        let db_clone = db.clone();
+        let pet_last_drag = pet_last_drag.clone();
+        let pet_runtime = pet_runtime.clone();
+        ui.on_pet_remove_requested(move |idx| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let installed = petdex::list_installed();
+            let Some(pet) = installed.get(idx as usize) else {
+                return;
+            };
+            let slug = pet.slug.clone();
+            let name = pet.display_name.clone();
+            match petdex::remove_pet(&slug) {
+                Ok(()) => {
+                    // Pet yang dihapus sedang aktif → kembali ke blob.
+                    let mut active = db_clone
+                        .as_ref()
+                        .and_then(|m| m.lock().ok())
+                        .and_then(|g| g.get("Settings.Notch.Pet"))
+                        .unwrap_or_default();
+                    if active == slug {
+                        active = String::new();
+                        pet_runtime.borrow_mut().load_active("");
+                        if let Some(ref db_mutex) = db_clone {
+                            if let Ok(mut guard) = db_mutex.lock() {
+                                let _ = guard.set("Settings.Notch.Pet", "", "String");
+                            }
+                        }
+                    }
+                    refresh_pet_lists(&ui, &active);
+                    ui.set_toast(slint::SharedString::from(format!(
+                        "Pet {name} dihapus."
+                    )));
+                    if vis.get() {
+                        open_dynamic_bar_window(
+                            &cell,
+                            &vis,
+                            &ui_weak,
+                            &store,
+                            &db_clone,
+                            &pet_last_drag,
+                            &pet_runtime,
+                        );
+                    }
+                }
+                Err(e) => {
+                    ui.set_toast(slint::SharedString::from(format!("Hapus pet gagal: {e}")));
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_pet_open_page(move |idx| {
+            let installed = petdex::list_installed();
+            let Some(pet) = installed.get(idx as usize) else {
+                return;
+            };
+            let url = petdex::pet_page_url(&pet.slug);
+            if let Err(e) = platform::open_url(&url) {
+                if let Some(ui) = ui_weak.upgrade() {
+                    ui.set_toast(slint::SharedString::from(format!(
+                        "Tidak bisa buka {url} ({e})"
+                    )));
                 }
             }
         });
@@ -5160,6 +5488,81 @@ fn main() -> Result<(), slint::PlatformError> {
         },
     );
 
+    // ---- Mode pet PetDex: animasi frame sprite (50 ms) ----
+    // Timer 50 ms memajukan mesin animasi PetDex (durasi tiap frame
+    // 110–320 ms — tick harus lebih cepat dari frame terpendek supaya
+    // tidak ada frame yang terlewat) dan mendorong (baris, kolom)
+    // frame ke window bar. State diambil dari mood + gerakan yang
+    // SUDAH ADA — jangan sistem mood baru: bergerak → RunningRight /
+    // RunningLeft (arah x window); happy → Waving; surprised →
+    // Jumping; selebihnya Idle (tidur juga Idle — baris idle sudah
+    // berisi frame mata terpejam). Ganti state TIDAK di-fade
+    // (opacity): state berbalik Idle ↔ Running tiap langkah wander,
+    // fade akan menahan sprite di opacity 0 terus-menerus; yang
+    // membuat animasi smooth adalah durasi per-frame engine
+    // (tidak ada frame yang dilewat/dilompati).
+    let _pet_frame_timer = slint::Timer::default();
+    _pet_frame_timer.start(
+        slint::TimerMode::Repeated,
+        std::time::Duration::from_millis(50),
+        {
+            let ui_weak = ui.as_weak();
+            let bar_cell = bar_win_cell.clone();
+            let pet_runtime = pet_runtime.clone();
+            let bar_store_timer = bar_store.clone();
+            move || {
+                let Some(ui) = ui_weak.upgrade() else {
+                    return;
+                };
+                if ui.get_app_notch_mode().as_str() != "pet" {
+                    return;
+                }
+                let bar_borrow = bar_cell.borrow();
+                let Some(w) = bar_borrow.as_ref() else {
+                    return;
+                };
+                if !w.get_pet_sprite_active() {
+                    return;
+                }
+                let mut rt = pet_runtime.borrow_mut();
+                if rt.sheet.is_none() {
+                    return;
+                }
+                let pos = w.window().position();
+                let dx = rt.last_x.map(|lx| pos.x - lx).unwrap_or(0);
+                rt.last_x = Some(pos.x);
+                let mood = bar_store_timer
+                    .lock()
+                    .ok()
+                    .and_then(|st| match &st.pet_mood_until {
+                        Some((m, until)) if *until > Instant::now() => Some(m.clone()),
+                        _ => None,
+                    })
+                    .unwrap_or_else(|| "idle".to_string());
+                let desired = if dx > 0 {
+                    petdex::PetState::RunningRight
+                } else if dx < 0 {
+                    petdex::PetState::RunningLeft
+                } else {
+                    match mood.as_str() {
+                        "happy" => petdex::PetState::Waving,
+                        "surprised" => petdex::PetState::Jumping,
+                        _ => petdex::PetState::Idle,
+                    }
+                };
+                if rt.engine.state() != desired {
+                    rt.engine.set_state(desired);
+                }
+                let frame = rt.engine.tick(50);
+                if (frame.row, frame.col) != rt.last_frame {
+                    rt.last_frame = (frame.row, frame.col);
+                    w.set_pet_frame_row(frame.row as i32);
+                    w.set_pet_frame_col(frame.col as i32);
+                }
+            }
+        },
+    );
+
     // Buka Dynamic Bar ~2,5 detik setelah start (setelah splash
     // selesai — bootstrapper ~2 detik) bila visibilitas tersimpan
     // mengizinkan (default tampil).
@@ -5174,10 +5577,19 @@ fn main() -> Result<(), slint::PlatformError> {
             let store = bar_store.clone();
             let db_clone = db.clone();
             let pet_last_drag = pet_last_drag.clone();
+            let pet_runtime = pet_runtime.clone();
             move || {
                 if let Some(ui) = ui_weak.upgrade() {
                     if ui.get_app_dynamic_bar_visible() {
-                        open_dynamic_bar_window(&cell, &vis, &ui_weak, &store, &db_clone, &pet_last_drag);
+                        open_dynamic_bar_window(
+                            &cell,
+                            &vis,
+                            &ui_weak,
+                            &store,
+                            &db_clone,
+                            &pet_last_drag,
+                            &pet_runtime,
+                        );
                     }
                 }
             }

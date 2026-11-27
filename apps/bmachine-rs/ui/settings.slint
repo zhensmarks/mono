@@ -329,6 +329,78 @@ component ThemeRow inherits Rectangle {
     }
 }
 
+// Satu baris pet ter-install (PetDex): nama + pembuat + tombol
+// Buka (halaman PetDex) + Hapus. Klik baris = jadikan pet aktif.
+component PetRow inherits Rectangle {
+    in property <string> label;
+    in property <string> author;
+    in property <bool> selected;
+    callback clicked();
+    callback delete();
+    callback open();
+    height: 36px;
+    background: selected ? Design.accent-subtle : (trow-touch.has-hover ? Design.bg-hover : transparent);
+    border-color: selected ? Design.accent : Design.separator;
+    border-width: 1px;
+    border-radius: Design.radius-sm;
+    trow-touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 8px;
+        Text {
+            text: label;
+            font-size: Design.font-body;
+            font-weight: 600;
+            color: selected ? Design.accent : Design.text-primary;
+            vertical-alignment: center;
+        }
+        Text {
+            text: author == "" ? "" : "oleh " + author;
+            font-size: Design.font-caption;
+            color: Design.text-muted;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+        VerticalLayout {
+            alignment: center;
+            open-touch := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.open(); }
+                Text {
+                    text: "Buka";
+                    font-size: Design.font-caption;
+                    font-weight: 600;
+                    color: Design.accent;
+                }
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            del-touch := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.delete(); }
+                Text {
+                    text: "Hapus";
+                    font-size: Design.font-caption;
+                    font-weight: 600;
+                    color: Design.status-danger;
+                }
+            }
+        }
+        Text {
+            text: selected ? "✓" : "";
+            font-size: Design.font-body;
+            font-weight: 700;
+            color: Design.accent;
+            vertical-alignment: center;
+        }
+    }
+}
+
 // Satu baris warna widget: dot warna aktif + label + field hex +
 // 4 swatch. Swatch mengirim hex (string) karena Slint tidak bisa
 // memformat color → hex.
@@ -396,6 +468,14 @@ export component SettingsView inherits Rectangle {
     callback test-trello();
     callback notch-settings-changed();
     callback test-notch-voice();
+    // Pet PetDex (install/hapus dari galeri petdex.dev — model
+    // skill Hermes). pet-names[0] = "Blob bawaan"; pet-slugs[0]
+    // kosong. Daftar ter-install (tanpa blob) di pet-installed-*,
+    // sejajar: nama / pembuat / slug.
+    callback pet-active-changed(int);
+    callback pet-install-requested(string);
+    callback pet-remove-requested(int);
+    callback pet-open-page(int);
     callback open-url(string);
     // ShortcutConfig sama seperti C#: trigger direkam, disimpan ke SQLite, lalu hook aktif diperbarui.
     callback start-recording-shortcut();
@@ -415,6 +495,17 @@ export component SettingsView inherits Rectangle {
     in-out property <[string]> notch-voices: [];
     in-out property <[string]> notch-voice-names: [];
     in-out property <int> notch-voice-index: 0;
+    // Pet PetDex — terikat dua arah ke AppWindow (diisi Rust saat
+    // startup + tiap install/hapus).
+    in-out property <[string]> pet-names: [];
+    in-out property <[string]> pet-authors: [];
+    in-out property <[string]> pet-slugs: [];
+    in-out property <[string]> pet-installed-names: [];
+    in-out property <[string]> pet-installed-authors: [];
+    in-out property <[string]> pet-installed-slugs: [];
+    in-out property <int> pet-active-index: 0;
+    in-out property <string> pet-install-input: "";
+    in-out property <bool> pet-install-busy: false;
 
     in-out property <string> group: "General";
 
@@ -1254,6 +1345,58 @@ export component SettingsView inherits Rectangle {
                                     selected: root.notch-mode == "pet";
                                     clicked => { root.notch-mode = "pet"; root.notch-settings-changed(); root.toast("Mode notch: Avatar Pet"); }
                                 }
+                            }
+                        }
+
+                        // Pet PetDex (galeri petdex.dev — model
+                        // skill Hermes): install dari galeri, pilih
+                        // aktif, hapus. Pet aktif tampil di mode
+                        // Avatar Pet (bukan di pill notch). Blob
+                        // bawaan = default bila belum ada pet.
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Pet";
+                                desc: "Maskot mode Avatar Pet — blob bawaan, atau pet animasi dari galeri PetDex (gratis, 5340+ pet). Ketik slug atau nama pet, lalu Install. Kredit pembuat tampil di bawah nama.";
+                            }
+                            ComboBox {
+                                width: 260px;
+                                model: root.pet-names;
+                                current-index: root.pet-active-index;
+                                selected(index) => {
+                                    root.pet-active-index = index;
+                                    root.pet-active-changed(index);
+                                    root.toast("Pet aktif: " + root.pet-names[index]);
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField {
+                                    horizontal-stretch: 1;
+                                    text <=> root.pet-install-input;
+                                    placeholder: "slug atau nama pet, misal: boba";
+                                    accepted(text) => {
+                                        root.pet-install-requested(text);
+                                    }
+                                }
+                                Btn {
+                                    label: root.pet-install-busy ? "Mengunduh…" : "Install";
+                                    variant: "secondary";
+                                    enabled: !root.pet-install-busy;
+                                    clicked => { root.pet-install-requested(root.pet-install-input); }
+                                }
+                            }
+                            for pet[i] in root.pet-installed-slugs : PetRow {
+                                label: root.pet-installed-names[i];
+                                author: root.pet-installed-authors[i];
+                                selected: root.pet-active-index == i + 1;
+                                clicked => {
+                                    root.pet-active-index = i + 1;
+                                    root.pet-active-changed(i + 1);
+                                    root.toast("Pet aktif: " + root.pet-installed-names[i]);
+                                }
+                                delete => { root.pet-remove-requested(i); }
+                                open => { root.pet-open-page(i); }
                             }
                         }
 

@@ -144,6 +144,10 @@ export component AppWindow inherits Window {
     // Notch hidup: pengaturan mode + voice (Settings > Notch).
     callback notch-settings-changed();
     callback test-notch-voice();
+    callback pet-active-changed(int);
+    callback pet-install-requested(string);
+    callback pet-remove-requested(int);
+    callback pet-open-page(int);
 
     // ---- Appearance & Customization (persisted in SQLite) ----
     in-out property <string> app-color-mode: "dark";
@@ -195,6 +199,16 @@ export component AppWindow inherits Window {
     in-out property <[string]> app-notch-voices: [];
     in-out property <[string]> app-notch-voice-names: [];
     in-out property <int> app-notch-voice-index: 0;
+    // Pet PetDex (install/hapus dari galeri petdex.dev).
+    in-out property <[string]> app-pet-names: [];
+    in-out property <[string]> app-pet-authors: [];
+    in-out property <[string]> app-pet-slugs: [];
+    in-out property <[string]> app-pet-installed-names: [];
+    in-out property <[string]> app-pet-installed-authors: [];
+    in-out property <[string]> app-pet-installed-slugs: [];
+    in-out property <int> app-pet-active-index: 0;
+    in-out property <string> app-pet-install-input: "";
+    in-out property <bool> app-pet-install-busy: false;
     in-out property <string> app-user-name: "abeng";
     in-out property <string> app-lang: "Indonesia";
     in-out property <bool> app-anim-startup: true;
@@ -3366,6 +3380,19 @@ export component AppWindow inherits Window {
         notch-voice-index <=> root.app-notch-voice-index;
         notch-settings-changed() => { root.notch-settings-changed(); }
         test-notch-voice() => { root.test-notch-voice(); }
+        pet-names <=> root.app-pet-names;
+        pet-authors <=> root.app-pet-authors;
+        pet-slugs <=> root.app-pet-slugs;
+        pet-installed-names <=> root.app-pet-installed-names;
+        pet-installed-authors <=> root.app-pet-installed-authors;
+        pet-installed-slugs <=> root.app-pet-installed-slugs;
+        pet-active-index <=> root.app-pet-active-index;
+        pet-install-input <=> root.app-pet-install-input;
+        pet-install-busy <=> root.app-pet-install-busy;
+        pet-active-changed(index) => { root.pet-active-changed(index); }
+        pet-install-requested(text) => { root.pet-install-requested(text); }
+        pet-remove-requested(index) => { root.pet-remove-requested(index); }
+        pet-open-page(index) => { root.pet-open-page(index); }
         path-local <=> root.app-path-local;
         path-okebase <=> root.app-path-okebase;
         path-photoshop <=> root.app-path-photoshop;

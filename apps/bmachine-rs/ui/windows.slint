@@ -884,6 +884,24 @@ export component DynamicBarWindow inherits Window {
     // tidak ada): "idle" | "happy" | "surprised". Tidur dan
     // sapa dihitung sisi Slint (effective-mood di bawah).
     in-out property <string> pet-mood: "idle";
+    // Pet PetDex aktif (mode pet saja): sprite sheet + frame saat
+    // ini. Kosong = blob bawaan. Geometri frame (ukuran tampil
+    // satu frame + jumlah kolom/baris atlas) diisi Rust dari sheet
+    // yang sudah di-decode — frame 192×208 asli, tampil setinggi
+    // pill pet (84px), lebar ikut rasio frame.
+    in-out property <image> pet-sprite;
+    in-out property <bool> pet-sprite-active: false;
+    in-out property <int> pet-frame-col: 0;
+    in-out property <int> pet-frame-row: 0;
+    in-out property <length> pet-frame-w: 77px;
+    in-out property <length> pet-frame-h: 84px;
+    in-out property <int> pet-sheet-cols: 8;
+    in-out property <int> pet-sheet-rows: 9;
+    // Opacity sprite — selalu 1 (tidak di-fade antar state: state
+    // berbalik Idle ↔ Running tiap langkah wander, fade akan
+    // menahan sprite di opacity 0; lihat komentar timer frame
+    // di main.rs).
+    in-out property <float> pet-sprite-opacity: 1;
 
     // Tinggi pill dan panel mengembang.
     property <length> pill-h: root.bar-mode == "pet" ? 84px : 32px;
@@ -1029,19 +1047,41 @@ export component DynamicBarWindow inherits Window {
         spacing: 8px;
 
         // ----- Pill notch / badan pet (hitam, mata putih) -----
+        // Pet PetDex aktif (mode pet): latar hitam blob hilang —
+        // sprite-nya sendiri yang menentukan bentuk (latar sheet
+        // transparan, seperti PetDex Desktop).
         Rectangle {
             width: root.pill-w;
             x: root.expanded ? (root.bar-mode == "pet" ? 8px : (parent.width - root.pill-w) / 2) : 0px;
             height: root.pill-h;
-            background: #0d0d0d;
+            background: (root.pet-sprite-active && root.bar-mode == "pet") ? transparent : #0d0d0d;
             border-color: root.notif-count > 0 ? Design.accent : #ffffff26;
-            border-width: 1px;
+            border-width: (root.pet-sprite-active && root.bar-mode == "pet") ? 0px : 1px;
             border-radius: root.bar-mode == "pet" ? 42px : 16px;
 
-            // Wajah maskot (blob, ref pet-ref-1.jpg): mata +
-            // mulut putih, di tengah pill. Mode notch hanya
-            // mata (pill 32px); mode pet mata + mulut.
-            VerticalLayout {
+            // Sprite PetDex — atlas utuh di dalam clip 84×84,
+            // digeser per frame (kolom/baris dari Rust). Satu
+            // frame tampil setinggi pill; lebar ikut rasio frame.
+            if root.pet-sprite-active && root.bar-mode == "pet" : Rectangle {
+                width: 100%;
+                height: 100%;
+                clip: true;
+                Image {
+                    source: root.pet-sprite;
+                    width: root.pet-frame-w * root.pet-sheet-cols;
+                    height: root.pet-frame-h * root.pet-sheet-rows;
+                    x: -root.pet-frame-col * root.pet-frame-w;
+                    y: -root.pet-frame-row * root.pet-frame-h;
+                    opacity: root.pet-sprite-opacity;
+                    animate opacity { duration: 200ms; easing: ease-in-out; }
+                }
+            }
+
+            // Wajah maskot blob (hanya bila tidak ada sprite
+            // PetDex aktif): mata + mulut putih, di tengah pill.
+            // Mode notch hanya mata (pill 32px); mode pet mata +
+            // mulut.
+            if !root.pet-sprite-active : VerticalLayout {
                 width: 100%;
                 y: (parent.height - self.height) / 2;
                 alignment: center;

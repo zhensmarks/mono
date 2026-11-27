@@ -10,6 +10,8 @@ serde_json = "1.0"
 sha2 = "0.10"
 rusqlite = { version = "0.31", features = ["bundled"] }
 reqwest = { version = "0.12", features = ["json", "blocking"] }
+# Decode spritesheet PetDex (WebP/PNG) — decode_sheet di petdex.rs.
+image = { version = "0.25", default-features = false, features = ["webp", "png"] }
 rdev = "0.5.3"
 chrono = "0.4"
 
