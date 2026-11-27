@@ -1043,10 +1043,12 @@ fn open_toolbox_window(
 
 /// Buka (atau buka-ulang) DynamicBarWindow sebagai NOTCH HIDUP
 /// (rework 27 Nov 2026, referensi Nusa).
-/// Mode notch: pill 150×32 di atas-tengah window utama, y=0
-/// (menempel tepi atas layar seperti notch beneran); tidak bisa
+/// Mode notch: pill 150×32 di TENGAH ATAS LAYAR, y=0 (menempel
+/// tepi atas layar seperti notch beneran — pin layar sejak
+/// 27 Nov 2026, bukan tengah window utama lagi); tidak bisa
 /// di-drag — posisinya tetap. Mode pet: avatar bulat 84×84 di
-/// posisi tersimpan DynamicBar.X/Y (atau default atas-tengah),
+/// posisi tersimpan DynamicBar.X/Y (atau default tengah atas
+/// layar, y=60),
 /// Runtime pet PetDex aktif — dibagikan timer frame, pembuka bar,
 /// dan handler Settings. Sheet di-decode sekali saat pet dipilih,
 /// lalu dipakai ulang (gambar Slint + geometri frame). "" = blob
@@ -1287,11 +1289,13 @@ fn open_dynamic_bar_window(
             });
             // Drag bar (hanya mode pet yang menggerakkan window —
             // .slint sudah membatasi drag ke mode pet). Panel yang
-            // sedang mengembang ditahan di dalam window utama
-            // supaya tidak keluar layar; pet yang mengecil bebas
-            // di-drag ke mana saja. (Dalam praktik drag selalu
-            // mulai dari panel mengembang — hover mengembang
-            // sebelum mousedown.)
+            // sedang mengembang ditahan di dalam LAYAR supaya
+            // tidak keluar layar (dulu: di dalam window utama —
+            // diubah 27 Nov 2026, pet melayang di atas semua
+            // window, bukan di dalam window BMachine); pet yang
+            // mengecil bebas di-drag ke mana saja. (Dalam praktik
+            // drag selalu mulai dari panel mengembang — hover
+            // mengembang sebelum mousedown.)
             let w_weak2 = w.as_weak();
             let ui_weak_move = ui_weak.clone();
             w.on_move_window(move |dx, dy| {
@@ -1301,20 +1305,26 @@ fn open_dynamic_bar_window(
                     let mut nx = pos.x + (dx * scale) as i32;
                     let mut ny = pos.y + (dy * scale) as i32;
                     if w.get_expanded() {
-                        if let Some(ui) = ui_weak_move.upgrade() {
-                            let win = ui.window();
-                            let mpos = win.position();
-                            let msize = win.size();
-                            let size = w.window().size();
-                            nx = nx.clamp(
-                                mpos.x,
-                                (mpos.x + msize.width as i32 - size.width as i32).max(mpos.x),
-                            );
-                            ny = ny.clamp(
-                                mpos.y,
-                                (mpos.y + msize.height as i32 - size.height as i32).max(mpos.y),
-                            );
-                        }
+                        let size = w.window().size();
+                        let (bx0, by0, bx1, by1) = match screen_size() {
+                            Some((sw, sh)) => (0, 0, sw, sh),
+                            None => match ui_weak_move.upgrade() {
+                                Some(ui) => {
+                                    let win = ui.window();
+                                    let mpos = win.position();
+                                    let msize = win.size();
+                                    (
+                                        mpos.x,
+                                        mpos.y,
+                                        mpos.x + msize.width as i32,
+                                        mpos.y + msize.height as i32,
+                                    )
+                                }
+                                None => (pos.x, pos.y, pos.x, pos.y),
+                            },
+                        };
+                        nx = nx.clamp(bx0, (bx1 - size.width as i32).max(bx0));
+                        ny = ny.clamp(by0, (by1 - size.height as i32).max(by0));
                     }
                     w.window()
                         .set_position(slint::PhysicalPosition::new(nx, ny));
@@ -1372,21 +1382,29 @@ fn open_dynamic_bar_window(
                     let pos = w.window().position();
                     *pet_pos_exp.borrow_mut() = Some((pos.x, pos.y));
                     let win = ui.window();
-                    let mpos = win.position();
-                    let msize = win.size();
                     let scale = win.scale_factor();
                     // Lebar panel 560px; tinggi maks 420px (5
                     // notifikasi + baris volume) — clamp
                     // konservatif supaya panel tidak pernah keluar
-                    // window utama.
+                    // LAYAR (dulu: window utama — diubah 27 Nov
+                    // 2026, pet melayang di atas semua window).
                     let pw = (560f32 * scale) as i32;
                     let ph = (420f32 * scale) as i32;
-                    let nx = pos
-                        .x
-                        .clamp(mpos.x, (mpos.x + msize.width as i32 - pw).max(mpos.x));
-                    let ny = pos
-                        .y
-                        .clamp(mpos.y, (mpos.y + msize.height as i32 - ph).max(mpos.y));
+                    let (bx0, by0, bx1, by1) = match screen_size() {
+                        Some((sw, sh)) => (0, 0, sw, sh),
+                        None => {
+                            let mpos = win.position();
+                            let msize = win.size();
+                            (
+                                mpos.x,
+                                mpos.y,
+                                mpos.x + msize.width as i32,
+                                mpos.y + msize.height as i32,
+                            )
+                        }
+                    };
+                    let nx = pos.x.clamp(bx0, (bx1 - pw).max(bx0));
+                    let ny = pos.y.clamp(by0, (by1 - ph).max(by0));
                     if nx != pos.x || ny != pos.y {
                         w.window()
                             .set_position(slint::PhysicalPosition::new(nx, ny));
@@ -1477,10 +1495,14 @@ fn open_dynamic_bar_window(
                 &ui.get_app_notch_eye_style(),
             )));
         }
-        // Posisi: mode pet = simpanan dulu (default atas-tengah);
-        // mode notch SELALU atas-tengah window utama, y=0
-        // (menempel tepi atas — posisi simpanan lama dari pill
-        // 560px sengaja diabaikan supaya notch kembali ke tengah).
+        // Posisi: mode pet = simpanan dulu (default tengah atas
+        // LAYAR, y=60); mode notch SELALU tengah atas LAYAR, y=0
+        // (menempel tepi atas — keputusan abeng 27 Nov 22:44:
+        // notch/pet melayang di atas semua window, bukan ikut
+        // window utama; posisi simpanan lama dari pill 560px
+        // sengaja diabaikan supaya notch kembali ke tengah).
+        // Fallback bila ukuran layar tak terbaca: tengah window
+        // utama (perilaku lama).
         let scale = w.window().scale_factor();
         if mode == "pet" {
             if let Some((x, y)) = read_bar_position(db) {
@@ -1489,23 +1511,31 @@ fn open_dynamic_bar_window(
                     ((y.max(0)) as f32 * scale) as i32,
                 ));
             } else if let Some(ui) = ui_weak.upgrade() {
-                let win = ui.window();
-                let pos = win.position();
-                let size = win.size();
-                let mscale = win.scale_factor();
-                let bw = (84f32 * mscale) as i32;
-                let cx = (pos.x + (size.width as i32 - bw) / 2).max(0);
-                let cy = (pos.y + (60f32 * mscale) as i32).max(0);
+                let bw = (84f32 * scale) as i32;
+                let cy = (60f32 * scale) as i32;
+                let cx = match screen_size() {
+                    Some((sw, _)) => centered_x(sw, bw),
+                    None => {
+                        let win = ui.window();
+                        let pos = win.position();
+                        let size = win.size();
+                        (pos.x + (size.width as i32 - bw) / 2).max(0)
+                    }
+                };
                 w.window()
-                    .set_position(slint::PhysicalPosition::new(cx, cy));
+                    .set_position(slint::PhysicalPosition::new(cx, cy.max(0)));
             }
         } else if let Some(ui) = ui_weak.upgrade() {
-            let win = ui.window();
-            let pos = win.position();
-            let size = win.size();
-            let mscale = win.scale_factor();
-            let bw = (150f32 * mscale) as i32;
-            let cx = (pos.x + (size.width as i32 - bw) / 2).max(0);
+            let bw = (150f32 * scale) as i32;
+            let cx = match screen_size() {
+                Some((sw, _)) => centered_x(sw, bw),
+                None => {
+                    let win = ui.window();
+                    let pos = win.position();
+                    let size = win.size();
+                    (pos.x + (size.width as i32 - bw) / 2).max(0)
+                }
+            };
             w.window().set_position(slint::PhysicalPosition::new(cx, 0));
         }
         // Isi angka dari AppWindow (sumber yang sama dengan widget
@@ -1567,17 +1597,76 @@ fn refresh_bar_volume(w: &DynamicBarWindow) {
     });
 }
 
-/// Pusatkan notch secara horizontal di atas window utama.
+/// Ukuran layar (physical px) via `rdev::display_size()` —
+/// SUDAH ada sebagai dependensi (dipakai hotkey global), jadi tanpa
+/// crate baru dan build offline tetap jalan.
+/// Windows = monitor utama (`GetSystemMetrics` SM_CXSCREEN /
+/// SM_CYSCREEN); Linux = ukuran display X (bounding box virtual
+/// bila multi-monitor — RandR per-monitor belum dipakai, jadi di
+/// Linux multi-monitor "tengah layar" = tengah bounding box virtual;
+/// lihat "Masih terbuka" di PERUBAHAN.md).
+/// None bila display tidak bisa dibaca — pemanggil fallback ke
+/// tengah window utama (perilaku lama sebelum 27 Nov 2026).
+fn screen_size() -> Option<(i32, i32)> {
+    let (w, h) = rdev::display_size().ok()?;
+    if w == 0 || h == 0 || w > i32::MAX as u64 || h > i32::MAX as u64 {
+        return None;
+    }
+    Some((w as i32, h as i32))
+}
+
+/// x agar bar selebar `bar_w` terpusat di wadah selebar
+/// `container_w` (physical px); clamp >= 0 bila bar lebih lebar
+/// dari wadah.
+fn centered_x(container_w: i32, bar_w: i32) -> i32 {
+    ((container_w - bar_w) / 2).max(0)
+}
+
+#[cfg(test)]
+mod screen_center_tests {
+    use super::*;
+
+    #[test]
+    fn centered_x_puts_bar_in_middle_of_screen() {
+        // Layar Xvfb 1280×800: notch 150 → x=565, panel 560 → 360,
+        // pet 84 → 598 (pusat 640 di semua lebar).
+        assert_eq!(centered_x(1280, 150), 565);
+        assert_eq!(centered_x(1280, 560), 360);
+        assert_eq!(centered_x(1280, 84), 598);
+        assert_eq!(centered_x(1920, 150), 885);
+        // Bar lebih lebar dari layar → clamp 0, bukan negatif.
+        assert_eq!(centered_x(100, 150), 0);
+        assert_eq!(centered_x(0, 150), 0);
+    }
+
+    #[test]
+    fn screen_size_returns_something_sane_when_display_exists() {
+        // Di CI tanpa display boleh None; bila ada, harus > 0.
+        if let Some((w, h)) = screen_size() {
+            assert!(w > 0 && h > 0);
+        }
+    }
+}
+
+/// Pusatkan notch secara horizontal di TENGAH LAYAR (bukan window
+/// utama — keputusan abeng 27 Nov 22:44: notch nempel di tengah
+/// atas monitor ala Nusa/macOS, melayang di atas semua window).
 /// Dipakai saat notch mengembang/mengecil (lebar window berubah
 /// 150 <-> 560 sementara tepi kiri OS diam — tanpa ini, notch
 /// yang mengembang bergeser ke kanan). `y` tidak disentuh.
+/// Fallback: tengah window utama bila ukuran layar tak terbaca.
 fn recenter_notch(w: &DynamicBarWindow, ui: &AppWindow, expanded: bool) {
-    let win = ui.window();
-    let pos = win.position();
-    let size = win.size();
-    let mscale = win.scale_factor();
-    let bw = ((if expanded { 560f32 } else { 150f32 }) * mscale) as i32;
-    let cx = (pos.x + (size.width as i32 - bw) / 2).max(0);
+    let scale = w.window().scale_factor();
+    let bw = ((if expanded { 560f32 } else { 150f32 }) * scale) as i32;
+    let cx = match screen_size() {
+        Some((sw, _)) => centered_x(sw, bw),
+        None => {
+            let win = ui.window();
+            let pos = win.position();
+            let size = win.size();
+            (pos.x + (size.width as i32 - bw) / 2).max(0)
+        }
+    };
     let cur = w.window().position();
     w.window()
         .set_position(slint::PhysicalPosition::new(cx, cur.y));
@@ -5357,13 +5446,19 @@ fn main() -> Result<(), slint::PlatformError> {
     // satu titik target (ease-out: 8% sisa jarak, 1–5 px/tick)
     // — gerakan meluncur, BUKAN teleport tiap 2 detik seperti
     // wander lama. Target baru diambil tiap 4–8 detik / saat
-    // tercapai, selalu di dalam area window utama. Tidak jalan
-    // saat di-hover, saat panel mengembang, atau 5 detik setelah
-    // di-drag. Mode notch tidak wander.
+    // tercapai, selalu di dalam LAYAR (bukan window utama —
+    // diubah 27 Nov 2026, pet melayang di atas semua window).
+    // Tidak jalan saat di-hover, saat panel mengembang, atau
+    // 5 detik setelah di-drag. Mode notch tidak wander.
     let pet_wander_target: std::rc::Rc<std::cell::RefCell<Option<(i32, i32)>>> =
         std::rc::Rc::new(std::cell::RefCell::new(None));
     let pet_wander_deadline: std::rc::Rc<std::cell::RefCell<Instant>> =
         std::rc::Rc::new(std::cell::RefCell::new(Instant::now()));
+    // Bounds wander (min_x, min_y, max_x, max_y, physical px) —
+    // di-refresh hanya saat target baru dipilih, supaya tidak
+    // buka koneksi X tiap tick 120 ms.
+    let pet_wander_bounds: std::rc::Rc<std::cell::RefCell<Option<(i32, i32, i32, i32)>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(None));
     let _pet_wander_timer = slint::Timer::default();
     _pet_wander_timer.start(
         slint::TimerMode::Repeated,
@@ -5374,6 +5469,7 @@ fn main() -> Result<(), slint::PlatformError> {
             let pet_last_drag = pet_last_drag.clone();
             let target_cell = pet_wander_target.clone();
             let deadline_cell = pet_wander_deadline.clone();
+            let bounds_cell = pet_wander_bounds.clone();
             move || {
                 let Some(ui) = ui_weak.upgrade() else {
                     return;
@@ -5395,18 +5491,11 @@ fn main() -> Result<(), slint::PlatformError> {
                 if last_drag.elapsed() <= std::time::Duration::from_secs(5) {
                     return;
                 }
-                let win = ui.window();
-                let mpos = win.position();
-                let msize = win.size();
                 let scale = w.window().scale_factor();
                 if scale <= 0.0 {
                     return;
                 }
                 let pet = (84f32 * scale) as i32;
-                let min_x = mpos.x;
-                let max_x = (mpos.x + msize.width as i32 - pet).max(min_x);
-                let min_y = mpos.y + (28f32 * scale) as i32;
-                let max_y = (mpos.y + msize.height as i32 - pet).max(min_y);
                 let pos = w.window().position();
                 let now = Instant::now();
                 // Target baru bila belum ada, sudah tercapai
@@ -5418,6 +5507,30 @@ fn main() -> Result<(), slint::PlatformError> {
                     }
                 } || *deadline_cell.borrow() <= now;
                 if need_new {
+                    // Bounds = LAYAR; fallback: bounds terakhir /
+                    // window utama bila ukuran layar tak terbaca.
+                    let bounds = match screen_size() {
+                        Some((sw, sh)) => {
+                            (0, 0, (sw - pet).max(0), (sh - pet).max(0))
+                        }
+                        None => match *bounds_cell.borrow() {
+                            Some(b) => b,
+                            None => {
+                                let win = ui.window();
+                                let mpos = win.position();
+                                let msize = win.size();
+                                let min_y = mpos.y + (28f32 * scale) as i32;
+                                (
+                                    mpos.x,
+                                    min_y,
+                                    (mpos.x + msize.width as i32 - pet).max(mpos.x),
+                                    (mpos.y + msize.height as i32 - pet).max(min_y),
+                                )
+                            }
+                        },
+                    };
+                    *bounds_cell.borrow_mut() = Some(bounds);
+                    let (min_x, min_y, max_x, max_y) = bounds;
                     // Acak dari jam nano (tanpa crate rand) —
                     // target min 60 px dari posisi sekarang.
                     let nanos = std::time::SystemTime::now()
