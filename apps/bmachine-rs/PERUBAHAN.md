@@ -1,3 +1,12 @@
+## 2026-11-27 — Dex — Label widget jadi bold seperti label nav
+
+- Diubah:
+  - `ui/design.slint` — label StatWidget (EDITING/REVISION/LATE/POINTS) `font-weight: 600` → `800` (ExtraBold, sama seperti label nav HOME/BATCH); komentar header StatWidget yang menyebut "10px, weight 900" diperbaiki jadi "(13px, weight 800 — sama seperti label nav, letter-spacing 1)".
+  - `DESIGN_SYSTEM.md` — spesifikasi tipografi: Label StatWidget 13px weight 600 → weight 800 (ExtraBold, sama seperti navLabel); catatan "ExtraBold hanya dipakai di navLabel" diperbarui (kini juga dipakai label StatWidget).
+- Alasan: abeng 27 Nov 21:52 — teks widget harusnya bold, font boldnya sama seperti navigation. Fakta di kode: label widget 600, label nav 800.
+- Terverifikasi: build exit 0 (warning lama `sha2` saja), cargo test **55 passed**, 0 failed, 1 ignored. GUI Xvfb :98 (APPDATA terisolasi `appdata-defaultclean-verify`, DB asli abeng TIDAK disentuh): dashboard tampil normal, label EDITING/REVISION/LATE/POINTS terukur lebih tebal — piksel terang di area label EDITING naik 241 → 329 (+37%) dibanding screenshot sebelum perubahan (`widgetbold-verify-dash.png` vs `defaultclean-verify-dash.png`).
+- Masih terbuka: (1) Lama: item radial belum dites klik langsung; Ctrl+L kedua tidak menutup Log Panel saat fokus di panel; voice SAPI + volume OS Windows belum terbukti (hanya di PC abeng).
+
 ## 2026-11-27 — Dex — Default clean: kosongkan data pribadi (nama USER, path & contoh kosong)
 
 - Diubah:

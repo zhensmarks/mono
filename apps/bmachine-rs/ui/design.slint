@@ -654,7 +654,8 @@ export component NavTab inherits Rectangle {
 
 // ============================================================
 // StatWidget — kartu statistik dashboard.
-// Dot warna + label (10px, weight 900, letter-spacing 1.5)
+// Dot warna + label (13px, weight 800 — sama seperti label nav,
+// letter-spacing 1)
 // + tombol buka di window baru, nilai besar + suffix.
 // Hover: border jadi warna aksen. Klik: callback clicked.
 // ============================================================
@@ -839,7 +840,7 @@ export component StatWidget inherits Rectangle {
                 Text {
                     text: label;
                     font-size: 13px * scale;
-                    font-weight: 600;
+                    font-weight: 800;
                     color: Design.text-secondary;
                     letter-spacing: 1px * scale;
                     vertical-alignment: center;

@@ -45,9 +45,9 @@ Kelas teks (dari C#, dipertahankan di port):
 - **eyebrow** — 10.5px, SemiBold, mono, tracking 1.2, `#52525B`.
 - **mono** — 12px, JetBrains Mono.
 - **navLabel** — 12px, ExtraBold, tracking 1 — hanya untuk label
-  tab navigasi. ExtraBold hanya dipakai di navLabel.
-- Label StatWidget — 13px, weight 600, letter-spacing 1px,
-  warna sekunder (lihat §8).
+  tab navigasi. ExtraBold dipakai di navLabel dan label StatWidget.
+- Label StatWidget — 13px, weight 800 (ExtraBold, sama seperti navLabel),
+  letter-spacing 1px, warna sekunder (lihat §8).
 
 ### 1.1 Sistem tipografi — SATU sistem di semua layar [MENGIKAT — abeng, 26 Nov 16:13]
 
