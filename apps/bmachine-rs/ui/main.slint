@@ -15,7 +15,7 @@ import { TrelloDetailPanel } from "trello-detail.slint";
 import { RadialMenuView } from "radial.slint";
 import { SplashView } from "splash.slint";
 import { ExitConfirmDialog, UpdateDialog } from "dialog.slint";
-export { SpreadsheetWindow, CardListWindow, RadialMenuWindow, ToolboxWindow, ReportBugDialog } from "windows.slint";
+export { SpreadsheetWindow, CardListWindow, RadialMenuWindow, ToolboxWindow, ReportBugDialog, DynamicBarWindow } from "windows.slint";
 
 export component AppWindow inherits Window {
     no-frame: true;
@@ -135,6 +135,9 @@ export component AppWindow inherits Window {
     callback open-new-sheet-window();
     callback open-new-card-window(string);
     callback refresh-leaderboard();
+    // Dynamic Bar (floating mini-bar): buka/tutup dari flyout profil.
+    callback open-dynamic-bar();
+    callback hide-dynamic-bar();
 
     // ---- Appearance & Customization (persisted in SQLite) ----
     in-out property <string> app-color-mode: "dark";
@@ -174,6 +177,8 @@ export component AppWindow inherits Window {
     in-out property <string> app-chrome: "custom";
 
     // ---- General & Paths (persisted in SQLite) ----
+    // Dynamic Bar tampil atau tidak (key Settings.DynamicBar.Visible).
+    in-out property <bool> app-dynamic-bar-visible: true;
     in-out property <string> app-user-name: "abeng";
     in-out property <string> app-lang: "Indonesia";
     in-out property <bool> app-anim-startup: true;
@@ -3901,6 +3906,24 @@ export component AppWindow inherits Window {
                 show-toggle: true;
                 toggle-checked: root.show-logpanel;
                 toggled(checked) => { root.show-logpanel = checked; }
+                clicked => { }
+            }
+            // Saklar Dynamic Bar = tampil/sembunyi floating mini-bar
+            // (angka widget + notifikasi tanpa buka window utama).
+            // Klik kanan di bar juga menutupnya; toggle ini yang
+            // membukanya lagi.
+            FlyoutItem {
+                icon-name: "layers";
+                label: "Dynamic Bar";
+                show-toggle: true;
+                toggle-checked: root.app-dynamic-bar-visible;
+                toggled(checked) => {
+                    if (checked) {
+                        root.open-dynamic-bar();
+                    } else {
+                        root.hide-dynamic-bar();
+                    }
+                }
                 clicked => { }
             }
             FlyoutItem {

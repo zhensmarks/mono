@@ -1855,16 +1855,26 @@ Esc global di `main.slint`: bila `overlay-view == "EXPLORER"` →
   dpkg lepas dulu); alat uji keyboard kini disimpan persisten di
   `tools/sendkey2.c` (jangan hanya di `/tmp`).
 
-## 21. Dynamic Island / Floating Bar / Notch (fitur masa depan — abeng, 26 Nov 19:17)
+## 21. Dynamic Bar (floating mini-bar ala Dynamic Island) — DIBANGUN 27 Nov 2026 (abeng, 27 Nov 19:52)
 
-Nanti kalau port sudah benar-benar beres semua, BMachine mau punya dynamic island bar / floating bar / notch di atas layar — fitur utamanya seperti pada umumnya (musik, timer, todo, dsb.), TAPI disambungkan dengan yang ada di BMachine (status kartu Trello, progres BATCH, poin/leaderboard, dsb.) supaya user bisa cek tanpa harus buka aplikasi atau menyimpan window BMachine terus.
+Spesifikasi abeng: mini-bar melayang yang tetap kelihatan tanpa harus buka window utama BMachine. Isinya: angka widget dashboard (EDITING / REVISION / LATE / POINTS), notifikasi card masuk (kartu Trello baru), notifikasi poin bertambah. Bar bisa mengembang saat diklik untuk menampilkan notifikasi terbaru, lalu mengecil lagi (ala Dynamic Island).
 
-Referensi:
+Implementasi (`ui/windows.slint` → `DynamicBarWindow`; `src/main.rs` → `BarStore`/`BarState`):
+- Window OS terpisah, 560×46 px, `no-frame`, `always-on-top`, latar transparan; pill radius 23 px (`Design.surface-elevated`); default di atas-tengah window utama.
+- 4 chip angka (dot + label + angka, warna kategori `cat-*`) + ikon lonceng + badge merah jumlah notifikasi (cap "9+").
+- Klik chip → window utama naik + tampilan sesuai kategori (EDITING/REVISION/LATE → embedded Trello 3 tab dengan list yang cocok; POINTS → Leaderboard). Klik lonceng / area kosong bar → kembang/kecil. Panel kembang: tinggi 106 px + 40 px per baris (maks 5 baris), baris notifikasi (dot kategori, judul + sub) + footer "Buka Dashboard". Klik baris notifikasi → tampilan terkait (card → embedded Trello kategori itu; poin → Leaderboard). Klik footer → dashboard.
+- Drag (ambang 5 px) memindah bar; posisi tersimpan di SQLite (`DynamicBar.X` / `DynamicBar.Y`, posisi saja — ukuran tetap 560×46) dan dipulihkan saat dibuka lagi. Klik kanan di mana saja di bar → tutup (window di-drop, flag `Settings.DynamicBar.Visible=false`).
+- Tutup/buka ulang: toggle "Dynamic Bar" di flyout profil (grup APLIKASI, setelah Terminal), terikat `app-dynamic-bar-visible`; buka ulang = window baru (pola yang sama seperti Toolbox/Spreadsheet — reuse window hide→show tidak andal di Slint).
+- Klik diproses di `pointer-event(up)` (bukan `clicked`) supaya drag tidak pernah memicu aksi.
+- Angka bar = salinan properti `stat-*` AppWindow (sumber yang SAMA dengan widget dashboard) — disalin tiap 2 detik oleh timer sinkronisasi Rust (tanpa I/O jaringan; polling Trello tidak berubah). Tidak ada angka baru yang dibuat bar sendiri.
+- Notifikasi: `record_list_sync` — sync pertama tiap list = baseline (tanpa notifikasi); kartu baru sesudahnya → notifikasi "Kartu baru masuk", maks 3 per sync. `record_points` — pemanggilan pertama = baseline; kenaikan poin → "Poin bertambah" (sub "prev → cur"). Maks 10 notifikasi disimpan, 5 terbaru ditampilkan. Notifikasi hanya di memori (sesi saja, hilang saat restart) — sengaja, bukan bug.
+- Tema: tiap window OS punya instance `Design` SENDIRI (terbukti 27 Nov: SpreadsheetWindow tidak ikut tema Spider). Jadi token yang dipakai bar disalin eksplisit via `theme::sync_design_to_bar` (15 token: surface-elevated, separator, text-primary/secondary/muted, accent, bg-hover, status-danger, cat-*, radius-sm/md, font-family) — saat bar dibuka, saat tema diterapkan (handler preset/user-theme/reset/appearance), dan tiap tick timer 2 detik sebagai jaring pengaman. Catatan: Spreadsheet/Toolbox/CardList/Radial punya celah yang sama (belum disinkronkan) — lihat PERUBAHAN.md 27 Nov.
+- Timer startup 2,5 detik membuka bar (setelah splash ~2 detik) bila `Settings.DynamicBar.Visible` true (default true).
+
+Referensi (dari catatan awal):
 - **Nusa** (rama2555.github.io/nusa) — notch hidup di atas layar Windows 10/11: musik + lirik sinkron, timer Pomodoro, file shelf, todo, jadwal sholat, clipboard, widget; native Rust, ~30 MB, 0% CPU saat idle.
 - **Oyenza Studio** (studio.oyenza.com, via Threads @lucacadl 25 Okt 2026) — "A living notch", Windows + Mac; contohnya panel Prayer (Subuh/Dzuhur/Ashar/Maghrib/Isya + Qibla).
 - Referensi Threads kedua (share/Hn2U2xEMY, dikirim 26 Nov 19:19) — **Dynamic Edge** (Threads @eyuel_eng 10 Nov 2026, "Dynamic Edge - The Dynamic Island for Windows"): WinUI 3 + Windows App SDK, media controls, clipboard history, app/folder launcher, timer, volume, lirik sinkron (bisa pop-out jendela sendiri), gratis di Microsoft Store.
-
-Belum dibangun — dicatat saja dulu; dikerjakan setelah Fase 6 beres.
 
 ## 22. Sistem Tema — preset terkurasi ala Omarchy (abeng, 27 Nov 19:02–19:06)
 

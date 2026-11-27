@@ -1,5 +1,5 @@
 use crate::db::DatabaseService;
-use crate::{AppWindow, Design};
+use crate::{AppWindow, Design, DynamicBarWindow};
 use serde::{Deserialize, Serialize};
 use slint::{Color, Global, SharedString, VecModel};
 
@@ -636,6 +636,34 @@ pub fn apply_appearance(ui: &AppWindow) -> Result<(), String> {
     d.set_density_scale(dscale);
 
     Ok(())
+}
+
+/// Salin token Design yang dipakai Dynamic Bar dari window utama ke
+/// window bar. Slint memberi tiap window OS instance Design
+/// SENDIRI (terbukti 27 Nov 2026: SpreadsheetWindow tetap warna
+/// BMachine Dark setelah ganti tema Spider — dan bar yang sama).
+/// Jadi token harus disalin eksplisit saat bar dibuka + setiap kali
+/// tema berubah; mengandalkan "global bersama" tidak berlaku untuk
+/// window OS terpisah. Hanya token yang dibaca DynamicBarWindow
+/// yang disalin (bukan seluruh Design).
+pub fn sync_design_to_bar(ui: &AppWindow, bar: &DynamicBarWindow) {
+    let src = Design::get(ui);
+    let dst = Design::get(bar);
+    dst.set_surface_elevated(src.get_surface_elevated());
+    dst.set_separator(src.get_separator());
+    dst.set_text_primary(src.get_text_primary());
+    dst.set_text_secondary(src.get_text_secondary());
+    dst.set_text_muted(src.get_text_muted());
+    dst.set_accent(src.get_accent());
+    dst.set_bg_hover(src.get_bg_hover());
+    dst.set_status_danger(src.get_status_danger());
+    dst.set_cat_editing(src.get_cat_editing());
+    dst.set_cat_revision(src.get_cat_revision());
+    dst.set_cat_late(src.get_cat_late());
+    dst.set_cat_points(src.get_cat_points());
+    dst.set_radius_sm(src.get_radius_sm());
+    dst.set_radius_md(src.get_radius_md());
+    dst.set_font_family(src.get_font_family());
 }
 
 /// Terapkan satu preset bawaan: set SEMUA properti tampilan dari

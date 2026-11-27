@@ -489,10 +489,213 @@ fn save_window_geometry(
     let _ = guard.set(&format!("{}.Height", prefix), &h.to_string(), "Int");
 }
 
+/// ---- Dynamic Bar: notifikasi kartu masuk + poin bertambah ----
+/// Satu notifikasi di panel bar (terbaru dulu, maks
+/// BAR_MAX_NOTIFICATIONS). `kind`: "card" | "points"; `category`:
+/// "EDITING" | "REVISION" | "LATE" | "POINTS" | "".
+#[derive(Clone, Debug)]
+struct BarNotification {
+    kind: String,
+    category: String,
+    title: String,
+    sub: String,
+}
+
+/// State bersama Dynamic Bar: kartu yang sudah pernah terlihat per
+/// list Trello + poin terakhir + daftar notifikasi. Dibagi ke
+/// thread sync Trello (deteksi kartu baru) dan timer sinkronisasi
+/// bar (deteksi poin naik + salin angka ke window bar).
+#[derive(Default)]
+struct BarState {
+    seen_cards: std::collections::HashMap<String, std::collections::HashSet<String>>,
+    synced_lists: std::collections::HashSet<String>,
+    last_points: Option<i64>,
+    notifications: Vec<BarNotification>,
+}
+
+type BarStore = Arc<Mutex<BarState>>;
+
+const BAR_MAX_NOTIFICATIONS: usize = 10;
+const BAR_MAX_NEW_PER_SYNC: usize = 3;
+
+/// Catat hasil sync satu list Trello: kartu yang id-nya belum
+/// pernah terlihat menjadi notifikasi. Sync PERTAMA list itu =
+/// baseline (tidak ada notifikasi — kalau tidak, semua kartu lama
+/// ikut berbunyi saat aplikasi dibuka). Maks
+/// BAR_MAX_NEW_PER_SYNC notifikasi per sync supaya satu refresh
+/// besar tidak membanjiri panel.
+fn record_list_sync(
+    state: &mut BarState,
+    list_id: &str,
+    category: &str,
+    cards: &[(String, String)],
+) {
+    let baseline = !state.synced_lists.contains(list_id);
+    state.synced_lists.insert(list_id.to_string());
+    let seen = state.seen_cards.entry(list_id.to_string()).or_default();
+    let mut fresh: Vec<(String, String)> = Vec::new();
+    for (id, name) in cards {
+        if !seen.contains(id) {
+            if !baseline && fresh.len() < BAR_MAX_NEW_PER_SYNC {
+                fresh.push((id.clone(), name.clone()));
+            }
+            seen.insert(id.clone());
+        }
+    }
+    for (_id, name) in fresh {
+        state.notifications.insert(
+            0,
+            BarNotification {
+                kind: "card".to_string(),
+                category: category.to_string(),
+                title: name,
+                sub: format!("Kartu baru di {}", category),
+            },
+        );
+    }
+    state.notifications.truncate(BAR_MAX_NOTIFICATIONS);
+}
+
+/// Catat nilai Stat.Points sekarang: naik dari baseline terakhir
+/// → satu notifikasi "Poin bertambah". Panggilan pertama hanya
+/// menyimpan baseline (None). Turun / sama / tidak bisa di-parse
+/// → None (poin di port tidak pernah turun; bila turun pun tidak
+/// ada bunyi — hanya kenaikan yang diberitahukan).
+fn record_points(state: &mut BarState, current: &str) -> Option<(i64, i64)> {
+    let cur: i64 = current.trim().replace('.', "").parse().ok()?;
+    let prev = state.last_points.replace(cur)?;
+    if cur > prev {
+        state.notifications.insert(
+            0,
+            BarNotification {
+                kind: "points".to_string(),
+                category: "POINTS".to_string(),
+                title: "Poin bertambah".to_string(),
+                sub: format!("{} → {}", prev, cur),
+            },
+        );
+        state.notifications.truncate(BAR_MAX_NOTIFICATIONS);
+        Some((prev, cur))
+    } else {
+        None
+    }
+}
+
+/// Dorong daftar notifikasi ke window bar (wholesale replace —
+/// Slint tidak bisa append array). Hanya 5 terbaru yang ditampilkan
+/// (panel mengembang maks 5 baris); `notif-count` tetap total.
+fn push_notifs_to_bar(w: &DynamicBarWindow, notifs: &[BarNotification]) {
+    let shown: &[BarNotification] = if notifs.len() > 5 { &notifs[..5] } else { notifs };
+    let titles: Vec<slint::SharedString> = shown
+        .iter()
+        .map(|n| slint::SharedString::from(n.title.as_str()))
+        .collect();
+    let subs: Vec<slint::SharedString> = shown
+        .iter()
+        .map(|n| slint::SharedString::from(n.sub.as_str()))
+        .collect();
+    let kinds: Vec<slint::SharedString> = shown
+        .iter()
+        .map(|n| slint::SharedString::from(n.kind.as_str()))
+        .collect();
+    let cats: Vec<slint::SharedString> = shown
+        .iter()
+        .map(|n| slint::SharedString::from(n.category.as_str()))
+        .collect();
+    w.set_notif_titles(slint::ModelRc::new(slint::VecModel::from(titles)));
+    w.set_notif_subs(slint::ModelRc::new(slint::VecModel::from(subs)));
+    w.set_notif_kinds(slint::ModelRc::new(slint::VecModel::from(kinds)));
+    w.set_notif_cats(slint::ModelRc::new(slint::VecModel::from(cats)));
+    w.set_notif_count(notifs.len() as i32);
+}
+
+/// Baca posisi tersimpan Dynamic Bar (logis x/y) dari DB; None
+/// bila belum ada / tidak valid.
+fn read_bar_position(db: &Option<Arc<Mutex<DatabaseService>>>) -> Option<(i32, i32)> {
+    let db_mutex = db.as_ref()?;
+    let guard = db_mutex.lock().ok()?;
+    let x: i32 = guard.get("DynamicBar.X")?.parse().ok()?;
+    let y: i32 = guard.get("DynamicBar.Y")?.parse().ok()?;
+    Some((x, y))
+}
+
+/// Simpan posisi Dynamic Bar (logis) ke DB. Hanya X/Y — lebar dan
+/// tinggi bar diatur .slint (560px / 46px atau mengembang), jadi
+/// tidak disimpan seperti window lain.
+fn save_bar_position(win: &slint::Window, db: &Option<Arc<Mutex<DatabaseService>>>) {
+    let Some(db_mutex) = db.as_ref() else {
+        return;
+    };
+    let Ok(mut guard) = db_mutex.lock() else {
+        return;
+    };
+    let scale = win.scale_factor();
+    if scale <= 0.0 {
+        return;
+    }
+    let pos = win.position();
+    let x = (pos.x as f32 / scale) as i32;
+    let y = (pos.y as f32 / scale) as i32;
+    let _ = guard.set("DynamicBar.X", &x.to_string(), "Int");
+    let _ = guard.set("DynamicBar.Y", &y.to_string(), "Int");
+}
+
+/// Buka window utama ke tampilan yang sesuai dengan kategori bar:
+/// EDITING/REVISION/LATE → daftar Trello embedded kategori itu
+/// (sama seperti klik badan widget di dashboard); POINTS →
+/// Leaderboard. Window utama di-show (naik ke depan).
+fn open_main_category(ui: &AppWindow, cat: &str) {
+    ui.window().show();
+    ui.set_current_tab(slint::SharedString::from("HOME"));
+    match cat {
+        "POINTS" => {
+            ui.set_list_category(slint::SharedString::from(""));
+            ui.set_selected_card(slint::SharedString::from(""));
+            ui.set_overlay_view(slint::SharedString::from("LEADERBOARD"));
+            ui.set_toast(slint::SharedString::from("Leaderboard — poin editor"));
+        }
+        "EDITING" | "REVISION" | "LATE" => {
+            let (titles, subs, due) = match cat {
+                "EDITING" => (
+                    ui.get_editing_titles(),
+                    ui.get_editing_subs(),
+                    ui.get_editing_due(),
+                ),
+                "REVISION" => (
+                    ui.get_revision_titles(),
+                    ui.get_revision_subs(),
+                    ui.get_revision_due(),
+                ),
+                _ => (ui.get_late_titles(), ui.get_late_subs(), ui.get_late_due()),
+            };
+            ui.set_list_titles(titles);
+            ui.set_list_subs(subs);
+            ui.set_list_due(due);
+            ui.set_selected_card(slint::SharedString::from(""));
+            ui.set_overlay_view(slint::SharedString::from(""));
+            ui.set_list_category(slint::SharedString::from(cat));
+            let label = match cat {
+                "EDITING" => "EDITING",
+                "REVISION" => "REVISION",
+                _ => "LATE",
+            };
+            let count = match cat {
+                "EDITING" => ui.get_stat_editing(),
+                "REVISION" => ui.get_stat_revision(),
+                _ => ui.get_stat_late(),
+            };
+            ui.set_toast(slint::SharedString::from(format!(
+                "Daftar {} — {} kartu",
+                label, count
+            )));
+        }
+        _ => {}
+    }
+}
+
 /// Nilai default grid spreadsheet (mock 6x6) — sama dengan default
 /// .slint (dipakai bila belum ada snapshot di DB).
-const SHEET_DEFAULT_ROWS: [[&str; 6]; 6] = [
-    ["47276395", "SDN RANCAIYUH I", "SD", "SELESAI", "1280", "Lengkap"],
+const SHEET_DEFAULT_ROWS: [[&str; 6]; 6] = [    ["47276395", "SDN RANCAIYUH I", "SD", "SELESAI", "1280", "Lengkap"],
     ["47276396", "SDN CIKAMPEK II", "SD", "PROSES", "950", "Foto kurang 2"],
     ["47276397", "SMPN 1 PARONGPONG", "SMP", "REVISI", "420", "Warna jas revisi"],
     ["47276398", "SMAN 2 CIMAHI", "SMA", "SELESAI", "1640", "Lunas"],
@@ -793,6 +996,196 @@ fn open_toolbox_window(
     }
 }
 
+/// Buka (atau buka-ulang) DynamicBarWindow. Posisi: simpanan
+/// DynamicBar.X/Y, atau atas-tengah window utama (default).
+/// Angka diisi dari properti AppWindow (sumber yang sama dengan
+/// widget dashboard) + notifikasi dari BarStore. Pola buka-ulang
+/// sama seperti ToolboxWindow: hide->show reuse tidak andal,
+/// jadi window yang sudah ditutup selalu dibuat baru.
+fn open_dynamic_bar_window(
+    cell: &std::rc::Rc<std::cell::RefCell<Option<DynamicBarWindow>>>,
+    visible: &std::rc::Rc<std::cell::Cell<bool>>,
+    ui_weak: &slint::Weak<AppWindow>,
+    bar_store: &BarStore,
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+) {
+    let mut opt = cell.borrow_mut();
+    // Buka-ulang setelah tutup selalu buat window baru (alasan sama
+    // seperti SpreadsheetWindow/ToolboxWindow).
+    if !visible.get() {
+        *opt = None;
+    }
+    if opt.is_none() {
+        if let Ok(w) = DynamicBarWindow::new() {
+            // Tutup (klik kanan di bar): simpan posisi, hide, tandai
+            // tidak tampil, persist + sinkronkan toggle flyout.
+            // Window TIDAK di-drop di sini (callback milik window
+            // yang sedang berjalan) — di-drop saat buka berikutnya.
+            let w_weak = w.as_weak();
+            let vis_close = visible.clone();
+            let db_close = db.clone();
+            let ui_weak_close = ui_weak.clone();
+            w.on_close_window(move || {
+                vis_close.set(false);
+                if let Some(w) = w_weak.upgrade() {
+                    save_bar_position(w.window(), &db_close);
+                    let _ = w.hide();
+                }
+                if let Some(ref db_mutex) = db_close {
+                    if let Ok(mut guard) = db_mutex.lock() {
+                        let _ = guard.set("Settings.DynamicBar.Visible", "false", "Bool");
+                    }
+                }
+                if let Some(ui) = ui_weak_close.upgrade() {
+                    ui.set_app_dynamic_bar_visible(false);
+                }
+            });
+            // Drag bar.
+            let w_weak2 = w.as_weak();
+            w.on_move_window(move |dx, dy| {
+                if let Some(w) = w_weak2.upgrade() {
+                    let scale = w.window().scale_factor();
+                    let pos = w.window().position();
+                    let nx = pos.x + (dx * scale) as i32;
+                    let ny = pos.y + (dy * scale) as i32;
+                    w.window()
+                        .set_position(slint::PhysicalPosition::new(nx, ny));
+                }
+            });
+            // Simpan posisi saat drag selesai.
+            let w_weak3 = w.as_weak();
+            let db_save = db.clone();
+            w.on_save_position(move || {
+                if let Some(w) = w_weak3.upgrade() {
+                    save_bar_position(w.window(), &db_save);
+                }
+            });
+            // Klik angka widget → window utama ke tampilan terkait.
+            let ui_weak_cat = ui_weak.clone();
+            w.on_open_category(move |cat| {
+                if let Some(ui) = ui_weak_cat.upgrade() {
+                    open_main_category(&ui, cat.as_str());
+                }
+            });
+            // Klik notifikasi → tampilan terkait (kartu → daftar
+            // kategorinya; poin → Leaderboard).
+            let ui_weak_notif = ui_weak.clone();
+            let store_notif = bar_store.clone();
+            w.on_open_notification(move |idx| {
+                let cat = {
+                    let Ok(st) = store_notif.lock() else {
+                        return;
+                    };
+                    match st.notifications.get(idx as usize) {
+                        Some(n) => {
+                            if n.kind == "points" {
+                                "POINTS".to_string()
+                            } else {
+                                n.category.clone()
+                            }
+                        }
+                        None => return,
+                    }
+                };
+                if let Some(ui) = ui_weak_notif.upgrade() {
+                    open_main_category(&ui, cat.as_str());
+                }
+            });
+            // Footer "Buka Dashboard" → window utama, dashboard.
+            let ui_weak_dash = ui_weak.clone();
+            w.on_open_dashboard(move || {
+                if let Some(ui) = ui_weak_dash.upgrade() {
+                    ui.window().show();
+                    ui.set_current_tab(slint::SharedString::from("HOME"));
+                    ui.set_list_category(slint::SharedString::from(""));
+                    ui.set_selected_card(slint::SharedString::from(""));
+                    ui.set_overlay_view(slint::SharedString::from(""));
+                }
+            });
+            *opt = Some(w);
+        }
+    }
+    if let Some(w) = opt.as_ref() {
+        // Posisi: simpanan dulu; bila belum ada, atas-tengah
+        // window utama (12px dari atas).
+        let scale = w.window().scale_factor();
+        if let Some((x, y)) = read_bar_position(db) {
+            w.window().set_position(slint::PhysicalPosition::new(
+                ((x.max(0)) as f32 * scale) as i32,
+                ((y.max(0)) as f32 * scale) as i32,
+            ));
+        } else if let Some(ui) = ui_weak.upgrade() {
+            let win = ui.window();
+            let pos = win.position();
+            let size = win.size();
+            let mscale = win.scale_factor();
+            let bw = (560f32 * mscale) as i32;
+            let cx = (pos.x + (size.width as i32 - bw) / 2).max(0);
+            let cy = (pos.y + (12f32 * mscale) as i32).max(0);
+            w.window()
+                .set_position(slint::PhysicalPosition::new(cx, cy));
+        }
+        // Isi angka dari AppWindow (sumber yang sama dengan widget
+        // dashboard) + notifikasi dari store. Tema disalin eksplisit
+        // (tiap window OS punya instance Design sendiri).
+        if let Some(ui) = ui_weak.upgrade() {
+            theme::sync_design_to_bar(&ui, w);
+            w.set_stat_editing(ui.get_stat_editing());
+            w.set_stat_revision(ui.get_stat_revision());
+            w.set_stat_late(ui.get_stat_late());
+            w.set_stat_points(ui.get_stat_points());
+        }
+        if let Ok(st) = bar_store.lock() {
+            push_notifs_to_bar(w, &st.notifications);
+        }
+        // Hide + show = naik ke depan (Slint tidak punya Activate).
+        let _ = w.hide();
+        let _ = w.show();
+        visible.set(true);
+        if let Some(db_mutex) = db {
+            if let Ok(mut guard) = db_mutex.lock() {
+                let _ = guard.set("Settings.DynamicBar.Visible", "true", "Bool");
+            }
+        }
+        if let Some(ui) = ui_weak.upgrade() {
+            ui.set_app_dynamic_bar_visible(true);
+        }
+    }
+}
+
+/// Sembunyikan Dynamic Bar (dari flyout profil / toggle):
+/// simpan posisi, hide, persist + sinkronkan toggle. Window
+/// di-drop saat buka berikutnya (pola yang sama dengan close).
+fn hide_dynamic_bar_window(
+    cell: &std::rc::Rc<std::cell::RefCell<Option<DynamicBarWindow>>>,
+    visible: &std::rc::Rc<std::cell::Cell<bool>>,
+    ui_weak: &slint::Weak<AppWindow>,
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+) {
+    if let Some(w) = cell.borrow().as_ref() {
+        save_bar_position(w.window(), db);
+        let _ = w.hide();
+    }
+    visible.set(false);
+    if let Some(db_mutex) = db {
+        if let Ok(mut guard) = db_mutex.lock() {
+            let _ = guard.set("Settings.DynamicBar.Visible", "false", "Bool");
+        }
+    }
+    if let Some(ui) = ui_weak.upgrade() {
+        ui.set_app_dynamic_bar_visible(false);
+    }
+}
+
+/// Sinkronkan token Design ke Dynamic Bar bila sedang tampil
+/// (dipakai handler tema + timer sinkronisasi — lihat
+/// theme::sync_design_to_bar).
+fn sync_bar_theme(ui: &AppWindow, cell: &std::rc::Rc<std::cell::RefCell<Option<DynamicBarWindow>>>) {
+    if let Some(w) = cell.borrow().as_ref() {
+        theme::sync_design_to_bar(ui, w);
+    }
+}
+
 /// Buka ReportBugDialog di tengah window utama. Kirim laporan =
 /// simpan ke tabel Activities + toast; ringkasan kosong ditolak.
 fn open_report_bug_window(
@@ -945,6 +1338,95 @@ mod radial_shortcut_tests {
         assert!(!shortcut_matches(&cfg, None, Some(Button::Middle), 12));
         assert!(!shortcut_matches(&cfg, None, Some(Button::Left), 4));
         assert!(!shortcut_matches(&cfg, Some(Key::Quote), None, 4));
+    }
+}
+
+#[cfg(test)]
+mod dynamic_bar_tests {
+    use super::*;
+
+    fn cards(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
+        pairs
+            .iter()
+            .map(|(id, name)| (id.to_string(), name.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn first_sync_is_baseline_no_notification() {
+        let mut st = BarState::default();
+        record_list_sync(&mut st, "list1", "EDITING", &cards(&[("a", "Kartu A"), ("b", "Kartu B")]));
+        assert!(st.notifications.is_empty());
+        assert_eq!(st.seen_cards["list1"].len(), 2);
+    }
+
+    #[test]
+    fn second_sync_new_card_notifies_once() {
+        let mut st = BarState::default();
+        record_list_sync(&mut st, "list1", "EDITING", &cards(&[("a", "Kartu A")]));
+        record_list_sync(
+            &mut st,
+            "list1",
+            "EDITING",
+            &cards(&[("a", "Kartu A"), ("b", "Kartu B")]),
+        );
+        assert_eq!(st.notifications.len(), 1);
+        assert_eq!(st.notifications[0].kind, "card");
+        assert_eq!(st.notifications[0].category, "EDITING");
+        assert_eq!(st.notifications[0].title, "Kartu B");
+        assert_eq!(st.notifications[0].sub, "Kartu baru di EDITING");
+        // Sync ketiga tanpa kartu baru = tidak ada notifikasi lagi.
+        record_list_sync(
+            &mut st,
+            "list1",
+            "EDITING",
+            &cards(&[("a", "Kartu A"), ("b", "Kartu B")]),
+        );
+        assert_eq!(st.notifications.len(), 1);
+    }
+
+    #[test]
+    fn new_cards_capped_per_sync_and_total() {
+        let mut st = BarState::default();
+        record_list_sync(&mut st, "list1", "EDITING", &cards(&[("a", "A")]));
+        // 5 kartu baru sekaligus → maks 3 notifikasi dari sync ini.
+        record_list_sync(
+            &mut st,
+            "list1",
+            "EDITING",
+            &cards(&[
+                ("a", "A"),
+                ("b", "B"),
+                ("c", "C"),
+                ("d", "D"),
+                ("e", "E"),
+                ("f", "F"),
+            ]),
+        );
+        assert_eq!(st.notifications.len(), 3);
+        // Semua kartu tetap tercatat sebagai sudah terlihat.
+        assert_eq!(st.seen_cards["list1"].len(), 6);
+    }
+
+    #[test]
+    fn points_first_call_is_baseline_then_increase_notifies() {
+        let mut st = BarState::default();
+        assert_eq!(record_points(&mut st, "4180"), None);
+        assert!(st.notifications.is_empty());
+        // Sama → tidak ada notifikasi.
+        assert_eq!(record_points(&mut st, "4180"), None);
+        // Naik → notifikasi + delta.
+        assert_eq!(record_points(&mut st, "4210"), Some((4180, 4210)));
+        assert_eq!(st.notifications.len(), 1);
+        assert_eq!(st.notifications[0].kind, "points");
+        assert_eq!(st.notifications[0].category, "POINTS");
+        assert_eq!(st.notifications[0].title, "Poin bertambah");
+        assert_eq!(st.notifications[0].sub, "4180 → 4210");
+        // Turun → tidak ada notifikasi (dan baseline ikut turun).
+        assert_eq!(record_points(&mut st, "4200"), None);
+        assert_eq!(st.notifications.len(), 1);
+        // Tidak bisa di-parse → None.
+        assert_eq!(record_points(&mut st, "abc"), None);
     }
 }
 
@@ -1502,6 +1984,18 @@ fn main() -> Result<(), slint::PlatformError> {
         }
     };
 
+    // Dynamic Bar: state bersama (kartu terlihat + poin terakhir +
+    // notifikasi). Dibuat di sini supaya blok load SQLite di bawah
+    // bisa mengisi baseline poin + visibilitas tersimpan.
+    let bar_store: BarStore = Arc::new(Mutex::new(BarState::default()));
+    // Window + flag tampil Dynamic Bar — dibuat awal supaya handler
+    // tema (di bawah) bisa menyinkronkan token Design ke bar saat
+    // tema berubah.
+    let bar_win_cell: std::rc::Rc<std::cell::RefCell<Option<DynamicBarWindow>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(None));
+    let bar_visible: std::rc::Rc<std::cell::Cell<bool>> =
+        std::rc::Rc::new(std::cell::Cell::new(false));
+
     // Pulihkan lebar + state Log Panel dari DB (C#: LogPanelWidth +
     // IsLogPanelOpen; nilai nyata abeng 287.6 / True). Default 288px
     // bila belum ada simpanan; lebar di-clamp >= 180 (maks di-clamp
@@ -1606,9 +2100,19 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.set_lb_bulanan_range(slint::SharedString::from(v));
             }
             if let Some(pts) = db_guard.get("Stat.Points") {
-                ui.set_stat_points(slint::SharedString::from(pts));
+                ui.set_stat_points(slint::SharedString::from(pts.as_str()));
+                // Baseline poin Dynamic Bar: timer sinkronisasi tidak
+                // boleh mengira poin naik saat pertama jalan.
+                if let Ok(mut st) = bar_store.lock() {
+                    st.last_points = pts.trim().replace('.', "").parse::<i64>().ok();
+                }
             } else {
                 ui.set_stat_points(slint::SharedString::from("0"));
+            }
+            // Dynamic Bar tampil atau tidak (default tampil bila
+            // belum pernah diatur).
+            if let Some(v) = db_guard.get("Settings.DynamicBar.Visible") {
+                ui.set_app_dynamic_bar_visible(!(v == "false" || v == "0"));
             }
             if let Some(v) = db_guard.get("User.Name") {
                 ui.set_app_user_name(slint::SharedString::from(v));
@@ -1791,6 +2295,7 @@ fn main() -> Result<(), slint::PlatformError> {
         rl: String,
         ll: String,
         show_toast: bool,
+        bar_store: BarStore,
     ) {
         std::thread::spawn(move || {
             let mut synced = 0usize;
@@ -1798,6 +2303,18 @@ fn main() -> Result<(), slint::PlatformError> {
                 if !el.is_empty() {
                     if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &el) {
                         synced += cards.len();
+                        // Dynamic Bar: kartu baru di list ini.
+                        if let Ok(mut st) = bar_store.lock() {
+                            record_list_sync(
+                                &mut st,
+                                &el,
+                                "EDITING",
+                                &cards
+                                    .iter()
+                                    .map(|c| (c.id.clone(), c.name.clone()))
+                                    .collect::<Vec<_>>(),
+                            );
+                        }
                         let count = format!("{}", cards.len());
                         let titles: Vec<slint::SharedString> = cards
                             .iter()
@@ -1868,6 +2385,18 @@ fn main() -> Result<(), slint::PlatformError> {
                 if !rl.is_empty() {
                     if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &rl) {
                         synced += cards.len();
+                        // Dynamic Bar: kartu baru di list ini.
+                        if let Ok(mut st) = bar_store.lock() {
+                            record_list_sync(
+                                &mut st,
+                                &rl,
+                                "REVISION",
+                                &cards
+                                    .iter()
+                                    .map(|c| (c.id.clone(), c.name.clone()))
+                                    .collect::<Vec<_>>(),
+                            );
+                        }
                         let count = format!("{}", cards.len());
                         let titles: Vec<slint::SharedString> = cards
                             .iter()
@@ -1927,6 +2456,18 @@ fn main() -> Result<(), slint::PlatformError> {
                 if !ll.is_empty() {
                     if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &ll) {
                         synced += cards.len();
+                        // Dynamic Bar: kartu baru di list ini.
+                        if let Ok(mut st) = bar_store.lock() {
+                            record_list_sync(
+                                &mut st,
+                                &ll,
+                                "LATE",
+                                &cards
+                                    .iter()
+                                    .map(|c| (c.id.clone(), c.name.clone()))
+                                    .collect::<Vec<_>>(),
+                            );
+                        }
                         let count = format!("{}", cards.len());
                         let titles: Vec<slint::SharedString> = cards
                             .iter()
@@ -2014,6 +2555,7 @@ fn main() -> Result<(), slint::PlatformError> {
             init_rev_list.clone(),
             init_late_list.clone(),
             false,
+            bar_store.clone(),
         );
     }
 
@@ -2021,6 +2563,7 @@ fn main() -> Result<(), slint::PlatformError> {
     {
         let ui_weak = ui.as_weak();
         let db_clone = db.clone();
+        let bar_cell_sync = bar_win_cell.clone();
         ui.on_apply_appearance(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 match theme::apply_appearance(&ui) {
@@ -2030,6 +2573,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                 theme::save_theme_to_db(&ui, &mut db_guard);
                             }
                         }
+                        sync_bar_theme(&ui, &bar_cell_sync);
                     }
                     Err(msg) => {
                         ui.set_toast(slint::SharedString::from(msg));
@@ -2041,6 +2585,7 @@ fn main() -> Result<(), slint::PlatformError> {
     {
         let ui_weak = ui.as_weak();
         let db_clone = db.clone();
+        let bar_cell_sync = bar_win_cell.clone();
         ui.on_reset_appearance(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 ui.set_app_color_mode(slint::SharedString::from("dark"));
@@ -2069,6 +2614,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.set_app_nav_style(slint::SharedString::from("capsule"));
                 ui.set_app_chrome(slint::SharedString::from("custom"));
                 let _ = theme::apply_appearance(&ui);
+                sync_bar_theme(&ui, &bar_cell_sync);
                 if let Some(ref db_mutex) = db_clone {
                     if let Ok(mut db_guard) = db_mutex.lock() {
                         theme::save_theme_to_db(&ui, &mut db_guard);
@@ -2084,6 +2630,7 @@ fn main() -> Result<(), slint::PlatformError> {
     {
         let ui_weak = ui.as_weak();
         let db_clone = db.clone();
+        let bar_cell_sync = bar_win_cell.clone();
         ui.on_apply_theme_preset(move |id| {
             if let Some(ui) = ui_weak.upgrade() {
                 match theme::apply_preset(&ui, id.as_str()) {
@@ -2093,6 +2640,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                 theme::save_theme_to_db(&ui, &mut db_guard);
                             }
                         }
+                        sync_bar_theme(&ui, &bar_cell_sync);
                         let name = theme::palette_for(id.as_str())
                             .map(|p| p.name)
                             .unwrap_or_else(|| id.to_string());
@@ -2154,6 +2702,7 @@ fn main() -> Result<(), slint::PlatformError> {
     {
         let ui_weak = ui.as_weak();
         let db_clone = db.clone();
+        let bar_cell_sync = bar_win_cell.clone();
         ui.on_apply_user_theme(move |id| {
             if let Some(ui) = ui_weak.upgrade() {
                 let found: Option<theme::ThemePalette> = (|| {
@@ -2173,6 +2722,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                         theme::save_theme_to_db(&ui, &mut db_guard);
                                     }
                                 }
+                                sync_bar_theme(&ui, &bar_cell_sync);
                                 ui.set_toast(slint::SharedString::from(format!(
                                     "Tema {} diterapkan",
                                     name
@@ -2405,6 +2955,7 @@ fn main() -> Result<(), slint::PlatformError> {
     {
         let ui_weak = ui.as_weak();
         let db_clone = db.clone();
+        let bar_store_test = bar_store.clone();
         ui.on_test_trello(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 let k = ui.get_trello_api_key().to_string();
@@ -2421,6 +2972,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 let el = ui.get_editing_list_id().to_string();
                 let rl = ui.get_revision_list_id().to_string();
                 let ll = ui.get_late_list_id().to_string();
+                let bar_store_thread = bar_store_test.clone();
                 std::thread::spawn(move || {
                     match trello_api::TrelloApiService::verify_connection(&k, &t) {
                         Ok(member) => {
@@ -2443,7 +2995,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                     name
                                 )));
                             });
-                            spawn_trello_sync(ui_w, k, t, el, rl, ll, false);
+                            spawn_trello_sync(ui_w, k, t, el, rl, ll, false, bar_store_thread);
                         }
                         Err(e) => {
                             let _ = ui_w.upgrade_in_event_loop(move |u| {
@@ -2472,6 +3024,7 @@ fn main() -> Result<(), slint::PlatformError> {
     }
     {
         let ui_weak = ui.as_weak();
+        let bar_store_refresh = bar_store.clone();
         ui.on_refresh_trello(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 spawn_trello_sync(
@@ -2482,6 +3035,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     ui.get_revision_list_id().to_string(),
                     ui.get_late_list_id().to_string(),
                     true,
+                    bar_store_refresh.clone(),
                 );
             }
         });
@@ -2864,6 +3418,27 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     }
 
+    // ---- Dynamic Bar (floating mini-bar) — window OS. ----
+    {
+        let cell = bar_win_cell.clone();
+        let vis = bar_visible.clone();
+        let ui_weak = ui.as_weak();
+        let store = bar_store.clone();
+        let db_clone = db.clone();
+        ui.on_open_dynamic_bar(move || {
+            open_dynamic_bar_window(&cell, &vis, &ui_weak, &store, &db_clone);
+        });
+    }
+    {
+        let cell = bar_win_cell.clone();
+        let vis = bar_visible.clone();
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
+        ui.on_hide_dynamic_bar(move || {
+            hide_dynamic_bar_window(&cell, &vis, &ui_weak, &db_clone);
+        });
+    }
+
     // ---- Radial / Toolbox / ReportBug — window OS (C#
     // RadialMenuWindow / ToolboxWindow / ReportBugDialog). ----
     let radial_win_cell: std::rc::Rc<std::cell::RefCell<Option<RadialMenuWindow>>> =
@@ -3097,6 +3672,7 @@ fn main() -> Result<(), slint::PlatformError> {
     {
         let ui_weak = ui.as_weak();
         let db_clone = db.clone();
+        let bar_store_save = bar_store.clone();
         ui.on_save_account_settings(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 let k = ui.get_trello_api_key().to_string();
@@ -3147,6 +3723,7 @@ fn main() -> Result<(), slint::PlatformError> {
 
                 // Lakukan sinkronisasi live ke endpoint Trello
                 let ui_bg = ui_weak.clone();
+                let bar_store_bg = bar_store_save.clone();
                 std::thread::spawn(move || {
                     if !k.is_empty() && !t.is_empty() {
                         if !e_l.is_empty() {
@@ -3154,6 +3731,18 @@ fn main() -> Result<(), slint::PlatformError> {
                                 trello_api::TrelloApiService::fetch_cards(&k, &t, &e_l)
                             {
                                 let count = format!("{}", cards.len());
+                                // Dynamic Bar: kartu baru di list ini.
+                                if let Ok(mut st) = bar_store_bg.lock() {
+                                    record_list_sync(
+                                        &mut st,
+                                        &e_l,
+                                        "EDITING",
+                                        &cards
+                                            .iter()
+                                            .map(|c| (c.id.clone(), c.name.clone()))
+                                            .collect::<Vec<_>>(),
+                                    );
+                                }
                                 let _ = ui_bg.upgrade_in_event_loop(move |u| {
                                     u.set_stat_editing(count.into());
                                 });
@@ -3166,6 +3755,18 @@ fn main() -> Result<(), slint::PlatformError> {
                                 trello_api::TrelloApiService::fetch_cards(&k, &t, &r_l)
                             {
                                 let count = format!("{}", cards.len());
+                                // Dynamic Bar: kartu baru di list ini.
+                                if let Ok(mut st) = bar_store_bg.lock() {
+                                    record_list_sync(
+                                        &mut st,
+                                        &r_l,
+                                        "REVISION",
+                                        &cards
+                                            .iter()
+                                            .map(|c| (c.id.clone(), c.name.clone()))
+                                            .collect::<Vec<_>>(),
+                                    );
+                                }
                                 let _ = ui_bg.upgrade_in_event_loop(move |u| {
                                     u.set_stat_revision(count.into());
                                 });
@@ -3179,6 +3780,18 @@ fn main() -> Result<(), slint::PlatformError> {
                                 trello_api::TrelloApiService::fetch_cards(&k, &t, &l_l)
                             {
                                 let count = format!("{}", cards.len());
+                                // Dynamic Bar: kartu baru di list ini.
+                                if let Ok(mut st) = bar_store_bg.lock() {
+                                    record_list_sync(
+                                        &mut st,
+                                        &l_l,
+                                        "LATE",
+                                        &cards
+                                            .iter()
+                                            .map(|c| (c.id.clone(), c.name.clone()))
+                                            .collect::<Vec<_>>(),
+                                    );
+                                }
                                 let _ = ui_bg.upgrade_in_event_loop(move |u| {
                                     u.set_stat_late(count.into());
                                 });
@@ -3881,6 +4494,86 @@ fn main() -> Result<(), slint::PlatformError> {
                                 "Shortcut radial disimpan dan langsung aktif.",
                             ));
                         }
+                    }
+                }
+            }
+        },
+    );
+
+    // ---- Dynamic Bar: sinkronisasi angka + notifikasi ----
+    // Timer 2 detik ini HANYA menyalin string yang sudah ada di
+    // memori (properti AppWindow → window bar) + satu baca key
+    // SQLite lokal (`Stat.Points`) — TIDAK ada polling Trello di
+    // sini. Trello tetap di-sync seperti sebelumnya (startup /
+    // refresh manual / simpan akun). Interval 30 detik di Settings
+    // adalah interval refresh Trello dan TIDAK dipakai port untuk
+    // auto-refresh (tidak ada timer auto-refresh Trello di port).
+    // Bila Stat.Points di DB berubah, dashboard ikut berubah
+    // (sumber kebenaran tetap satu: properti AppWindow; bar hanya
+    // menyalinnya) dan kenaikan dicatat sebagai notifikasi.
+    let _bar_sync_timer = slint::Timer::default();
+    _bar_sync_timer.start(
+        slint::TimerMode::Repeated,
+        std::time::Duration::from_millis(2000),
+        {
+            let ui_weak = ui.as_weak();
+            let bar_cell = bar_win_cell.clone();
+            let bar_store_timer = bar_store.clone();
+            let db_timer = db.clone();
+            move || {
+                let Some(ui) = ui_weak.upgrade() else {
+                    return;
+                };
+                if let Some(ref db_mutex) = db_timer {
+                    if let Ok(guard) = db_mutex.lock() {
+                        if let Some(pts) = guard.get("Stat.Points") {
+                            if pts != ui.get_stat_points().as_str() {
+                                ui.set_stat_points(slint::SharedString::from(pts.as_str()));
+                            }
+                            if let Ok(mut st) = bar_store_timer.lock() {
+                                record_points(&mut st, &pts);
+                            }
+                        }
+                    }
+                }
+                let bar_borrow = bar_cell.borrow();
+                let Some(w) = bar_borrow.as_ref() else {
+                    return;
+                };
+                // Tema: tiap window OS punya instance Design sendiri —
+                // salin token dari window utama supaya bar tidak
+                // ketinggalan bila ada jalur tema yang tidak lewat
+                // handler di atas (jaring pengaman; handler sudah
+                // menyinkronkan langsung saat tema diklik).
+                theme::sync_design_to_bar(&ui, w);
+                w.set_stat_editing(ui.get_stat_editing());
+                w.set_stat_revision(ui.get_stat_revision());
+                w.set_stat_late(ui.get_stat_late());
+                w.set_stat_points(ui.get_stat_points());
+                if let Ok(st) = bar_store_timer.lock() {
+                    push_notifs_to_bar(w, &st.notifications);
+                }
+            }
+        },
+    );
+
+    // Buka Dynamic Bar ~2,5 detik setelah start (setelah splash
+    // selesai — bootstrapper ~2 detik) bila visibilitas tersimpan
+    // mengizinkan (default tampil).
+    let _bar_open_timer = slint::Timer::default();
+    _bar_open_timer.start(
+        slint::TimerMode::SingleShot,
+        std::time::Duration::from_millis(2500),
+        {
+            let ui_weak = ui.as_weak();
+            let cell = bar_win_cell.clone();
+            let vis = bar_visible.clone();
+            let store = bar_store.clone();
+            let db_clone = db.clone();
+            move || {
+                if let Some(ui) = ui_weak.upgrade() {
+                    if ui.get_app_dynamic_bar_visible() {
+                        open_dynamic_bar_window(&cell, &vis, &ui_weak, &store, &db_clone);
                     }
                 }
             }

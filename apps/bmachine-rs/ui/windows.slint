@@ -708,3 +708,589 @@ export component CardListWindow inherits Window {
         }
     }
 }
+
+// ============================================================
+// 4. DYNAMIC BAR WINDOW — Floating mini-bar ala Dynamic Island
+// (abeng 27 Nov 19:52): angka widget dashboard (EDITING /
+// REVISION / LATE / POINTS) + notifikasi kartu masuk + poin
+// bertambah — tanpa harus buka window utama.
+// Window OS terpisah, no-frame, always-on-top, bisa di-drag.
+// Klik angka → window utama ke tampilan terkait; klik lonceng
+// (atau area kosong bar) → mengembang menampilkan notifikasi;
+// klik notifikasi → tampilan terkait; klik kanan → tutup bar
+// (dibuka lagi dari flyout profil / Settings).
+// Angka HARUS dari sumber yang sama dengan widget dashboard
+// (Rust menyalin properti AppWindow tiap 2 detik — bukan angka
+// baru; lihat main.rs `bar sync timer`).
+// ============================================================
+export component DynamicBarWindow inherits Window {
+    title: "BMachine — Dynamic Bar";
+    width: 560px;
+    height: root.expanded ? root.expanded-height : 46px;
+    background: transparent;
+    no-frame: true;
+    always-on-top: true;
+    default-font-family: Design.font-family;
+
+    callback close-window();
+    callback move-window(length, length);
+    callback save-position();
+    callback open-category(string);
+    callback open-notification(int);
+    callback open-dashboard();
+
+    in-out property <string> stat-editing: "0";
+    in-out property <string> stat-revision: "0";
+    in-out property <string> stat-late: "0";
+    in-out property <string> stat-points: "0";
+    in-out property <int> notif-count: 0;
+    in-out property <[string]> notif-titles: [];
+    in-out property <[string]> notif-subs: [];
+    in-out property <[string]> notif-kinds: [];
+    in-out property <[string]> notif-cats: [];
+    in-out property <bool> expanded: false;
+
+    // Tinggi mengembang: pill 46 + gap 8 + panel (padding 16 +
+    // baris notifikasi maks 5 × 40 + footer 36).
+    property <length> expanded-height: 106px + max(1, min(root.notif-titles.length, 5)) * 40px;
+
+    // State drag bersama — dipakai semua TouchArea di bar ini.
+    // (Ambang 5px membedakan drag vs klik, pola yang sama dengan
+    // drag titlebar SpreadsheetWindow.)
+    property <length> drag-press-x: 0px;
+    property <length> drag-press-y: 0px;
+    property <bool> drag-pressed: false;
+    property <bool> drag-dragging: false;
+
+    // Latar sentuh seluruh window (paling bawah): drag dari area
+    // kosong + klik = kembang/kempis + klik kanan = tutup bar.
+    bar-touch := TouchArea {
+        x: 0; y: 0; width: 100%; height: 100%;
+        mouse-cursor: pointer;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                root.drag-press-x = self.mouse-x;
+                root.drag-press-y = self.mouse-y;
+                root.drag-pressed = true;
+                root.drag-dragging = false;
+            } else if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.left) {
+                if (root.drag-dragging) {
+                    root.save-position();
+                } else {
+                    root.expanded = !root.expanded;
+                }
+                root.drag-pressed = false;
+                root.drag-dragging = false;
+            } else if (ev.kind == PointerEventKind.cancel) {
+                root.drag-pressed = false;
+                root.drag-dragging = false;
+            } else if (ev.kind == PointerEventKind.move && root.drag-pressed) {
+                if (abs(self.mouse-x - root.drag-press-x) > 5px || abs(self.mouse-y - root.drag-press-y) > 5px) {
+                    root.drag-dragging = true;
+                }
+                if (root.drag-dragging) {
+                    root.move-window(self.mouse-x - root.drag-press-x, self.mouse-y - root.drag-press-y);
+                }
+            } else if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                root.close-window();
+            }
+        }
+    }
+
+    VerticalLayout {
+        padding: 0;
+        spacing: 8px;
+
+        // ----- Pill utama 46px -----
+        Rectangle {
+            height: 46px;
+            background: Design.surface-elevated;
+            border-color: Design.separator;
+            border-width: 1px;
+            border-radius: 23px;
+
+            HorizontalLayout {
+                padding-left: 14px;
+                padding-right: 10px;
+                spacing: 4px;
+
+                // Chip EDITING
+                Rectangle {
+                    height: 30px;
+                    y: (parent.height - self.height) / 2;
+                    border-radius: Design.radius-sm;
+                    background: chip-ed-touch.has-hover ? Design.bg-hover : transparent;
+                    chip-ed-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        pointer-event(ev) => {
+                            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                                root.drag-press-x = self.mouse-x;
+                                root.drag-press-y = self.mouse-y;
+                                root.drag-pressed = true;
+                                root.drag-dragging = false;
+                            } else if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.left) {
+                                if (root.drag-dragging) {
+                                    root.save-position();
+                                } else {
+                                    root.open-category("EDITING");
+                                }
+                                root.drag-pressed = false;
+                                root.drag-dragging = false;
+                            } else if (ev.kind == PointerEventKind.cancel) {
+                                root.drag-pressed = false;
+                                root.drag-dragging = false;
+                            } else if (ev.kind == PointerEventKind.move && root.drag-pressed) {
+                                if (abs(self.mouse-x - root.drag-press-x) > 5px || abs(self.mouse-y - root.drag-press-y) > 5px) {
+                                    root.drag-dragging = true;
+                                }
+                                if (root.drag-dragging) {
+                                    root.move-window(self.mouse-x - root.drag-press-x, self.mouse-y - root.drag-press-y);
+                                }
+                            } else if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                                root.close-window();
+                            }
+                        }
+                    }
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        spacing: 6px;
+                        Rectangle {
+                            width: 8px; height: 8px;
+                            y: (parent.height - self.height) / 2;
+                            border-radius: 4px;
+                            background: Design.cat-editing;
+                        }
+                        Text {
+                            text: "EDITING";
+                            font-size: 10px;
+                            font-weight: 700;
+                            color: Design.text-muted;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: root.stat-editing;
+                            font-size: 14px;
+                            font-weight: 800;
+                            color: Design.text-primary;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                // Chip REVISION
+                Rectangle {
+                    height: 30px;
+                    y: (parent.height - self.height) / 2;
+                    border-radius: Design.radius-sm;
+                    background: chip-rev-touch.has-hover ? Design.bg-hover : transparent;
+                    chip-rev-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        pointer-event(ev) => {
+                            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                                root.drag-press-x = self.mouse-x;
+                                root.drag-press-y = self.mouse-y;
+                                root.drag-pressed = true;
+                                root.drag-dragging = false;
+                            } else if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.left) {
+                                if (root.drag-dragging) {
+                                    root.save-position();
+                                } else {
+                                    root.open-category("REVISION");
+                                }
+                                root.drag-pressed = false;
+                                root.drag-dragging = false;
+                            } else if (ev.kind == PointerEventKind.cancel) {
+                                root.drag-pressed = false;
+                                root.drag-dragging = false;
+                            } else if (ev.kind == PointerEventKind.move && root.drag-pressed) {
+                                if (abs(self.mouse-x - root.drag-press-x) > 5px || abs(self.mouse-y - root.drag-press-y) > 5px) {
+                                    root.drag-dragging = true;
+                                }
+                                if (root.drag-dragging) {
+                                    root.move-window(self.mouse-x - root.drag-press-x, self.mouse-y - root.drag-press-y);
+                                }
+                            } else if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                                root.close-window();
+                            }
+                        }
+                    }
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        spacing: 6px;
+                        Rectangle {
+                            width: 8px; height: 8px;
+                            y: (parent.height - self.height) / 2;
+                            border-radius: 4px;
+                            background: Design.cat-revision;
+                        }
+                        Text {
+                            text: "REVISION";
+                            font-size: 10px;
+                            font-weight: 700;
+                            color: Design.text-muted;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: root.stat-revision;
+                            font-size: 14px;
+                            font-weight: 800;
+                            color: Design.text-primary;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                // Chip LATE
+                Rectangle {
+                    height: 30px;
+                    y: (parent.height - self.height) / 2;
+                    border-radius: Design.radius-sm;
+                    background: chip-late-touch.has-hover ? Design.bg-hover : transparent;
+                    chip-late-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        pointer-event(ev) => {
+                            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                                root.drag-press-x = self.mouse-x;
+                                root.drag-press-y = self.mouse-y;
+                                root.drag-pressed = true;
+                                root.drag-dragging = false;
+                            } else if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.left) {
+                                if (root.drag-dragging) {
+                                    root.save-position();
+                                } else {
+                                    root.open-category("LATE");
+                                }
+                                root.drag-pressed = false;
+                                root.drag-dragging = false;
+                            } else if (ev.kind == PointerEventKind.cancel) {
+                                root.drag-pressed = false;
+                                root.drag-dragging = false;
+                            } else if (ev.kind == PointerEventKind.move && root.drag-pressed) {
+                                if (abs(self.mouse-x - root.drag-press-x) > 5px || abs(self.mouse-y - root.drag-press-y) > 5px) {
+                                    root.drag-dragging = true;
+                                }
+                                if (root.drag-dragging) {
+                                    root.move-window(self.mouse-x - root.drag-press-x, self.mouse-y - root.drag-press-y);
+                                }
+                            } else if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                                root.close-window();
+                            }
+                        }
+                    }
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        spacing: 6px;
+                        Rectangle {
+                            width: 8px; height: 8px;
+                            y: (parent.height - self.height) / 2;
+                            border-radius: 4px;
+                            background: Design.cat-late;
+                        }
+                        Text {
+                            text: "LATE";
+                            font-size: 10px;
+                            font-weight: 700;
+                            color: Design.text-muted;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: root.stat-late;
+                            font-size: 14px;
+                            font-weight: 800;
+                            color: Design.text-primary;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                // Chip POINTS
+                Rectangle {
+                    height: 30px;
+                    y: (parent.height - self.height) / 2;
+                    border-radius: Design.radius-sm;
+                    background: chip-pts-touch.has-hover ? Design.bg-hover : transparent;
+                    chip-pts-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        pointer-event(ev) => {
+                            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                                root.drag-press-x = self.mouse-x;
+                                root.drag-press-y = self.mouse-y;
+                                root.drag-pressed = true;
+                                root.drag-dragging = false;
+                            } else if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.left) {
+                                if (root.drag-dragging) {
+                                    root.save-position();
+                                } else {
+                                    root.open-category("POINTS");
+                                }
+                                root.drag-pressed = false;
+                                root.drag-dragging = false;
+                            } else if (ev.kind == PointerEventKind.cancel) {
+                                root.drag-pressed = false;
+                                root.drag-dragging = false;
+                            } else if (ev.kind == PointerEventKind.move && root.drag-pressed) {
+                                if (abs(self.mouse-x - root.drag-press-x) > 5px || abs(self.mouse-y - root.drag-press-y) > 5px) {
+                                    root.drag-dragging = true;
+                                }
+                                if (root.drag-dragging) {
+                                    root.move-window(self.mouse-x - root.drag-press-x, self.mouse-y - root.drag-press-y);
+                                }
+                            } else if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                                root.close-window();
+                            }
+                        }
+                    }
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        spacing: 6px;
+                        Rectangle {
+                            width: 8px; height: 8px;
+                            y: (parent.height - self.height) / 2;
+                            border-radius: 4px;
+                            background: Design.cat-points;
+                        }
+                        Text {
+                            text: "POINTS";
+                            font-size: 10px;
+                            font-weight: 700;
+                            color: Design.text-muted;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: root.stat-points;
+                            font-size: 14px;
+                            font-weight: 800;
+                            color: Design.text-primary;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                Rectangle { horizontal-stretch: 1; }
+
+                // Lonceng notifikasi + badge jumlah.
+                Rectangle {
+                    width: 32px;
+                    height: 32px;
+                    y: (parent.height - self.height) / 2;
+                    border-radius: 16px;
+                    background: bell-touch.has-hover ? Design.bg-hover : transparent;
+                    bell-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        pointer-event(ev) => {
+                            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                                root.drag-press-x = self.mouse-x;
+                                root.drag-press-y = self.mouse-y;
+                                root.drag-pressed = true;
+                                root.drag-dragging = false;
+                            } else if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.left) {
+                                if (root.drag-dragging) {
+                                    root.save-position();
+                                } else {
+                                    root.expanded = !root.expanded;
+                                }
+                                root.drag-pressed = false;
+                                root.drag-dragging = false;
+                            } else if (ev.kind == PointerEventKind.cancel) {
+                                root.drag-pressed = false;
+                                root.drag-dragging = false;
+                            } else if (ev.kind == PointerEventKind.move && root.drag-pressed) {
+                                if (abs(self.mouse-x - root.drag-press-x) > 5px || abs(self.mouse-y - root.drag-press-y) > 5px) {
+                                    root.drag-dragging = true;
+                                }
+                                if (root.drag-dragging) {
+                                    root.move-window(self.mouse-x - root.drag-press-x, self.mouse-y - root.drag-press-y);
+                                }
+                            } else if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                                root.close-window();
+                            }
+                        }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        SvgIcon {
+                            name: "bell";
+                            size: 16px;
+                            icon-color: root.notif-count > 0 ? Design.accent : Design.text-secondary;
+                        }
+                    }
+                    if root.notif-count > 0 : Rectangle {
+                        x: 18px;
+                        y: -2px;
+                        width: 16px;
+                        height: 16px;
+                        border-radius: 8px;
+                        background: Design.status-danger;
+                        Text {
+                            text: root.notif-count > 9 ? "9+" : "" + root.notif-count;
+                            font-size: 9px;
+                            font-weight: 800;
+                            color: #ffffff;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            width: 100%;
+                            height: 100%;
+                        }
+                    }
+                }
+            }
+        }
+
+        // ----- Panel notifikasi (hanya saat mengembang) -----
+        if root.expanded : Rectangle {
+            height: root.expanded-height - 54px;
+            background: Design.surface-elevated;
+            border-color: Design.separator;
+            border-width: 1px;
+            border-radius: Design.radius-md;
+            clip: true;
+
+            VerticalLayout {
+                padding: 8px;
+                spacing: 0;
+
+                if root.notif-titles.length == 0 : Rectangle {
+                    height: 40px;
+                    Text {
+                        text: "Belum ada notifikasi — kartu baru & poin bertambah muncul di sini";
+                        font-size: 12px;
+                        color: Design.text-muted;
+                        vertical-alignment: center;
+                        horizontal-alignment: center;
+                        width: 100%;
+                        height: 100%;
+                    }
+                }
+
+                for title[idx] in root.notif-titles : Rectangle {
+                    height: 40px;
+                    border-radius: Design.radius-sm;
+                    background: row-touch.has-hover ? Design.bg-hover : transparent;
+                    row-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        pointer-event(ev) => {
+                            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                                root.drag-press-x = self.mouse-x;
+                                root.drag-press-y = self.mouse-y;
+                                root.drag-pressed = true;
+                                root.drag-dragging = false;
+                            } else if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.left) {
+                                if (root.drag-dragging) {
+                                    root.save-position();
+                                } else {
+                                    root.open-notification(idx);
+                                }
+                                root.drag-pressed = false;
+                                root.drag-dragging = false;
+                            } else if (ev.kind == PointerEventKind.cancel) {
+                                root.drag-pressed = false;
+                                root.drag-dragging = false;
+                            } else if (ev.kind == PointerEventKind.move && root.drag-pressed) {
+                                if (abs(self.mouse-x - root.drag-press-x) > 5px || abs(self.mouse-y - root.drag-press-y) > 5px) {
+                                    root.drag-dragging = true;
+                                }
+                                if (root.drag-dragging) {
+                                    root.move-window(self.mouse-x - root.drag-press-x, self.mouse-y - root.drag-press-y);
+                                }
+                            } else if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                                root.close-window();
+                            }
+                        }
+                    }
+                    HorizontalLayout {
+                        padding-left: 10px;
+                        padding-right: 10px;
+                        spacing: 8px;
+                        Rectangle {
+                            width: 8px; height: 8px;
+                            y: (parent.height - self.height) / 2;
+                            border-radius: 4px;
+                            background: root.notif-cats[idx] == "EDITING" ? Design.cat-editing : root.notif-cats[idx] == "REVISION" ? Design.cat-revision : root.notif-cats[idx] == "LATE" ? Design.cat-late : root.notif-cats[idx] == "POINTS" ? Design.cat-points : Design.accent;
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 1px;
+                            horizontal-stretch: 1;
+                            Text {
+                                text: title;
+                                font-size: 13px;
+                                font-weight: 700;
+                                color: Design.text-primary;
+                                overflow: elide;
+                            }
+                            Text {
+                                text: root.notif-subs[idx];
+                                font-size: 11px;
+                                color: Design.text-secondary;
+                                overflow: elide;
+                            }
+                        }
+                    }
+                }
+
+                // Footer: buka dashboard utama.
+                Rectangle {
+                    height: 36px;
+                    border-radius: Design.radius-sm;
+                    background: dash-touch.has-hover ? Design.bg-hover : transparent;
+                    dash-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        pointer-event(ev) => {
+                            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                                root.drag-press-x = self.mouse-x;
+                                root.drag-press-y = self.mouse-y;
+                                root.drag-pressed = true;
+                                root.drag-dragging = false;
+                            } else if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.left) {
+                                if (root.drag-dragging) {
+                                    root.save-position();
+                                } else {
+                                    root.open-dashboard();
+                                }
+                                root.drag-pressed = false;
+                                root.drag-dragging = false;
+                            } else if (ev.kind == PointerEventKind.cancel) {
+                                root.drag-pressed = false;
+                                root.drag-dragging = false;
+                            } else if (ev.kind == PointerEventKind.move && root.drag-pressed) {
+                                if (abs(self.mouse-x - root.drag-press-x) > 5px || abs(self.mouse-y - root.drag-press-y) > 5px) {
+                                    root.drag-dragging = true;
+                                }
+                                if (root.drag-dragging) {
+                                    root.move-window(self.mouse-x - root.drag-press-x, self.mouse-y - root.drag-press-y);
+                                }
+                            } else if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                                root.close-window();
+                            }
+                        }
+                    }
+                    HorizontalLayout {
+                        padding-left: 10px;
+                        padding-right: 10px;
+                        spacing: 8px;
+                        VerticalLayout {
+                            alignment: center;
+                            SvgIcon {
+                                name: "layers";
+                                size: 14px;
+                                icon-color: Design.accent;
+                            }
+                        }
+                        Text {
+                            text: "Buka Dashboard";
+                            font-size: 13px;
+                            font-weight: 700;
+                            color: Design.accent;
+                            vertical-alignment: center;
+                            horizontal-stretch: 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
