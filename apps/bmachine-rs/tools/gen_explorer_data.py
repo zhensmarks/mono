@@ -24,83 +24,18 @@ import re
 
 # (name, kind, ext, size, date-display, days-ago, bucket, preview)
 FOLDERS = {
-    "root": {
-        "path": r"D:\#GAWENA",
-        "items": [
-            ("08 AGUSTUS 2026", "folder", "", "", "12 Agu 2026", 106, "A long time ago", ""),
-            ("09 SEPTEMBER 2026", "folder", "", "", "9 Sep 2026", 78, "A long time ago", ""),
-            ("10 OKTOBER 2026", "folder", "", "", "10 Okt 2026", 47, "Last month", ""),
-            ("27_SDN RANCAIYUH I", "folder", "", "", "26 Nov 2026", 0, "Today", ""),
-            ("28_SDN BANTAR KAMBING 03", "folder", "", "", "25 Nov 2026", 1, "Yesterday", ""),
-            ("PAS FOTO.lnk", "link", ".lnk", "1 KB", "26 Nov 2026", 0, "Today", ""),
-            ("catatan.txt", "file", ".txt", "1 KB", "24 Nov 2026", 2, "Earlier this week",
-             "Catatan QC — cek logo sekolah sebelum kirim.\nKODE= MSK-001\nJangan lupa: centering kepala di guide."),
-            ("README.md", "file", ".md", "2 KB", "3 Nov 2026", 23, "Earlier this month",
-             "# BMachine\nFolder output lokal (D:\\#GAWENA).\nHasil olahan master tersimpan di sini."),
-            ("Panduan.docx", "file", ".docx", "15 KB", "20 Nov 2026", 6, "Last week", ""),
-        ],
-    },
-    "a": {
-        "path": r"D:\#GAWENA\27_SDN RANCAIYUH I",
-        "items": [
-            ("1. PAS FOTO", "folder", "", "", "26 Nov 2026", 0, "Today", ""),
-            ("2. FOTO10RP_FREE SEKOLAH_GRAIS", "folder", "", "", "25 Nov 2026", 1, "Yesterday", ""),
-            ("3. SOUVENIR_FREE ID CARD", "folder", "", "", "24 Nov 2026", 2, "Earlier this week", ""),
-            ("4. SOUVENIR_FREE KARTU PELAJA", "folder", "", "", "23 Nov 2026", 3, "Earlier this week", ""),
-            ("KODE= PFM-005.txt", "file", ".txt", "1 KB", "26 Nov 2026", 0, "Today",
-             "KODE= PFM-005\nJenis: PAS FOTO\nSekolah: SDN RANCAIYUH I\nTemplate: PFM-005.psd"),
-        ],
-    },
-    "b": {
-        "path": r"D:\#GAWENA\28_SDN BANTAR KAMBING 03",
-        "items": [
-            ("1. PAS FOTO", "folder", "", "", "25 Nov 2026", 1, "Yesterday", ""),
-            ("2. WISUDA", "folder", "", "", "24 Nov 2026", 2, "Earlier this week", ""),
-            ("3. ID CARD", "folder", "", "", "23 Nov 2026", 3, "Earlier this week", ""),
-            ("4. KARTU PELAJAR", "folder", "", "", "22 Nov 2026", 4, "Earlier this week", ""),
-            ("KODE= MSK-001.txt", "file", ".txt", "1 KB", "25 Nov 2026", 1, "Yesterday",
-             "KODE= MSK-001\nJenis: MANASIK\nSekolah: SDN BANTAR KAMBING 03\nTemplate: MSK-001.psd"),
-        ],
-    },
-    "pf": {
-        "path": r"D:\#GAWENA\27_SDN RANCAIYUH I\1. PAS FOTO",
-        "items": [
-            ("KELAS 1 B", "folder", "", "", "26 Nov 2026", 0, "Today", ""),
-            ("Ahmad.jpg", "file", ".jpg", "2,4 MB", "26 Nov 2026", 0, "Today", ""),
-            ("Budi.jpg", "file", ".jpg", "2,1 MB", "25 Nov 2026", 1, "Yesterday", ""),
-            ("template.psd", "file", ".psd", "48,2 MB", "24 Nov 2026", 2, "Earlier this week", ""),
-        ],
-    },
-    "pfb": {
-        "path": r"D:\#GAWENA\28_SDN BANTAR KAMBING 03\1. PAS FOTO",
-        "items": [
-            ("KELAS 1 B", "folder", "", "", "25 Nov 2026", 1, "Yesterday", ""),
-            ("Dewi.jpg", "file", ".jpg", "2,3 MB", "25 Nov 2026", 1, "Yesterday", ""),
-            ("Eko.jpg", "file", ".jpg", "2,0 MB", "24 Nov 2026", 2, "Earlier this week", ""),
-            ("template.psd", "file", ".psd", "48,2 MB", "24 Nov 2026", 2, "Earlier this week", ""),
-        ],
-    },
-    "gen": {
-        # Representatif folder generik pertama (08 AGUSTUS 2026, anak root).
-        # Dipakai banyak folder generik (08/09/10 + subfolder BATCH) — path
-        # ASLI folder yang dibuka dipakai saat navigasi (browse); path ini
-        # hanya untuk loc + path hasil search (supaya kolom Lokasi konsisten
-        # nama folder, bukan path root, dan path hasil valid).
-        "path": r"D:\#GAWENA\08 AGUSTUS 2026",
-        "items": [
-            ("foto_01.jpg", "file", ".jpg", "1,8 MB", "24 Nov 2026", 2, "Earlier this week", ""),
-            ("foto_02.jpg", "file", ".jpg", "1,9 MB", "23 Nov 2026", 3, "Earlier this week", ""),
-            ("template.psd", "file", ".psd", "48,2 MB", "22 Nov 2026", 4, "Earlier this week", ""),
-        ],
-    },
-    "master": {
-        "path": r"D:\#DATA ABENG\MASTER",
-        "items": [
-            ("PFM-005.psd", "file", ".psd", "52,1 MB", "26 Nov 2026", 0, "Today", ""),
-            ("MSK-001.psd", "file", ".psd", "49,7 MB", "25 Nov 2026", 1, "Yesterday", ""),
-            ("WSD-003.psd", "file", ".psd", "51,3 MB", "24 Nov 2026", 2, "Earlier this week", ""),
-        ],
-    },
+    # Dataset contoh DIKOSONGKAN (27 Nov 2026, keputusan abeng: default
+    # publish harus bersih — tidak ada data pribadi). Kunci folder tetap
+    # ada (root/a/b/pf/pfb/gen/master) supaya komponen ExplorerData
+    # tetap punya properti tiap folder; isi + path diisi user sendiri
+    # saat folder nyata sudah bisa dibaca (Fase 6 / master_creator).
+    "root": {"path": "", "items": []},
+    "a": {"path": "", "items": []},
+    "b": {"path": "", "items": []},
+    "pf": {"path": "", "items": []},
+    "pfb": {"path": "", "items": []},
+    "gen": {"path": "", "items": []},
+    "master": {"path": "", "items": []},
 }
 
 DATE_BUCKETS = ["Today", "Yesterday", "Earlier this week", "Last week",
@@ -277,7 +212,7 @@ def gen_rust():
         for i in canon:
             it = items[i]
             base = it[0][:-len(it[2])] if it[2] and it[0].endswith(it[2]) else it[0]
-            loc = f["path"].split("\\")[-1] if f["path"] else "D:\\#GAWENA"
+            loc = f["path"].split("\\")[-1] if f["path"] else ""
             out.append("    (" + ", ".join([
                 sl_str(key), sl_str(f["path"]), sl_str(it[0]), sl_str(it[1]),
                 sl_str(it[2]), sl_str(base), sl_str(it[3]), sl_str(it[4]),

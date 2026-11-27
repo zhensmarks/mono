@@ -515,8 +515,8 @@ export component ExplorerView inherits Rectangle {
     data := ExplorerData { width: 0px; height: 0px; visible: false; }
 
     // ----- tab (maks 4; "" = slot kosong) -----
-    in-out property <[string]> tabs-path: ["D:\\#GAWENA", "", "", ""];
-    in-out property <[string]> tabs-name: ["#GAWENA", "", "", ""];
+    in-out property <[string]> tabs-path: ["", "", "", ""];
+    in-out property <[string]> tabs-name: ["", "", "", ""];
     in-out property <[bool]> tabs-pinned: [false, false, false, false];
     in-out property <[string]> tabs-label: ["", "", "", ""];
     in-out property <[int]> tabs-color: [0, 0, 0, 0];
@@ -529,11 +529,11 @@ export component ExplorerView inherits Rectangle {
 
     // ----- navigasi -----
     in-out property <string> cur-key: "root";
-    in-out property <string> cur-path: "D:\\#GAWENA";
-    in-out property <string> cur-name: "#GAWENA";
+    in-out property <string> cur-path: "";
+    in-out property <string> cur-name: "";
     in-out property <string> up-key: "root";
-    in-out property <string> up-path: "D:\\#GAWENA";
-    in-out property <string> up-name: "#GAWENA";
+    in-out property <string> up-path: "";
+    in-out property <string> up-name: "";
     property <bool> can-up: root.cur-key != root.up-key;
     in-out property <[string]> it-names: data.root-names;
     in-out property <[string]> it-kinds: data.root-kinds;
@@ -651,9 +651,9 @@ export component ExplorerView inherits Rectangle {
     in-out property <string> ctx-path: "";
     in-out property <string> ta-buffer: "";
 
-    // ----- Quick Access -----
-    in-out property <[string]> qa-paths: ["D:\\#GAWENA", "D:\\#GAWENA\\27_SDN RANCAIYUH I", "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03", "D:\\#DATA ABENG\\MASTER"];
-    in-out property <[string]> qa-labels: ["#GAWENA", "27_SDN RANCAIYUH I", "28_SDN BANTAR KAMBING 03", "MASTER"];
+    // ----- Quick Access (kosong — user tambah folder sendiri) -----
+    in-out property <[string]> qa-paths: [];
+    in-out property <[string]> qa-labels: [];
 
     // ----- undo (maks 10 entri di mockup; C#: 50) -----
     in-out property <[string]> undo-kinds: ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""];
@@ -794,8 +794,8 @@ export component ExplorerView inherits Rectangle {
         // yang induknya = folder sebelumnya (atau yang lama bila sudah
         // di folder generik — mis. Refresh).
         root.up-key = key == "root" ? "root" : key == "a" || key == "b" ? "root" : key == "pf" ? "a" : key == "pfb" ? "b" : key == "master" ? "master" : (root.cur-key == "gen" ? root.up-key : root.cur-key);
-        root.up-path = key == "root" ? "D:\\#GAWENA" : key == "a" || key == "b" ? "D:\\#GAWENA" : key == "pf" ? "D:\\#GAWENA\\27_SDN RANCAIYUH I" : key == "pfb" ? "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03" : key == "master" ? "D:\\#DATA ABENG\\MASTER" : (root.cur-key == "gen" ? root.up-path : root.cur-path);
-        root.up-name = key == "root" ? "#GAWENA" : key == "a" || key == "b" ? "#GAWENA" : key == "pf" ? "27_SDN RANCAIYUH I" : key == "pfb" ? "28_SDN BANTAR KAMBING 03" : key == "master" ? "MASTER" : (root.cur-key == "gen" ? root.up-name : root.cur-name);
+        root.up-path = key == "root" ? "" : (root.cur-key == "gen" ? root.up-path : root.cur-path);
+        root.up-name = key == "root" ? "" : (root.cur-key == "gen" ? root.up-name : root.cur-name);
         root.cur-key = key;
         root.cur-path = path;
         root.cur-name = name;
@@ -840,41 +840,10 @@ export component ExplorerView inherits Rectangle {
     nav-to-path(path) => {
         if (path == root.cur-path) {
             // Sudah di sini — tidak berbuat apa-apa.
-        } else if (path == "D:\\#GAWENA") {
-            root.load-folder("root", path, "#GAWENA", true);
-        } else if (path == "D:\\#GAWENA\\27_SDN RANCAIYUH I") {
-            root.load-folder("a", path, "27_SDN RANCAIYUH I", true);
-        } else if (path == "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03") {
-            root.load-folder("b", path, "28_SDN BANTAR KAMBING 03", true);
-        } else if (path == "D:\\#GAWENA\\27_SDN RANCAIYUH I\\1. PAS FOTO") {
-            root.load-folder("pf", path, "1. PAS FOTO", true);
-        } else if (path == "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03\\1. PAS FOTO") {
-            root.load-folder("pfb", path, "1. PAS FOTO", true);
-        } else if (path == "D:\\#DATA ABENG\\MASTER") {
-            root.load-folder("master", path, "MASTER", true);
-        } else if (path == "D:\\#GAWENA\\08 AGUSTUS 2026") {
-            root.load-folder("gen", path, "08 AGUSTUS 2026", true);
-        } else if (path == "D:\\#GAWENA\\09 SEPTEMBER 2026") {
-            root.load-folder("gen", path, "09 SEPTEMBER 2026", true);
-        } else if (path == "D:\\#GAWENA\\10 OKTOBER 2026") {
-            root.load-folder("gen", path, "10 OKTOBER 2026", true);
-        } else if (path == "D:\\#GAWENA\\27_SDN RANCAIYUH I\\2. FOTO10RP_FREE SEKOLAH_GRAIS") {
-            root.load-folder("gen", path, "2. FOTO10RP_FREE SEKOLAH_GRAIS", true);
-        } else if (path == "D:\\#GAWENA\\27_SDN RANCAIYUH I\\3. SOUVENIR_FREE ID CARD") {
-            root.load-folder("gen", path, "3. SOUVENIR_FREE ID CARD", true);
-        } else if (path == "D:\\#GAWENA\\27_SDN RANCAIYUH I\\4. SOUVENIR_FREE KARTU PELAJA") {
-            root.load-folder("gen", path, "4. SOUVENIR_FREE KARTU PELAJA", true);
-        } else if (path == "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03\\2. WISUDA") {
-            root.load-folder("gen", path, "2. WISUDA", true);
-        } else if (path == "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03\\3. ID CARD") {
-            root.load-folder("gen", path, "3. ID CARD", true);
-        } else if (path == "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03\\4. KARTU PELAJAR") {
-            root.load-folder("gen", path, "4. KARTU PELAJAR", true);
-        } else if (path == "D:\\#GAWENA\\27_SDN RANCAIYUH I\\1. PAS FOTO\\KELAS 1 B") {
-            root.load-folder("gen", path, "KELAS 1 B", true);
-        } else if (path == "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03\\1. PAS FOTO\\KELAS 1 B") {
-            root.load-folder("gen", path, "KELAS 1 B", true);
         } else {
+            // Pemetaan path contoh DIHAPUS 27 Nov 2026 (keputusan
+            // abeng: default publish harus bersih). Folder nyata
+            // belum bisa dibuka dari sini (menyusul Fase 6).
             root.toast("Folder tidak ditemukan: " + path);
         }
     }
@@ -936,11 +905,7 @@ export component ExplorerView inherits Rectangle {
         if (kind == "folder") {
             root.nav-to-path(full-path);
         } else if (kind == "link") {
-            if (name == "PAS FOTO.lnk") {
-                root.load-folder("pf", "D:\\#GAWENA\\27_SDN RANCAIYUH I\\1. PAS FOTO", "1. PAS FOTO", true);
-            } else {
-                root.toast("Dibuka di aplikasi default: " + name);
-            }
+            root.toast("Dibuka di aplikasi default: " + name);
         } else if (ext == ".jpg" || ext == ".jpeg" || ext == ".png") {
             root.toast("Dibuka di aplikasi default: " + name);
         } else if (ext == ".psd" || ext == ".tif" || ext == ".tiff" || ext == ".webp") {
@@ -1563,14 +1528,14 @@ export component ExplorerView inherits Rectangle {
         if (root.tab-count >= 4) {
             root.toast("Maksimal 4 tab.");
         } else {
-            root.tabs-path = [root.tab-count == 0 ? "D:\\#GAWENA" : root.tabs-path[0], root.tab-count == 1 ? "D:\\#GAWENA" : root.tabs-path[1], root.tab-count == 2 ? "D:\\#GAWENA" : root.tabs-path[2], root.tab-count == 3 ? "D:\\#GAWENA" : root.tabs-path[3]];
-            root.tabs-name = [root.tab-count == 0 ? "#GAWENA" : root.tabs-name[0], root.tab-count == 1 ? "#GAWENA" : root.tabs-name[1], root.tab-count == 2 ? "#GAWENA" : root.tabs-name[2], root.tab-count == 3 ? "#GAWENA" : root.tabs-name[3]];
+            root.tabs-path = [root.tab-count == 0 ? "" : root.tabs-path[0], root.tab-count == 1 ? "" : root.tabs-path[1], root.tab-count == 2 ? "" : root.tabs-path[2], root.tab-count == 3 ? "" : root.tabs-path[3]];
+            root.tabs-name = [root.tab-count == 0 ? "" : root.tabs-name[0], root.tab-count == 1 ? "" : root.tabs-name[1], root.tab-count == 2 ? "" : root.tabs-name[2], root.tab-count == 3 ? "" : root.tabs-name[3]];
             root.tabs-pinned = [root.tab-count == 0 ? false : root.tabs-pinned[0], root.tab-count == 1 ? false : root.tabs-pinned[1], root.tab-count == 2 ? false : root.tabs-pinned[2], root.tab-count == 3 ? false : root.tabs-pinned[3]];
             root.tabs-label = [root.tab-count == 0 ? "" : root.tabs-label[0], root.tab-count == 1 ? "" : root.tabs-label[1], root.tab-count == 2 ? "" : root.tabs-label[2], root.tab-count == 3 ? "" : root.tabs-label[3]];
             root.tabs-color = [root.tab-count == 0 ? 0 : root.tabs-color[0], root.tab-count == 1 ? 0 : root.tabs-color[1], root.tab-count == 2 ? 0 : root.tabs-color[2], root.tab-count == 3 ? 0 : root.tabs-color[3]];
             root.active-tab = root.tab-count;
             root.tab-count = root.tab-count + 1;
-            root.nav-to-path("D:\\#GAWENA");
+            root.load-folder("root", "", "", true);
         }
     }
     callback close-tab(int);
@@ -1704,31 +1669,15 @@ export component ExplorerView inherits Rectangle {
     }
     callback send-folder(string);
     send-folder(folder) => {
-        if (folder == "27_SDN RANCAIYUH I") {
-            root.send-to-batch(folder, "1. PAS FOTO", "2. FOTO10RP_FREE SEKOLAH_GRAIS", "3. SOUVENIR_FREE ID CARD", "4. SOUVENIR_FREE KARTU PELAJA");
-        } else if (folder == "28_SDN BANTAR KAMBING 03") {
-            root.send-to-batch(folder, "1. PAS FOTO", "2. WISUDA", "3. ID CARD", "4. KARTU PELAJAR");
-        } else if (folder == "1. PAS FOTO") {
-            root.send-to-batch(folder, "KELAS 1 B", "", "", "");
-        } else if (folder == "08 AGUSTUS 2026" || folder == "09 SEPTEMBER 2026" || folder == "10 OKTOBER 2026" || folder == "2. FOTO10RP_FREE SEKOLAH_GRAIS" || folder == "3. SOUVENIR_FREE ID CARD" || folder == "4. SOUVENIR_FREE KARTU PELAJA" || folder == "2. WISUDA" || folder == "3. ID CARD" || folder == "4. KARTU PELAJAR") {
-            root.send-to-batch(folder, "foto_01.jpg", "foto_02.jpg", "template.psd", "");
-        } else {
-            root.send-to-batch(folder, "", "", "", "");
-        }
+        // Pemetaan folder contoh DIHAPUS 27 Nov 2026 (keputusan abeng:
+        // default publish harus bersih). Isi subfolder dibaca dari disk
+        // saat folder nyata sudah bisa dibuka (menyusul Fase 6).
+        root.send-to-batch(folder, "", "", "", "");
     }
     callback buat-master-ctx();
     buat-master-ctx() => {
-        if (root.ctx-name == "27_SDN RANCAIYUH I") {
-            root.buat-master(root.ctx-name, "1. PAS FOTO", "2. FOTO10RP_FREE SEKOLAH_GRAIS", "3. SOUVENIR_FREE ID CARD", "4. SOUVENIR_FREE KARTU PELAJA");
-        } else if (root.ctx-name == "28_SDN BANTAR KAMBING 03") {
-            root.buat-master(root.ctx-name, "1. PAS FOTO", "2. WISUDA", "3. ID CARD", "4. KARTU PELAJAR");
-        } else if (root.ctx-name == "1. PAS FOTO") {
-            root.buat-master(root.ctx-name, "KELAS 1 B", "", "", "");
-        } else if (root.ctx-name == "08 AGUSTUS 2026" || root.ctx-name == "09 SEPTEMBER 2026" || root.ctx-name == "10 OKTOBER 2026" || root.ctx-name == "2. FOTO10RP_FREE SEKOLAH_GRAIS" || root.ctx-name == "3. SOUVENIR_FREE ID CARD" || root.ctx-name == "4. SOUVENIR_FREE KARTU PELAJA" || root.ctx-name == "2. WISUDA" || root.ctx-name == "3. ID CARD" || root.ctx-name == "4. KARTU PELAJAR") {
-            root.buat-master(root.ctx-name, "foto_01.jpg", "foto_02.jpg", "template.psd", "");
-        } else {
-            root.buat-master(root.ctx-name, "", "", "", "");
-        }
+        // Pemetaan folder contoh DIHAPUS 27 Nov 2026 (lihat send-folder).
+        root.buat-master(root.ctx-name, "", "", "", "");
         root.ctx-open = false;
     }
     callback typeahead-char(string);

@@ -68,7 +68,7 @@ export component ExplorerSettingsView inherits Rectangle {
     callback back();
 
     // --- Explorer (dari ExplorerSettings C#; dulu grup Settings) ---
-    in-out property <string> exp-path: "D:\\#GAWENA";
+    in-out property <string> exp-path: "";
     in-out property <string> exp-view: "Details";
     in-out property <string> exp-sort: "Name";
     in-out property <string> exp-group: "None";
@@ -120,7 +120,7 @@ export component ExplorerSettingsView inherits Rectangle {
                         TextField {
                             horizontal-stretch: 1;
                             text: root.exp-path;
-                            placeholder: "D:\\#GAWENA";
+                            placeholder: "Pilih folder…";
                             edited(text) => { root.exp-path = text; }
                             accepted(text) => { root.toast("Disimpan: Default Explorer Path"); }
                         }

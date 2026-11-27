@@ -3,9 +3,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-pub const DEFAULT_NAS_FOLDER: &str =
-    r"\\delapanmataair\Editor\#MASTER DESIGN\SOFTWARE\#PROJECT ROBOT\BMachine";
-pub const DEFAULT_DRIVE_FOLDER: &str = r"U:\#MASTER DESIGN\SOFTWARE\#PROJECT ROBOT\BMachine";
+pub const DEFAULT_NAS_FOLDER: &str = "";
+pub const DEFAULT_DRIVE_FOLDER: &str = "";
 pub const MANIFEST_FILE_NAME: &str = "manifest.json";
 #[allow(dead_code)]
 pub const CHANGELOG_FILE_NAME: &str = "changelog.json";

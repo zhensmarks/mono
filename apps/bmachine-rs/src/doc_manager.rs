@@ -20,16 +20,8 @@ impl DocTabItem {
             id: format!("tab_{}", number),
             number,
             title: format!("Redaksi {}", number),
-            name: if number == 1 {
-                "SDN RANCAIYUH I".to_string()
-            } else {
-                String::new()
-            },
-            address: if number == 1 {
-                "Jl. Raya Rancaiyuh No. 12, Kec. Parongpong, Kab. Bandung Barat 40559".to_string()
-            } else {
-                String::new()
-            },
+            name: String::new(),
+            address: String::new(),
             logo_path: String::new(),
             logo_path2: String::new(),
             show_second_logo: false,
@@ -101,8 +93,8 @@ impl DocManager {
         let payload = serde_json::json!({
             "name": tab.name,
             "address": tab.address,
-            "nameSources": ["TK DELAPAN MATA AIR"],
-            "addressSources": ["JL. RAYA CIMAHI NO. 88"],
+            "nameSources": [],
+            "addressSources": [],
             "logo": tab.logo_path,
             "logo2": tab.logo_path2
         });

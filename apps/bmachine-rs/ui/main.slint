@@ -92,21 +92,23 @@ export component AppWindow inherits Window {
     in-out property <string> spreadsheet-sheet-name: "ALL DATA REGULER";
     in-out property <string> spreadsheet-range: "A1:Z";
     // Data grid spreadsheet + nilai asli + status guard/draft (Rust).
-    in-out property <[string]> sheet-col-a: ["47276395", "47276396", "47276397", "47276398", "47276399", "47276400"];
-    in-out property <[string]> sheet-col-b: ["SDN RANCAIYUH I", "SDN CIKAMPEK II", "SMPN 1 PARONGPONG", "SMAN 2 CIMAHI", "SDN SUKAMAJU III", "SDN KARANGANYAR"];
-    in-out property <[string]> sheet-col-c: ["SD", "SD", "SMP", "SMA", "SD", "SD"];
-    in-out property <[string]> sheet-col-d: ["SELESAI", "PROSES", "REVISI", "SELESAI", "ANTRIAN", "SELESAI"];
-    in-out property <[string]> sheet-col-e: ["1280", "950", "420", "1640", "310", "880"];
-    in-out property <[string]> sheet-col-f: ["Lengkap", "Foto kurang 2", "Warna jas revisi", "Lunas", "Menunggu konfirmasi", "Cetak master siap"];
-    in-out property <[string]> sheet-col-a-orig: ["47276395", "47276396", "47276397", "47276398", "47276399", "47276400"];
-    in-out property <[string]> sheet-col-b-orig: ["SDN RANCAIYUH I", "SDN CIKAMPEK II", "SMPN 1 PARONGPONG", "SMAN 2 CIMAHI", "SDN SUKAMAJU III", "SDN KARANGANYAR"];
-    in-out property <[string]> sheet-col-c-orig: ["SD", "SD", "SMP", "SMA", "SD", "SD"];
-    in-out property <[string]> sheet-col-d-orig: ["SELESAI", "PROSES", "REVISI", "SELESAI", "ANTRIAN", "SELESAI"];
-    in-out property <[string]> sheet-col-e-orig: ["1280", "950", "420", "1640", "310", "880"];
-    in-out property <[string]> sheet-col-f-orig: ["Lengkap", "Foto kurang 2", "Warna jas revisi", "Lunas", "Menunggu konfirmasi", "Cetak master siap"];
+    // Default KOSONG (27 Nov 2026, keputusan abeng: default publish
+    // harus bersih, tidak ada data contoh).
+    in-out property <[string]> sheet-col-a: [];
+    in-out property <[string]> sheet-col-b: [];
+    in-out property <[string]> sheet-col-c: [];
+    in-out property <[string]> sheet-col-d: [];
+    in-out property <[string]> sheet-col-e: [];
+    in-out property <[string]> sheet-col-f: [];
+    in-out property <[string]> sheet-col-a-orig: [];
+    in-out property <[string]> sheet-col-b-orig: [];
+    in-out property <[string]> sheet-col-c-orig: [];
+    in-out property <[string]> sheet-col-d-orig: [];
+    in-out property <[string]> sheet-col-e-orig: [];
+    in-out property <[string]> sheet-col-f-orig: [];
     in-out property <bool> sheet-has-draft: false;
     in-out property <int> sheet-draft-count: 0;
-    in-out property <string> sheet-status-text: "6 baris siap · Jangkar A1:F6 · Terhubung ke Google Sheets";
+    in-out property <string> sheet-status-text: "0 baris · Belum terhubung ke Google Sheets";
     in-out property <string> sheet-guard-result: "";
     in-out property <string> lb-harian-range: "A2:C10";
     in-out property <string> lb-bulanan-range: "A2:C10";
@@ -209,7 +211,8 @@ export component AppWindow inherits Window {
     in-out property <int> app-pet-active-index: 0;
     in-out property <string> app-pet-install-input: "";
     in-out property <bool> app-pet-install-busy: false;
-    in-out property <string> app-user-name: "abeng";
+    in-out property <string> app-user-name: "USER";
+    in-out property <string> app-user-initial: "U";
     in-out property <string> app-lang: "Indonesia";
     in-out property <bool> app-anim-startup: true;
     in-out property <string> app-anim-speed: "Normal";
@@ -217,13 +220,13 @@ export component AppWindow inherits Window {
     in-out property <bool> app-trello-connected: false;
     in-out property <string> app-trello-status: "Belum tersambung ke Trello.";
 
-    in-out property <string> app-path-local: "D:\\#GAWENA";
+    in-out property <string> app-path-local: "";
     in-out property <string> app-path-okebase: "";
     in-out property <string> app-path-photoshop: "";
-    in-out property <string> app-path-pasfoto: "D:\\#DATA ABENG\\MASTER\\PASFOTO";
-    in-out property <string> app-path-manasik: "D:\\#DATA ABENG\\MASTER\\MANASIK";
-    in-out property <string> app-path-wisuda: "D:\\#DATA ABENG\\MASTER\\WISUDA";
-    in-out property <string> app-path-profesi: "D:\\#DATA ABENG\\MASTER\\PROFESI";
+    in-out property <string> app-path-pasfoto: "";
+    in-out property <string> app-path-manasik: "";
+    in-out property <string> app-path-wisuda: "";
+    in-out property <string> app-path-profesi: "";
 
     // Log Panel (sidebar kanan): lebar log-panel-width saat terbuka
     // (default 288px ≈ nilai nyata abeng 287.6 di DB; MinWidth 180
@@ -299,16 +302,19 @@ export component AppWindow inherits Window {
     // Pulihkan dataset contoh A ke SOURCE (dipakai tombol "+ Tambah
     // Folder" dan drop zone BATCH saat SOURCE kosong — mockup: Slint
     // belum mendukung drag-drop OS, jadi klik = simulasi drop).
+    // DIKOSONGKAN 27 Nov 2026 (keputusan abeng: default publish harus
+    // bersih) — tidak ada lagi dataset contoh; user pilih folder
+    // sendiri (alur folder nyata menyusul dari studi master_creator).
     public function restore-batch-source() {
         root.use-folder-b = false;
-        root.src-name = "27_SDN RANCAIYUH I";
-        root.selected-source = "27_SDN RANCAIYUH I";
-        root.selected-output = "27_SDN RANCAIYUH I";
-        root.src-folders = ["PAS FOTO", "FOTO10RP_FREE SEKOLAH_GRAIS", "SOUVENIR_FREE ID CARD", "SOUVENIR_FREE KARTU PELAJA"];
-        root.kids-0 = ["Ahmad.jpg", "Budi.jpg", "template.psd"];
-        root.kids-1 = ["foto_01.jpg", "foto_02.jpg", "foto_03.jpg"];
-        root.kids-2 = ["id_01.jpg", "id_02.jpg", "template.psd"];
-        root.kids-3 = ["kartu_01.jpg", "kartu_02.jpg", "kartu_03.jpg"];
+        root.src-name = "";
+        root.selected-source = "";
+        root.selected-output = "";
+        root.src-folders = ["", "", "", ""];
+        root.kids-0 = ["", "", ""];
+        root.kids-1 = ["", "", ""];
+        root.kids-2 = ["", "", ""];
+        root.kids-3 = ["", "", ""];
         root.expanded-node = "";
         root.selected-nodes = [];
         root.ctx-node = "";
@@ -319,7 +325,7 @@ export component AppWindow inherits Window {
         root.out-kids-2 = ["", "", ""];
         root.out-kids-3 = ["", "", ""];
         root.expanded-out = "";
-        root.toast = "Folder SOURCE dipulihkan: 27_SDN RANCAIYUH I";
+        root.toast = "Pilih folder sumber terlebih dahulu.";
     }
 
     // Overlay layar penuh (Settings/Toolbox/Sheets/Leaderboard/
@@ -357,7 +363,7 @@ export component AppWindow inherits Window {
     // Explorer (overlay "EXPLORER"): path awal + hasil search /
     // type-ahead dari Rust (lihat src/main.rs). start-path berubah ->
     // ExplorerView menavigasi (changed start-path di explorer.slint).
-    in-out property <string> ex-start-path: "D:\\#GAWENA";
+    in-out property <string> ex-start-path: "";
     in-out property <[string]> ex-sr-names: [];
     in-out property <[string]> ex-sr-kinds: [];
     in-out property <[string]> ex-sr-exts: [];
@@ -438,36 +444,38 @@ export component AppWindow inherits Window {
     // Data daftar Trello — SATU sumber (jangan duplikasi literal di
     // tiap handler). Dipakai handler klik badan widget, tab embedded,
     // dan panah window. Pola sama seperti kids-b-* (BATCH).
-    in-out property <[string]> editing-titles: ["47276395_SDN RANCAIYUH 1_GUSFIARI", "48328499_SDN BANTAR KAMBING 03_YOGA", "30816883_TK ISLAM ARAFAH 1024_NISSA", "29332964_PAUD CAHAYA UMMAT 0724_NISSA", "49109072_TK ISLAM AL GHIFARI_NISSA", "TK ASSALAM_FENTI"];
-    in-out property <[string]> editing-subs: ["KELAS 2 · Pas Foto", "9 anak · 1 belum dikirim", "QC · Revisi", "Revisi Alfan", "Revisi Alfan", "QC Alif"];
-    in-out property <[string]> editing-due: ["28 Nov 2026", "30 Nov 2026", "1 Des 2026", "2 Des 2026", "3 Des 2026", "4 Des 2026"];
-    in-out property <[string]> revision-titles: ["TK ASSALAM_FENTI", "PAUD HAUR WANGUN_FENTI", "PAUD AL FURQON_SURYA", "PAUD TUNAS BANGSA_SURYA", "RA ATS-TSABIT_SURYA"];
-    in-out property <[string]> revision-subs: ["Revisi Alif", "Revisi Alif", "Revisi Surya", "Revisi Riyan", "Revisi Rahmah"];
-    in-out property <[string]> revision-due: ["28 Nov 2026", "29 Nov 2026", "30 Nov 2026", "1 Des 2026", "2 Des 2026"];
-    in-out property <[string]> late-titles: ["PAUD TUNAS BANGSA GUNUNG PUTRI_SURYA", "RA ATS-TSABIT_SURYA", "SDN BANTAR KAMBING 03_YOGA"];
-    in-out property <[string]> late-subs: ["Telat 2 hari", "Telat 3 hari", "Telat 1 hari"];
-    in-out property <[string]> late-due: ["24 Nov 2026", "23 Nov 2026", "25 Nov 2026"];
+    // Default KOSONG (27 Nov 2026, keputusan abeng: default publish
+    // harus bersih — kartu diisi Rust saat sync Trello pertama).
+    in-out property <[string]> editing-titles: [];
+    in-out property <[string]> editing-subs: [];
+    in-out property <[string]> editing-due: [];
+    in-out property <[string]> revision-titles: [];
+    in-out property <[string]> revision-subs: [];
+    in-out property <[string]> revision-due: [];
+    in-out property <[string]> late-titles: [];
+    in-out property <[string]> late-subs: [];
+    in-out property <[string]> late-due: [];
     // ID numerik tiap kartu (prefix nama — C# CardDetailPanelHost
     // DisplayId; "" bila nama tanpa prefix numerik).
-    in-out property <[string]> editing-ids: ["47276395", "48328499", "30816883", "29332964", "49109072", ""];
-    in-out property <[string]> revision-ids: ["", "", "", "", ""];
-    in-out property <[string]> late-ids: ["", "", ""];
+    in-out property <[string]> editing-ids: [];
+    in-out property <[string]> revision-ids: [];
+    in-out property <[string]> late-ids: [];
     // Link web tiap kartu dari API (`shortUrl`) — detail kartu
     // membukanya di browser; "" bila server tidak mengembalikannya.
     // Diisi Rust saat sync (sama seperti editing-ids); mockup di bawah
     // hanya untuk tampilan awal sebelum sync pertama.
-    in-out property <[string]> editing-urls: ["https://trello.com/c/47276395", "https://trello.com/c/48328499", "https://trello.com/c/30816883", "https://trello.com/c/29332964", "https://trello.com/c/49109072", ""];
-    in-out property <[string]> revision-urls: ["", "", "", "", ""];
-    in-out property <[string]> late-urls: ["", "", ""];
+    in-out property <[string]> editing-urls: [];
+    in-out property <[string]> revision-urls: [];
+    in-out property <[string]> late-urls: [];
 
     // Status checklist per kartu (C# TrelloCard.ChecklistStatusLabel:
     // DONE = checklist format nama user sudah diceklis, TODO = belum).
     // Badge ini penanda user apakah kartu sudah dikerjakan atau belum —
     // JANGAN dihilangkan. list-done dihitung dari kategori/window
     // aktif (satu sumber, tidak di-assign di handler).
-    in-out property <[bool]> editing-done: [true, false, false, true, false, false];
-    in-out property <[bool]> revision-done: [false, true, false, false, false];
-    in-out property <[bool]> late-done: [false, false, true];
+    in-out property <[bool]> editing-done: [];
+    in-out property <[bool]> revision-done: [];
+    in-out property <[bool]> late-done: [];
     property <[bool]> list-done: root.trello-window-cat == "EDITING" ? root.editing-done : root.trello-window-cat == "REVISION" ? root.revision-done : root.trello-window-cat == "LATE" ? root.late-done : root.list-category == "EDITING" ? root.editing-done : root.list-category == "REVISION" ? root.revision-done : root.list-category == "LATE" ? root.late-done : [];
     // ID badge detail (sejajar list-done: window pakai trello-window-cat,
     // embedded pakai list-category).
@@ -522,21 +530,18 @@ export component AppWindow inherits Window {
     // ke-4 (index 3) yang hanya terisi bila subfolder baru dibuat
     // via input inline (K1 REA, 26 Nov) — dibaca dengan guard
     // .length supaya array 3 elemen tetap aman.
-    in-out property <string> src-name: "27_SDN RANCAIYUH I";
+    in-out property <string> src-name: "";
     in-out property <bool> use-folder-b: false;
-    in-out property <[string]> src-folders: [
-        "PAS FOTO", "FOTO10RP_FREE SEKOLAH_GRAIS",
-        "SOUVENIR_FREE ID CARD", "SOUVENIR_FREE KARTU PELAJA",
-    ];
-    property <[string]> src-folders-b: ["PAS FOTO", "WISUDA", "ID CARD", "KARTU PELAJAR"];
-    in-out property <[string]> kids-0: ["Ahmad.jpg", "Budi.jpg", "template.psd"];
-    in-out property <[string]> kids-1: ["foto_01.jpg", "foto_02.jpg", "foto_03.jpg"];
-    in-out property <[string]> kids-2: ["id_01.jpg", "id_02.jpg", "template.psd"];
-    in-out property <[string]> kids-3: ["kartu_01.jpg", "kartu_02.jpg", "kartu_03.jpg"];
-    property <[string]> kids-b-0: ["Dewi.jpg", "Eko.jpg", "template.psd"];
-    property <[string]> kids-b-1: ["wisuda_01.jpg", "wisuda_02.jpg", "template.psd"];
-    property <[string]> kids-b-2: ["id_01.jpg", "id_02.jpg", "id_03.jpg"];
-    property <[string]> kids-b-3: ["kartu_01.jpg", "kartu_02.jpg", "template.psd"];
+    in-out property <[string]> src-folders: ["", "", "", ""];
+    property <[string]> src-folders-b: [];
+    in-out property <[string]> kids-0: ["", "", ""];
+    in-out property <[string]> kids-1: ["", "", ""];
+    in-out property <[string]> kids-2: ["", "", ""];
+    in-out property <[string]> kids-3: ["", "", ""];
+    property <[string]> kids-b-0: ["", "", ""];
+    property <[string]> kids-b-1: ["", "", ""];
+    property <[string]> kids-b-2: ["", "", ""];
+    property <[string]> kids-b-3: ["", "", ""];
 
     // State tree: folder yang di-expand ("" = tidak ada),
     // node terpilih (multi-select, maks 3), node yang menu
@@ -647,8 +652,8 @@ export component AppWindow inherits Window {
     in-out property <[string]> out-kids-3: ["", "", ""];
     in-out property <string> expanded-out: "";
 
-    in-out property <string> selected-source: "27_SDN RANCAIYUH I";
-    in-out property <string> selected-output: "27_SDN RANCAIYUH I";
+    in-out property <string> selected-source: "";
+    in-out property <string> selected-output: "";
     in-out property <string> selected-master: "PAS FOTO";
 
     // SOURCE kosong = keempat slot "" (Bersihkan / hapus semua).
@@ -1478,6 +1483,8 @@ export component AppWindow inherits Window {
                     description: "Edit pas foto sekolah — crop, centering kepala di guide, logo terlihat.";
                     sub-panel: root.detail-panel;
                     added-count: root.detail-added-count;
+                    user-name: root.app-user-name;
+                    user-initial: root.app-user-initial;
                     close => { root.selected-card = ""; root.detail-panel = ""; root.detail-added-count = 0; }
                     unlink => { root.remove-manual(root.selected-manual-index); root.selected-card = ""; root.detail-panel = ""; root.detail-added-count = 0; }
                     show-toast(text) => { root.toast = text; }
@@ -1633,53 +1640,10 @@ export component AppWindow inherits Window {
                         scale: root.ui-scale;
                         clicked => {
                             // AddFolders() MENGGANTI seluruh koleksi
-                            // (bukan append). Mockup: toggle dua dataset
-                            // contoh; kalau SOURCE kosong, pulihkan A.
-                            if (root.src-empty) {
-                                root.restore-batch-source();
-                            } else if (!root.use-folder-b) {
-                                root.use-folder-b = true;
-                                root.src-name = "28_SDN BANTAR KAMBING 03";
-                                root.selected-source = "28_SDN BANTAR KAMBING 03";
-                                root.selected-output = "28_SDN BANTAR KAMBING 03";
-                                root.src-folders = ["PAS FOTO", "WISUDA", "ID CARD", "KARTU PELAJAR"];
-                                root.kids-0 = ["Dewi.jpg", "Eko.jpg", "template.psd"];
-                                root.kids-1 = ["wisuda_01.jpg", "wisuda_02.jpg", "template.psd"];
-                                root.kids-2 = ["id_01.jpg", "id_02.jpg", "id_03.jpg"];
-                                root.kids-3 = ["kartu_01.jpg", "kartu_02.jpg", "template.psd"];
-                                root.expanded-node = "";
-                                root.selected-nodes = [];
-                                root.ctx-node = "";
-                                root.has-manifest = false;
-                                root.out-folders = ["", "", "", ""];
-                                root.out-kids-0 = ["", "", ""];
-                                root.out-kids-1 = ["", "", ""];
-                                root.out-kids-2 = ["", "", ""];
-                                root.out-kids-3 = ["", "", ""];
-                                root.expanded-out = "";
-                                root.toast = "SOURCE diganti: 28_SDN BANTAR KAMBING 03";
-                            } else {
-                                root.use-folder-b = false;
-                                root.src-name = "27_SDN RANCAIYUH I";
-                                root.selected-source = "27_SDN RANCAIYUH I";
-                                root.selected-output = "27_SDN RANCAIYUH I";
-                                root.src-folders = ["PAS FOTO", "FOTO10RP_FREE SEKOLAH_GRAIS", "SOUVENIR_FREE ID CARD", "SOUVENIR_FREE KARTU PELAJA"];
-                                root.kids-0 = ["Ahmad.jpg", "Budi.jpg", "template.psd"];
-                                root.kids-1 = ["foto_01.jpg", "foto_02.jpg", "foto_03.jpg"];
-                                root.kids-2 = ["id_01.jpg", "id_02.jpg", "template.psd"];
-                                root.kids-3 = ["kartu_01.jpg", "kartu_02.jpg", "kartu_03.jpg"];
-                                root.expanded-node = "";
-                                root.selected-nodes = [];
-                                root.ctx-node = "";
-                                root.has-manifest = false;
-                                root.out-folders = ["", "", "", ""];
-                                root.out-kids-0 = ["", "", ""];
-                                root.out-kids-1 = ["", "", ""];
-                                root.out-kids-2 = ["", "", ""];
-                                root.out-kids-3 = ["", "", ""];
-                                root.expanded-out = "";
-                                root.toast = "SOURCE diganti: 27_SDN RANCAIYUH I";
-                            }
+                            // (bukan append). Dataset contoh DIKOSONGKAN
+                            // 27 Nov 2026 (keputusan abeng) — tambah
+                            // folder nyata menyusul (studi master_creator).
+                            root.toast = "Pilih folder sumber terlebih dahulu.";
                         }
                     }
                 }
@@ -2240,7 +2204,7 @@ export component AppWindow inherits Window {
                                             ctx-copyout := TouchArea {
                                                 mouse-cursor: pointer;
                                                 clicked => {
-                                                    root.toast = "Output path disalin: D:\\#GAWENA\\" + root.selected-output + "\\" + (root.ctx-is-child ? (root.ctx-folder-idx == 0 ? root.out-folders[0] : root.ctx-folder-idx == 1 ? root.out-folders[1] : root.ctx-folder-idx == 2 ? root.out-folders[2] : root.out-folders[3]) + "\\" + root.ctx-node : root.ctx-node);
+                                                    root.toast = "Output path disalin: " + (root.app-path-local == "" ? root.selected-output : root.app-path-local + "\\" + root.selected-output) + "\\" + (root.ctx-is-child ? (root.ctx-folder-idx == 0 ? root.out-folders[0] : root.ctx-folder-idx == 1 ? root.out-folders[1] : root.ctx-folder-idx == 2 ? root.out-folders[2] : root.out-folders[3]) + "\\" + root.ctx-node : root.ctx-node);
                                                     root.ctx-node = "";
                                                 }
                                             }
@@ -2841,7 +2805,7 @@ export component AppWindow inherits Window {
                                             ctx-copyout-o := TouchArea {
                                                 mouse-cursor: pointer;
                                                 clicked => {
-                                                    root.toast = "Output path disalin: D:\\#GAWENA\\" + root.selected-output + "\\" + (root.ctx-is-child ? (root.ctx-folder-idx == 0 ? root.out-folders[0] : root.ctx-folder-idx == 1 ? root.out-folders[1] : root.ctx-folder-idx == 2 ? root.out-folders[2] : root.out-folders[3]) + "\\" + root.ctx-node : root.ctx-node);
+                                                    root.toast = "Output path disalin: " + (root.app-path-local == "" ? root.selected-output : root.app-path-local + "\\" + root.selected-output) + "\\" + (root.ctx-is-child ? (root.ctx-folder-idx == 0 ? root.out-folders[0] : root.ctx-folder-idx == 1 ? root.out-folders[1] : root.ctx-folder-idx == 2 ? root.out-folders[2] : root.out-folders[3]) + "\\" + root.ctx-node : root.ctx-node);
                                                     root.ctx-node = "";
                                                 }
                                             }
@@ -3759,6 +3723,8 @@ export component AppWindow inherits Window {
                             panel-bg: Design.surface-elevated;
                             sub-panel: root.detail-panel;
                             added-count: root.detail-added-count;
+                            user-name: root.app-user-name;
+                            user-initial: root.app-user-initial;
                             close => { root.selected-card = ""; root.detail-panel = ""; root.detail-added-count = 0; }
                             unlink => { root.remove-manual(root.selected-manual-index); root.selected-card = ""; root.detail-panel = ""; root.detail-added-count = 0; }
                             show-toast(text) => { root.toast = text; }
@@ -3802,23 +3768,11 @@ export component AppWindow inherits Window {
             root.selected-source = folder;
             root.selected-output = folder;
             root.src-folders = [k0, k1, k2, k3];
-            root.use-folder-b = folder == "28_SDN BANTAR KAMBING 03";
-            if (folder == "27_SDN RANCAIYUH I") {
-                root.kids-0 = ["Ahmad.jpg", "Budi.jpg", "template.psd"];
-                root.kids-1 = ["foto_01.jpg", "foto_02.jpg", "foto_03.jpg"];
-                root.kids-2 = ["id_01.jpg", "id_02.jpg", "template.psd"];
-                root.kids-3 = ["kartu_01.jpg", "kartu_02.jpg", "kartu_03.jpg"];
-            } else if (folder == "28_SDN BANTAR KAMBING 03") {
-                root.kids-0 = root.kids-b-0;
-                root.kids-1 = root.kids-b-1;
-                root.kids-2 = root.kids-b-2;
-                root.kids-3 = root.kids-b-3;
-            } else {
-                root.kids-0 = ["", "", ""];
-                root.kids-1 = ["", "", ""];
-                root.kids-2 = ["", "", ""];
-                root.kids-3 = ["", "", ""];
-            }
+            root.use-folder-b = false;
+            root.kids-0 = ["", "", ""];
+            root.kids-1 = ["", "", ""];
+            root.kids-2 = ["", "", ""];
+            root.kids-3 = ["", "", ""];
             root.expanded-node = "";
             root.selected-nodes = [];
             root.ctx-node = "";
@@ -3840,23 +3794,11 @@ export component AppWindow inherits Window {
             root.selected-source = folder;
             root.selected-output = folder;
             root.src-folders = [k0, k1, k2, k3];
-            root.use-folder-b = folder == "28_SDN BANTAR KAMBING 03";
-            if (folder == "27_SDN RANCAIYUH I") {
-                root.kids-0 = ["Ahmad.jpg", "Budi.jpg", "template.psd"];
-                root.kids-1 = ["foto_01.jpg", "foto_02.jpg", "foto_03.jpg"];
-                root.kids-2 = ["id_01.jpg", "id_02.jpg", "template.psd"];
-                root.kids-3 = ["kartu_01.jpg", "kartu_02.jpg", "kartu_03.jpg"];
-            } else if (folder == "28_SDN BANTAR KAMBING 03") {
-                root.kids-0 = root.kids-b-0;
-                root.kids-1 = root.kids-b-1;
-                root.kids-2 = root.kids-b-2;
-                root.kids-3 = root.kids-b-3;
-            } else {
-                root.kids-0 = ["", "", ""];
-                root.kids-1 = ["", "", ""];
-                root.kids-2 = ["", "", ""];
-                root.kids-3 = ["", "", ""];
-            }
+            root.use-folder-b = false;
+            root.kids-0 = ["", "", ""];
+            root.kids-1 = ["", "", ""];
+            root.kids-2 = ["", "", ""];
+            root.kids-3 = ["", "", ""];
             root.expanded-node = "";
             root.selected-nodes = [];
             root.ctx-node = "";

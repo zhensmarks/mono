@@ -79,8 +79,11 @@ component LogRow inherits Rectangle {
     }
 }
 
-// Satu baris file ringkas di tab EXPLORER
-component ExplorerRow inherits Rectangle {
+// Satu baris file ringkas di tab EXPLORER.
+// Di-export (bukan dipakai) sementara: folder contoh dihapus 27 Nov
+// 2026 (default publish bersih) — dipakai lagi saat daftar folder
+// nyata tersedia (Fase 6 / master_creator).
+export component ExplorerRow inherits Rectangle {
     in property <string> name;
     in property <bool> is-folder;
     callback clicked();
@@ -180,15 +183,15 @@ export component LogPanelView inherits Rectangle {
 
     // State tab MASTER & DOC
     in-out property <string> master-search: "";
-    in-out property <string> doc-school: "SDN RANCAIYUH I";
-    in-out property <string> doc-address: "Jl. Raya Rancaiyuh No. 12, Kec. Parongpong, Kab. Bandung Barat 40559";
+    in-out property <string> doc-school: "";
+    in-out property <string> doc-address: "";
     in-out property <string> doc-tab: "1";
 
     // Tab LOG live
     in property <[string]> log-lines: [
         "[08:30:12] [SYSTEM] BMachine service started",
         "[08:30:13] [SQLITE] Database connected: BMachine.db",
-        "[08:30:14] [TRELLO] Sync active: 6 cards loaded",
+        "[08:30:14] [TRELLO] Belum tersambung — hubungkan akun di Settings",
         "[08:30:15] [READY] Ready for user actions"
     ];
     in property <string> log-status: "IDLE";
@@ -407,7 +410,7 @@ export component LogPanelView inherits Rectangle {
                         }
 
                         Text {
-                            text: "D:\\#GAWENA";
+                            text: "";
                             font-size: 11px;
                             font-family: "JetBrains Mono";
                             color: Design.text-primary;
@@ -435,29 +438,11 @@ export component LogPanelView inherits Rectangle {
                     }
                 }
 
-                // Daftar Ringkas Folder
+                // Daftar Ringkas Folder (kosong — folder contoh
+                // dihapus 27 Nov 2026, keputusan abeng: default
+                // publish harus bersih).
                 VerticalLayout {
                     spacing: 2px;
-                    ExplorerRow {
-                        name: "27_SDN RANCAIYUH I";
-                        is-folder: true;
-                        clicked => { root.open-explorer("D:\\#GAWENA\\27_SDN RANCAIYUH I"); }
-                    }
-                    ExplorerRow {
-                        name: "28_SDN BANTAR KAMBING 03";
-                        is-folder: true;
-                        clicked => { root.open-explorer("D:\\#GAWENA\\28_SDN BANTAR KAMBING 03"); }
-                    }
-                    ExplorerRow {
-                        name: "PAS FOTO.psd";
-                        is-folder: false;
-                        clicked => { root.open-explorer("D:\\#GAWENA"); }
-                    }
-                    ExplorerRow {
-                        name: "template.psd";
-                        is-folder: false;
-                        clicked => { root.open-explorer("D:\\#GAWENA"); }
-                    }
                 }
 
                 HorizontalLayout {
@@ -465,7 +450,7 @@ export component LogPanelView inherits Rectangle {
                         label: "Buka Window Baru";
                         variant: "secondary";
                         small: true;
-                        clicked => { root.open-explorer("D:\\#GAWENA"); }
+                        clicked => { root.open-explorer(""); }
                     }
                     Rectangle { horizontal-stretch: 1; }
                 }

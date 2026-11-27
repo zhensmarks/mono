@@ -300,21 +300,22 @@ export component SpreadsheetWindow inherits Window {
     callback sheet-save();
     callback sheet-refresh();
     // Data grid + nilai asli + status guard/draft (diisi Rust saat window dibuat).
-    in-out property <[string]> col-a: ["47276395", "47276396", "47276397", "47276398", "47276399", "47276400"];
-    in-out property <[string]> col-b: ["SDN RANCAIYUH I", "SDN CIKAMPEK II", "SMPN 1 PARONGPONG", "SMAN 2 CIMAHI", "SDN SUKAMAJU III", "SDN KARANGANYAR"];
-    in-out property <[string]> col-c: ["SD", "SD", "SMP", "SMA", "SD", "SD"];
-    in-out property <[string]> col-d: ["SELESAI", "PROSES", "REVISI", "SELESAI", "ANTRIAN", "SELESAI"];
-    in-out property <[string]> col-e: ["1280", "950", "420", "1640", "310", "880"];
-    in-out property <[string]> col-f: ["Lengkap", "Foto kurang 2", "Warna jas revisi", "Lunas", "Menunggu konfirmasi", "Cetak master siap"];
-    in-out property <[string]> col-a-orig: ["47276395", "47276396", "47276397", "47276398", "47276399", "47276400"];
-    in-out property <[string]> col-b-orig: ["SDN RANCAIYUH I", "SDN CIKAMPEK II", "SMPN 1 PARONGPONG", "SMAN 2 CIMAHI", "SDN SUKAMAJU III", "SDN KARANGANYAR"];
-    in-out property <[string]> col-c-orig: ["SD", "SD", "SMP", "SMA", "SD", "SD"];
-    in-out property <[string]> col-d-orig: ["SELESAI", "PROSES", "REVISI", "SELESAI", "ANTRIAN", "SELESAI"];
-    in-out property <[string]> col-e-orig: ["1280", "950", "420", "1640", "310", "880"];
-    in-out property <[string]> col-f-orig: ["Lengkap", "Foto kurang 2", "Warna jas revisi", "Lunas", "Menunggu konfirmasi", "Cetak master siap"];
+    // Default KOSONG (27 Nov 2026, keputusan abeng: default publish harus bersih).
+    in-out property <[string]> col-a: [];
+    in-out property <[string]> col-b: [];
+    in-out property <[string]> col-c: [];
+    in-out property <[string]> col-d: [];
+    in-out property <[string]> col-e: [];
+    in-out property <[string]> col-f: [];
+    in-out property <[string]> col-a-orig: [];
+    in-out property <[string]> col-b-orig: [];
+    in-out property <[string]> col-c-orig: [];
+    in-out property <[string]> col-d-orig: [];
+    in-out property <[string]> col-e-orig: [];
+    in-out property <[string]> col-f-orig: [];
     in-out property <bool> sheet-has-draft: false;
     in-out property <int> sheet-draft-count: 0;
-    in-out property <string> sheet-status-text: "6 baris siap · Jangkar A1:F6 · Terhubung ke Google Sheets";
+    in-out property <string> sheet-status-text: "0 baris · Belum terhubung ke Google Sheets";
     in-out property <string> sheet-guard-result: "";
     // Drag window (C# SpreadsheetWindow.axaml: drag handle 46px di kiri,
     // Margin 0,0,420,0 — kanan 420px bebas untuk toolbar/tombol close).
@@ -457,32 +458,11 @@ export component CardListWindow inherits Window {
     // berdampingan di window ini.
     in-out property <int> selected-idx: -1;
 
-    // Data Kartu Trello
-    in-out property <[string]> card-titles: [
-        "SDN RANCAIYUH 1 - Foto Pas Ijazah",
-        "SMPN 1 PARONGPONG - Pas Foto Rapor",
-        "SMAN 2 CIMAHI - Foto Wisuda Siswa",
-        "SDN CIKAMPEK 2 - Pas Foto Kelas 6",
-        "SDN SUKAMAJU 3 - Background Merah",
-        "SDN KARANGANYAR - Cetak Pas Foto 3x4"
-    ];
-    in-out property <[string]> card-subs: [
-        "32 siswa · Background Merah",
-        "48 siswa · Background Biru",
-        "120 siswa · Full Retouch",
-        "28 siswa · Background Merah",
-        "35 siswa · Cetak & File",
-        "40 siswa · Background Biru"
-    ];
-    in-out property <[string]> card-due: [
-        "Besok, 17:00",
-        "28 Nov, 12:00",
-        "29 Nov, 15:00",
-        "30 Nov, 17:00",
-        "01 Des, 10:00",
-        "02 Des, 14:00"
-    ];
-    in-out property <[bool]> card-done: [true, false, false, true, false, false];
+    // Data Kartu Trello (kosong — diisi Rust saat sync Trello pertama).
+    in-out property <[string]> card-titles: [];
+    in-out property <[string]> card-subs: [];
+    in-out property <[string]> card-due: [];
+    in-out property <[bool]> card-done: [];
 
     callback close-window();
     callback toggle-done(int);

@@ -398,7 +398,7 @@ mod tests {
         assert!(fingerprint_is_empty("\u{1f}\u{1f}"));
         assert!(fingerprint_is_empty("  \u{1f} "));
         assert!(!fingerprint_is_empty("A\u{1f}"));
-        assert_eq!(fingerprint_display("SDN RANCAIYUH I\u{1f}SD\u{1f}"), "SDN RANCAIYUH I");
+        assert_eq!(fingerprint_display("SEKOLAH CONTOH\u{1f}SD\u{1f}"), "SEKOLAH CONTOH");
         assert_eq!(fingerprint_display("\u{1f}\u{1f}"), "");
     }
 

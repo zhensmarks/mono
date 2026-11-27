@@ -99,6 +99,11 @@ export component TrelloDetailPanel inherits Rectangle {
     in property <length> panel-margin: 20px;
     in property <length> title-size: 24px;
     in property <color> panel-bg: Design.app-bg;
+    // Nama user aktif (untuk author komentar baru + label checklist)
+    // — diisi AppWindow.app-user-name; default "USER" bila belum ada.
+    in property <string> user-name: "USER";
+    // Inisial avatar author (1 huruf kapital, dari AppWindow).
+    in property <string> user-initial: "U";
     // Sub-panel aktif: "" (detail) / comments / checklist / move / attachments.
     in-out property <string> sub-panel: "";
     // Jumlah komentar tambahan (dari AppWindow, direset saat ganti kartu).
@@ -540,39 +545,28 @@ export component TrelloDetailPanel inherits Rectangle {
                     VerticalLayout {
                         x: 0; width: parent.width;
                         spacing: 12px;
-                        CommentRow {
-                            author: "Alif";
-                            time: "2 jam lalu";
-                            body: "Tolong perbaiki centering kepala, masih miring dikit.";
-                            initial: "A";
-                            avatar-bg: Design.accent;
-                        }
-                        CommentRow {
-                            author: "Surya";
-                            time: "5 jam lalu";
-                            body: "Sudah saya cek, tinggal 1 anak lagi.";
-                            initial: "S";
-                            avatar-bg: Design.status-success;
-                        }
+                        // Komentar contoh DIHAPUS 27 Nov 2026 (keputusan
+                        // abeng: default publish harus bersih) — komentar
+                        // diisi dari API Trello / yang user tambah.
                         if root.added-count >= 1 : CommentRow {
-                            author: "abeng";
+                            author: root.user-name;
                             time: "baru saja";
                             body: root.draft-1;
-                            initial: "a";
+                            initial: root.user-initial;
                             avatar-bg: Design.accent;
                         }
                         if root.added-count >= 2 : CommentRow {
-                            author: "abeng";
+                            author: root.user-name;
                             time: "baru saja";
                             body: root.draft-2;
-                            initial: "a";
+                            initial: root.user-initial;
                             avatar-bg: Design.accent;
                         }
                         if root.added-count >= 3 : CommentRow {
-                            author: "abeng";
+                            author: root.user-name;
                             time: "baru saja";
                             body: root.draft-3;
-                            initial: "a";
+                            initial: root.user-initial;
                             avatar-bg: Design.accent;
                         }
                     }
@@ -670,7 +664,7 @@ export component TrelloDetailPanel inherits Rectangle {
                 height: 20px;
                 spacing: 8px;
                 Text {
-                    text: "EDITING abeng";
+                    text: root.category-label + " " + root.user-name;
                     font-size: 15px;
                     font-weight: 600;
                     color: Design.text-primary;

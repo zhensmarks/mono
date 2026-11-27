@@ -601,7 +601,7 @@ export component SettingsView inherits Rectangle {
     property <bool> hex-compact: root.width < 580px;
 
     // --- General ---
-    in-out property <string> user-name: "abeng";
+    in-out property <string> user-name: "USER";
     in-out property <string> lang: "Indonesia";
     in-out property <bool> anim-startup: true;
     in-out property <string> anim-speed: "Normal";
@@ -613,13 +613,13 @@ export component SettingsView inherits Rectangle {
     in-out property <bool> is-output-explorer-visible: true;
 
     // --- Paths ---
-    in-out property <string> path-local: "D:\\#GAWENA";
+    in-out property <string> path-local: "";
     in-out property <string> path-okebase: "";
     in-out property <string> path-photoshop: "";
-    in-out property <string> path-pasfoto: "D:\\#DATA ABENG\\MASTER\\PASFOTO";
-    in-out property <string> path-manasik: "D:\\#DATA ABENG\\MASTER\\MANASIK";
-    in-out property <string> path-wisuda: "D:\\#DATA ABENG\\MASTER\\WISUDA";
-    in-out property <string> path-profesi: "D:\\#DATA ABENG\\MASTER\\PROFESI";
+    in-out property <string> path-pasfoto: "";
+    in-out property <string> path-manasik: "";
+    in-out property <string> path-wisuda: "";
+    in-out property <string> path-profesi: "";
 
     // Warna preview (dihitung dari pilihan di atas).
     property <color> pv-bg: root.color-mode == "light" ? #F2F2F2 : root.bg-color;
@@ -2205,12 +2205,12 @@ export component SettingsView inherits Rectangle {
                                     Btn {
                                         label: "Buka Folder Scripts/Master";
                                         variant: "secondary";
-                                        clicked => { root.toast("Buka D:\\#DATA ABENG\\#PROJECT\\mono\\apps\\bmachine\\Scripts\\Master"); }
+                                        clicked => { root.toast("Folder Scripts/Master belum dikonfigurasi."); }
                                     }
                                     Btn {
                                         label: "Buka Folder Scripts/Action";
                                         variant: "secondary";
-                                        clicked => { root.toast("Buka D:\\#DATA ABENG\\#PROJECT\\mono\\apps\\bmachine\\Scripts\\Action"); }
+                                        clicked => { root.toast("Folder Scripts/Action belum dikonfigurasi."); }
                                     }
                                     Btn {
                                         label: "Reload scripts.json";
@@ -2375,7 +2375,7 @@ export component SettingsView inherits Rectangle {
                             TextField {
                                 // Lebar penuh seperti semua field path — sejajar kanan-kiri dengan kontrol lain.
                                 horizontal-stretch: 1;
-                                text: "abeng";
+                                text: root.user-name;
                                 placeholder: "Nama user";
                                 edited(text) => { root.user-name = text; }
                                 accepted(text) => { root.toast("Disimpan: Nama user"); }
@@ -2616,7 +2616,7 @@ export component SettingsView inherits Rectangle {
 
                         VerticalLayout {
                             spacing: 6px;
-                            FieldLabel { title: "Local Output"; desc: "Base folder OUTPUT (mis. D:\\#GAWENA)"; }
+                            FieldLabel { title: "Local Output"; desc: "Base folder OUTPUT (mis. D:\\Output)"; }
                             HorizontalLayout {
                                 spacing: 8px;
                                 TextField {

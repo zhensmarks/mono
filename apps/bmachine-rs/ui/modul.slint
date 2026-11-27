@@ -99,7 +99,10 @@ component SectionLabel inherits Text {
 }
 
 // Satu baris preview pasangan nama: referensi → target (MantraNama).
-component PairRow inherits Rectangle {
+// Di-export (bukan dipakai) sementara: pasangan contoh dihapus 27 Nov
+// 2026 (default publish bersih) — dipakai lagi saat pasangan nyata
+// dihitung dari folder referensi & target (Fase 6).
+export component PairRow inherits Rectangle {
     in property <string> from-name;
     in property <string> to-name;
     in property <bool> done;
@@ -165,10 +168,10 @@ export component ToolboxView inherits Rectangle {
     in-out property <string> tool-tab: "MantraNama";
 
     // --- State mockup per tab (eksekusi nyata = Fase 6) ---
-    in-out property <string> nama-example: "47276395_SDN RANCAIYUH 1_GUSFIARI";
+    in-out property <string> nama-example: "";
     in-out property <bool> nama-processed: false;
     in-out property <bool> nama-autopair: true;
-    in-out property <string> nama-status: "Siap — 3 pasangan terdeteksi (contoh).";
+    in-out property <string> nama-status: "Siap — 0 pasangan terdeteksi.";
     in-out property <string> ganda-master: "";
     in-out property <string> ganda-data: "";
     in-out property <string> ganda-count: "2";
@@ -298,7 +301,7 @@ export component ToolboxView inherits Rectangle {
                         }
                         TextField {
                             text: root.nama-example;
-                            placeholder: "Contoh: 47276395_SDN RANCAIYUH 1_GUSFIARI";
+                            placeholder: "";
                             edited(text) => { root.nama-example = text; }
                         }
                         HorizontalLayout {
@@ -356,7 +359,7 @@ export component ToolboxView inherits Rectangle {
                             SectionLabel { text: "PREVIEW PASANGAN — REFERENSI → TARGET"; }
                             Rectangle { horizontal-stretch: 1; }
                             Text {
-                                text: "3 pasangan";
+                                text: "0 pasangan";
                                 font-size: Design.font-caption;
                                 font-weight: 600;
                                 color: Design.text-muted;
@@ -364,12 +367,9 @@ export component ToolboxView inherits Rectangle {
                             }
                         }
                         HSeparator { }
-                        PairRow { from-name: "SDN RANCAIYUH 1_GUSFIARI.jpg"; to-name: "47276395_SDN RANCAIYUH 1_GUSFIARI.jpg"; done: root.nama-processed; }
-                        PairRow { from-name: "BANTAR KAMBING 03_YOGA.jpg"; to-name: "48328499_SDN BANTAR KAMBING 03_YOGA.jpg"; done: root.nama-processed; }
-                        PairRow { from-name: "TK ISLAM ARAFAH_NISSA.jpg"; to-name: "30816883_TK ISLAM ARAFAH 1024_NISSA.jpg"; done: root.nama-processed; }
                         Rectangle { vertical-stretch: 1; }
                         Text {
-                            text: "Preview contoh — pasangan nyata dihitung dari folder referensi & target di aplikasi asli (Fase 6).";
+                            text: "Pasangan dihitung dari folder referensi & target (Fase 6).";
                             font-size: Design.font-caption;
                             color: Design.text-muted;
                             wrap: word-wrap;
@@ -397,8 +397,7 @@ export component ToolboxView inherits Rectangle {
                             title: "Drop file master template di sini";
                             hint: "File master PSD / folder yang akan digandakan.";
                             clicked => {
-                                root.ganda-master = "D:\\#GAWENA\\Master\\template.psd";
-                                root.toast("Master dipilih: template.psd (contoh).");
+                                root.toast("Pilih folder belum tersedia — ketik path manual di kolom.");
                             }
                             right-clicked => { root.back(); }
                         }
@@ -415,8 +414,7 @@ export component ToolboxView inherits Rectangle {
                                 label: "Pilih";
                                 variant: "secondary";
                                 clicked => {
-                                    root.ganda-master = "D:\\#GAWENA\\Master\\template.psd";
-                                    root.toast("Master dipilih: template.psd (contoh).");
+                                    root.toast("Pilih folder belum tersedia — ketik path manual di kolom.");
                                 }
                             }
                         }
@@ -433,8 +431,7 @@ export component ToolboxView inherits Rectangle {
                                 label: "Pilih";
                                 variant: "secondary";
                                 clicked => {
-                                    root.ganda-data = "D:\\#GAWENA\\Data";
-                                    root.toast("Folder data dipilih: Data (contoh).");
+                                    root.toast("Pilih folder belum tersedia — ketik path manual di kolom.");
                                 }
                             }
                         }
@@ -582,8 +579,7 @@ export component ToolboxView inherits Rectangle {
                             title: "Drop folder template master PSD di sini";
                             hint: "Seret folder template master PSD ke sini.";
                             clicked => {
-                                root.bucin-master = "D:\\#GAWENA\\Master PSD";
-                                root.toast("Folder master dipilih (contoh).");
+                                root.toast("Pilih folder belum tersedia — ketik path manual di kolom.");
                             }
                             right-clicked => { root.back(); }
                         }
@@ -600,8 +596,7 @@ export component ToolboxView inherits Rectangle {
                                 label: "Pilih";
                                 variant: "secondary";
                                 clicked => {
-                                    root.bucin-master = "D:\\#GAWENA\\Master PSD";
-                                    root.toast("Folder master dipilih (contoh).");
+                                    root.toast("Pilih folder belum tersedia — ketik path manual di kolom.");
                                 }
                             }
                         }
@@ -617,8 +612,7 @@ export component ToolboxView inherits Rectangle {
                             title: "Drop folder foto JPG di sini";
                             hint: "Seret folder foto JPG sumber ke sini.";
                             clicked => {
-                                root.bucin-photo = "D:\\#GAWENA\\Foto";
-                                root.toast("Folder foto dipilih (contoh).");
+                                root.toast("Pilih folder belum tersedia — ketik path manual di kolom.");
                             }
                             right-clicked => { root.back(); }
                         }
@@ -635,8 +629,7 @@ export component ToolboxView inherits Rectangle {
                                 label: "Pilih";
                                 variant: "secondary";
                                 clicked => {
-                                    root.bucin-photo = "D:\\#GAWENA\\Foto";
-                                    root.toast("Folder foto dipilih (contoh).");
+                                    root.toast("Pilih folder belum tersedia — ketik path manual di kolom.");
                                 }
                             }
                         }
@@ -748,30 +741,30 @@ export component SheetsView inherits Rectangle {
     callback sheet-refresh();
 
     // Baris sheet dari akun (kompatibilitas binding main.slint)
-    in-out property <string> sheet-s1: "SDN RANCAIYUH I";
-    in-out property <string> sheet-p1: "1.280";
+    in-out property <string> sheet-s1: "";
+    in-out property <string> sheet-p1: "";
     in-out property <[string]> sheet-rows: [];
-    in-out property <int> sheet-row-count: 6;
+    in-out property <int> sheet-row-count: 0;
     in-out property <[string]> sheet-col0: [];
     in-out property <[string]> sheet-col1: [];
     in-out property <[string]> sheet-col2: [];
 
     // Data grid + nilai asli + status guard/draft (binding main.slint).
-    in-out property <[string]> col-a: ["47276395", "47276396", "47276397", "47276398", "47276399", "47276400"];
-    in-out property <[string]> col-b: ["SDN RANCAIYUH I", "SDN CIKAMPEK II", "SMPN 1 PARONGPONG", "SMAN 2 CIMAHI", "SDN SUKAMAJU III", "SDN KARANGANYAR"];
-    in-out property <[string]> col-c: ["SD", "SD", "SMP", "SMA", "SD", "SD"];
-    in-out property <[string]> col-d: ["SELESAI", "PROSES", "REVISI", "SELESAI", "ANTRIAN", "SELESAI"];
-    in-out property <[string]> col-e: ["1280", "950", "420", "1640", "310", "880"];
-    in-out property <[string]> col-f: ["Lengkap", "Foto kurang 2", "Warna jas revisi", "Lunas", "Menunggu konfirmasi", "Cetak master siap"];
-    in-out property <[string]> col-a-orig: ["47276395", "47276396", "47276397", "47276398", "47276399", "47276400"];
-    in-out property <[string]> col-b-orig: ["SDN RANCAIYUH I", "SDN CIKAMPEK II", "SMPN 1 PARONGPONG", "SMAN 2 CIMAHI", "SDN SUKAMAJU III", "SDN KARANGANYAR"];
-    in-out property <[string]> col-c-orig: ["SD", "SD", "SMP", "SMA", "SD", "SD"];
-    in-out property <[string]> col-d-orig: ["SELESAI", "PROSES", "REVISI", "SELESAI", "ANTRIAN", "SELESAI"];
-    in-out property <[string]> col-e-orig: ["1280", "950", "420", "1640", "310", "880"];
-    in-out property <[string]> col-f-orig: ["Lengkap", "Foto kurang 2", "Warna jas revisi", "Lunas", "Menunggu konfirmasi", "Cetak master siap"];
+    in-out property <[string]> col-a: [];
+    in-out property <[string]> col-b: [];
+    in-out property <[string]> col-c: [];
+    in-out property <[string]> col-d: [];
+    in-out property <[string]> col-e: [];
+    in-out property <[string]> col-f: [];
+    in-out property <[string]> col-a-orig: [];
+    in-out property <[string]> col-b-orig: [];
+    in-out property <[string]> col-c-orig: [];
+    in-out property <[string]> col-d-orig: [];
+    in-out property <[string]> col-e-orig: [];
+    in-out property <[string]> col-f-orig: [];
     in-out property <bool> sheet-has-draft: false;
     in-out property <int> sheet-draft-count: 0;
-    in-out property <string> sheet-status-text: "6 baris siap · Jangkar A1:F6 · Terhubung ke Google Sheets";
+    in-out property <string> sheet-status-text: "0 baris · Belum terhubung ke Google Sheets";
     in-out property <string> sheet-guard-result: "";
 
     // Klik kanan = kembali ke dashboard

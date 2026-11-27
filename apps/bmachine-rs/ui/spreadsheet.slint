@@ -121,21 +121,22 @@ export component SpreadsheetComponent inherits Rectangle {
     callback cell-edited(int, int, string, string);
 
     // Data Baris Spreadsheet (6 Kolom x 6 Baris Default yang dapat ditambah/diedit)
-    in-out property <[string]> col-a: ["47276395", "47276396", "47276397", "47276398", "47276399", "47276400"];
-    in-out property <[string]> col-b: ["SDN RANCAIYUH I", "SDN CIKAMPEK II", "SMPN 1 PARONGPONG", "SMAN 2 CIMAHI", "SDN SUKAMAJU III", "SDN KARANGANYAR"];
-    in-out property <[string]> col-c: ["SD", "SD", "SMP", "SMA", "SD", "SD"];
-    in-out property <[string]> col-d: ["SELESAI", "PROSES", "REVISI", "SELESAI", "ANTRIAN", "SELESAI"];
-    in-out property <[string]> col-e: ["1280", "950", "420", "1640", "310", "880"];
-    in-out property <[string]> col-f: ["Lengkap", "Foto kurang 2", "Warna jas revisi", "Lunas", "Menunggu konfirmasi", "Cetak master siap"];
+    // Default KOSONG (27 Nov 2026, keputusan abeng: default publish harus bersih).
+    in-out property <[string]> col-a: [];
+    in-out property <[string]> col-b: [];
+    in-out property <[string]> col-c: [];
+    in-out property <[string]> col-d: [];
+    in-out property <[string]> col-e: [];
+    in-out property <[string]> col-f: [];
     // Nilai asli saat dimuat (jangkar guard + nilai asli draft) — hanya
     // berubah saat Muat Ulang / Simpan berhasil (Rust yang menulis).
-    in-out property <[string]> col-a-orig: ["47276395", "47276396", "47276397", "47276398", "47276399", "47276400"];
-    in-out property <[string]> col-b-orig: ["SDN RANCAIYUH I", "SDN CIKAMPEK II", "SMPN 1 PARONGPONG", "SMAN 2 CIMAHI", "SDN SUKAMAJU III", "SDN KARANGANYAR"];
-    in-out property <[string]> col-c-orig: ["SD", "SD", "SMP", "SMA", "SD", "SD"];
-    in-out property <[string]> col-d-orig: ["SELESAI", "PROSES", "REVISI", "SELESAI", "ANTRIAN", "SELESAI"];
-    in-out property <[string]> col-e-orig: ["1280", "950", "420", "1640", "310", "880"];
-    in-out property <[string]> col-f-orig: ["Lengkap", "Foto kurang 2", "Warna jas revisi", "Lunas", "Menunggu konfirmasi", "Cetak master siap"];
-    in-out property <int> row-count: 6;
+    in-out property <[string]> col-a-orig: [];
+    in-out property <[string]> col-b-orig: [];
+    in-out property <[string]> col-c-orig: [];
+    in-out property <[string]> col-d-orig: [];
+    in-out property <[string]> col-e-orig: [];
+    in-out property <[string]> col-f-orig: [];
+    in-out property <int> row-count: 0;
 
     // Mendapatkan teks sel saat ini untuk formula bar
     public function update-active-cell(r: int, c: int) {
