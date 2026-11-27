@@ -509,6 +509,70 @@ export component Toggle inherits Rectangle {
 }
 
 // ============================================================
+// FlyoutItem — satu baris item flyout profil: ikon + label +
+// ekor (teks shortcut / Toggle / kosong). Hover jelas
+// (bg-hover + radius-sm). Aturan §7: SvgIcon di baris icon+teks
+// dibungkus VerticalLayout center.
+// Baris dengan Toggle: klik baris tidak mengubah apa pun (klik
+// Toggle sendiri yang mengubah); `clicked` boleh kosong.
+// ============================================================
+export component FlyoutItem inherits Rectangle {
+    in property <string> icon-name;
+    in property <string> label;
+    in property <string> hint: "";
+    in property <color> label-color: Design.text-primary;
+    in property <bool> show-toggle: false;
+    in-out property <bool> toggle-checked: false;
+    callback clicked();
+    callback toggled(bool);
+
+    height: 36px;
+    background: item-touch.has-hover ? Design.bg-hover : transparent;
+    border-radius: Design.radius-sm;
+
+    item-touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 10px;
+
+        VerticalLayout {
+            alignment: center;
+            SvgIcon {
+                name: root.icon-name;
+                size: 16px;
+                icon-color: root.label-color;
+            }
+        }
+        Text {
+            text: root.label;
+            font-size: Design.font-body;
+            font-weight: 600;
+            color: root.label-color;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+        if root.hint != "" : Text {
+            text: root.hint;
+            font-size: Design.font-caption;
+            color: Design.text-muted;
+            vertical-alignment: center;
+        }
+        if root.show-toggle : VerticalLayout {
+            alignment: center;
+            Toggle {
+                checked: root.toggle-checked;
+                toggled(checked) => { root.toggled(checked); }
+            }
+        }
+    }
+}
+
+// ============================================================
 // NavTab — pill navigasi (HOME / BATCH / LOCKER).
 // Aktif: bg accent-subtle + teks accent. Nonaktif: teks biasa.
 // ============================================================

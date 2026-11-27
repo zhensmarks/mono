@@ -2044,13 +2044,24 @@ fn main() -> Result<(), slint::PlatformError> {
         ui.on_reset_appearance(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 ui.set_app_color_mode(slint::SharedString::from("dark"));
-                ui.set_app_theme_preset(slint::SharedString::from("BMachine Dark"));
+                ui.set_app_theme_preset(slint::SharedString::from("bmachine-dark"));
                 ui.set_app_accent_hex(slint::SharedString::from("#3B82F6"));
                 ui.set_app_accent_hex_good(slint::SharedString::from("#3B82F6"));
                 ui.set_app_bg_hex(slint::SharedString::from("#121212"));
                 ui.set_app_bg_hex_good(slint::SharedString::from("#121212"));
                 ui.set_app_fg_hex(slint::SharedString::from("#FFFFFF"));
                 ui.set_app_fg_hex_good(slint::SharedString::from("#FFFFFF"));
+                // Warna widget + kepadatan ikut kembali ke default
+                // (reset yang tidak lengkap = tema setengah jalan).
+                ui.set_app_widget_editing_hex(slint::SharedString::from("#3B82F6"));
+                ui.set_app_widget_editing_hex_good(slint::SharedString::from("#3B82F6"));
+                ui.set_app_widget_revision_hex(slint::SharedString::from("#F97316"));
+                ui.set_app_widget_revision_hex_good(slint::SharedString::from("#F97316"));
+                ui.set_app_widget_late_hex(slint::SharedString::from("#EF4444"));
+                ui.set_app_widget_late_hex_good(slint::SharedString::from("#EF4444"));
+                ui.set_app_widget_points_hex(slint::SharedString::from("#2DD4BF"));
+                ui.set_app_widget_points_hex_good(slint::SharedString::from("#2DD4BF"));
+                ui.set_app_ui_density(slint::SharedString::from("normal"));
                 ui.set_app_font_choice(slint::SharedString::from("Inter"));
                 ui.set_widget_bg(slint::SharedString::from("doodle"));
                 ui.set_app_corner_style(slint::SharedString::from("default"));
@@ -2065,6 +2076,144 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.set_toast(slint::SharedString::from(
                     "Tema dikembalikan ke BMachine Dark default",
                 ));
+            }
+        });
+    }
+    // ---- Sistem tema: preset bawaan + tema user (Omarchy-style) ----
+    {
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
+        ui.on_apply_theme_preset(move |id| {
+            if let Some(ui) = ui_weak.upgrade() {
+                match theme::apply_preset(&ui, id.as_str()) {
+                    Ok(()) => {
+                        if let Some(ref db_mutex) = db_clone {
+                            if let Ok(mut db_guard) = db_mutex.lock() {
+                                theme::save_theme_to_db(&ui, &mut db_guard);
+                            }
+                        }
+                        let name = theme::palette_for(id.as_str())
+                            .map(|p| p.name)
+                            .unwrap_or_else(|| id.to_string());
+                        ui.set_toast(slint::SharedString::from(format!(
+                            "Tema {} diterapkan",
+                            name
+                        )));
+                    }
+                    Err(msg) => {
+                        ui.set_toast(slint::SharedString::from(msg));
+                    }
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
+        ui.on_save_user_theme(move |name| {
+            if let Some(ui) = ui_weak.upgrade() {
+                match theme::snapshot_current_as_user_theme(&ui, name.as_str()) {
+                    Ok(theme) => {
+                        let saved_name = theme.name.clone();
+                        let saved_id = theme.id.clone();
+                        if let Some(ref db_mutex) = db_clone {
+                            if let Ok(mut db_guard) = db_mutex.lock() {
+                                let mut themes = theme::load_user_themes(&db_guard);
+                                if let Some(existing) =
+                                    themes.iter_mut().find(|t| t.id == theme.id)
+                                {
+                                    *existing = theme;
+                                } else {
+                                    themes.push(theme);
+                                }
+                                theme::save_user_themes(&mut db_guard, &themes);
+                                theme::refresh_user_themes(&ui, &themes);
+                            }
+                        }
+                        // Tema yang baru disimpan langsung jadi aktif.
+                        ui.set_app_theme_preset(slint::SharedString::from(saved_id));
+                        ui.set_new_user_theme_name(slint::SharedString::from(""));
+                        if let Some(ref db_mutex) = db_clone {
+                            if let Ok(mut db_guard) = db_mutex.lock() {
+                                theme::save_theme_to_db(&ui, &mut db_guard);
+                            }
+                        }
+                        ui.set_toast(slint::SharedString::from(format!(
+                            "Tema '{}' disimpan",
+                            saved_name
+                        )));
+                    }
+                    Err(msg) => {
+                        ui.set_toast(slint::SharedString::from(msg));
+                    }
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
+        ui.on_apply_user_theme(move |id| {
+            if let Some(ui) = ui_weak.upgrade() {
+                let found: Option<theme::ThemePalette> = (|| {
+                    let db_mutex = db_clone.as_ref()?;
+                    let db_guard = db_mutex.lock().ok()?;
+                    theme::load_user_themes(&db_guard)
+                        .into_iter()
+                        .find(|t| t.id == id.as_str())
+                })();
+                match found {
+                    Some(theme) => {
+                        let name = theme.name.clone();
+                        match theme::apply_user_theme(&ui, &theme) {
+                            Ok(()) => {
+                                if let Some(ref db_mutex) = db_clone {
+                                    if let Ok(mut db_guard) = db_mutex.lock() {
+                                        theme::save_theme_to_db(&ui, &mut db_guard);
+                                    }
+                                }
+                                ui.set_toast(slint::SharedString::from(format!(
+                                    "Tema {} diterapkan",
+                                    name
+                                )));
+                            }
+                            Err(msg) => {
+                                ui.set_toast(slint::SharedString::from(msg));
+                            }
+                        }
+                    }
+                    None => {
+                        ui.set_toast(slint::SharedString::from("Tema tidak ditemukan"));
+                    }
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
+        ui.on_delete_user_theme(move |id| {
+            if let Some(ui) = ui_weak.upgrade() {
+                if let Some(ref db_mutex) = db_clone {
+                    if let Ok(mut db_guard) = db_mutex.lock() {
+                        let mut themes = theme::load_user_themes(&db_guard);
+                        let before = themes.len();
+                        themes.retain(|t| t.id != id.as_str());
+                        if themes.len() != before {
+                            theme::save_user_themes(&mut db_guard, &themes);
+                            theme::refresh_user_themes(&ui, &themes);
+                            // Bila tema yang dihapus sedang aktif →
+                            // kembali ke Custom (warna saat ini tetap).
+                            if ui.get_app_theme_preset().as_str() == id.as_str() {
+                                ui.set_app_theme_preset(slint::SharedString::from(
+                                    "custom",
+                                ));
+                                theme::save_theme_to_db(&ui, &mut db_guard);
+                            }
+                            ui.set_toast(slint::SharedString::from("Tema dihapus"));
+                        }
+                    }
+                }
             }
         });
     }

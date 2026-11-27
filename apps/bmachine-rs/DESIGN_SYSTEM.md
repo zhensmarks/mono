@@ -1837,3 +1837,86 @@ Referensi:
 - Referensi Threads kedua (share/Hn2U2xEMY, dikirim 26 Nov 19:19) — **Dynamic Edge** (Threads @eyuel_eng 10 Nov 2026, "Dynamic Edge - The Dynamic Island for Windows"): WinUI 3 + Windows App SDK, media controls, clipboard history, app/folder launcher, timer, volume, lirik sinkron (bisa pop-out jendela sendiri), gratis di Microsoft Store.
 
 Belum dibangun — dicatat saja dulu; dikerjakan setelah Fase 6 beres.
+
+## 22. Sistem Tema — preset terkurasi ala Omarchy (abeng, 27 Nov 19:02–19:06)
+
+Customisasi BMachine mengikuti model Omarchy OS (DHH — Arch +
+Hyprland, "omakase"): default opinionated yang langsung jadi,
+ringan, sekali klik ubah seluruh aplikasi secara konsisten.
+
+- **Satu tema = satu palet penuh.** `src/theme.rs::ThemePalette`
+  (id, nama, mode, accent, bg, fg, editing, revision, late,
+  points) + `builtin_presets()` — 8 preset terkurasi:
+  `bmachine-dark`, `bmachine-light`, `midnight-oled`,
+  `catppuccin-mocha`, `emerald-studio`, `spider`, `gwen`,
+  `armor`. Palet C# (`AppearancePalette.cs`) dipakai apa adanya
+  untuk spider/gwen/armor/midnight; sisanya palet port.
+  Definisi palet SATU tempat di Rust — Slint hanya memanggil id.
+- **Satu palet dibaca semua permukaan.** `apply_appearance()`
+  menurunkan SEMUA token global `Design` (warna, `cat-*`, font,
+  spacing, radius) dari properti AppWindow; dashboard, nav,
+  Settings, Trello, spreadsheet, dialog, radial, log panel, splash
+  dan flyout membaca token yang sama — tidak ada warna hardcode
+  per permukaan. Preset mengatur juga 4 warna widget
+  (`Design.cat-editing/revision/late/points`).
+- **Picker di grup Appearance** (`ui/settings.slint`): tiap preset
+  satu `ThemeRow` + preview 4 titik (aksen, revisi, bg, fg) +
+  ✓ saat aktif. Di bawahnya: **Tema saya** (tema buatan user),
+  **Kepadatan** (Compact/Normal/Comfortable — C#
+  `Settings.UiDensity`), **Warna widget** (C# `Settings.Color.*`).
+- **Tema user = override berlapis.** Simpan snapshot tampilan
+  saat ini dengan nama → masuk picker (id `user:<slug>`).
+  Ubah warna manual saat tema aktif → preset jadi `custom`
+  (tema tersimpan tidak berubah sampai disimpan ulang dengan nama
+  yang sama). Hapus via × di barisnya; bila tema yang dihapus
+  sedang aktif → kembali ke `custom`.
+- **Persistensi (SQLite, `KeyValueStore`).** Preset bawaan:
+  `Appearance.Palette` (kompatibel C# — DB asli abeng menyimpan
+  `"spider"` di sana, dikutip JSON) + `Settings.ThemePreset`;
+  mode `Settings.Theme`; aksen `Settings.Accent`; bg
+  `Appearance.Background.Dark/Light`; fg `Settings.Foreground`;
+  widget `Settings.Color.Editing/Revision/Late/Points`; density
+  `Settings.UiDensity` (Compact/Normal/Comfortable); tema user
+  `Settings.Theme.UserThemes` (satu key, JSON array). Nilai C#
+  dikutip JSON dan berawalan alpha `#FF`/`#AARRGGBB` — loader
+  mengupas keduanya (`unquote`, `normalize_hex`).
+- **RINGAN:** tema hanya palet + token — ganti instan, tanpa
+  aset, tanpa restart.
+
+**ATURAN TANPA-RESTART [MENGIKAT — abeng, 27 Nov 19:06]:**
+apapun yang diganti user di Settings HARUS langsung berlaku TANPA
+restart aplikasi. Di C# masih ada pengaturan yang baru berefek
+setelah restart — port harus lebih baik. Mekanisme: setiap
+perubahan memanggil `appearance-changed()` → `apply_appearance()`
+→ token `Design` → seluruh UI ikut berubah; simpan ke SQLite di
+belakang layar. JANGAN pernah meminta/menunggu restart.
+Untuk audit: opsi Appearance C# (palet, mode, density, aksen,
+warna widget) di C# sendiri sudah live via property-changed
+handler; yang butuh restart di C# adalah **import database**
+("Import SUCCESS! Please RESTART App." — port sudah
+mengatasinya di P0 dengan VACUUM INTO tanpa restart) dan
+**update aplikasi** (ganti biner — wajar butuh restart).
+`Reset ke Default` mengembalikan SEMUA ke BMachine Dark
+(termasuk 4 warna widget + density Normal).
+
+**Pola binding TextField (jebakan Slint):** binding satu arah
+`text: root.xxx` PUTUS saat user mengetik (assignment ke properti
+ter-binding memutuskan binding-nya) sehingga perubahan
+programatik sesudahnya (preset / normalisasi / pengosongan field)
+tidak tampil lagi. Semua field hex Appearance + field nama tema
+WAJIB pakai `<=>` (dua arah) — lihat komentar di `TextField`
+(`ui/design.slint`) dan `WidgetColorRow`.
+
+**Pill nav terpusat (bug 27 Nov 19:03, diperbaiki):** NavTab
+40*scale harus sama tinggi dengan slotnya di pill-content —
+padding vertikal pill-content 2*scale (slot 40*scale). Jangan
+ubah tinggi NavTab. Terukur: tengah pill = tengah kapsul (0px).
+
+**Flyout profil (redesain 27 Nov 19:04):** posisi TETAP menempel
+avatar (`x: 20px*scale`, `y: chrome + 60px*scale`). Isi:
+header (avatar 48px + nama + sapaan jam), grup APLIKASI
+(Terminal + Toggle, Settings + shortcut `Ctrl+,`), grup LAINNYA
+(Laporkan Bug, Log Out merah), footer (versi + status update
+`Terbaru` / `Pembaruan tersedia`). Item = komponen `FlyoutItem`
+(`ui/design.slint`): ikon + label + ekor (hint/Toggle), hover
+`bg-hover`, ikut aturan ikon+teks §7.

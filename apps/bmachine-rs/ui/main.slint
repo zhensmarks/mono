@@ -4,7 +4,7 @@
 // window lewat ui-scale. Tab HOME/BATCH benar-benar berpindah.
 // Klik StatWidget menampilkan toast. Tombol profil membuka flyout.
 
-import { Design, Card, HSeparator, NavTab, StatWidget, Btn, IconBtn, Toggle, TextField, SvgIcon } from "design.slint";
+import { Design, Card, HSeparator, NavTab, StatWidget, Btn, IconBtn, Toggle, TextField, SvgIcon, FlyoutItem } from "design.slint";
 export { Design }
 import { SettingsView } from "settings.slint";
 import { ExplorerSettingsView } from "explorer-settings.slint";
@@ -115,6 +115,10 @@ export component AppWindow inherits Window {
     callback save-account-settings();
     callback apply-appearance();
     callback reset-appearance();
+    callback apply-theme-preset(string);
+    callback save-user-theme(string);
+    callback apply-user-theme(string);
+    callback delete-user-theme(string);
     callback save-general-settings();
     callback save-paths-settings();
     callback save-explorer-settings();
@@ -134,7 +138,7 @@ export component AppWindow inherits Window {
 
     // ---- Appearance & Customization (persisted in SQLite) ----
     in-out property <string> app-color-mode: "dark";
-    in-out property <string> app-theme-preset: "BMachine Dark";
+    in-out property <string> app-theme-preset: "bmachine-dark";
     in-out property <color> app-accent-color: #3b82f6;
     in-out property <string> app-accent-hex: "#3b82f6";
     in-out property <string> app-accent-hex-good: "#3b82f6";
@@ -144,6 +148,25 @@ export component AppWindow inherits Window {
     in-out property <color> app-fg-color: #FFFFFF;
     in-out property <string> app-fg-hex: "#FFFFFF";
     in-out property <string> app-fg-hex-good: "#FFFFFF";
+    // Warna 4 widget (C# `Settings.Color.*`) — satu palet dibaca
+    // semua permukaan; diubah preset / bagian "Warna widget".
+    in-out property <string> app-widget-editing-hex: "#3b82f6";
+    in-out property <string> app-widget-editing-hex-good: "#3b82f6";
+    in-out property <string> app-widget-revision-hex: "#f97316";
+    in-out property <string> app-widget-revision-hex-good: "#f97316";
+    in-out property <string> app-widget-late-hex: "#ef4444";
+    in-out property <string> app-widget-late-hex-good: "#ef4444";
+    in-out property <string> app-widget-points-hex: "#2dd4bf";
+    in-out property <string> app-widget-points-hex-good: "#2dd4bf";
+    // Tema user (picker "Tema saya") — array paralel, wholesale
+    // replace (Slint tidak bisa append array).
+    in-out property <[string]> user-theme-ids: [];
+    in-out property <[string]> user-theme-names: [];
+    in-out property <[color]> user-theme-accents: [];
+    in-out property <[color]> user-theme-revisions: [];
+    in-out property <[color]> user-theme-bgs: [];
+    in-out property <[color]> user-theme-fgs: [];
+    in-out property <string> new-user-theme-name: "";
     in-out property <string> app-font-choice: "Inter";
     in-out property <string> app-corner-style: "default";
     in-out property <string> app-nav-style: "capsule";
@@ -751,10 +774,21 @@ export component AppWindow inherits Window {
                 border-width: 1px;
                 border-radius: Design.nav-pill-radius;
 
+                // Pill terpilih HARUS terpusat vertikal di kapsul (bug
+                // 27 Nov 19:03, terukur: pill putih tengah y=79 vs
+                // kapsul tengah y=75 — 4px di bawah, mentok bawah).
+                // Akar: NavTab 40*scale, tapi padding vertikal 6px
+                // menyisakan slot 32*scale — NavTab lebih tinggi dari
+                // slot dan ditempel Slint ke ATAS slot. Padding
+                // vertikal 2px → slot 40*scale = tinggi NavTab.
+                // Padding horizontal tetap 6px (lebar pill tak berubah).
                 pill-content := HorizontalLayout {
                     width: 100%;
                     height: 100%;
-                    padding: 6px * root.ui-scale;
+                    padding-left: 6px * root.ui-scale;
+                    padding-right: 6px * root.ui-scale;
+                    padding-top: 2px * root.ui-scale;
+                    padding-bottom: 2px * root.ui-scale;
                     spacing: 6px * root.ui-scale;
                     alignment: center;
 
@@ -3236,6 +3270,21 @@ export component AppWindow inherits Window {
         fg-color <=> root.app-fg-color;
         fg-hex <=> root.app-fg-hex;
         fg-hex-good <=> root.app-fg-hex-good;
+        widget-editing-hex <=> root.app-widget-editing-hex;
+        widget-editing-hex-good <=> root.app-widget-editing-hex-good;
+        widget-revision-hex <=> root.app-widget-revision-hex;
+        widget-revision-hex-good <=> root.app-widget-revision-hex-good;
+        widget-late-hex <=> root.app-widget-late-hex;
+        widget-late-hex-good <=> root.app-widget-late-hex-good;
+        widget-points-hex <=> root.app-widget-points-hex;
+        widget-points-hex-good <=> root.app-widget-points-hex-good;
+        user-theme-ids <=> root.user-theme-ids;
+        user-theme-names <=> root.user-theme-names;
+        user-theme-accents <=> root.user-theme-accents;
+        user-theme-revisions <=> root.user-theme-revisions;
+        user-theme-bgs <=> root.user-theme-bgs;
+        user-theme-fgs <=> root.user-theme-fgs;
+        new-user-theme-name <=> root.new-user-theme-name;
         font-choice <=> root.app-font-choice;
         corner-style <=> root.app-corner-style;
         nav-style <=> root.app-nav-style;
@@ -3290,6 +3339,10 @@ export component AppWindow inherits Window {
         save-account-settings() => { root.save-account-settings(); }
         appearance-changed() => { root.apply-appearance(); }
         reset-appearance() => { root.reset-appearance(); }
+        apply-theme-preset(id) => { root.apply-theme-preset(id); }
+        save-user-theme(name) => { root.save-user-theme(name); }
+        apply-user-theme(id) => { root.apply-user-theme(id); }
+        delete-user-theme(id) => { root.delete-user-theme(id); }
         save-general-settings() => { root.save-general-settings(); }
         export-database() => { root.export-database(); }
         import-database() => { root.import-database(); }
@@ -3757,139 +3810,149 @@ export component AppWindow inherits Window {
         border-width: 1px;
         border-radius: Design.radius-md;
 
+        // Redesain 27 Nov 19:04 (abeng: "1000x lebih bagus") — posisi
+        // TETAP menempel avatar (x=20, di bawah bar atas, jangan ubah):
+        // header profil (avatar 48px + nama + sapaan), item dikelompokkan
+        // (APLIKASI / LAINNYA) dengan ikon + label + shortcut yang
+        // konsisten + hover jelas, footer rapi (versi + status update).
+        // Semua warna dari token Design → ikut tema aktif.
         flyout-layout := VerticalLayout {
             padding: Design.space-md;
-            spacing: 0;
+            spacing: 4px;
 
-            Text {
-                text: root.app-user-name;
-                font-size: Design.font-h3;
-                font-weight: 700;
-                color: Design.text-primary;
-            }
+            // Header profil: avatar besar + nama + status/sapaan.
             HorizontalLayout {
-                height: 22px;
-                spacing: 6px;
-                Text {
-                    text: "●";
-                    font-size: 8px;
-                    color: Design.status-success;
-                    vertical-alignment: center;
+                spacing: 12px;
+                height: 56px;
+                Rectangle {
+                    width: 48px;
+                    height: 48px;
+                    background: Design.accent-subtle;
+                    border-color: Design.accent;
+                    border-width: 1px;
+                    border-radius: 24px;
+                    SvgIcon {
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        name: "user";
+                        size: 22px;
+                        icon-color: Design.accent;
+                    }
                 }
-                Text {
-                    text: root.greeting-text;
-                    font-size: Design.font-caption;
-                    color: Design.text-secondary;
-                    vertical-alignment: center;
+                VerticalLayout {
+                    spacing: 2px;
+                    alignment: center;
+                    Text {
+                        text: root.app-user-name;
+                        font-size: Design.font-h3;
+                        font-weight: 700;
+                        color: Design.text-primary;
+                    }
+                    HorizontalLayout {
+                        height: 18px;
+                        spacing: 6px;
+                        Text {
+                            text: "●";
+                            font-size: 8px;
+                            color: Design.status-success;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: root.greeting-text;
+                            font-size: Design.font-caption;
+                            color: Design.text-secondary;
+                            vertical-alignment: center;
+                        }
+                    }
                 }
             }
 
             HSeparator { }
 
             // [C#] Item pembaruan — hanya bila ada update tersedia.
-            if root.has-pending-update : Rectangle {
-                height: 36px;
-                TouchArea {
-                    mouse-cursor: pointer;
-                    clicked => {
-                        root.show-flyout = false;
-                        root.dialog-open = "UPDATE";
-                    }
-                }
-                Text {
-                    text: "Ada pembaruan " + root.update-latest-version;
-                    font-size: Design.font-body;
-                    font-weight: 700;
-                    color: Design.accent;
-                    width: 100%;
-                    height: 100%;
-                    vertical-alignment: center;
+            if root.has-pending-update : FlyoutItem {
+                icon-name: "refresh";
+                label: "Ada pembaruan " + root.update-latest-version;
+                label-color: Design.accent;
+                clicked => {
+                    root.show-flyout = false;
+                    root.dialog-open = "UPDATE";
                 }
             }
+
+            Text {
+                text: "APLIKASI";
+                font-size: 10px;
+                font-weight: 700;
+                color: Design.text-muted;
+                height: 22px;
+                vertical-alignment: center;
+            }
+
             // Saklar Terminal = buka/tutup Log Panel (EXPLORER_SPEC.md
-            // §3.1; Ctrl+L BUKAN toggle panel ini).
-            HorizontalLayout {
-                height: 36px;
-                spacing: 8px;
-                Text {
-                    text: "Terminal";
-                    font-size: Design.font-body;
-                    font-weight: 700;
-                    color: Design.text-primary;
-                    vertical-alignment: center;
-                    horizontal-stretch: 1;
-                }
-                VerticalLayout {
-                    alignment: center;
-                    Toggle {
-                        checked: root.show-logpanel;
-                        toggled(checked) => { root.show-logpanel = checked; }
-                    }
+            // §3.1; Ctrl+L BUKAN toggle panel ini). Klik baris tidak
+            // mengubah apa pun — Toggle sendiri yang mengubah.
+            FlyoutItem {
+                icon-name: "terminal";
+                label: "Terminal";
+                show-toggle: true;
+                toggle-checked: root.show-logpanel;
+                toggled(checked) => { root.show-logpanel = checked; }
+                clicked => { }
+            }
+            FlyoutItem {
+                icon-name: "settings";
+                label: "Settings";
+                hint: "Ctrl+,";
+                clicked => { root.show-flyout = false; root.overlay-view = "SETTINGS"; root.list-category = ""; root.selected-card = ""; }
+            }
+
+            Text {
+                text: "LAINNYA";
+                font-size: 10px;
+                font-weight: 700;
+                color: Design.text-muted;
+                height: 22px;
+                vertical-alignment: center;
+            }
+
+            FlyoutItem {
+                icon-name: "info";
+                label: "Laporkan Bug";
+                clicked => {
+                    root.show-flyout = false;
+                    root.open-report-bug();
                 }
             }
-            Rectangle {
-                height: 36px;
-                TouchArea {
-                    mouse-cursor: pointer;
-                    clicked => {
-                        root.show-flyout = false;
-                        root.open-report-bug();
-                    }
-                }
-                Text {
-                    text: "Laporkan Bug";
-                    font-size: Design.font-body;
-                    font-weight: 700;
-                    color: Design.text-primary;
-                    width: 100%;
-                    height: 100%;
-                    vertical-alignment: center;
-                }
-            }
-            Rectangle {
-                height: 36px;
-                TouchArea {
-                    mouse-cursor: pointer;
-                    clicked => { root.show-flyout = false; root.overlay-view = "SETTINGS"; root.list-category = ""; root.selected-card = ""; }
-                }
-                Text {
-                    text: "Settings";
-                    font-size: Design.font-body;
-                    font-weight: 700;
-                    color: Design.text-primary;
-                    width: 100%;
-                    height: 100%;
-                    vertical-alignment: center;
-                }
-            }
-            Rectangle {
-                height: 36px;
-                TouchArea {
-                    mouse-cursor: pointer;
-                    clicked => {
-                        root.show-flyout = false;
-                        root.dialog-open = "EXIT";
-                    }
-                }
-                Text {
-                    text: "Log Out";
-                    font-size: Design.font-body;
-                    font-weight: 700;
-                    color: Design.status-danger;
-                    width: 100%;
-                    height: 100%;
-                    vertical-alignment: center;
+            FlyoutItem {
+                icon-name: "arrow-right";
+                label: "Log Out";
+                label-color: Design.status-danger;
+                clicked => {
+                    root.show-flyout = false;
+                    root.dialog-open = "EXIT";
                 }
             }
 
             HSeparator { }
 
-            Text {
-                text: "BMACHINE · " + root.app-version;
-                font-size: 9px;
-                color: Design.text-muted;
-                vertical-alignment: center;
-                height: 28px;
+            // Footer: versi + status update.
+            HorizontalLayout {
+                height: 24px;
+                Text {
+                    text: "BMACHINE · " + root.app-version;
+                    font-size: 9px;
+                    color: Design.text-muted;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+                Text {
+                    text: root.has-pending-update ? "Pembaruan tersedia" : "Terbaru";
+                    font-size: 9px;
+                    font-weight: 700;
+                    color: root.has-pending-update ? Design.accent : Design.status-success;
+                    vertical-alignment: center;
+                }
             }
         }
     }

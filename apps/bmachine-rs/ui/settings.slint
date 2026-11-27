@@ -256,10 +256,19 @@ component FontCard inherits Rectangle {
 }
 
 // Baris preset tema (daftar penuh, satu baris per preset).
+// Preview palet: 4 titik warna (aksen, revisi/sekunder, background,
+// foreground) supaya tema dikenali sekilas — ala picker tema Omarchy.
+// `deletable` = tema user (× hapus, tidak memicu klik baris).
 component ThemeRow inherits Rectangle {
     in property <string> label;
     in property <bool> selected;
+    in property <color> sw1: transparent;
+    in property <color> sw2: transparent;
+    in property <color> sw3: transparent;
+    in property <color> sw4: transparent;
+    in property <bool> deletable: false;
     callback clicked();
+    callback delete();
     height: 36px;
     background: selected ? Design.accent-subtle : (trow-touch.has-hover ? Design.bg-hover : transparent);
     border-color: selected ? Design.accent : Design.separator;
@@ -281,6 +290,35 @@ component ThemeRow inherits Rectangle {
             vertical-alignment: center;
             horizontal-stretch: 1;
         }
+        // Titik preview palet (aturan §7: elemen ber-height
+        // eksplisit di baris dibungkus VerticalLayout center).
+        VerticalLayout {
+            alignment: center;
+            HorizontalLayout {
+                spacing: 4px;
+                Rectangle { width: 12px; height: 12px; background: sw1; border-color: Design.border-hover; border-width: 1px; border-radius: 999px; }
+                Rectangle { width: 12px; height: 12px; background: sw2; border-color: Design.border-hover; border-width: 1px; border-radius: 999px; }
+                Rectangle { width: 12px; height: 12px; background: sw3; border-color: Design.border-hover; border-width: 1px; border-radius: 999px; }
+                Rectangle { width: 12px; height: 12px; background: sw4; border-color: Design.border-hover; border-width: 1px; border-radius: 999px; }
+            }
+        }
+        if deletable : VerticalLayout {
+            alignment: center;
+            del-touch := TouchArea {
+                width: 24px;
+                height: 24px;
+                mouse-cursor: pointer;
+                clicked => { root.delete(); }
+                Text {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    text: "×";
+                    font-size: 16px;
+                    font-weight: 700;
+                    color: Design.text-secondary;
+                }
+            }
+        }
         Text {
             text: selected ? "✓" : "";
             font-size: Design.font-body;
@@ -291,12 +329,65 @@ component ThemeRow inherits Rectangle {
     }
 }
 
+// Satu baris warna widget: dot warna aktif + label + field hex +
+// 4 swatch. Swatch mengirim hex (string) karena Slint tidak bisa
+// memformat color → hex.
+component WidgetColorRow inherits Rectangle {
+    in property <string> label;
+    in property <color> dot-color;
+    // `in-out` + `<=>` ke TextField: binding satu arah PUTUS saat user
+    // mengetik, sehingga perubahan programatik (preset / normalisasi
+    // Rust) tidak lagi tampil di field — lihat komentar TextField.
+    in-out property <string> hex;
+    in property <[color]> swatches;
+    in property <[string]> swatch-hexes;
+    callback hex-edited(string);
+    callback hex-accepted(string);
+    callback swatch-picked(string);
+    height: 36px;
+    HorizontalLayout {
+        spacing: 8px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle { width: 20px; height: 20px; background: dot-color; border-color: Design.border-hover; border-width: 1px; border-radius: 999px; }
+        }
+        Text {
+            text: label;
+            font-size: Design.font-button;
+            font-weight: 700;
+            color: Design.text-secondary;
+            vertical-alignment: center;
+            width: 76px;
+        }
+        TextField {
+            width: 120px;
+            text <=> hex;
+            placeholder: "#3b82f6";
+            edited(text) => { root.hex-edited(text); }
+            accepted(text) => { root.hex-accepted(text); }
+        }
+        for sw[i] in swatches : SwatchDot {
+            swatch: sw;
+            selected: dot-color == sw;
+            clicked => { root.swatch-picked(swatch-hexes[i]); }
+        }
+    }
+}
+
 export component SettingsView inherits Rectangle {
     callback toast(string);
     callback back();
     callback check-update();
     callback appearance-changed();
     callback reset-appearance();
+    // Tema preset (id, mis. "spider") diterapkan Rust — satu palet
+    // penuh (mode + aksen + bg + fg + 4 warna widget).
+    callback apply-theme-preset(string);
+    // Tema user: simpan snapshot tampilan saat ini (nama) / pakai /
+    // hapus. Disimpan di SQLite `Settings.Theme.UserThemes` (JSON).
+    callback save-user-theme(string);
+    callback apply-user-theme(string);
+    callback delete-user-theme(string);
     callback save-general-settings();
     callback export-database();
     callback import-database();
@@ -362,7 +453,7 @@ export component SettingsView inherits Rectangle {
 
     // --- Appearance (live global theme) ---
     in-out property <string> color-mode: "dark";
-    in-out property <string> theme-preset: "BMachine Dark";
+    in-out property <string> theme-preset: "bmachine-dark";
     in-out property <color> accent-color: #3b82f6;
     in-out property <string> accent-hex: "#3b82f6";
     in-out property <string> accent-hex-good: "#3b82f6";
@@ -372,6 +463,24 @@ export component SettingsView inherits Rectangle {
     in-out property <color> fg-color: #FFFFFF;
     in-out property <string> fg-hex: "#FFFFFF";
     in-out property <string> fg-hex-good: "#FFFFFF";
+    // Warna 4 widget (C# `Settings.Color.*`) — satu palet dibaca
+    // semua permukaan (token `Design.cat-*`).
+    in-out property <string> widget-editing-hex: "#3b82f6";
+    in-out property <string> widget-editing-hex-good: "#3b82f6";
+    in-out property <string> widget-revision-hex: "#f97316";
+    in-out property <string> widget-revision-hex-good: "#f97316";
+    in-out property <string> widget-late-hex: "#ef4444";
+    in-out property <string> widget-late-hex-good: "#ef4444";
+    in-out property <string> widget-points-hex: "#2dd4bf";
+    in-out property <string> widget-points-hex-good: "#2dd4bf";
+    // Tema user (array paralel, wholesale replace dari Rust).
+    in-out property <[string]> user-theme-ids: [];
+    in-out property <[string]> user-theme-names: [];
+    in-out property <[color]> user-theme-accents: [];
+    in-out property <[color]> user-theme-revisions: [];
+    in-out property <[color]> user-theme-bgs: [];
+    in-out property <[color]> user-theme-fgs: [];
+    in-out property <string> new-user-theme-name: "";
     in-out property <string> font-choice: "Inter";
     in-out property <string> corner-style: "default"; // "sharp" | "default" | "rounded"
     in-out property <string> nav-style: "capsule";    // "capsule" | "rounded" | "flat"
@@ -639,7 +748,13 @@ export component SettingsView inherits Rectangle {
                             }
                         }
 
-                        // Theme preset.
+                        // Theme preset — 8 preset terkurasi (opinionated,
+                        // bukan color-picker bebas). Palet penuh (mode +
+                        // aksen + bg + fg + 4 warna widget) didefinisikan
+                        // SATU tempat di Rust (`theme.rs::builtin_presets`)
+                        // — klik di sini hanya memanggil id-nya, Rust yang
+                        // menerapkan + menyimpan. Preview 4 titik = aksen,
+                        // revisi/sekunder, background, foreground.
                         VerticalLayout {
                             spacing: 6px;
                             FieldLabel {
@@ -648,76 +763,133 @@ export component SettingsView inherits Rectangle {
                             }
                             ThemeRow {
                                 label: "BMachine Dark";
-                                selected: root.theme-preset == "BMachine Dark";
-                                clicked => {
-                                    root.theme-preset = "BMachine Dark";
-                                    root.color-mode = "dark";
-                                    root.accent-color = #3b82f6; root.accent-hex = "#3b82f6"; root.accent-hex-good = "#3b82f6";
-                                    root.bg-color = #121212; root.bg-hex = "#121212"; root.bg-hex-good = "#121212";
-                                    root.fg-color = #FFFFFF; root.fg-hex = "#FFFFFF"; root.fg-hex-good = "#FFFFFF";
-                                    root.appearance-changed();
-                                    root.toast("Tema BMachine Dark diterapkan");
-                                }
+                                sw1: #3b82f6; sw2: #f97316; sw3: #121212; sw4: #FFFFFF;
+                                selected: root.theme-preset == "bmachine-dark";
+                                clicked => { root.apply-theme-preset("bmachine-dark"); }
                             }
                             ThemeRow {
                                 label: "BMachine Light";
-                                selected: root.theme-preset == "BMachine Light";
-                                clicked => {
-                                    root.theme-preset = "BMachine Light";
-                                    root.color-mode = "light";
-                                    root.accent-color = #3b82f6; root.accent-hex = "#3b82f6"; root.accent-hex-good = "#3b82f6";
-                                    root.bg-color = #F5F5F5; root.bg-hex = "#F5F5F5"; root.bg-hex-good = "#F5F5F5";
-                                    root.fg-color = #111111; root.fg-hex = "#111111"; root.fg-hex-good = "#111111";
-                                    root.appearance-changed();
-                                    root.toast("Tema BMachine Light diterapkan");
-                                }
+                                sw1: #3b82f6; sw2: #f97316; sw3: #F5F5F5; sw4: #111111;
+                                selected: root.theme-preset == "bmachine-light";
+                                clicked => { root.apply-theme-preset("bmachine-light"); }
                             }
                             ThemeRow {
                                 label: "Midnight OLED";
-                                selected: root.theme-preset == "Midnight OLED";
-                                clicked => {
-                                    root.theme-preset = "Midnight OLED";
-                                    root.color-mode = "dark";
-                                    root.accent-color = #38BDF8; root.accent-hex = "#38BDF8"; root.accent-hex-good = "#38BDF8";
-                                    root.bg-color = #000000; root.bg-hex = "#000000"; root.bg-hex-good = "#000000";
-                                    root.fg-color = #F8FAFC; root.fg-hex = "#F8FAFC"; root.fg-hex-good = "#F8FAFC";
-                                    root.appearance-changed();
-                                    root.toast("Tema Midnight OLED diterapkan");
-                                }
+                                sw1: #38BDF8; sw2: #f97316; sw3: #000000; sw4: #F8FAFC;
+                                selected: root.theme-preset == "midnight-oled";
+                                clicked => { root.apply-theme-preset("midnight-oled"); }
                             }
                             ThemeRow {
                                 label: "Catppuccin Mocha";
-                                selected: root.theme-preset == "Catppuccin Mocha";
-                                clicked => {
-                                    root.theme-preset = "Catppuccin Mocha";
-                                    root.color-mode = "dark";
-                                    root.accent-color = #CBA6F7; root.accent-hex = "#CBA6F7"; root.accent-hex-good = "#CBA6F7";
-                                    root.bg-color = #1E1E2E; root.bg-hex = "#1E1E2E"; root.bg-hex-good = "#1E1E2E";
-                                    root.fg-color = #CDD6F4; root.fg-hex = "#CDD6F4"; root.fg-hex-good = "#CDD6F4";
-                                    root.appearance-changed();
-                                    root.toast("Tema Catppuccin Mocha diterapkan");
-                                }
+                                sw1: #CBA6F7; sw2: #FAB387; sw3: #1E1E2E; sw4: #CDD6F4;
+                                selected: root.theme-preset == "catppuccin-mocha";
+                                clicked => { root.apply-theme-preset("catppuccin-mocha"); }
                             }
                             ThemeRow {
                                 label: "Emerald Studio";
-                                selected: root.theme-preset == "Emerald Studio";
-                                clicked => {
-                                    root.theme-preset = "Emerald Studio";
-                                    root.color-mode = "dark";
-                                    root.accent-color = #10B981; root.accent-hex = "#10B981"; root.accent-hex-good = "#10B981";
-                                    root.bg-color = #0F1715; root.bg-hex = "#0F1715"; root.bg-hex-good = "#0F1715";
-                                    root.fg-color = #ECFDF5; root.fg-hex = "#ECFDF5"; root.fg-hex-good = "#ECFDF5";
-                                    root.appearance-changed();
-                                    root.toast("Tema Emerald Studio diterapkan");
-                                }
+                                sw1: #10B981; sw2: #F59E0B; sw3: #0F1715; sw4: #ECFDF5;
+                                selected: root.theme-preset == "emerald-studio";
+                                clicked => { root.apply-theme-preset("emerald-studio"); }
+                            }
+                            ThemeRow {
+                                label: "Spider Red";
+                                sw1: #D9272E; sw2: #1557A5; sw3: #171717; sw4: #FFFFFF;
+                                selected: root.theme-preset == "spider";
+                                clicked => { root.apply-theme-preset("spider"); }
+                            }
+                            ThemeRow {
+                                label: "Gwen Pink";
+                                sw1: #F2A2C0; sw2: #65D6D6; sw3: #24242E; sw4: #FFFFFF;
+                                selected: root.theme-preset == "gwen";
+                                clicked => { root.apply-theme-preset("gwen"); }
+                            }
+                            ThemeRow {
+                                label: "Armor Red";
+                                sw1: #A71930; sw2: #D9A52E; sw3: #252525; sw4: #FFFFFF;
+                                selected: root.theme-preset == "armor";
+                                clicked => { root.apply-theme-preset("armor"); }
                             }
                             ThemeRow {
                                 label: "Custom";
-                                selected: root.theme-preset == "Custom";
+                                sw1: root.accent-color; sw2: Design.cat-revision; sw3: root.bg-color; sw4: root.fg-color;
+                                selected: root.theme-preset == "custom";
                                 clicked => {
-                                    root.theme-preset = "Custom";
+                                    root.theme-preset = "custom";
                                     root.appearance-changed();
                                     root.toast("Mode Custom aktif — ubah warna atau font di bawah");
+                                }
+                            }
+                        }
+
+                        // Tema saya — tema buatan user (SQLite
+                        // `Settings.Theme.UserThemes`, JSON). Override
+                        // user melapisi preset bawaan; ubah warna manual
+                        // saat tema user aktif → jadi Custom (tema yang
+                        // tersimpan tidak berubah sampai disimpan ulang).
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Tema saya";
+                                desc: "Tema buatan sendiri — klik untuk memakai, × untuk menghapus";
+                            }
+                            for ut[i] in root.user-theme-ids : ThemeRow {
+                                label: root.user-theme-names[i];
+                                sw1: root.user-theme-accents[i];
+                                sw2: root.user-theme-revisions[i];
+                                sw3: root.user-theme-bgs[i];
+                                sw4: root.user-theme-fgs[i];
+                                selected: root.theme-preset == ut;
+                                deletable: true;
+                                clicked => { root.apply-user-theme(ut); }
+                                delete => { root.delete-user-theme(ut); }
+                            }
+                            HorizontalLayout {
+                                spacing: Design.space-sm;
+                                height: 36px;
+                                TextField {
+                                    horizontal-stretch: 1;
+                                    text <=> root.new-user-theme-name;
+                                    placeholder: "Nama tema baru…";
+                                    edited(text) => { root.new-user-theme-name = text; }
+                                    accepted(text) => { root.save-user-theme(text); }
+                                }
+                                Btn {
+                                    label: "Simpan tema";
+                                    variant: "primary";
+                                    clicked => { root.save-user-theme(root.new-user-theme-name); }
+                                }
+                            }
+                        }
+
+                        // Kepadatan (C# `Settings.UiDensity`:
+                        // Compact / Normal / Comfortable — ukuran tombol
+                        // & ikon). Diterapkan lewat token font + spacing
+                        // — langsung berlaku tanpa restart.
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Kepadatan";
+                                desc: "Ukuran tombol, ikon, dan teks — Compact untuk layar kecil, Comfortable untuk sentuhan yang lebih longgar";
+                            }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OptionChip {
+                                    label: "Compact";
+                                    horizontal-stretch: 1;
+                                    selected: root.ui-density == "compact";
+                                    clicked => { root.ui-density = "compact"; root.appearance-changed(); root.toast("Kepadatan: Compact"); }
+                                }
+                                OptionChip {
+                                    label: "Normal";
+                                    horizontal-stretch: 1;
+                                    selected: root.ui-density == "normal";
+                                    clicked => { root.ui-density = "normal"; root.appearance-changed(); root.toast("Kepadatan: Normal"); }
+                                }
+                                OptionChip {
+                                    label: "Comfortable";
+                                    horizontal-stretch: 1;
+                                    selected: root.ui-density == "comfortable";
+                                    clicked => { root.ui-density = "comfortable"; root.appearance-changed(); root.toast("Kepadatan: Comfortable"); }
                                 }
                             }
                         }
@@ -741,11 +913,11 @@ export component SettingsView inherits Rectangle {
                                 }
                                 TextField {
                                     width: root.hex-compact ? 96px : 120px;
-                                    text: root.accent-hex;
+                                    text <=> root.accent-hex;
                                     placeholder: "#3b82f6";
                                     edited(text) => { root.accent-hex = text; }
                                     accepted(text) => {
-                                        root.theme-preset = "Custom";
+                                        root.theme-preset = "custom";
                                         root.accent-hex = text;
                                         root.appearance-changed();
                                     }
@@ -753,27 +925,27 @@ export component SettingsView inherits Rectangle {
                                 SwatchDot {
                                     swatch: #3b82f6;
                                     selected: root.accent-color == #3b82f6;
-                                    clicked => { root.theme-preset = "Custom"; root.accent-color = #3b82f6; root.accent-hex = "#3b82f6"; root.accent-hex-good = "#3b82f6"; root.appearance-changed(); root.toast("Accent #3b82f6 diterapkan"); }
+                                    clicked => { root.theme-preset = "custom"; root.accent-color = #3b82f6; root.accent-hex = "#3b82f6"; root.accent-hex-good = "#3b82f6"; root.appearance-changed(); root.toast("Accent #3b82f6 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #339CFF;
                                     selected: root.accent-color == #339CFF;
-                                    clicked => { root.theme-preset = "Custom"; root.accent-color = #339CFF; root.accent-hex = "#339CFF"; root.accent-hex-good = "#339CFF"; root.appearance-changed(); root.toast("Accent #339CFF diterapkan"); }
+                                    clicked => { root.theme-preset = "custom"; root.accent-color = #339CFF; root.accent-hex = "#339CFF"; root.accent-hex-good = "#339CFF"; root.appearance-changed(); root.toast("Accent #339CFF diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #f97316;
                                     selected: root.accent-color == #f97316;
-                                    clicked => { root.theme-preset = "Custom"; root.accent-color = #f97316; root.accent-hex = "#f97316"; root.accent-hex-good = "#f97316"; root.appearance-changed(); root.toast("Accent #f97316 diterapkan"); }
+                                    clicked => { root.theme-preset = "custom"; root.accent-color = #f97316; root.accent-hex = "#f97316"; root.accent-hex-good = "#f97316"; root.appearance-changed(); root.toast("Accent #f97316 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #2dd4bf;
                                     selected: root.accent-color == #2dd4bf;
-                                    clicked => { root.theme-preset = "Custom"; root.accent-color = #2dd4bf; root.accent-hex = "#2dd4bf"; root.accent-hex-good = "#2dd4bf"; root.appearance-changed(); root.toast("Accent #2dd4bf diterapkan"); }
+                                    clicked => { root.theme-preset = "custom"; root.accent-color = #2dd4bf; root.accent-hex = "#2dd4bf"; root.accent-hex-good = "#2dd4bf"; root.appearance-changed(); root.toast("Accent #2dd4bf diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #8B5CF6;
                                     selected: root.accent-color == #8B5CF6;
-                                    clicked => { root.theme-preset = "Custom"; root.accent-color = #8B5CF6; root.accent-hex = "#8B5CF6"; root.accent-hex-good = "#8B5CF6"; root.appearance-changed(); root.toast("Accent #8B5CF6 diterapkan"); }
+                                    clicked => { root.theme-preset = "custom"; root.accent-color = #8B5CF6; root.accent-hex = "#8B5CF6"; root.accent-hex-good = "#8B5CF6"; root.appearance-changed(); root.toast("Accent #8B5CF6 diterapkan"); }
                                 }
                             }
                         }
@@ -797,11 +969,11 @@ export component SettingsView inherits Rectangle {
                                 }
                                 TextField {
                                     width: root.hex-compact ? 96px : 120px;
-                                    text: root.bg-hex;
+                                    text <=> root.bg-hex;
                                     placeholder: "#121212";
                                     edited(text) => { root.bg-hex = text; }
                                     accepted(text) => {
-                                        root.theme-preset = "Custom";
+                                        root.theme-preset = "custom";
                                         root.bg-hex = text;
                                         root.appearance-changed();
                                     }
@@ -809,27 +981,27 @@ export component SettingsView inherits Rectangle {
                                 SwatchDot {
                                     swatch: #121212;
                                     selected: root.bg-color == #121212;
-                                    clicked => { root.theme-preset = "Custom"; root.bg-color = #121212; root.bg-hex = "#121212"; root.bg-hex-good = "#121212"; root.appearance-changed(); root.toast("Background #121212 diterapkan"); }
+                                    clicked => { root.theme-preset = "custom"; root.bg-color = #121212; root.bg-hex = "#121212"; root.bg-hex-good = "#121212"; root.appearance-changed(); root.toast("Background #121212 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #000000;
                                     selected: root.bg-color == #000000;
-                                    clicked => { root.theme-preset = "Custom"; root.bg-color = #000000; root.bg-hex = "#000000"; root.bg-hex-good = "#000000"; root.appearance-changed(); root.toast("Background #000000 diterapkan"); }
+                                    clicked => { root.theme-preset = "custom"; root.bg-color = #000000; root.bg-hex = "#000000"; root.bg-hex-good = "#000000"; root.appearance-changed(); root.toast("Background #000000 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #1A1C20;
                                     selected: root.bg-color == #1A1C20;
-                                    clicked => { root.theme-preset = "Custom"; root.bg-color = #1A1C20; root.bg-hex = "#1A1C20"; root.bg-hex-good = "#1A1C20"; root.appearance-changed(); root.toast("Background #1A1C20 diterapkan"); }
+                                    clicked => { root.theme-preset = "custom"; root.bg-color = #1A1C20; root.bg-hex = "#1A1C20"; root.bg-hex-good = "#1A1C20"; root.appearance-changed(); root.toast("Background #1A1C20 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #F5F5F5;
                                     selected: root.bg-color == #F5F5F5;
-                                    clicked => { root.theme-preset = "Custom"; root.bg-color = #F5F5F5; root.bg-hex = "#F5F5F5"; root.bg-hex-good = "#F5F5F5"; root.appearance-changed(); root.toast("Background #F5F5F5 diterapkan"); }
+                                    clicked => { root.theme-preset = "custom"; root.bg-color = #F5F5F5; root.bg-hex = "#F5F5F5"; root.bg-hex-good = "#F5F5F5"; root.appearance-changed(); root.toast("Background #F5F5F5 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #FFFFFF;
                                     selected: root.bg-color == #FFFFFF;
-                                    clicked => { root.theme-preset = "Custom"; root.bg-color = #FFFFFF; root.bg-hex = "#FFFFFF"; root.bg-hex-good = "#FFFFFF"; root.appearance-changed(); root.toast("Background #FFFFFF diterapkan"); }
+                                    clicked => { root.theme-preset = "custom"; root.bg-color = #FFFFFF; root.bg-hex = "#FFFFFF"; root.bg-hex-good = "#FFFFFF"; root.appearance-changed(); root.toast("Background #FFFFFF diterapkan"); }
                                 }
                             }
                         }
@@ -853,11 +1025,11 @@ export component SettingsView inherits Rectangle {
                                 }
                                 TextField {
                                     width: root.hex-compact ? 96px : 120px;
-                                    text: root.fg-hex;
+                                    text <=> root.fg-hex;
                                     placeholder: "#FFFFFF";
                                     edited(text) => { root.fg-hex = text; }
                                     accepted(text) => {
-                                        root.theme-preset = "Custom";
+                                        root.theme-preset = "custom";
                                         root.fg-hex = text;
                                         root.appearance-changed();
                                     }
@@ -865,28 +1037,80 @@ export component SettingsView inherits Rectangle {
                                 SwatchDot {
                                     swatch: #FFFFFF;
                                     selected: root.fg-color == #FFFFFF;
-                                    clicked => { root.theme-preset = "Custom"; root.fg-color = #FFFFFF; root.fg-hex = "#FFFFFF"; root.fg-hex-good = "#FFFFFF"; root.appearance-changed(); root.toast("Foreground #FFFFFF diterapkan"); }
+                                    clicked => { root.theme-preset = "custom"; root.fg-color = #FFFFFF; root.fg-hex = "#FFFFFF"; root.fg-hex-good = "#FFFFFF"; root.appearance-changed(); root.toast("Foreground #FFFFFF diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #111111;
                                     selected: root.fg-color == #111111;
-                                    clicked => { root.theme-preset = "Custom"; root.fg-color = #111111; root.fg-hex = "#111111"; root.fg-hex-good = "#111111"; root.appearance-changed(); root.toast("Foreground #111111 diterapkan"); }
+                                    clicked => { root.theme-preset = "custom"; root.fg-color = #111111; root.fg-hex = "#111111"; root.fg-hex-good = "#111111"; root.appearance-changed(); root.toast("Foreground #111111 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #E4E4E7;
                                     selected: root.fg-color == #E4E4E7;
-                                    clicked => { root.theme-preset = "Custom"; root.fg-color = #E4E4E7; root.fg-hex = "#E4E4E7"; root.fg-hex-good = "#E4E4E7"; root.appearance-changed(); root.toast("Foreground #E4E4E7 diterapkan"); }
+                                    clicked => { root.theme-preset = "custom"; root.fg-color = #E4E4E7; root.fg-hex = "#E4E4E7"; root.fg-hex-good = "#E4E4E7"; root.appearance-changed(); root.toast("Foreground #E4E4E7 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #999999;
                                     selected: root.fg-color == #999999;
-                                    clicked => { root.theme-preset = "Custom"; root.fg-color = #999999; root.fg-hex = "#999999"; root.fg-hex-good = "#999999"; root.appearance-changed(); root.toast("Foreground #999999 diterapkan"); }
+                                    clicked => { root.theme-preset = "custom"; root.fg-color = #999999; root.fg-hex = "#999999"; root.fg-hex-good = "#999999"; root.appearance-changed(); root.toast("Foreground #999999 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #3b82f6;
                                     selected: root.fg-color == #3b82f6;
-                                    clicked => { root.theme-preset = "Custom"; root.fg-color = #3b82f6; root.fg-hex = "#3b82f6"; root.fg-hex-good = "#3b82f6"; root.appearance-changed(); root.toast("Foreground #3b82f6 diterapkan"); }
+                                    clicked => { root.theme-preset = "custom"; root.fg-color = #3b82f6; root.fg-hex = "#3b82f6"; root.fg-hex-good = "#3b82f6"; root.appearance-changed(); root.toast("Foreground #3b82f6 diterapkan"); }
                                 }
+                            }
+                        }
+
+                        // Warna widget (C# `Settings.Color.*`) — warna
+                        // 4 kartu statistik + aksen kategori di Trello /
+                        // spreadsheet / explorer. Termasuk dalam palet
+                        // tema: preset mengaturnya, ubah di sini → Custom.
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Warna widget";
+                                desc: "Warna kartu EDITING / REVISION / LATE / POINTS (ketik #RRGGBB + Enter)";
+                            }
+                            WidgetColorRow {
+                                label: "EDITING";
+                                dot-color: Design.cat-editing;
+                                hex <=> root.widget-editing-hex;
+                                swatches: [#3b82f6, #D9272E, #10B981, #8B5CF6];
+                                swatch-hexes: ["#3b82f6", "#D9272E", "#10B981", "#8B5CF6"];
+                                hex-edited(text) => { root.widget-editing-hex = text; }
+                                hex-accepted(text) => { root.theme-preset = "custom"; root.widget-editing-hex = text; root.appearance-changed(); }
+                                swatch-picked(hex) => { root.theme-preset = "custom"; root.widget-editing-hex = hex; root.widget-editing-hex-good = hex; root.appearance-changed(); root.toast("Warna EDITING " + hex + " diterapkan"); }
+                            }
+                            WidgetColorRow {
+                                label: "REVISION";
+                                dot-color: Design.cat-revision;
+                                hex <=> root.widget-revision-hex;
+                                swatches: [#f97316, #1557A5, #65D6D6, #D9A52E];
+                                swatch-hexes: ["#f97316", "#1557A5", "#65D6D6", "#D9A52E"];
+                                hex-edited(text) => { root.widget-revision-hex = text; }
+                                hex-accepted(text) => { root.theme-preset = "custom"; root.widget-revision-hex = text; root.appearance-changed(); }
+                                swatch-picked(hex) => { root.theme-preset = "custom"; root.widget-revision-hex = hex; root.widget-revision-hex-good = hex; root.appearance-changed(); root.toast("Warna REVISION " + hex + " diterapkan"); }
+                            }
+                            WidgetColorRow {
+                                label: "LATE";
+                                dot-color: Design.cat-late;
+                                hex <=> root.widget-late-hex;
+                                swatches: [#ef4444, #D62828, #f97316, #8B5CF6];
+                                swatch-hexes: ["#ef4444", "#D62828", "#f97316", "#8B5CF6"];
+                                hex-edited(text) => { root.widget-late-hex = text; }
+                                hex-accepted(text) => { root.theme-preset = "custom"; root.widget-late-hex = text; root.appearance-changed(); }
+                                swatch-picked(hex) => { root.theme-preset = "custom"; root.widget-late-hex = hex; root.widget-late-hex-good = hex; root.appearance-changed(); root.toast("Warna LATE " + hex + " diterapkan"); }
+                            }
+                            WidgetColorRow {
+                                label: "POINTS";
+                                dot-color: Design.cat-points;
+                                hex <=> root.widget-points-hex;
+                                swatches: [#2dd4bf, #10B981, #3b82f6, #D9A52E];
+                                swatch-hexes: ["#2dd4bf", "#10B981", "#3b82f6", "#D9A52E"];
+                                hex-edited(text) => { root.widget-points-hex = text; }
+                                hex-accepted(text) => { root.theme-preset = "custom"; root.widget-points-hex = text; root.appearance-changed(); }
+                                swatch-picked(hex) => { root.theme-preset = "custom"; root.widget-points-hex = hex; root.widget-points-hex-good = hex; root.appearance-changed(); root.toast("Warna POINTS " + hex + " diterapkan"); }
                             }
                         }
 
