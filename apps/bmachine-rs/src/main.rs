@@ -1,6 +1,7 @@
 slint::include_modules!();
 
 mod batch;
+mod batch_exec;
 mod db;
 mod doc_manager;
 mod executor;
@@ -3296,6 +3297,140 @@ fn batch_handle_double_click(
     }
 }
 
+/// Master template paths per jenis script (C# `ExecuteMaster`):
+/// wisuda → Wisuda10RP/Wisuda8R; manasik → Manasik10RP/Manasik8R;
+/// profesi → Profesi/Sporty/Profesi8R; pasfoto → PasFoto; lain →
+/// kosong (`buat_master` tidak butuh master — auto-detect).
+fn batch_master_paths(
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+    script_file: &str,
+) -> (String, String, String) {
+    let lower = script_file.to_ascii_lowercase();
+    if lower.contains("wisuda") {
+        (
+            batch_db_get(db, "Paths.Wisuda", "Configs.Master.Wisuda10RP"),
+            batch_db_get(db, "Paths.Wisuda8R", "Configs.Master.Wisuda8R"),
+            String::new(),
+        )
+    } else if lower.contains("manasik") {
+        (
+            batch_db_get(db, "Paths.Manasik", "Configs.Master.Manasik10RP"),
+            batch_db_get(db, "Paths.Manasik8R", "Configs.Master.Manasik8R"),
+            String::new(),
+        )
+    } else if lower.contains("profesi") {
+        (
+            batch_db_get(db, "Paths.Profesi", "Configs.Master.Profesi"),
+            batch_db_get(db, "Paths.Sporty", "Configs.Master.Sporty"),
+            batch_db_get(db, "Paths.Profesi8R", "Configs.Master.Profesi8R"),
+        )
+    } else if lower.contains("pasfoto") || lower.contains("pas_foto") {
+        (
+            batch_db_get(db, "Paths.PasFoto", "Configs.Master.PasFoto"),
+            String::new(),
+            String::new(),
+        )
+    } else {
+        (String::new(), String::new(), String::new())
+    }
+}
+
+/// Mulai satu run script BATCH (C# `ExecuteMaster`): validasi, lalu
+/// `batch_exec::start_batch_run` (thread worker, stream via channel).
+/// Mengembalikan Err(pesan toast) bila tidak bisa jalan.
+#[allow(clippy::too_many_arguments)]
+fn batch_start_run(
+    ui: &AppWindow,
+    handle: &Arc<batch_exec::BatchRunHandle>,
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+    st: &Arc<Mutex<batch::BatchState>>,
+    pl: &Arc<Mutex<ProcessLogService>>,
+    script_file: &str,
+) -> Result<(), String> {
+    if handle.is_running() {
+        return Err("Proses sedang berjalan — tekan Stop dulu.".to_string());
+    }
+    let (roots, output_base, okebase) = {
+        let s = st.lock().unwrap();
+        if s.roots.is_empty() {
+            return Err("Pilih folder sumber dulu.".to_string());
+        }
+        let roots: Vec<(String, String)> = s
+            .roots
+            .iter()
+            .map(|r| {
+                (
+                    r.source_path.to_string_lossy().into_owned(),
+                    r.output_path.to_string_lossy().into_owned(),
+                )
+            })
+            .collect();
+        (roots, s.local_output.clone(), s.oke_base.clone())
+    };
+    let is_buat_master = script_file
+        .to_ascii_lowercase()
+        .contains("buat_master");
+    let (master, master2, master3) = batch_master_paths(db, script_file);
+    if master.trim().is_empty() && !is_buat_master {
+        return Err(format!(
+            "Master Template belum diset untuk '{}' di Settings > Paths.",
+            script_file
+        ));
+    }
+    let scripts_dir = batch_scripts_dir(db);
+    let script_path = scripts_dir.join("Master").join(script_file);
+    if !script_path.is_file() {
+        return Err(format!(
+            "Script '{}' tidak ditemukan di {} — cek folder Scripts di Settings.",
+            script_file,
+            scripts_dir.join("Master").display()
+        ));
+    }
+    let wrapper = scripts_dir.join("batch_wrapper.py");
+    if !wrapper.is_file() {
+        return Err(format!(
+            "batch_wrapper.py tidak ditemukan di {} — atur ScriptsPath di Settings.",
+            scripts_dir.display()
+        ));
+    }
+    let user_name = {
+        let n = batch_db_get(db, "User.Name", "User.Name");
+        if n.trim().is_empty() {
+            "USER".to_string()
+        } else {
+            n
+        }
+    };
+    {
+        let mut lg = pl.lock().unwrap();
+        if !master.trim().is_empty() {
+            lg.add_log(format!("[INFO] Master 1: {}", master.trim()));
+        }
+        if !master2.trim().is_empty() {
+            lg.add_log(format!("[INFO] Master 2: {}", master2.trim()));
+        }
+        if !master3.trim().is_empty() {
+            lg.add_log(format!("[INFO] Master 3: {}", master3.trim()));
+        }
+        lg.add_log(format!("[INFO] Memproses {} folder...", roots.len()));
+    }
+    push_log_lines(ui, pl);
+    batch_exec::start_batch_run(
+        Arc::clone(handle),
+        wrapper,
+        script_file.to_string(),
+        roots,
+        master,
+        master2,
+        master3,
+        output_base,
+        okebase,
+        user_name,
+    );
+    ui.set_batch_running(true);
+    Ok(())
+}
+
 fn main() -> Result<(), slint::PlatformError> {
     let ui = AppWindow::new()?;
 
@@ -3464,6 +3599,24 @@ fn main() -> Result<(), slint::PlatformError> {
     }
     // Dorong state BATCH awal ke UI (drop zone kosong sampai folder dipilih).
     push_batch_to_ui(&ui, &batch_state.lock().unwrap());
+
+    // BATCH executor (tahap 3): handle run + daftar script master dari
+    // Scripts/Master/*.py (nama/urutan dari scripts.json bila ada).
+    let batch_run_handle = Arc::new(batch_exec::BatchRunHandle::new());
+    let batch_scripts = Arc::new(Mutex::new(batch_exec::scan_master_scripts(
+        &batch_scripts_dir(&db),
+    )));
+    {
+        let names: Vec<String> = batch_scripts
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|e| e.display.clone())
+            .collect();
+        if !names.is_empty() {
+            ui.set_batch_scripts(sheet_model(names));
+        }
+    }
 
     {
         // Benih log startup nyata (mencerminkan langkah bootstrapper C#).
@@ -5363,59 +5516,110 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     }
     {
-        // -- Jalankan script (tahap 3: spawn Python + Task Manager). --
+        // -- Jalankan script footer (C# ExecuteMaster): SEMUA root SOURCE
+        // berurutan via batch_wrapper.py; log mengalir live; Stop = bunuh
+        // tree proses. Nama tampil (alias scripts.json) -> nama file. --
         let ui_weak = ui.as_weak();
-        ui.on_batch_run_script(move |name| {
-            if let Some(ui) = ui_weak.upgrade() {
-                ui.set_toast(slint::SharedString::from(format!(
-                    "Eksekusi script '{}' menyusul (tahap 3: spawn + Task Manager).",
-                    name
-                )));
-            }
-        });
-    }
-    {
-        // -- Fase 1 (tahap 3: bagian dari eksekusi script). --
-        let ui_weak = ui.as_weak();
-        ui.on_batch_phase1(move || {
-            if let Some(ui) = ui_weak.upgrade() {
-                ui.set_toast(slint::SharedString::from(
-                    "Fase 1 menyusul (tahap 3: eksekusi script).",
-                ));
-            }
-        });
-    }
-    {
-        // -- Salin master yang dikonfigurasi ke folder terpilih (MASTER target). --
-        let ui_weak = ui.as_weak();
+        let handle = batch_run_handle.clone();
         let st = batch_state.clone();
         let db_c = db.clone();
-        ui.on_batch_copy_master(move || {
-            let msg = {
-                let s = st.lock().unwrap();
-                let target = s.selection.ids.first().cloned().unwrap_or_default();
-                let master = batch_db_get(&db_c, "Paths.PasFoto", "Configs.Master.PasFoto");
-                if target.is_empty() {
-                    "Pilih folder dulu (klik nama folder).".to_string()
-                } else if master.trim().is_empty() {
-                    "Path master belum diatur (Settings → Paths).".to_string()
-                } else {
-                    let mp = std::path::PathBuf::from(master.trim());
-                    if mp.is_file() {
-                        let dest =
-                            std::path::PathBuf::from(&target).join(mp.file_name().unwrap_or_default());
-                        match std::fs::copy(&mp, &dest) {
-                            Ok(_) => format!("Master disalin ke {}", dest.display()),
-                            Err(e) => format!("Gagal menyalin master: {}", e),
-                        }
-                    } else if mp.is_dir() {
-                        "Path master adalah folder — pakai Master Browser (bertahap).".to_string()
-                    } else {
-                        format!("File master tidak ditemukan: {}", mp.display())
-                    }
-                }
+        let pl = proc_log.clone();
+        let scripts = batch_scripts.clone();
+        ui.on_batch_run_script(move |name| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
             };
+            let filename = {
+                let list = scripts.lock().unwrap();
+                let lower = name.to_string().to_ascii_lowercase();
+                list.iter()
+                    .find(|e| e.display == name.to_string())
+                    .or_else(|| {
+                        list.iter().find(|e| {
+                            e.filename
+                                .trim_end_matches(".py")
+                                .to_ascii_lowercase()
+                                .starts_with(&lower)
+                        })
+                    })
+                    .map(|e| e.filename.clone())
+                    .unwrap_or_else(|| {
+                        let n = name.to_string();
+                        if n.ends_with(".py") {
+                            n
+                        } else {
+                            format!("{}.py", n)
+                        }
+                    })
+            };
+            if let Err(msg) = batch_start_run(&ui, &handle, &db_c, &st, &pl, &filename) {
+                ui.set_toast(slint::SharedString::from(msg));
+            }
+        });
+    }
+    {
+        // -- Fase 1 (DESIGN_SYSTEM.md §16.4): buat_master.py -> has-manifest.
+        // Sukses semua root = "Manifest: ada". --
+        let ui_weak = ui.as_weak();
+        let handle = batch_run_handle.clone();
+        let st = batch_state.clone();
+        let db_c = db.clone();
+        let pl = proc_log.clone();
+        ui.on_batch_phase1(move || {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            if let Err(msg) =
+                batch_start_run(&ui, &handle, &db_c, &st, &pl, "buat_master.py")
+            {
+                ui.set_toast(slint::SharedString::from(msg));
+            }
+        });
+    }
+    {
+        // -- Stop (C# KillProcess): bunuh tree wrapper + python. --
+        let ui_weak = ui.as_weak();
+        let handle = batch_run_handle.clone();
+        let pl = proc_log.clone();
+        ui.on_batch_stop(move || {
+            handle.stop();
+            pl.lock()
+                .unwrap()
+                .add_log("[WARNING] Proses dihentikan oleh User.".to_string());
             if let Some(ui) = ui_weak.upgrade() {
+                push_log_lines(&ui, &pl);
+                ui.set_toast(slint::SharedString::from("Proses dihentikan."));
+            }
+        });
+    }
+    {
+        // -- BUAT MASTER di panel OUTPUT (DESIGN_SYSTEM.md §16.4, fase 2 =
+        // buat_master_duplikat.py): BUTUH manifest (Fase 1 dulu); tanpa
+        // manifest = toast error dan berhenti. --
+        let ui_weak = ui.as_weak();
+        let handle = batch_run_handle.clone();
+        let st = batch_state.clone();
+        let db_c = db.clone();
+        let pl = proc_log.clone();
+        ui.on_batch_copy_master(move || {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let has_manifest = st.lock().unwrap().has_manifest;
+            if !has_manifest {
+                ui.set_toast(slint::SharedString::from(
+                    "Manifest belum ada — jalankan Fase 1 (buat_master.py) dulu.",
+                ));
+                return;
+            }
+            if let Err(msg) = batch_start_run(
+                &ui,
+                &handle,
+                &db_c,
+                &st,
+                &pl,
+                "buat_master_duplikat.py",
+            ) {
                 ui.set_toast(slint::SharedString::from(msg));
             }
         });
@@ -8531,6 +8735,89 @@ fn main() -> Result<(), slint::PlatformError> {
             "MantraNama".to_string(),
         );
     }
+
+    // BATCH executor: kuras channel log run tiap 200ms (pola sama
+    // seperti _sheets_inbox_timer). Setelah run berakhir: refresh OUTPUT
+    // (existence), has-manifest bila buat_master sukses, toast
+    // "[SUCCESS] Batch Selesai.".
+    let _batch_exec_timer = slint::Timer::default();
+    _batch_exec_timer.start(
+        slint::TimerMode::Repeated,
+        std::time::Duration::from_millis(200),
+        {
+            let ui_weak = ui.as_weak();
+            let handle = batch_run_handle.clone();
+            let st = batch_state.clone();
+            let pl = proc_log.clone();
+            move || {
+                let Some(ui) = ui_weak.upgrade() else {
+                    return;
+                };
+                let mut rx_guard = handle.rx.lock().unwrap();
+                let Some(rx) = rx_guard.as_mut() else {
+                    return;
+                };
+                let mut changed = false;
+                let mut finished: Option<bool> = None; // Some(true)=AllDone, Some(false)=Stopped
+                while let Ok(msg) = rx.try_recv() {
+                    match msg {
+                        batch_exec::BatchExecMsg::Line(l) => {
+                            pl.lock().unwrap().add_log(l);
+                            changed = true;
+                        }
+                        batch_exec::BatchExecMsg::RootDone { root, code } => {
+                            let mut lg = pl.lock().unwrap();
+                            if code == 0 {
+                                lg.add_log(format!("[INFO] Selesai: {}", root));
+                            } else {
+                                lg.add_log(format!("[ERROR] Gagal (exit {}): {}", code, root));
+                            }
+                            changed = true;
+                        }
+                        batch_exec::BatchExecMsg::Error(e) => {
+                            pl.lock().unwrap().add_log(format!("[ERROR] {}", e));
+                            changed = true;
+                        }
+                        batch_exec::BatchExecMsg::AllDone => {
+                            finished = Some(true);
+                        }
+                        batch_exec::BatchExecMsg::Stopped => {
+                            finished = Some(false);
+                        }
+                    }
+                }
+                if changed {
+                    push_log_lines(&ui, &pl);
+                }
+                if let Some(ok) = finished {
+                    {
+                        let mut s = st.lock().unwrap();
+                        batch::rescan_all(&mut s.roots);
+                        if ok && !handle.failed.load(Ordering::SeqCst) {
+                            let script = handle.script_file.lock().unwrap().clone();
+                            if script.to_ascii_lowercase().contains("buat_master") {
+                                s.has_manifest = true;
+                            }
+                        }
+                    }
+                    push_batch_to_ui(&ui, &st.lock().unwrap());
+                    ui.set_batch_running(false);
+                    let toast = if ok {
+                        if handle.failed.load(Ordering::SeqCst) {
+                            "[SUCCESS] Batch Selesai (ada folder yang gagal — cek log)."
+                        } else {
+                            "[SUCCESS] Batch Selesai."
+                        }
+                    } else {
+                        "[WARNING] Proses dihentikan oleh User."
+                    };
+                    ui.set_toast(slint::SharedString::from(toast));
+                    pl.lock().unwrap().add_log(toast.to_string());
+                    push_log_lines(&ui, &pl);
+                }
+            }
+        },
+    );
 
     // ui.run() mengambil alih event loop; show() sudah dipanggil di atas.
     ui.run()?;

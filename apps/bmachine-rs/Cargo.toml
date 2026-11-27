@@ -18,6 +18,8 @@ base64 = "0.22"
 image = { version = "0.25", default-features = false, features = ["webp", "png"] }
 rdev = "0.5.3"
 chrono = "0.4"
+# Process group sendiri untuk Stop BATCH (setsid di batch_exec.rs).
+libc = "0.2"
 
 [build-dependencies]
 slint-build = "1"

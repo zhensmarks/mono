@@ -892,6 +892,7 @@ export component AppWindow inherits Window {
     callback batch-run-script(string);
     callback batch-phase1();
     callback batch-copy-master();
+    callback batch-stop();
     callback batch-replace-auto();
     callback batch-refresh();
     callback batch-clear();
@@ -2223,7 +2224,8 @@ export component AppWindow inherits Window {
                                     label: "⧉ BUAT MASTER";
                                     variant: "secondary";
                                     scale: root.ui-scale;
-                                    clicked => { root.batch-run-script("buat_master_duplikat"); }
+                                    enabled: !root.batch-running;
+                                    clicked => { root.batch-copy-master(); }
                                 }
                                 IconBtn {
                                     glyph: "▤";
@@ -2243,13 +2245,6 @@ export component AppWindow inherits Window {
                 HorizontalLayout {
                     height: 36px * root.ui-scale;
                     spacing: 8px * root.ui-scale;
-                    IconBtn {
-                        glyph: "⧉";
-                        variant: "secondary";
-                        scale: root.ui-scale;
-                        size: 36px;
-                        clicked => { root.batch-copy-master(); }
-                    }
                     HorizontalLayout {
                         spacing: 6px * root.ui-scale;
                         Text {
@@ -2270,6 +2265,7 @@ export component AppWindow inherits Window {
                         label: "▶ Fase 1";
                         variant: "ghost";
                         scale: root.ui-scale;
+                        enabled: !root.batch-running;
                         clicked => { root.batch-phase1(); }
                     }
                     Btn {
@@ -2303,9 +2299,17 @@ export component AppWindow inherits Window {
                                 variant: "secondary";
                                 scale: root.ui-scale;
                                 small: true;
+                                enabled: !root.batch-running;
                                 clicked => { root.batch-run-script(s); }
                             }
                         Rectangle { horizontal-stretch: 1; }
+                        if root.batch-running : Btn {
+                            label: "■ Stop";
+                            variant: "danger";
+                            scale: root.ui-scale;
+                            small: true;
+                            clicked => { root.batch-stop(); }
+                        }
                         IconBtn {
                             glyph: "↻";
                             variant: "ghost";
