@@ -7,6 +7,7 @@
 import { Design, Card, HSeparator, NavTab, StatWidget, Btn, IconBtn, Toggle, TextField, SvgIcon } from "design.slint";
 export { Design }
 import { SettingsView } from "settings.slint";
+import { ExplorerSettingsView } from "explorer-settings.slint";
 import { ToolboxView, SheetsView, LeaderboardView } from "modul.slint";
 import { LogPanelView } from "logpanel.slint";
 import { ExplorerView } from "explorer.slint";
@@ -67,6 +68,9 @@ export component AppWindow inherits Window {
     in-out property <int> lb-row-count: 0;
     in-out property <[string]> lb-col0: [];
     in-out property <[string]> lb-col1: [];
+    // Total poin leaderboard, dihitung Rust dari lb-rows (C#
+    // FormattedTotalPoints) — bukan hardcode.
+    in-out property <string> lb-total: "0";
 
     in-out property <string> editing-board-id: "";
     in-out property <string> editing-list-id: "";
@@ -104,6 +108,7 @@ export component AppWindow inherits Window {
     callback win-move(length, length);
     callback open-new-sheet-window();
     callback open-new-card-window(string);
+    callback refresh-leaderboard();
 
     // ---- Appearance & Customization (persisted in SQLite) ----
     in-out property <string> app-color-mode: "dark";
@@ -141,12 +146,21 @@ export component AppWindow inherits Window {
     in-out property <string> app-path-wisuda: "D:\\#DATA ABENG\\MASTER\\WISUDA";
     in-out property <string> app-path-profesi: "D:\\#DATA ABENG\\MASTER\\PROFESI";
 
-    // Log Panel (sidebar kanan): lebar 300px saat terbuka; konten
-    // utama menyusut (content-width) supaya tidak tertutup panel.
-    // Dibuka via saklar "Terminal" di flyout profil; ditutup via ×
-    // di header panel. BUKAN Ctrl+L.
+    // Log Panel (sidebar kanan): lebar log-panel-width saat terbuka
+    // (default 288px ≈ nilai nyata abeng 287.6 di DB; MinWidth 180
+    // ala C#, di-clamp ke lebar window saat dibuka); konten utama
+    // menyusut (content-width) supaya tidak tertutup panel. Dibuka
+    // via saklar "Terminal" di flyout profil; ditutup via × di header
+    // panel. BUKAN Ctrl+L. Lebar + state buka/tutup tersimpan ke DB
+    // (Dashboard.LogPanelWidth / Dashboard.IsLogPanelOpen, C#).
     in-out property <bool> show-logpanel: false;
-    property <length> content-width: root.width - (root.show-logpanel ? 300px : 0px);
+    in-out property <length> log-panel-width: 288px;
+    // Simpan state buka/tutup ke DB (C# Dashboard.IsLogPanelOpen) —
+    // watcher ini menangkap semua jalur toggle (flyout, × panel, Ctrl+L).
+    changed show-logpanel => { root.save-logpanel-open(root.show-logpanel); }
+    property <length> content-width: root.width - (root.show-logpanel ? root.log-panel-width + 6px : 0px);
+    callback save-logpanel-width(length);
+    callback save-logpanel-open(bool);
 
     // Fase 5: log panel live — baris konsol + status + progress,
     // diisi Rust dari ProcessLogService + watcher file progress/result.
@@ -279,7 +293,7 @@ export component AppWindow inherits Window {
     in-out property <int> ex-ta-index: -1;
     // Grup Settings yang dibuka dari Explorer (gear Quick Access).
     // Two-way supaya klik grup di dalam Settings tetap tersinkron.
-    in-out property <string> settings-group: "Appearance";
+    in-out property <string> settings-group: "General";
     // Callback Rust — diimplementasi di src/main.rs.
     callback ex-search(string, string);
     callback ex-typeahead(string, string);
@@ -614,6 +628,11 @@ export component AppWindow inherits Window {
                     // rename → addr-edit → search → buffer type-ahead →
                     // tutup overlay (esc-pressed di explorer.slint).
                     explorer-view.esc-pressed();
+                } else if (root.overlay-view == "SETTINGS") {
+                    // Esc TIDAK menutup Settings (C#: Esc tidak berbuat
+                    // apa-apa di Settings; kembali hanya via klik kanan
+                    // NavigateBack — settings-back-touch di settings.slint).
+                    // Sengaja kosong.
                 } else if (root.overlay-view != "") {
                     if (root.overlay-view == "TRELLO-WINDOW") {
                         if (root.detail-panel != "") {
@@ -741,7 +760,8 @@ export component AppWindow inherits Window {
 
         // ===== Area konten + Log Panel: HorizontalLayout — konten
         // (lebar content-width, menyusut saat Log Panel terbuka) +
-        // Log Panel (300px saat terbuka, 0px saat tertutup).
+        // handle resize 6px + Log Panel (log-panel-width saat terbuka,
+        // 0px saat tertutup).
         // Konten-konten menumpuk di dalam Rectangle (posisi absolut,
         // masing-masing 100% x 100%, hanya yang aktif yang visible —
         // jadi tidak saling makan ruang). =====
@@ -3110,10 +3130,45 @@ export component AppWindow inherits Window {
 
             }
 
+            // ----- RESIZE HANDLE Log Panel (C# DashboardView.axaml:
+            // Border 6px + garis 2px di tengah, drag SizeWestEast;
+            // lebar disimpan ke DB Dashboard.LogPanelWidth saat drag
+            // dilepas; MinWidth 180, maks = lebar window − 200px) -----
+            log-resize-handle := Rectangle {
+                width: root.show-logpanel ? 6px : 0px;
+                height: root.height - 68px * root.ui-scale;
+                visible: root.show-logpanel;
+                background: handle-touch.has-hover || handle-touch.dragging ? #663b82f6 : transparent;
+                Rectangle {
+                    x: 2px; y: 0; width: 2px; height: 100%;
+                    background: Design.separator;
+                }
+                handle-touch := TouchArea {
+                    mouse-cursor: ew-resize;
+                    property <length> press-x: 0px;
+                    property <bool> dragging: false;
+                    pointer-event(ev) => {
+                        if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                            self.press-x = self.mouse-x;
+                            self.dragging = true;
+                        } else if (ev.kind == PointerEventKind.up) {
+                            if (self.dragging) {
+                                self.dragging = false;
+                                root.save-logpanel-width(root.log-panel-width);
+                            }
+                        } else if (ev.kind == PointerEventKind.move && self.dragging) {
+                            // Handle di tepi kiri panel: geser kiri =
+                            // panel melebar (mouse-x − press-x negatif).
+                            root.log-panel-width = max(180px, min(root.width - 200px, root.log-panel-width - (self.mouse-x - self.press-x)));
+                        }
+                    }
+                }
+            }
+
             // ----- LOG PANEL (sidebar kanan; lebar 0 saat tertutup,
             // visible:false tetap makan ruang jadi lebar yang mengatur) -----
             log-panel := LogPanelView {
-                width: root.show-logpanel ? 300px : 0px;
+                width: root.show-logpanel ? root.log-panel-width : 0px;
                 height: root.height - 68px * root.ui-scale;
                 visible: root.show-logpanel;
                 panel-tab: root.logpanel-tab;
@@ -3219,13 +3274,24 @@ export component AppWindow inherits Window {
         export-database() => { root.export-database(); }
         import-database() => { root.import-database(); }
         save-paths-settings() => { root.save-paths-settings(); }
-        save-explorer-settings() => { root.save-explorer-settings(); }
         browse-path(k) => { root.browse-path(k); }
         test-trello() => { root.test-trello(); }
         open-url(u) => { root.open-url(u); }
         back() => { root.overlay-view = ""; }
         toast(text) => { root.toast = text; }
         check-update() => { root.check-update(); }
+    }
+    // ===== Explorer Settings (tampilan tersendiri, C#
+    // ExplorerSettingsView — BUKAN grup Settings). Dibuka dari tombol
+    // "⚙ Explorer" di sidebar Explorer. Klik kanan = kembali. =====
+    ExplorerSettingsView {
+        x: 0; y: root.app-chrome == "custom" ? 32px : 8px;
+        width: 100%; height: root.height - (root.app-chrome == "custom" ? 32px : 8px);
+        visible: root.overlay-view == "EXPLORER-SETTINGS";
+        save-explorer-settings() => { root.save-explorer-settings(); }
+        browse-path(k) => { root.browse-path(k); }
+        back() => { root.overlay-view = ""; }
+        toast(text) => { root.toast = text; }
     }
     // (Toolbox kini window OS — lihat ToolboxWindow di ui/windows.slint.)
     SheetsView {
@@ -3249,8 +3315,10 @@ export component AppWindow inherits Window {
         lb-row-count <=> root.lb-row-count;
         lb-col0 <=> root.lb-col0;
         lb-col1 <=> root.lb-col1;
+        lb-total <=> root.lb-total;
         back() => { root.overlay-view = ""; }
         toast(text) => { root.toast = text; }
+        refresh() => { root.refresh-leaderboard(); }
     }
 
     // Radial Menu kini window OS (C# RadialMenuWindow 320x320 di
@@ -3618,8 +3686,9 @@ export component AppWindow inherits Window {
             root.toast = "BUAT MASTER: " + folder + " → Batch (fase 1: manifest dibuat, template dibuka di Photoshop)";
         }
         open-settings-explorer() => {
-            root.settings-group = "Explorer";
-            root.overlay-view = "SETTINGS";
+            // Pengaturan Explorer kini tampilan tersendiri (C#
+            // ExplorerSettingsView), bukan lagi grup Settings.
+            root.overlay-view = "EXPLORER-SETTINGS";
         }
         search-request(query, key) => { root.ex-search(query, key); }
         typeahead-request(key, buffer) => { root.ex-typeahead(key, buffer); }

@@ -813,11 +813,12 @@ component LeaderRow inherits Rectangle {
     in property <int> rank;
     in property <string> name;
     in property <string> points;
-    in property <float> frac;
     in property <color> rank-color;
     callback clicked();
     callback right-clicked(); // klik kanan = kembali (§10.11): TouchArea
     // di atas menelan event tombol kanan, jadi harus diteruskan eksplisit.
+    // C# LeaderboardView.axaml: baris = Rank 18 Bold (lebar 40) / Nama
+    // 16 Bold / Poin 20 Bold AccentPoints — TANPA bar poin.
     height: 56px;
     background: lrow-touch.has-hover ? Design.bg-hover : transparent;
     border-radius: Design.radius-sm;
@@ -835,7 +836,7 @@ component LeaderRow inherits Rectangle {
         padding-right: Design.space-md;
         spacing: Design.space-md;
         Text {
-            width: 32px;
+            width: 40px;
             text: rank;
             font-size: Design.font-h2;
             font-weight: 800;
@@ -843,36 +844,20 @@ component LeaderRow inherits Rectangle {
             vertical-alignment: center;
             horizontal-alignment: center;
         }
-        VerticalLayout {
+        Text {
             horizontal-stretch: 1;
-            spacing: 6px;
-            alignment: center;
-            Text {
-                text: name;
-                font-size: Design.font-body;
-                font-weight: 700;
-                color: Design.text-primary;
-                overflow: elide;
-            }
-            Rectangle {
-                height: 8px;
-                background: Design.separator;
-                border-radius: 4px;
-                Rectangle {
-                    x: 0; y: 0;
-                    width: parent.width * frac;
-                    height: 100%;
-                    background: Design.cat-points;
-                    border-radius: 4px;
-                }
-            }
+            text: name;
+            font-size: 16px;
+            font-weight: 800;
+            color: Design.text-primary;
+            vertical-alignment: center;
+            overflow: elide;
         }
         Text {
-            width: 84px;
-            text: points + " poin";
-            font-size: Design.font-body;
-            font-weight: 700;
-            color: Design.text-primary;
+            text: points;
+            font-size: 20px;
+            font-weight: 800;
+            color: Design.cat-points;
             vertical-alignment: center;
             horizontal-alignment: right;
         }
@@ -882,12 +867,28 @@ component LeaderRow inherits Rectangle {
 export component LeaderboardView inherits Rectangle {
     callback back();
     callback toast(string);
+    callback refresh();
     in-out property <string> period: "Harian";
     // Papan skor dari akun (Rust mengisi; kosong = belum ada data).
     in-out property <[string]> lb-rows: [];
     in-out property <int> lb-row-count: 0;
     in-out property <[string]> lb-col0: [];
     in-out property <[string]> lb-col1: [];
+    // Total poin dihitung Rust dari lb-rows (C# FormattedTotalPoints),
+    // bukan hardcode. lb-loading = status "Loading..." (C# IsLoading).
+    in-out property <string> lb-total: "0";
+    in-out property <bool> lb-loading: false;
+
+    // Timer refresh: 600ms "Loading..." lalu muat ulang dari DB
+    // (pola yang sama dengan refresh-timer Trello di main.slint).
+    lb-refresh-timer := Timer {
+        interval: 600ms;
+        running: root.lb-loading;
+        triggered => {
+            root.lb-loading = false;
+            root.refresh();
+        }
+    }
 
     // Klik kanan = kembali ke dashboard (C# OnEmbeddedViewPointerPressed).
     leaderboard-back-touch := TouchArea {
@@ -922,13 +923,14 @@ export component LeaderboardView inherits Rectangle {
         HorizontalLayout {
             height: 32px;
             spacing: 6px;
+            alignment: center;
             OptionChip {
-                label: "Harian";
+                label: "HARIAN";
                 selected: root.period == "Harian";
                 clicked => { root.period = "Harian"; root.toast("Leaderboard harian"); }
             }
             OptionChip {
-                label: "Bulanan";
+                label: "BULANAN";
                 selected: root.period == "Bulanan";
                 clicked => { root.period = "Bulanan"; root.toast("Leaderboard bulanan"); }
             }
@@ -943,11 +945,21 @@ export component LeaderboardView inherits Rectangle {
         // max() menjaga isi (317px) tidak terpotong bila root.height
         // ternyata setinggi isi. (Brief Fase 4: isi area kosong di bawah
         // — mengalahkan catatan lama "kartu besar kosong".)
-        Card {
+        // C# LeaderboardView: "Loading..." di tengah saat IsLoading;
+        // baris disembunyikan selama loading.
+        if root.lb-loading : Text {
+            text: "Loading...";
+            height: max(330px, root.height - 195px);
+            font-size: Design.font-body;
+            color: Design.text-muted;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+        if !root.lb-loading : Card {
             height: max(330px, root.height - 195px);
             VerticalLayout {
                 padding: Design.space-md;
-                spacing: Design.space-xs;
+                spacing: 10px;
                 if root.lb-row-count == 0 : Text {
                     text: "Belum ada data leaderboard";
                     font-size: Design.font-body;
@@ -955,10 +967,9 @@ export component LeaderboardView inherits Rectangle {
                 }
                 for i in 10 : LeaderRow {
                     visible: i < root.lb-row-count;
-                    rank: i;
+                    rank: i + 1;
                     name: root.lb-col0[i];
                     points: root.lb-col1[i];
-                    frac: 1.0;
                     rank-color: i == 0 ? Design.status-warning : i == 1 ? Design.text-secondary : i == 2 ? Design.medal-bronze : Design.text-muted;
                     clicked => { root.toast(root.lb-col0[i] + " — " + root.lb-col1[i] + " poin"); }
                     right-clicked => { root.back(); }
@@ -966,9 +977,9 @@ export component LeaderboardView inherits Rectangle {
             }
         }
 
-        // Strip footer (cermin status bar bawah C# LeaderboardView:
-        // "Total: N Pts" kiri + tombol Refresh kanan). Total = jumlah
-        // 5 editor periode aktif (harian 4.180, bulanan 18.910).
+        // Strip footer (C# LeaderboardView: "Total:" 12 + total 13 Bold
+        // + "Pts" 11 di kiri + tombol refresh FAB 30x30 AccentBlue di
+        // kanan; total dihitung dari data, bukan hardcode).
         HSeparator { }
 
         HorizontalLayout {
@@ -981,24 +992,39 @@ export component LeaderboardView inherits Rectangle {
                 vertical-alignment: center;
             }
             Text {
-                text: root.period == "Harian" ? "4.180" : "18.910";
+                text: root.lb-total;
                 font-size: Design.font-body;
                 font-weight: 700;
                 color: Design.cat-points;
                 vertical-alignment: center;
             }
             Text {
-                text: "poin · 5 editor · " + root.period;
-                font-size: Design.font-button;
+                text: "Pts";
+                font-size: Design.font-caption;
                 color: Design.text-secondary;
                 vertical-alignment: center;
-                overflow: elide;
             }
             Rectangle { horizontal-stretch: 1; }
-            Btn {
-                label: "↻ Refresh";
-                variant: "ghost";
-                clicked => { root.toast("Leaderboard di-refresh — 5 editor dimuat (" + root.period + ")"); }
+            // FAB refresh 30x30 (C#: Button 30x30 AccentBlue, ToolTip
+            // "Refresh" — Slint tidak punya tooltip). Klik = status
+            // "Loading..." 600ms lalu muat ulang dari DB.
+            Rectangle {
+                width: 30px; height: 30px;
+                background: lb-fab-touch.has-hover ? #60a5fa : Design.accent;
+                border-radius: Design.radius-sm;
+                lb-fab-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.lb-loading = true; }
+                }
+                Text {
+                    text: "↻";
+                    font-size: 14px;
+                    font-weight: 700;
+                    color: #ffffff;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    width: 100%; height: 100%;
+                }
             }
         }
     }

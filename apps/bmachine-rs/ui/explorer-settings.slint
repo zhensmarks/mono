@@ -1,0 +1,263 @@
+// EXPLORER SETTINGS — tampilan pengaturan Explorer tersendiri
+// (C#: ExplorerSettingsView terpisah, BUKAN grup Settings —
+// Settings C# hanya 7 grup: General, Appearance, Account, Extensions,
+// Script Manager, Paths, About; SettingsView.axaml:307-345).
+// Dipindah dari grup "Explorer" di ui/settings.slint (P1, 27 Nov 2026).
+// Dibuka dari tombol "⚙ Explorer" di sidebar Explorer (overlay
+// "EXPLORER-SETTINGS" di ui/main.slint). Klik kanan = kembali
+// (pola yang sama dengan SettingsView — tanpa tombol "← Kembali").
+
+import { Design, HSeparator, Btn, TextField, Toggle } from "design.slint";
+
+// Chip pilihan (salinan dari ui/settings.slint — tiap file mendefinisikan
+// sendiri; komponen lokal tidak bisa diimpor antar file di Slint 1.19).
+component OptionChip inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked();
+    // Tinggi 36px — SAMA dengan TextField / ThemeRow / Btn (satu tinggi kontrol di semua section).
+    height: 36px;
+    background: selected ? Design.accent-subtle : (ochip-touch.has-hover ? Design.bg-hover : transparent);
+    border-color: selected ? Design.accent : Design.separator;
+    border-width: 1px;
+    border-radius: Design.radius-sm;
+    ochip-touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    HorizontalLayout {
+        width: 100%;
+        height: 100%;
+        padding-left: 12px;
+        padding-right: 12px;
+        alignment: center;
+        Text {
+            text: label;
+            font-size: Design.font-button;
+            font-weight: 600;
+            color: selected ? Design.accent : Design.text-primary;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// Label + deskripsi satu opsi (judul 13/700, deskripsi 11 sekunder).
+component FieldLabel inherits VerticalLayout {
+    in property <string> title;
+    in property <string> desc;
+    spacing: 2px;
+    Text {
+        text: title;
+        font-size: Design.font-body;
+        font-weight: 700;
+        color: Design.text-primary;
+    }
+    Text {
+        text: desc;
+        font-size: Design.font-caption;
+        color: Design.text-secondary;
+        wrap: word-wrap;
+        visible: desc != "";
+    }
+}
+
+export component ExplorerSettingsView inherits Rectangle {
+    callback toast(string);
+    callback browse-path(string);
+    callback save-explorer-settings();
+    callback back();
+
+    // --- Explorer (dari ExplorerSettings C#; dulu grup Settings) ---
+    in-out property <string> exp-path: "D:\\#GAWENA";
+    in-out property <string> exp-view: "Details";
+    in-out property <string> exp-sort: "Name";
+    in-out property <string> exp-group: "None";
+    in-out property <bool> exp-hidden: false;
+    in-out property <bool> exp-ext: true;
+    in-out property <int> exp-zoom: 100;
+
+    // Klik kanan = kembali ke Explorer (C# OnEmbeddedViewPointerPressed:
+    // klik kanan = NavigateBack). TouchArea latar di belakang isi.
+    ex-settings-back-touch := TouchArea {
+        width: 100%; height: 100%;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                root.back();
+            }
+        }
+    }
+
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+        padding-left: Design.space-xl;
+        padding-right: Design.space-xl;
+        padding-bottom: 30px;
+        spacing: Design.space-md;
+
+        Text {
+            text: "Explorer Settings";
+            font-size: Design.font-h2;
+            font-weight: 800;
+            color: Design.text-primary;
+            vertical-alignment: center;
+            height: 30px;
+        }
+
+        Flickable {
+            width: 100%;
+            height: 100%;
+            VerticalLayout {
+                width: 100%;
+                spacing: Design.space-lg;
+                padding-bottom: Design.space-lg;
+
+                VerticalLayout {
+                    spacing: 6px;
+                    FieldLabel { title: "Default Explorer Path"; desc: "Folder yang dibuka pertama kali oleh Explorer"; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        TextField {
+                            horizontal-stretch: 1;
+                            text: root.exp-path;
+                            placeholder: "D:\\#GAWENA";
+                            edited(text) => { root.exp-path = text; }
+                            accepted(text) => { root.toast("Disimpan: Default Explorer Path"); }
+                        }
+                        Btn {
+                            label: "Browse";
+                            variant: "secondary";
+                            clicked => { root.browse-path("explorer"); }
+                        }
+                    }
+                }
+                VerticalLayout {
+                    spacing: 6px;
+                    FieldLabel { title: "View Mode"; desc: "Tampilan daftar file Explorer"; }
+                    HorizontalLayout {
+                        spacing: 6px;
+                        OptionChip {
+                            label: "Details";
+                            horizontal-stretch: 1;
+                            selected: root.exp-view == "Details";
+                            clicked => { root.exp-view = "Details"; root.toast("Disimpan: View Mode Details"); }
+                        }
+                        OptionChip {
+                            label: "List";
+                            horizontal-stretch: 1;
+                            selected: root.exp-view == "List";
+                            clicked => { root.exp-view = "List"; root.toast("Disimpan: View Mode List"); }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 6px;
+                        OptionChip {
+                            label: "Thumbnails";
+                            horizontal-stretch: 1;
+                            selected: root.exp-view == "Thumbnails";
+                            clicked => { root.exp-view = "Thumbnails"; root.toast("Disimpan: View Mode Thumbnails"); }
+                        }
+                        OptionChip {
+                            label: "Tiles";
+                            horizontal-stretch: 1;
+                            selected: root.exp-view == "Tiles";
+                            clicked => { root.exp-view = "Tiles"; root.toast("Disimpan: View Mode Tiles"); }
+                        }
+                    }
+                }
+                VerticalLayout {
+                    spacing: 6px;
+                    FieldLabel { title: "Sort"; desc: "Urutan file di Explorer"; }
+                    HorizontalLayout {
+                        spacing: 6px;
+                        OptionChip {
+                            label: "Name";
+                            horizontal-stretch: 1;
+                            selected: root.exp-sort == "Name";
+                            clicked => { root.exp-sort = "Name"; root.toast("Disimpan: Sort Name"); }
+                        }
+                        OptionChip {
+                            label: "Date";
+                            horizontal-stretch: 1;
+                            selected: root.exp-sort == "Date";
+                            clicked => { root.exp-sort = "Date"; root.toast("Disimpan: Sort Date"); }
+                        }
+                        OptionChip {
+                            label: "Type";
+                            horizontal-stretch: 1;
+                            selected: root.exp-sort == "Type";
+                            clicked => { root.exp-sort = "Type"; root.toast("Disimpan: Sort Type"); }
+                        }
+                    }
+                }
+                VerticalLayout {
+                    spacing: 6px;
+                    FieldLabel { title: "Group"; desc: "Pengelompokan file di Explorer"; }
+                    HorizontalLayout {
+                        spacing: 6px;
+                        OptionChip {
+                            label: "None";
+                            horizontal-stretch: 1;
+                            selected: root.exp-group == "None";
+                            clicked => { root.exp-group = "None"; root.toast("Disimpan: Group None"); }
+                        }
+                        OptionChip {
+                            label: "Date";
+                            horizontal-stretch: 1;
+                            selected: root.exp-group == "Date";
+                            clicked => { root.exp-group = "Date"; root.toast("Disimpan: Group Date"); }
+                        }
+                        OptionChip {
+                            label: "Type";
+                            horizontal-stretch: 1;
+                            selected: root.exp-group == "Type";
+                            clicked => { root.exp-group = "Type"; root.toast("Disimpan: Group Type"); }
+                        }
+                    }
+                }
+                VerticalLayout {
+                    spacing: 6px;
+                    FieldLabel { title: "Show hidden files"; desc: "Tampilkan file & folder tersembunyi"; }
+                    Toggle {
+                        checked: root.exp-hidden;
+                        toggled(checked) => { root.exp-hidden = checked; root.toast(checked ? "Disimpan: File tersembunyi ditampilkan" : "Disimpan: File tersembunyi disembunyikan"); }
+                    }
+                }
+                VerticalLayout {
+                    spacing: 6px;
+                    FieldLabel { title: "Show file extensions"; desc: "Tampilkan ekstensi file (.psd, .jpg, …)"; }
+                    Toggle {
+                        checked: root.exp-ext;
+                        toggled(checked) => { root.exp-ext = checked; root.toast(checked ? "Disimpan: Ekstensi file ditampilkan" : "Disimpan: Ekstensi file disembunyikan"); }
+                    }
+                }
+                VerticalLayout {
+                    spacing: 6px;
+                    FieldLabel { title: "Content zoom"; desc: "Zoom konten Explorer (75–200%)"; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Btn {
+                            label: "−";
+                            variant: "secondary";
+                            clicked => { root.exp-zoom = max(75, root.exp-zoom - 25); }
+                        }
+                        Text {
+                            width: 56px;
+                            text: root.exp-zoom + "%";
+                            font-size: Design.font-body;
+                            font-weight: 700;
+                            color: Design.text-primary;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                        Btn {
+                            label: "+";
+                            variant: "secondary";
+                            clicked => { root.exp-zoom = min(200, root.exp-zoom + 25); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -340,6 +340,83 @@ fn radial_window_origin(cursor: (i32, i32), scale: f32) -> (i32, i32) {
     (cursor.0 - half, cursor.1 - half)
 }
 
+/// Format angka dengan pemisah ribuan titik (1.280 — C#
+/// FormattedPoints / FormattedTotalPoints).
+fn format_id_number(n: i64) -> String {
+    let neg = n < 0;
+    let s = n.abs().to_string();
+    let mut out = String::new();
+    for (i, ch) in s.chars().enumerate() {
+        if i > 0 && (s.len() - i) % 3 == 0 {
+            out.push('.');
+        }
+        out.push(ch);
+    }
+    if neg {
+        format!("-{}", out)
+    } else {
+        out
+    }
+}
+
+/// Format satu nilai poin ("1280" atau "1.280" → "1.280"); nilai
+/// non-angka dikembalikan apa adanya.
+fn format_points_value(s: &str) -> String {
+    let t = s.trim();
+    match t.replace('.', "").replace(',', "").parse::<i64>() {
+        Ok(n) => format_id_number(n),
+        Err(_) => t.to_string(),
+    }
+}
+
+/// Muat baris leaderboard dari DB (Lb.Row.N = "nama\tpoin") + hitung
+/// total poin (C# FormattedTotalPoints — jumlah semua baris).
+/// Dipakai saat startup + refresh FAB.
+fn load_leaderboard(ui: &AppWindow, db: &Option<Arc<Mutex<DatabaseService>>>) {
+    let mut lb_rows: Vec<slint::SharedString> = vec![];
+    if let Some(db_mutex) = db {
+        if let Ok(db_guard) = db_mutex.lock() {
+            for i in 1..=10 {
+                let key = format!("Lb.Row.{}", i);
+                if let Some(v) = db_guard.get(&key) {
+                    lb_rows.push(slint::SharedString::from(v.clone()));
+                }
+            }
+        }
+    }
+    let lb_count = lb_rows.len() as i32;
+    let lc0: Vec<slint::SharedString> = lb_rows
+        .iter()
+        .map(|r| slint::SharedString::from(r.split('\t').next().unwrap_or("").to_string()))
+        .collect();
+    let lc1: Vec<slint::SharedString> = lb_rows
+        .iter()
+        .map(|r| {
+            slint::SharedString::from(format_points_value(
+                r.split('\t').nth(1).unwrap_or(""),
+            ))
+        })
+        .collect();
+    let total: i64 = lb_rows
+        .iter()
+        .map(|r| {
+            r.split('\t')
+                .nth(1)
+                .unwrap_or("")
+                .replace('.', "")
+                .replace(',', "")
+                .trim()
+                .parse::<i64>()
+                .unwrap_or(0)
+        })
+        .sum();
+    ui.set_lb_rows(slint::ModelRc::new(slint::VecModel::from(lb_rows)));
+    ui.set_lb_row_count(lb_count);
+    ui.set_lb_col0(slint::ModelRc::new(slint::VecModel::from(lc0)));
+    ui.set_lb_col1(slint::ModelRc::new(slint::VecModel::from(lc1)));
+    ui.set_lb_total(slint::SharedString::from(format_id_number(total)));
+}
+
 /// Posisi window (logis w×h) di tengah window utama (CenterOwner /
 /// CenterScreen ala C# — Slint tidak punya API itu; hitung dari
 /// pos/ukuran window utama). Hasil physical px untuk set_position.
@@ -1095,6 +1172,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let mut radial_test = false;
     let mut toolbox_test = false;
     let mut simulate_hotkey = false;
+    let mut log_arg = false;
     for arg in std::env::args().skip(1) {
         if let Some(v) = arg.strip_prefix("--view=") {
             ui.set_overlay_view(v.into());
@@ -1103,6 +1181,7 @@ fn main() -> Result<(), slint::PlatformError> {
         } else if let Some(v) = arg.strip_prefix("--tab=") {
             ui.set_current_tab(v.into());
         } else if arg == "--log" {
+            log_arg = true;
             ui.set_show_logpanel(true);
         } else if arg == "--flyout" {
             ui.set_show_flyout(true);
@@ -1161,6 +1240,28 @@ fn main() -> Result<(), slint::PlatformError> {
             None
         }
     };
+
+    // Pulihkan lebar + state Log Panel dari DB (C#: LogPanelWidth +
+    // IsLogPanelOpen; nilai nyata abeng 287.6 / True). Default 288px
+    // bila belum ada simpanan; lebar di-clamp >= 180 (maks di-clamp
+    // saat drag, bukan di sini). Argumen --log (QA) menang atas state
+    // tersimpan — restore state dilewati bila --log diberikan.
+    if let Some(ref db_mutex) = db {
+        if let Ok(db_guard) = db_mutex.lock() {
+            if let Some(v) = db_guard.get("Dashboard.LogPanelWidth") {
+                if let Ok(w) = v.parse::<f32>() {
+                    if w >= 180.0 {
+                        ui.set_log_panel_width(w);
+                    }
+                }
+            }
+            if !log_arg {
+                if let Some(v) = db_guard.get("Dashboard.IsLogPanelOpen") {
+                    ui.set_show_logpanel(v == "True" || v == "true");
+                }
+            }
+        }
+    }
 
     let doc_mgr = Arc::new(Mutex::new(DocManager::default()));
     let proc_log = Arc::new(Mutex::new(ProcessLogService::default()));
@@ -1321,10 +1422,10 @@ fn main() -> Result<(), slint::PlatformError> {
     ui.set_stat_revision(slint::SharedString::from("0"));
     ui.set_stat_late(slint::SharedString::from("0"));
 
-    // Baris sheet & leaderboard di-preload dari DB (Rust mengisi, bukan demo UI)
+    // Baris sheet di-preload dari DB (Rust mengisi, bukan demo UI);
+    // leaderboard dimuat load_leaderboard() (dipakai juga saat refresh FAB).
     {
         let mut sheet_rows: Vec<slint::SharedString> = vec![];
-        let mut lb_rows: Vec<slint::SharedString> = vec![];
         if let Some(ref db_mutex) = db {
             if let Ok(db_guard) = db_mutex.lock() {
                 for i in 1..=10 {
@@ -1333,16 +1434,9 @@ fn main() -> Result<(), slint::PlatformError> {
                         sheet_rows.push(slint::SharedString::from(v.clone()));
                     }
                 }
-                for i in 1..=10 {
-                    let key = format!("Lb.Row.{}", i);
-                    if let Some(v) = db_guard.get(&key) {
-                        lb_rows.push(slint::SharedString::from(v.clone()));
-                    }
-                }
             }
         }
         let sheet_count = sheet_rows.len() as i32;
-        let lb_count = lb_rows.len() as i32;
         let sc0: Vec<slint::SharedString> = sheet_rows
             .iter()
             .map(|r| slint::SharedString::from(r.split('\t').next().unwrap_or("").to_string()))
@@ -1355,24 +1449,13 @@ fn main() -> Result<(), slint::PlatformError> {
             .iter()
             .map(|r| slint::SharedString::from(r.split('\t').nth(2).unwrap_or("").to_string()))
             .collect();
-        let lc0: Vec<slint::SharedString> = lb_rows
-            .iter()
-            .map(|r| slint::SharedString::from(r.split('\t').next().unwrap_or("").to_string()))
-            .collect();
-        let lc1: Vec<slint::SharedString> = lb_rows
-            .iter()
-            .map(|r| slint::SharedString::from(r.split('\t').nth(1).unwrap_or("").to_string()))
-            .collect();
         ui.set_sheet_rows(slint::ModelRc::new(slint::VecModel::from(sheet_rows)));
-        ui.set_lb_rows(slint::ModelRc::new(slint::VecModel::from(lb_rows)));
         ui.set_sheet_row_count(sheet_count);
-        ui.set_lb_row_count(lb_count);
         ui.set_sheet_col0(slint::ModelRc::new(slint::VecModel::from(sc0)));
         ui.set_sheet_col1(slint::ModelRc::new(slint::VecModel::from(sc1)));
         ui.set_sheet_col2(slint::ModelRc::new(slint::VecModel::from(sc2)));
-        ui.set_lb_col0(slint::ModelRc::new(slint::VecModel::from(lc0)));
-        ui.set_lb_col1(slint::ModelRc::new(slint::VecModel::from(lc1)));
     }
+    load_leaderboard(&ui, &db);
 
     // Sinkronisasi kartu Trello live (mengisi count widget + daftar kartu nyata)
     fn extract_card_display_id(name: &str) -> String {
@@ -1969,6 +2052,51 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     }
 
+    // ---- Log Panel: simpan lebar + state buka/tutup ke DB (C#
+    // Dashboard.LogPanelWidth / Dashboard.IsLogPanelOpen; lebar
+    // disimpan saat drag handle dilepas, state lewat watcher
+    // `changed show-logpanel` di .slint). ----
+    {
+        let db_clone = db.clone();
+        ui.on_save_logpanel_width(move |w| {
+            if let Some(ref db_mutex) = db_clone {
+                if let Ok(mut db_guard) = db_mutex.lock() {
+                    let _ = db_guard.set("Dashboard.LogPanelWidth", &w.to_string(), "Float");
+                }
+            }
+        });
+    }
+    {
+        let db_clone = db.clone();
+        ui.on_save_logpanel_open(move |open| {
+            if let Some(ref db_mutex) = db_clone {
+                if let Ok(mut db_guard) = db_mutex.lock() {
+                    let _ = db_guard.set(
+                        "Dashboard.IsLogPanelOpen",
+                        if open { "True" } else { "False" },
+                        "Bool",
+                    );
+                }
+            }
+        });
+    }
+
+    // ---- Leaderboard: refresh FAB (C# LoadDataCommand) — muat ulang
+    // baris + total dari DB. Status "Loading..." 600ms diatur Timer
+    // di .slint sebelum callback ini dipanggil. ----
+    {
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
+        ui.on_refresh_leaderboard(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                load_leaderboard(&ui, &db_clone);
+                ui.set_toast(slint::SharedString::from(
+                    "Leaderboard di-refresh — data dimuat dari database",
+                ));
+            }
+        });
+    }
+
     // ---- Standalone Multi-Window Handlers (SpreadsheetWindow & CardListWindow) ----
     let sheet_win_cell: std::rc::Rc<std::cell::RefCell<Option<SpreadsheetWindow>>> =
         std::rc::Rc::new(std::cell::RefCell::new(None));
@@ -2004,16 +2132,33 @@ fn main() -> Result<(), slint::PlatformError> {
                             let _ = w.hide();
                         }
                     });
+                    // Drag titlebar (C# drag handle 46px, kanan 420px bebas).
+                    let w_weak2 = w.as_weak();
+                    w.on_move_window(move |dx, dy| {
+                        if let Some(w) = w_weak2.upgrade() {
+                            let scale = w.window().scale_factor();
+                            let pos = w.window().position();
+                            let nx = pos.x + (dx * scale) as i32;
+                            let ny = pos.y + (dy * scale) as i32;
+                            w.window()
+                                .set_position(slint::PhysicalPosition::new(nx, ny));
+                        }
+                    });
                     *opt = Some(w);
                 }
             }
             if let Some(w) = opt.as_ref() {
                 // Pulihkan posisi/ukuran terakhir dari DB (C#: buka ->
-                // pulihkan, Activate() bila sudah terbuka).
+                // pulihkan, Activate() bila sudah terbuka). Posisi di-clamp
+                // >= 0: simpanan lama X=-20 (center 1000px di main 960px
+                // sebelum clamp) pernah membuat window terbit 20px ke kiri
+                // layar; DB asli abeng sendiri X=817 (tidak kena).
                 let scale = w.window().scale_factor();
                 if let Some((x, y, lw, lh)) =
                     read_window_geometry(&db_clone, "SpreadsheetWindow")
                 {
+                    let x = x.max(0);
+                    let y = y.max(0);
                     w.window().set_position(slint::PhysicalPosition::new(
                         (x as f32 * scale) as i32,
                         (y as f32 * scale) as i32,
@@ -2085,10 +2230,10 @@ fn main() -> Result<(), slint::PlatformError> {
                         w.set_card_done(main_ui.get_late_done());
                     }
                 }
-                // Tengah window utama (C# CenterOwner; 860x580
+                // Tengah window utama (C# CenterScreen; 450x600
                 // sesuai ukuran CardListWindow di .slint).
                 if let Some(main_ui) = ui_weak.upgrade() {
-                    let (cx, cy) = center_over_main(&main_ui, 860, 580);
+                    let (cx, cy) = center_over_main(&main_ui, 450, 600);
                     w.window()
                         .set_position(slint::PhysicalPosition::new(cx, cy));
                 }

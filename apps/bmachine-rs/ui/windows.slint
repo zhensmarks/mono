@@ -295,17 +295,43 @@ export component SpreadsheetWindow inherits Window {
 
     callback close-window();
     callback toast(string);
+    // Drag window (C# SpreadsheetWindow.axaml: drag handle 46px di kiri,
+    // Margin 0,0,420,0 — kanan 420px bebas untuk toolbar/tombol close).
+    callback move-window(length, length);
 
     VerticalLayout {
         padding: 0;
         spacing: 0;
 
-        // Custom Titlebar Spreadsheet Window
+        // Custom Titlebar Spreadsheet Window — 46px (C# drag handle
+        // Height 46); area drag hanya kiri (lebar − 420px), tombol
+        // close di kanan-atas di luar area drag.
         Rectangle {
-            height: 38px;
+            height: 46px;
             background: Design.surface-elevated;
             border-color: Design.separator;
             border-width: 0.5px;
+
+            sheet-drag := TouchArea {
+                x: 0; y: 0;
+                width: max(0px, parent.width - 420px);
+                height: 100%;
+                mouse-cursor: pointer;
+                property <length> press-x: 0px;
+                property <length> press-y: 0px;
+                property <bool> dragging: false;
+                pointer-event(ev) => {
+                    if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                        self.press-x = self.mouse-x;
+                        self.press-y = self.mouse-y;
+                        self.dragging = true;
+                    } else if (ev.kind == PointerEventKind.up) {
+                        self.dragging = false;
+                    } else if (ev.kind == PointerEventKind.move && self.dragging) {
+                        root.move-window(self.mouse-x - self.press-x, self.mouse-y - self.press-y);
+                    }
+                }
+            }
 
             HorizontalLayout {
                 padding-left: 14px;
@@ -369,15 +395,24 @@ export component SpreadsheetWindow inherits Window {
 // ============================================================
 export component CardListWindow inherits Window {
     title: "BMachine — Trello Cards";
-    width: 860px;
-    height: 580px;
+    // C# CardListWindow.axaml: 450x600, CenterScreen (posisi dihitung
+    // Rust via center_over_main). Isi tetap list + splitter 6px +
+    // panel detail 400 (UnifiedTrelloView.axaml:13-17) — hanya ukuran
+    // yang disamakan, struktur tidak diubah.
+    width: 450px;
+    height: 600px;
     background: Design.app-bg;
     default-font-family: Design.font-family;
 
     in-out property <string> category: "EDITING";
     in-out property <color> category-accent: Design.cat-editing;
     in-out property <string> search-query: "";
-    in-out property <int> selected-idx: 0;
+    // -1 = belum ada kartu dipilih → tampil daftar (C# compact mode:
+    // IsListScreenVisible). >= 0 = kartu dipilih → tampil detail
+    // layar penuh (IsPanelScreenVisible). Window 450px selalu compact
+    // (CompactThreshold 800 di C#) — daftar/detail TIDAK PERNAH
+    // berdampingan di window ini.
+    in-out property <int> selected-idx: -1;
 
     // Data Kartu Trello
     in-out property <[string]> card-titles: [
@@ -470,13 +505,17 @@ export component CardListWindow inherits Window {
             }
         }
 
-        // Konten 2 Kolom: Kolom Kiri = Daftar Kartu, Kolom Kanan = Detail
+        // Konten: daftar ATAU detail (compact, C# UnifiedTrelloView:
+        // CompactThreshold 800; window 450px selalu compact — daftar
+        // tampil saat belum ada kartu dipilih, detail layar penuh saat
+        // ada kartu dipilih). `if` dipakai, bukan `visible` (visible:
+        // false tetap makan ruang di layout Slint).
         HorizontalLayout {
             padding: Design.space-md;
             spacing: Design.space-md;
 
             // Kolom Kiri: Search & Daftar Kartu
-            VerticalLayout {
+            if root.selected-idx < 0 : VerticalLayout {
                 horizontal-stretch: 1;
                 spacing: Design.space-sm;
 
@@ -598,9 +637,9 @@ export component CardListWindow inherits Window {
                 }
             }
 
-            // Kolom Kanan: Panel Detail
-            Rectangle {
-                width: 360px;
+            // Kolom Kanan: Panel Detail (layar penuh saat ada kartu dipilih)
+            if root.selected-idx >= 0 : Rectangle {
+                horizontal-stretch: 1;
                 background: Design.surface-elevated;
                 border-color: Design.separator;
                 border-width: 1px;
@@ -617,7 +656,7 @@ export component CardListWindow inherits Window {
                     accent: root.category-accent;
                     done: root.card-done[root.selected-idx];
                     description: "Edit pas foto sekolah — crop, centering kepala di guide, logo terlihat rapi dan warna seimbang.";
-                    close() => { root.toast("Detail ditutup"); }
+                    close() => { root.selected-idx = -1; root.toast("Detail ditutup"); }
                 }
             }
         }

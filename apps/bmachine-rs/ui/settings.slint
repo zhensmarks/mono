@@ -1,8 +1,13 @@
 // SETTINGS — side panel + konten (DESIGN_SYSTEM.md §17).
-// Grup: Appearance (default), General, Explorer, Paths, About.
+// Grup (C# SettingsView.axaml: 7 grup): General (default), Appearance,
+// Account, Extensions, Script Manager, Paths, About. Grup "Explorer"
+// BUKAN bagian Settings — dipindah ke ExplorerSettingsView tersendiri
+// (ui/explorer-settings.slint, dibuka dari tombol "⚙ Explorer" di
+// sidebar Explorer), sesuai C# ExplorerSettingsView terpisah.
 // Side panel pola gambar referensi (26 Nov 16:54): judul "Settings" +
-// search bar (filter substring) + header grup kecil (App / Data /
-// Tentang) + item berikon, item terpilih highlight accent-subtle.
+// search bar (filter substring) + item berikon (7 grup polos TANPA header
+// grup kecil — C# nav Settings polos, tanpa "App"/"Data"/"Tentang"),
+// item terpilih highlight accent-subtle.
 // Pola "Visual style" dari gambar referensi (kartu preview color mode,
 // preset tema, swatch + hex, font, widget background, window chrome).
 // State lokal mockup yang fungsional; perubahan tampil di area PREVIEW
@@ -51,23 +56,6 @@ component GroupRow inherits Rectangle {
             vertical-alignment: center;
             horizontal-stretch: 1;
         }
-    }
-}
-
-// Header grup kecil di side panel (11px muted, sejajar teks label).
-component GroupHeader inherits Rectangle {
-    in property <string> label;
-    in property <bool> shown: true;
-    height: shown ? 26px : 0px;
-    visible: shown;
-    Text {
-        text: label;
-        font-size: Design.font-caption;
-        font-weight: 700;
-        color: Design.text-muted;
-        vertical-alignment: center;
-        x: 12px;
-        height: 100%;
     }
 }
 
@@ -313,7 +301,6 @@ export component SettingsView inherits Rectangle {
     callback export-database();
     callback import-database();
     callback save-paths-settings();
-    callback save-explorer-settings();
     callback browse-path(string);
     callback test-trello();
     callback open-url(string);
@@ -325,7 +312,7 @@ export component SettingsView inherits Rectangle {
     // Widget background — terikat dua arah ke AppWindow (kartu dashboard ikut berubah).
     in-out property <string> widget-bg: "doodle";
 
-    in-out property <string> group: "Appearance";
+    in-out property <string> group: "General";
 
     // --- Filter search side panel (internal, bukan interface publik) ---
     // Slint 1.19 tidak punya string.contains — substring dicek lewat
@@ -337,7 +324,6 @@ export component SettingsView inherits Rectangle {
     property <bool> show-account: root.search-q == "" || "account".replace-all(root.search-q.to-lowercase(), "") != "account" || "trello".replace-all(root.search-q.to-lowercase(), "") != "trello" || "google".replace-all(root.search-q.to-lowercase(), "") != "google";
     property <bool> show-extensions: root.search-q == "" || "extensions".replace-all(root.search-q.to-lowercase(), "") != "extensions" || "plugin".replace-all(root.search-q.to-lowercase(), "") != "plugin";
     property <bool> show-scripts: root.search-q == "" || "scripts".replace-all(root.search-q.to-lowercase(), "") != "scripts" || "radial".replace-all(root.search-q.to-lowercase(), "") != "radial" || "master".replace-all(root.search-q.to-lowercase(), "") != "master";
-    property <bool> show-explorer: root.search-q == "" || "explorer".replace-all(root.search-q.to-lowercase(), "") != "explorer";
     property <bool> show-paths: root.search-q == "" || "paths".replace-all(root.search-q.to-lowercase(), "") != "paths";
     property <bool> show-about: root.search-q == "" || "about".replace-all(root.search-q.to-lowercase(), "") != "about";
 
@@ -410,15 +396,6 @@ export component SettingsView inherits Rectangle {
     in-out property <bool> is-batch-visible: true;
     in-out property <bool> is-folder-locker-visible: true;
     in-out property <bool> is-output-explorer-visible: true;
-
-    // --- Explorer (dari ExplorerSettings C#) ---
-    in-out property <string> exp-path: "D:\\#GAWENA";
-    in-out property <string> exp-view: "Details";
-    in-out property <string> exp-sort: "Name";
-    in-out property <string> exp-group: "None";
-    in-out property <bool> exp-hidden: false;
-    in-out property <bool> exp-ext: true;
-    in-out property <int> exp-zoom: 100;
 
     // --- Paths ---
     in-out property <string> path-local: "D:\\#GAWENA";
@@ -534,11 +511,6 @@ export component SettingsView inherits Rectangle {
                         }
                     }
                     Rectangle { height: 8px; }
-                    // Grup "App".
-                    GroupHeader {
-                        label: "App";
-                        shown: root.show-general || root.show-appearance;
-                    }
                     GroupRow {
                         icon: "settings";
                         label: "General";
@@ -574,29 +546,12 @@ export component SettingsView inherits Rectangle {
                         shown: root.show-scripts;
                         clicked => { root.group = "Script Manager"; }
                     }
-                    // Grup "Data".
-                    GroupHeader {
-                        label: "Data";
-                        shown: root.show-explorer || root.show-paths;
-                    }
-                    GroupRow {
-                        icon: "folder";
-                        label: "Explorer";
-                        selected: root.group == "Explorer";
-                        shown: root.show-explorer;
-                        clicked => { root.group = "Explorer"; }
-                    }
                     GroupRow {
                         icon: "folder-open";
                         label: "Paths";
                         selected: root.group == "Paths";
                         shown: root.show-paths;
                         clicked => { root.group = "Paths"; }
-                    }
-                    // Grup "Tentang".
-                    GroupHeader {
-                        label: "Tentang";
-                        shown: root.show-about;
                     }
                     GroupRow {
                         icon: "info";
@@ -2134,163 +2089,6 @@ export component SettingsView inherits Rectangle {
                                 clicked => {
                                     root.save-general-settings();
                                     root.toast("Pengaturan General disimpan");
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // ===== EXPLORER =====
-                sv-explorer := Flickable {
-                    x: 0; y: 0; width: 100%; height: 100%;
-                    visible: root.group == "Explorer";
-                    VerticalLayout {
-                        x: 0; width: content-rect.width;
-                        spacing: Design.space-lg;
-                        padding-bottom: Design.space-lg;
-
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Default Explorer Path"; desc: "Folder yang dibuka pertama kali oleh Explorer"; }
-                            HorizontalLayout {
-                                spacing: 8px;
-                                TextField {
-                                    horizontal-stretch: 1;
-                                    text: root.exp-path;
-                                    placeholder: "D:\\#GAWENA";
-                                    edited(text) => { root.exp-path = text; }
-                                    accepted(text) => { root.toast("Disimpan: Default Explorer Path"); }
-                                }
-                                Btn {
-                                    label: "Browse";
-                                    variant: "secondary";
-                                    clicked => { root.browse-path("explorer"); }
-                                }
-                            }
-                        }
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "View Mode"; desc: "Tampilan daftar file Explorer"; }
-                            HorizontalLayout {
-                                spacing: 6px;
-                                OptionChip {
-                                    label: "Details";
-                                    horizontal-stretch: 1;
-                                    selected: root.exp-view == "Details";
-                                    clicked => { root.exp-view = "Details"; root.toast("Disimpan: View Mode Details"); }
-                                }
-                                OptionChip {
-                                    label: "List";
-                                    horizontal-stretch: 1;
-                                    selected: root.exp-view == "List";
-                                    clicked => { root.exp-view = "List"; root.toast("Disimpan: View Mode List"); }
-                                }
-                            }
-                            HorizontalLayout {
-                                spacing: 6px;
-                                OptionChip {
-                                    label: "Thumbnails";
-                                    horizontal-stretch: 1;
-                                    selected: root.exp-view == "Thumbnails";
-                                    clicked => { root.exp-view = "Thumbnails"; root.toast("Disimpan: View Mode Thumbnails"); }
-                                }
-                                OptionChip {
-                                    label: "Tiles";
-                                    horizontal-stretch: 1;
-                                    selected: root.exp-view == "Tiles";
-                                    clicked => { root.exp-view = "Tiles"; root.toast("Disimpan: View Mode Tiles"); }
-                                }
-                            }
-                        }
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Sort"; desc: "Urutan file di Explorer"; }
-                            HorizontalLayout {
-                                spacing: 6px;
-                                OptionChip {
-                                    label: "Name";
-                                    horizontal-stretch: 1;
-                                    selected: root.exp-sort == "Name";
-                                    clicked => { root.exp-sort = "Name"; root.toast("Disimpan: Sort Name"); }
-                                }
-                                OptionChip {
-                                    label: "Date";
-                                    horizontal-stretch: 1;
-                                    selected: root.exp-sort == "Date";
-                                    clicked => { root.exp-sort = "Date"; root.toast("Disimpan: Sort Date"); }
-                                }
-                                OptionChip {
-                                    label: "Type";
-                                    horizontal-stretch: 1;
-                                    selected: root.exp-sort == "Type";
-                                    clicked => { root.exp-sort = "Type"; root.toast("Disimpan: Sort Type"); }
-                                }
-                            }
-                        }
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Group"; desc: "Pengelompokan file di Explorer"; }
-                            HorizontalLayout {
-                                spacing: 6px;
-                                OptionChip {
-                                    label: "None";
-                                    horizontal-stretch: 1;
-                                    selected: root.exp-group == "None";
-                                    clicked => { root.exp-group = "None"; root.toast("Disimpan: Group None"); }
-                                }
-                                OptionChip {
-                                    label: "Date";
-                                    horizontal-stretch: 1;
-                                    selected: root.exp-group == "Date";
-                                    clicked => { root.exp-group = "Date"; root.toast("Disimpan: Group Date"); }
-                                }
-                                OptionChip {
-                                    label: "Type";
-                                    horizontal-stretch: 1;
-                                    selected: root.exp-group == "Type";
-                                    clicked => { root.exp-group = "Type"; root.toast("Disimpan: Group Type"); }
-                                }
-                            }
-                        }
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Show hidden files"; desc: "Tampilkan file & folder tersembunyi"; }
-                            Toggle {
-                                checked: root.exp-hidden;
-                                toggled(checked) => { root.exp-hidden = checked; root.toast(checked ? "Disimpan: File tersembunyi ditampilkan" : "Disimpan: File tersembunyi disembunyikan"); }
-                            }
-                        }
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Show file extensions"; desc: "Tampilkan ekstensi file (.psd, .jpg, …)"; }
-                            Toggle {
-                                checked: root.exp-ext;
-                                toggled(checked) => { root.exp-ext = checked; root.toast(checked ? "Disimpan: Ekstensi file ditampilkan" : "Disimpan: Ekstensi file disembunyikan"); }
-                            }
-                        }
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Content zoom"; desc: "Zoom konten Explorer (75–200%)"; }
-                            HorizontalLayout {
-                                spacing: 8px;
-                                Btn {
-                                    label: "−";
-                                    variant: "secondary";
-                                    clicked => { root.exp-zoom = max(75, root.exp-zoom - 25); }
-                                }
-                                Text {
-                                    width: 56px;
-                                    text: root.exp-zoom + "%";
-                                    font-size: Design.font-body;
-                                    font-weight: 700;
-                                    color: Design.text-primary;
-                                    horizontal-alignment: center;
-                                    vertical-alignment: center;
-                                }
-                                Btn {
-                                    label: "+";
-                                    variant: "secondary";
-                                    clicked => { root.exp-zoom = min(200, root.exp-zoom + 25); }
                                 }
                             }
                         }

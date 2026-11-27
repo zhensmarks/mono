@@ -5,6 +5,134 @@ sebelum commit + push (format lengkap di `AGENTS.md`). Entri terbaru di
 paling atas. Dengan log ini, siapa pun yang menerima project — Dex, Hermes,
 atau orang lain — langsung tahu apa saja yang diubah tanpa menebak.
 
+## 2026-11-27 — Dex — P1: log panel resize + CardListWindow 450×600 compact + Settings 7 grup + Leaderboard samakan C# + Spreadsheet chrome 46px + Esc tidak tutup Settings
+
+- Diubah (7 item P1):
+  - (1) Log panel bisa di-resize + lebar tersimpan (`ui/main.slint`,
+    `src/main.rs`): handle drag 6px di tepi kiri panel (garis separator
+    2px, accent `#663b82f6` saat hover, kursor `ew-resize`), drag via
+    TouchArea `pointer-event` (pola sama seperti drag titlebar),
+    clamp 180px..(lebar window − 200px); lebar disimpan ke SQLite
+    `Dashboard.LogPanelWidth` saat drag dilepas, status buka/tutup ke
+    `Dashboard.IsLogPanelOpen`; saat startup lebar ≥180 dan status buka
+    dipulihkan (kecuali argumen `--log` diberikan); default awal 287.6
+    (nilai nyata abeng dari DB aslinya).
+  - (2) CardListWindow 450×600 CenterScreen (`ui/windows.slint`,
+    `src/main.rs` `center_over_main(..., 450, 600)`). **Penyimpangan dari
+    brief, ditemukan saat implementasi:** C# punya compact mode
+    (`CompactThreshold = 800`, `UnifiedTrelloView.axaml.cs:9`,
+    `UnifiedTrelloViewModel.cs:48-56`) — di lebar 450px C# menampilkan
+    list SAJA (belum ada kartu dipilih) ATAU detail full-width (kartu
+    dipilih), tidak pernah berdampingan. Jadi port menerapkan perilaku
+    compact C# itu: `selected-idx` default −1 (buka di list), list
+    dibungkus `if selected-idx < 0`, detail `if selected-idx >= 0`
+    dengan `horizontal-stretch: 1` (bukan kolom 360px tetap);
+    `close()` mengembalikan `selected-idx = -1` (klik kanan/× di detail
+    sudah meneruskan ke `close()`). Panel detail TIDAK dihapus — tampil
+    full-width saat kartu dipilih, persis C#.
+  - (3) Grup Settings (`ui/settings.slint`, `ui/explorer-settings.slint`
+    BARU, `ui/main.slint`): grup "Explorer" dihapus dari Settings dan
+    dipindah ke `ExplorerSettingsView` tersendiri (header "Explorer
+    Settings", dibuka dari tombol "⚙ Explorer" di sidebar Explorer,
+    klik kanan = kembali ke dashboard); default grup "General";
+    **header nav "App"/"Data"/"Tentang" dihapus** — diverifikasi dari
+    `SettingsView.axaml:307-345` C# nav-nya 7 item polos tanpa header
+    (hanya separator di beberapa item). Kini 7 grup polos: General,
+    Appearance, Account, Extensions, Script Manager, Paths, About.
+  - (4) Leaderboard (`ui/modul.slint`, `src/main.rs`, `ui/main.slint`):
+    bar poin teal dihapus; rank 1-based (sebelumnya 0-based — bug lama);
+    rank 18 Bold lebar 40px, nama 16/800, poin angka polos 20/800
+    `cat-points` (tanpa suffix "poin"); tab "HARIAN"/"BULANAN" di tengah;
+    spasi baris 10px; footer total DIHITUNG dari data (`lb-total`,
+    format pemisah ribuan titik); refresh = FAB bundar 30×30 accent blue
+    dengan ↻ putih; status "Loading..." + Timer 600ms saat refresh.
+    Baris dimuat dari SQLite `Lb.Row.N` = "nama\tpoin"
+    (`load_leaderboard()` + `format_id_number`/`format_points_value`).
+    Catatan: tab BULANAN memakai data `Lb.Row.*` yang sama dengan
+    HARIAN — C# bulanan berasal dari agregasi poin Sheets yang belum
+    ada sumbernya di port (Fase 6).
+  - (5) Titlebar + ukuran window utama — VERIFIKASI SAJA, tanpa ubah
+    kode: sesuai keputusan abeng 27 Nov 16:54 (no. 2), window tetap
+    bisa di-resize sampai kecil, titlebar custom 28px, awal 960×640,
+    min-width 520. Nilai C# (1280×800 / titlebar 40px) SENGAJA tidak
+    diterapkan.
+  - (6) SpreadsheetWindow chrome (`ui/windows.slint`, `src/main.rs`):
+    titlebar 38px → 46px, drag TouchArea menutupi sisi kiri (lebar
+    `parent.width − 420px`, kursor pointer = C# Hand) memanggil callback
+    baru `move-window`; tombol close tetap kanan-atas; ukuran tetap
+    1000×600. **Observasi X=-20 terjawab:** posisi tersimpan −20 berasal
+    dari `center_over_main` lama untuk window 1000px di atas main 960px
+    sebelum ada clamp; restore kini clamp x/y ≥ 0 (dan DB asli abeng
+    punya X=817, tidak terdampak). Posisi disimpan saat window dipindah.
+  - (7) Esc (`ui/main.slint`): handler Esc kini punya cabang kosong
+    eksplisit untuk `overlay-view == "SETTINGS"` — Esc tidak berbuat
+    apa-apa di Settings (perilaku C#); klik kanan tetap menutup Settings
+    via `settings-back-touch`.
+- Alasan: brief P1 abeng 27 Nov 2026 (7 item, referensi C#
+  `~/workspace/mono-bmachine/apps/bmachine/src`); aturan "samakan
+  dengan C#" 27 Nov 16:17 + aturan presisi 27 Nov 16:30 + 3 keputusan
+  abeng 27 Nov 16:54 (label widget ke-4 tetap "POINTS"; pemicu radial
+  tambahan tetap dihapus).
+- Terverifikasi: `cargo build` exit 0 (hanya warning `sha2` unused yang
+  sudah ada sebelumnya); `cargo test` 12 passed / 0 failed. Klik
+  sungguhan + screenshot di Xvfb :98 (1280×800), binary
+  `target/debug/bmachine-slint-demo --no-splash`:
+  - (1) Panel log terbuka saat startup (restore `IsLogPanelOpen=True`,
+    lebar ~288px = 287.6 tersimpan); drag handle dari x=669 ke x=569 →
+    panel melebar, DB `Dashboard.LogPanelWidth` = 387.6; drag kembali →
+    287.6. `p1-01-dashboard.png`, `p1-02-logpanel-drag.png`.
+  - (2) Klik panah EDITING → window "BMachine — Trello Cards" 450×600
+    di (255,20) = center atas main 960×640; list 6 kartu mock
+    full-width; klik kartu → detail full-width; klik kanan → kembali
+    ke list. `p1-03-cardlist.png`, `p1-04-cardlist-detail.png`,
+    `p1-05-cardlist-back.png`. Klik panah EDITING berhasil di percobaan
+    pertama kali ini.
+  - (3) Ctrl+, → Settings default General, 7 grup polos tanpa header
+    "App"/"Data"/"Tentang"; Explorer via log panel FILES → folder
+    27_SDN RANCAIYUH I → tombol "⚙ Explorer" → overlay "Explorer
+    Settings" tersendiri (Default Path, View Mode, Sort, Group, toggles).
+    `p1-06b-settings-noheader.png`, `p1-19-explorer.png`,
+    `p1-20-explorer-settings.png`.
+  - (4) Klik body POINTS → Leaderboard: tanpa bar, rank 1–5, poin
+    "1.280 / 1.150 / 980 / 420 / 350" dari `Lb.Row.*` yang di-seed di DB
+    tes lokal, footer "Total: 4.180 Pts" (dihitung, bukan hardcode);
+    klik FAB → "Loading..." → baris kembali + toast "Leaderboard
+    di-refresh — data dimuat dari database"; tab BULANAN berpindah.
+    `p1-09-leaderboard.png`, `p1-10-lb-loading.png`,
+    `p1-11-lb-refreshed.png`, `p1-12-lb-bulanan.png`.
+  - (5) `xdotool windowsize` 520×500 → window 520×500, layout reflow,
+    titlebar tetap 28px; 400×400 → window 400×400 (min-width 520 TIDAK
+    ditegakkan WM Linux/Xvfb — widget terpotong, sesuai yang abeng
+    terima: "tampilan yang hilang di ukuran sangat kecil itu wajar").
+    `p1-16-resize-520.png`, `p1-17-resize-400.png`.
+  - (6) Klik panah POINTS → SpreadsheetWindow 1000×600 di (0,100)
+    — X tersimpan −20 ter-clamp ke 0; chrome 46px + tombol × kanan-atas;
+    drag titlebar (300,123)→(400,223) → window pindah ke (100,200);
+    klik × → tertutup, DB `SpreadsheetWindow` = 100,200,1000,600.
+    `p1-13-spreadsheet.png`, `p1-14-sheet-dragged.png`.
+  - (7) Esc di Settings → Settings TETAP terbuka (screenshot sha256
+    identik sebelum/sesudah); klik kanan → kembali ke dashboard.
+    `p1-07-esc-settings.png`, `p1-08-rightclick-settings.png`.
+  - Semua screenshot di `~/workspace/rust-gui-contoh/p1-*.png`.
+- Masih terbuka:
+  - Klik panah EDITING kadang hilang ~50% di Xvfb (log debug P0:
+    handler tidak jalan saat gagal) — diduga artefak Xvfb tanpa window
+    manager; **perlu verifikasi di PC Windows abeng**; logika handler
+    sengaja tidak diubah.
+  - `min-width: 520` tidak ditegakkan Linux/Xvfb WM (window bisa
+    dikecilkan ke 400×400) — **perlu verifikasi di Windows**.
+  - Tab BULANAN Leaderboard memakai data `Lb.Row.*` yang sama dengan
+    HARIAN (belum ada sumber bulanan terpisah — agregasi Sheets, Fase 6).
+  - Kembali dari Explorer Settings = ke dashboard (bukan kembali ke
+    Explorer) — sama seperti pola Settings yang sudah ada.
+  - Catatan lingkungan (bukan bug port): setelah VM swap 27 Nov,
+    library sistem hilang — dipulihkan dari cache apt via
+    `dpkg -i` (libxi-dev, libxtst-dev, libxinerama-dev, libxkbcommon-x11-0,
+    libxcb-xkb1, xdotool, xclip; symlink manual
+    `libxkbcommon-x11.so → .so.0`; `apt-get update` PID 820 macet >9
+    menit — jangan dibunuh, biarkan). `sendkey2` di-compile ulang dari
+    `~/workspace/bmachine-slint-demo/tools/sendkey2.c`.
+
 ## 2026-11-27 — Dex — P0: radial/spreadsheet/toolbox jadi window OS + General Settings & flyout samakan C# + export/import DB aman + perbaikan reopen window
 
 - Diubah (6 item P0):
