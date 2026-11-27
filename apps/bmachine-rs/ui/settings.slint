@@ -601,6 +601,12 @@ export component SettingsView inherits Rectangle {
     in-out property <string> nav-style: "capsule";    // "capsule" | "rounded" | "flat"
     in-out property <string> ui-density: "normal";   // "compact" | "normal" | "comfortable"
     in-out property <string> chrome: "custom";
+    // Gaya tombol kontrol window ("icons" | "dots") + posisinya
+    // ("right" | "left") — DB Settings.Chrome.ButtonStyle /
+    // Settings.Chrome.ButtonPosition; hanya berpengaruh saat
+    // titlebar kustom tampil (chrome "custom" / "wrapped").
+    in-out property <string> chrome-button-style: "icons";
+    in-out property <string> chrome-button-position: "right";
     // Baris hex responsif (26 Nov): di window sempit (<580px) field
     // mengecil 120→96px dan jarak 8→2px supaya kelima dot tetap muat
     // di konten (lebar konten = root.width − 232px = 288px di 520px);
@@ -670,9 +676,14 @@ export component SettingsView inherits Rectangle {
             Rectangle {
                 width: 180px;
                 height: root.body-h;
-                background: Design.card-bg;
+                // Saat chrome "wrapped", sidebar duduk di area frame
+                // (di luar panel rounded) — tanpa kartu/border supaya
+                // menyatu dengan frame, seperti referensi
+                // (settings-rounded-content-ref.jpg). Bukan panel
+                // kedua: konten Settings = panel window itu sendiri.
+                background: root.chrome == "wrapped" ? transparent : Design.card-bg;
                 border-color: Design.separator;
-                border-width: 1px;
+                border-width: root.chrome == "wrapped" ? 0px : 1px;
                 border-radius: Design.radius-lg;
                 clip: true;
                 VerticalLayout {
@@ -1559,26 +1570,90 @@ export component SettingsView inherits Rectangle {
                             }
                         }
 
-                        // Window chrome.
+                        // Window chrome — gaya chrome window + tombol
+                        // kontrolnya (lihat DESIGN_SYSTEM.md §23).
+                        // "Custom" = titlebar kustom 28px; "Headless" =
+                        // tanpa titlebar (drag dari strip atas konten);
+                        // "Native OS" = chrome bawaan OS; "Wrapped" =
+                        // titlebar kustom + konten dalam panel rounded
+                        // inset (sidebar Settings pindah ke area frame
+                        // saat wrapped aktif — bukan panel kedua).
                         VerticalLayout {
                             spacing: 6px;
                             FieldLabel {
                                 title: "Window chrome";
-                                desc: "Pakai window chrome bawaan OS, atau title bar custom BMachine";
+                                desc: "Gaya chrome window — berlaku ke semua window (utama, Spreadsheet, Toolbox, Trello)";
                             }
                             HorizontalLayout {
                                 spacing: 6px;
                                 OptionChip {
-                                    label: "Native OS";
+                                    label: "Custom";
+                                    horizontal-stretch: 1;
+                                    selected: root.chrome == "custom";
+                                    clicked => { root.chrome = "custom"; root.appearance-changed(); root.toast("Window chrome: Custom BMachine"); }
+                                }
+                                OptionChip {
+                                    label: "Headless";
+                                    horizontal-stretch: 1;
+                                    selected: root.chrome == "headless";
+                                    clicked => { root.chrome = "headless"; root.appearance-changed(); root.toast("Window chrome: Headless (tanpa title bar)"); }
+                                }
+                                OptionChip {
+                                    label: "Native";
                                     horizontal-stretch: 1;
                                     selected: root.chrome == "native";
                                     clicked => { root.chrome = "native"; root.appearance-changed(); root.toast("Window chrome: Native OS"); }
                                 }
                                 OptionChip {
-                                    label: "Custom BMachine";
+                                    label: "Wrapped";
                                     horizontal-stretch: 1;
-                                    selected: root.chrome == "custom";
-                                    clicked => { root.chrome = "custom"; root.appearance-changed(); root.toast("Window chrome: Custom BMachine"); }
+                                    selected: root.chrome == "wrapped";
+                                    clicked => { root.chrome = "wrapped"; root.appearance-changed(); root.toast("Window chrome: Wrapped (konten dalam panel)"); }
+                                }
+                            }
+                        }
+
+                        // Gaya + posisi tombol kontrol (hanya saat
+                        // titlebar kustom tampil: chrome custom/wrapped).
+                        VerticalLayout {
+                            spacing: 6px;
+                            visible: root.chrome == "custom" || root.chrome == "wrapped";
+                            FieldLabel {
+                                title: "Tombol kontrol";
+                                desc: "Gaya tombol min / max / close di title bar";
+                            }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OptionChip {
+                                    label: "Ikon";
+                                    horizontal-stretch: 1;
+                                    selected: root.chrome-button-style == "icons";
+                                    clicked => { root.chrome-button-style = "icons"; root.appearance-changed(); root.toast("Tombol kontrol: Ikon"); }
+                                }
+                                OptionChip {
+                                    label: "Dots macOS";
+                                    horizontal-stretch: 1;
+                                    selected: root.chrome-button-style == "dots";
+                                    clicked => { root.chrome-button-style = "dots"; root.appearance-changed(); root.toast("Tombol kontrol: Dots macOS"); }
+                                }
+                            }
+                            FieldLabel {
+                                title: "Posisi tombol";
+                                desc: "Tombol kontrol di kiri (macOS) atau kanan (Windows)";
+                            }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OptionChip {
+                                    label: "Kanan";
+                                    horizontal-stretch: 1;
+                                    selected: root.chrome-button-position == "right";
+                                    clicked => { root.chrome-button-position = "right"; root.appearance-changed(); root.toast("Tombol kontrol: Kanan"); }
+                                }
+                                OptionChip {
+                                    label: "Kiri";
+                                    horizontal-stretch: 1;
+                                    selected: root.chrome-button-position == "left";
+                                    clicked => { root.chrome-button-position = "left"; root.appearance-changed(); root.toast("Tombol kontrol: Kiri"); }
                                 }
                             }
                         }
@@ -1612,8 +1687,8 @@ export component SettingsView inherits Rectangle {
                                 VerticalLayout {
                                     width: 100%;
                                     height: 100%;
-                                    // Title bar mock (custom = traffic light + judul;
-                                    // native = teks keterangan).
+                                    // Title bar mock: mencerminkan gaya chrome +
+                                    // gaya/posisi tombol kontrol yang dipilih.
                                     Rectangle {
                                         height: 30px;
                                         background: root.pv-card;
@@ -1621,26 +1696,37 @@ export component SettingsView inherits Rectangle {
                                             padding-left: 10px;
                                             padding-right: 10px;
                                             spacing: 6px;
-                                            Rectangle {
-                                                width: 10px; height: 10px;
-                                                background: Design.status-danger;
-                                                border-radius: 999px;
-                                                visible: root.chrome == "custom";
-                                            }
-                                            Rectangle {
-                                                width: 10px; height: 10px;
-                                                background: Design.status-warning;
-                                                border-radius: 999px;
-                                                visible: root.chrome == "custom";
-                                            }
-                                            Rectangle {
-                                                width: 10px; height: 10px;
-                                                background: Design.status-success;
-                                                border-radius: 999px;
-                                                visible: root.chrome == "custom";
+                                            // Tombol di kiri (macOS).
+                                            if (root.chrome == "custom" || root.chrome == "wrapped") && root.chrome-button-position == "left" : HorizontalLayout {
+                                                spacing: 6px;
+                                                if root.chrome-button-style == "dots" : HorizontalLayout {
+                                                    spacing: 6px;
+                                                    Rectangle {
+                                                        width: 10px; height: 10px;
+                                                        background: Design.status-danger;
+                                                        border-radius: 999px;
+                                                    }
+                                                    Rectangle {
+                                                        width: 10px; height: 10px;
+                                                        background: Design.status-warning;
+                                                        border-radius: 999px;
+                                                    }
+                                                    Rectangle {
+                                                        width: 10px; height: 10px;
+                                                        background: Design.status-success;
+                                                        border-radius: 999px;
+                                                    }
+                                                }
+                                                if root.chrome-button-style == "icons" : Text {
+                                                    text: "─ □ ×";
+                                                    font-size: 11px;
+                                                    font-weight: 700;
+                                                    color: root.pv-fg;
+                                                    vertical-alignment: center;
+                                                }
                                             }
                                             Text {
-                                                text: root.chrome == "custom" ? "BMachine" : "Title bar OS — bawaan sistem";
+                                                text: root.chrome == "custom" ? "BMachine" : root.chrome == "wrapped" ? "BMachine · Wrapped" : root.chrome == "headless" ? "Tanpa title bar" : "Title bar OS — bawaan sistem";
                                                 font-size: Design.font-button;
                                                 font-weight: 700;
                                                 font-family: root.font-choice == "JetBrains Mono" ? "JetBrains Mono" : "Inter";
@@ -1648,12 +1734,34 @@ export component SettingsView inherits Rectangle {
                                                 vertical-alignment: center;
                                             }
                                             Rectangle { horizontal-stretch: 1; }
-                                            Text {
-                                                text: root.chrome == "custom" ? "×" : "";
-                                                font-size: 16px;
-                                                font-weight: 700;
-                                                color: root.pv-fg;
-                                                vertical-alignment: center;
+                                            // Tombol di kanan (Windows, bawaan).
+                                            if (root.chrome == "custom" || root.chrome == "wrapped") && root.chrome-button-position == "right" : HorizontalLayout {
+                                                spacing: 6px;
+                                                if root.chrome-button-style == "dots" : HorizontalLayout {
+                                                    spacing: 6px;
+                                                    Rectangle {
+                                                        width: 10px; height: 10px;
+                                                        background: Design.status-danger;
+                                                        border-radius: 999px;
+                                                    }
+                                                    Rectangle {
+                                                        width: 10px; height: 10px;
+                                                        background: Design.status-warning;
+                                                        border-radius: 999px;
+                                                    }
+                                                    Rectangle {
+                                                        width: 10px; height: 10px;
+                                                        background: Design.status-success;
+                                                        border-radius: 999px;
+                                                    }
+                                                }
+                                                if root.chrome-button-style == "icons" : Text {
+                                                    text: "─ □ ×";
+                                                    font-size: 11px;
+                                                    font-weight: 700;
+                                                    color: root.pv-fg;
+                                                    vertical-alignment: center;
+                                                }
                                             }
                                         }
                                     }

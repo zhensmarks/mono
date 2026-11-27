@@ -4,7 +4,7 @@
 // window lewat ui-scale. Tab HOME/BATCH benar-benar berpindah.
 // Klik StatWidget menampilkan toast. Tombol profil membuka flyout.
 
-import { Design, Card, HSeparator, NavTab, StatWidget, Btn, IconBtn, Toggle, TextField, SvgIcon, FlyoutItem } from "design.slint";
+import { Design, Card, HSeparator, NavTab, StatWidget, Btn, IconBtn, Toggle, TextField, SvgIcon, FlyoutItem, WindowControls } from "design.slint";
 export { Design }
 import { SettingsView } from "settings.slint";
 import { ExplorerSettingsView } from "explorer-settings.slint";
@@ -18,7 +18,12 @@ import { ExitConfirmDialog, UpdateDialog } from "dialog.slint";
 export { SpreadsheetWindow, CardListWindow, RadialMenuWindow, ToolboxWindow, ReportBugDialog, DynamicBarWindow } from "windows.slint";
 
 export component AppWindow inherits Window {
-    no-frame: true;
+    // Chrome window mengikuti Settings (app-chrome): "native" =
+    // chrome bawaan OS (decorations winit), lainnya frameless
+    // (no-frame). Backend winit menerapkan perubahan no-frame saat
+    // runtime (set_decorations di update_window_properties) — ganti
+    // gaya chrome berlaku live tanpa restart (lihat §23).
+    no-frame: root.app-chrome != "native";
     // Resizable (keputusan abeng 27 Nov 2026 16:54): window utama BOLEH
     // di-resize sampai compact/kecil — min-width 520 seperti C#
     // MainWindow.axaml (MinWidth="520", tanpa MinHeight). Ukuran awal
@@ -189,6 +194,26 @@ export component AppWindow inherits Window {
     in-out property <string> app-nav-style: "capsule";
     in-out property <string> app-ui-density: "normal";
     in-out property <string> app-chrome: "custom";
+    // Gaya tombol kontrol window ("icons" | "dots") + posisinya
+    // ("right" | "left") — DB Settings.Chrome.ButtonStyle /
+    // Settings.Chrome.ButtonPosition, berlaku live tanpa restart.
+    in-out property <string> app-chrome-button-style: "icons";
+    in-out property <string> app-chrome-button-position: "right";
+    // Turunan geometri chrome (dipakai titlebar, dashboard, overlay,
+    // panel wrapped — supaya satu sumber kebenaran, bukan ternary
+    // berulang di tiap elemen):
+    // - has-titlebar: "custom" + "wrapped" punya titlebar kustom 28px.
+    // - wrapped: konten duduk dalam panel rounded inset 8px.
+    // - content-y: atas area konten (titlebar + margin panel).
+    // - overlay-y: atas overlay layar penuh (Settings dkk. + 8px
+    // supaya isinya tidak menempel tepi atas panel saat wrapped).
+    // - content-bottom / overlay-bottom: margin bawah panel.
+    property <bool> chrome-has-titlebar: app-chrome == "custom" || app-chrome == "wrapped";
+    property <bool> chrome-wrapped: app-chrome == "wrapped";
+    property <length> chrome-titlebar-h: chrome-has-titlebar ? 28px : 0px;
+    property <length> chrome-content-y: chrome-titlebar-h + (chrome-wrapped ? 8px : 0px);
+    property <length> chrome-content-bottom: chrome-wrapped ? 8px : 0px;
+    property <length> chrome-overlay-y: chrome-wrapped ? 44px : (chrome-has-titlebar ? 32px : 8px);
 
     // ---- General & Paths (persisted in SQLite) ----
     // Dynamic Bar tampil atau tidak (key Settings.DynamicBar.Visible).
@@ -789,13 +814,33 @@ export component AppWindow inherits Window {
         }
     }
 
+    // Panel "wrapped" (gaya chrome wrapped, §23): isi window duduk
+    // dalam panel rounded inset 8px di dalam frame. Digambar di
+    // belakang konten (sibling sebelum dashboard/overlay) — konten
+    // TIDAK jadi anak panel (supaya geometri overlay yang sudah ada
+    // tidak berubah), panel hanya latar di belakangnya. Saat Settings
+    // terbuka, panel mulai setelah sidebar (x=208: padding 20 +
+    // sidebar 180 + gap 8) supaya sidebar duduk di area frame dan
+    // konten Settings = panel itu sendiri — bukan panel kedua
+    // ("bungkus di dalam bungkus" dilarang abeng 27 Nov 22:03).
+    if root.chrome-wrapped && root.app-stage == "main" : Rectangle {
+        x: root.overlay-view == "SETTINGS" ? 208px : 8px;
+        y: root.chrome-content-y;
+        width: root.width - self.x - 8px;
+        height: root.height - root.chrome-content-y - root.chrome-content-bottom;
+        background: Design.surface-elevated;
+        border-color: Design.separator;
+        border-width: 1px;
+        border-radius: 12px;
+    }
+
     // Dashboard (pill nav + konten) — disembunyikan saat overlay
     // layar penuh terbuka (overlay-view != "").
     VerticalLayout {
-        x: 0;
-        y: root.app-chrome == "custom" ? 28px : 0px;
-        width: 100%;
-        height: root.height - (root.app-chrome == "custom" ? 28px : 0px);
+        x: root.chrome-wrapped ? 8px : 0px;
+        y: root.chrome-content-y;
+        width: root.width - (root.chrome-wrapped ? 16px : 0px);
+        height: root.height - root.chrome-content-y - root.chrome-content-bottom;
         visible: root.overlay-view == "";
         spacing: 0;
 
@@ -3297,8 +3342,8 @@ export component AppWindow inherits Window {
     // dibuka dari radial / C# ToolboxWindow). Explorer overlay
     // ("EXPLORER") = Build B. =====
     SettingsView {
-        x: 0; y: root.app-chrome == "custom" ? 32px : 8px;
-        width: 100%; height: root.height - (root.app-chrome == "custom" ? 32px : 8px);
+        x: 0; y: root.chrome-overlay-y;
+        width: 100%; height: root.height - root.chrome-overlay-y - root.chrome-content-bottom;
         visible: root.overlay-view == "SETTINGS";
         widget-bg <=> root.widget-bg;
         widget-style <=> root.widget-style;
@@ -3334,6 +3379,8 @@ export component AppWindow inherits Window {
         nav-style <=> root.app-nav-style;
         ui-density <=> root.app-ui-density;
         chrome <=> root.app-chrome;
+        chrome-button-style <=> root.app-chrome-button-style;
+        chrome-button-position <=> root.app-chrome-button-position;
         user-name <=> root.app-user-name;
         lang <=> root.app-lang;
         anim-startup <=> root.app-anim-startup;
@@ -3429,8 +3476,8 @@ export component AppWindow inherits Window {
     // ExplorerSettingsView — BUKAN grup Settings). Dibuka dari tombol
     // "⚙ Explorer" di sidebar Explorer. Klik kanan = kembali. =====
     ExplorerSettingsView {
-        x: 0; y: root.app-chrome == "custom" ? 32px : 8px;
-        width: 100%; height: root.height - (root.app-chrome == "custom" ? 32px : 8px);
+        x: root.chrome-wrapped ? 8px : 0px; y: root.chrome-overlay-y;
+        width: root.width - (root.chrome-wrapped ? 16px : 0px); height: root.height - root.chrome-overlay-y - root.chrome-content-bottom;
         visible: root.overlay-view == "EXPLORER-SETTINGS";
         save-explorer-settings() => { root.save-explorer-settings(); }
         browse-path(k) => { root.browse-path(k); }
@@ -3439,8 +3486,8 @@ export component AppWindow inherits Window {
     }
     // (Toolbox kini window OS — lihat ToolboxWindow di ui/windows.slint.)
     SheetsView {
-        x: 0; y: root.app-chrome == "custom" ? 32px : 8px;
-        width: 100%; height: root.height - (root.app-chrome == "custom" ? 32px : 8px);
+        x: root.chrome-wrapped ? 8px : 0px; y: root.chrome-overlay-y;
+        width: root.width - (root.chrome-wrapped ? 16px : 0px); height: root.height - root.chrome-overlay-y - root.chrome-content-bottom;
         visible: root.overlay-view == "SHEETS";
         sheet-rows <=> root.sheet-rows;
         sheet-row-count <=> root.sheet-row-count;
@@ -3471,8 +3518,8 @@ export component AppWindow inherits Window {
         popout-window() => { root.open-new-sheet-window(); }
     }
     LeaderboardView {
-        x: 0; y: root.app-chrome == "custom" ? 32px : 8px;
-        width: 100%; height: root.height - (root.app-chrome == "custom" ? 32px : 8px);
+        x: root.chrome-wrapped ? 8px : 0px; y: root.chrome-overlay-y;
+        width: root.width - (root.chrome-wrapped ? 16px : 0px); height: root.height - root.chrome-overlay-y - root.chrome-content-bottom;
         visible: root.overlay-view == "LEADERBOARD";
         lb-rows <=> root.lb-rows;
         lb-row-count <=> root.lb-row-count;
@@ -3756,8 +3803,8 @@ export component AppWindow inherits Window {
     // layar penuh seperti Settings). Esc / klik kanan latar / tombol
     // × menutup kembali ke dashboard.
     explorer-view := ExplorerView {
-        x: 0; y: root.app-chrome == "custom" ? 32px : 8px;
-        width: 100%; height: root.height - (root.app-chrome == "custom" ? 32px : 8px);
+        x: root.chrome-wrapped ? 8px : 0px; y: root.chrome-overlay-y;
+        width: root.width - (root.chrome-wrapped ? 16px : 0px); height: root.height - root.chrome-overlay-y - root.chrome-content-bottom;
         visible: root.overlay-view == "EXPLORER";
         start-path: root.ex-start-path;
         sr-names: root.ex-sr-names;
@@ -4051,15 +4098,20 @@ export component AppWindow inherits Window {
     }
 
     // ===== Custom Titlebar (frameless drag + min/max/close) =====
-    if root.app-chrome == "custom" && root.app-stage == "main" : Rectangle {
+    // Tampil saat gaya chrome "custom" / "wrapped" dan stage main.
+    // Tombol kontrol = komponen WindowControls (gaya icons/dots,
+    // posisi kanan/kiri — lihat §23). Area drag menghindar dari
+    // tombol (kanan 108px, atau kiri 130px bila tombol di kiri).
+    if root.chrome-has-titlebar && root.app-stage == "main" : Rectangle {
         x: 0; y: 0;
         width: 100%;
         height: 28px;
         background: Design.app-bg;
 
         title-drag := TouchArea {
-            x: 0; y: 0;
-            width: parent.width - 108px;
+            x: root.app-chrome-button-position == "left" ? 130px : 0px;
+            y: 0;
+            width: parent.width - (root.app-chrome-button-position == "left" ? 130px : 108px);
             height: 100%;
             property <length> press-x: 0px;
             property <length> press-y: 0px;
@@ -4084,6 +4136,14 @@ export component AppWindow inherits Window {
             padding-right: 6px;
             spacing: 8px;
 
+            // Tombol kontrol di kiri (gaya macOS).
+            if root.app-chrome-button-position == "left" : WindowControls {
+                y: 2px;
+                button-style: root.app-chrome-button-style;
+                minimize() => { root.win-minimize(); }
+                maximize() => { root.win-maximize(); }
+                close() => { root.confirm-exit(); }
+            }
             Text {
                 text: "●";
                 font-size: 7px;
@@ -4099,63 +4159,47 @@ export component AppWindow inherits Window {
                 vertical-alignment: center;
             }
             Rectangle { horizontal-stretch: 1; }
-            // Window controls: Minimize / Maximize / Close
-            Rectangle {
-                width: 32px; height: 24px;
+            // Tombol kontrol di kanan (gaya Windows, bawaan).
+            if root.app-chrome-button-position == "right" : WindowControls {
                 y: 2px;
-                border-radius: Design.radius-xs;
-                background: min-touch.has-hover ? Design.ghost-hover : transparent;
-                min-touch := TouchArea {
-                    mouse-cursor: pointer;
-                    clicked => { root.win-minimize(); }
-                }
-                Text {
-                    text: "─";
-                    font-size: 11px;
-                    color: Design.text-secondary;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    width: 100%; height: 100%;
-                }
-            }
-            Rectangle {
-                width: 32px; height: 24px;
-                y: 2px;
-                border-radius: Design.radius-xs;
-                background: max-touch.has-hover ? Design.ghost-hover : transparent;
-                max-touch := TouchArea {
-                    mouse-cursor: pointer;
-                    clicked => { root.win-maximize(); }
-                }
-                Text {
-                    text: "□";
-                    font-size: 11px;
-                    color: Design.text-secondary;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    width: 100%; height: 100%;
-                }
-            }
-            Rectangle {
-                width: 32px; height: 24px;
-                y: 2px;
-                border-radius: Design.radius-xs;
-                background: close-touch.has-hover ? Design.status-danger : transparent;
-                close-touch := TouchArea {
-                    mouse-cursor: pointer;
-                    clicked => { root.confirm-exit(); }
-                }
-                Text {
-                    text: "×";
-                    font-size: 14px;
-                    font-weight: 700;
-                    color: close-touch.has-hover ? white : Design.text-secondary;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    width: 100%; height: 100%;
-                }
+                button-style: root.app-chrome-button-style;
+                minimize() => { root.win-minimize(); }
+                maximize() => { root.win-maximize(); }
+                close() => { root.confirm-exit(); }
             }
         }
+    }
+
+    // Drag strip mode headless: tanpa titlebar, window dipindah
+    // dengan menyeret 28px teratas. Dideklarasikan PALING ATAS
+    // (setelah titlebar, sebelum dialog) supaya drag tetap jalan
+    // walau overlay layar penuh (Settings/dll) terbuka — strip yang
+    // ditaruh di bawah overlay tertutup TouchArea latar overlay
+    // (settings-back-touch, dim Trello, Flickable isi) sehingga
+    // window tidak bisa dipindah saat Settings dibuka. Konsekuensi:
+    // 28px teratas jadi gagang drag — klik di pita itu tidak sampai
+    // ke konten (ujung atas avatar/kapsul nav ±8px). Klik tengah
+    // avatar/kapsul tetap jalan; tombol header overlay duduk di
+    // bawah pita ini.
+    if root.app-chrome == "headless" && root.app-stage == "main" : TouchArea {
+        x: 0; y: 0;
+        width: 100%;
+        height: 28px;
+        property <length> press-x: 0px;
+        property <length> press-y: 0px;
+        property <bool> dragging: false;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                self.press-x = self.mouse-x;
+                self.press-y = self.mouse-y;
+                self.dragging = true;
+            } else if (ev.kind == PointerEventKind.up) {
+                self.dragging = false;
+            } else if (ev.kind == PointerEventKind.move && self.dragging) {
+                root.win-move(self.mouse-x - self.press-x, self.mouse-y - self.press-y);
+            }
+        }
+        double-clicked => { root.win-maximize(); }
     }
 
     // ===== FASE 5: DIALOG MODAL & SPLASH SCREEN =====

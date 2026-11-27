@@ -292,6 +292,173 @@ export component IconBtn inherits Rectangle {
 }
 
 // ============================================================
+// WindowControls — tombol kontrol window (min/max/close).
+// Dua gaya (pilih di Settings → Appearance → Window chrome):
+// "icons" = glyph ─ □ × (32×24 tiap tombol, seperti titlebar
+// BMachine sekarang); "dots" = traffic-light pastel ala macOS
+// (ref chrome-buttons-ref.jpg): tiga dot 12px dalam pill putih —
+// merah × (tutup), kuning − (minimize), hijau panah maximize
+// (dua segitiga). Warna dot TETAP (bukan token tema), seperti
+// traffic light macOS asli. Dipakai titlebar window utama +
+// titlebar window sekunder (Spreadsheet, Toolbox, CardList).
+// ============================================================
+export component WindowControls inherits Rectangle {
+    in property <string> button-style: "icons"; // "icons" | "dots"
+    in property <bool> show-min: true;
+    in property <bool> show-max: true;
+    callback minimize();
+    callback maximize();
+    callback close();
+
+    // Warna traffic light pastel (ref) — tetap di semua tema.
+    property <color> dot-red-bg: #F6C6C6;
+    property <color> dot-red-bg-hover: #EFA9A9;
+    property <color> dot-red-fg: #A61B1B;
+    property <color> dot-yellow-bg: #F5DFA8;
+    property <color> dot-yellow-bg-hover: #EED28A;
+    property <color> dot-yellow-fg: #8A5A00;
+    property <color> dot-green-bg: #BFE8C0;
+    property <color> dot-green-bg-hover: #A5DCA5;
+    property <color> dot-green-fg: #166534;
+
+    property <int> btn-count: 1 + (root.show-min ? 1 : 0) + (root.show-max ? 1 : 0);
+    height: 24px;
+    // Ikon: 3 tombol 32px + jarak 8px; dot: pill (padding 10px tiap
+    // sisi) + dot 12px + jarak 8px.
+    width: root.button-style == "dots"
+        ? (20px + 12px * root.btn-count + 8px * (root.btn-count - 1))
+        : (32px * root.btn-count + 8px * (root.btn-count - 1));
+
+    // Gaya "icons": ─ □ ×.
+    if root.button-style == "icons" : HorizontalLayout {
+        spacing: 8px;
+        if root.show-min : Rectangle {
+            width: 32px; height: 24px;
+            border-radius: Design.radius-xs;
+            background: min-touch.has-hover ? Design.ghost-hover : transparent;
+            min-touch := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.minimize(); }
+            }
+            Text {
+                text: "─";
+                font-size: 11px;
+                color: Design.text-secondary;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                width: 100%; height: 100%;
+            }
+        }
+        if root.show-max : Rectangle {
+            width: 32px; height: 24px;
+            border-radius: Design.radius-xs;
+            background: max-touch.has-hover ? Design.ghost-hover : transparent;
+            max-touch := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.maximize(); }
+            }
+            Text {
+                text: "□";
+                font-size: 11px;
+                color: Design.text-secondary;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                width: 100%; height: 100%;
+            }
+        }
+        Rectangle {
+            width: 32px; height: 24px;
+            border-radius: Design.radius-xs;
+            background: close-touch.has-hover ? Design.status-danger : transparent;
+            close-touch := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.close(); }
+            }
+            Text {
+                text: "×";
+                font-size: 14px;
+                font-weight: 700;
+                color: close-touch.has-hover ? white : Design.text-secondary;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                width: 100%; height: 100%;
+            }
+        }
+    }
+
+    // Gaya "dots": traffic light pastel dalam pill putih (macOS).
+    if root.button-style == "dots" : Rectangle {
+        y: 2px;
+        height: 20px;
+        background: white;
+        border-radius: 999px;
+        HorizontalLayout {
+            padding-left: 10px;
+            padding-right: 10px;
+            spacing: 8px;
+            // Merah = tutup (paling kiri, seperti macOS).
+            Rectangle {
+                width: 12px; height: 12px;
+                y: (parent.height - self.height) / 2;
+                background: dot-close-touch.has-hover ? root.dot-red-bg-hover : root.dot-red-bg;
+                border-radius: 999px;
+                dot-close-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.close(); }
+                }
+                Text {
+                    text: "×";
+                    font-size: 9px;
+                    font-weight: 700;
+                    color: root.dot-red-fg;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    width: 100%; height: 100%;
+                }
+            }
+            if root.show-min : Rectangle {
+                width: 12px; height: 12px;
+                y: (parent.height - self.height) / 2;
+                background: dot-min-touch.has-hover ? root.dot-yellow-bg-hover : root.dot-yellow-bg;
+                border-radius: 999px;
+                dot-min-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.minimize(); }
+                }
+                Text {
+                    text: "−";
+                    font-size: 9px;
+                    font-weight: 700;
+                    color: root.dot-yellow-fg;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    width: 100%; height: 100%;
+                }
+            }
+            if root.show-max : Rectangle {
+                width: 12px; height: 12px;
+                y: (parent.height - self.height) / 2;
+                background: dot-max-touch.has-hover ? root.dot-green-bg-hover : root.dot-green-bg;
+                border-radius: 999px;
+                dot-max-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.maximize(); }
+                }
+                // Panah maximize: dua segitiga (pojok kanan-atas +
+                // pojok kiri-bawah), seperti di referensi.
+                Path {
+                    width: 8px; height: 8px;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    commands: "M 8 0 L 8 4 L 4 0 Z M 0 8 L 0 4 L 4 8 Z";
+                    fill: root.dot-green-fg;
+                }
+            }
+        }
+    }
+}
+
+// ============================================================
 // Card / Bento — bg card, border separator 1px, radius 10.
 // Isi diberi padding oleh pemakai (VerticalLayout padding 16).
 // Tanpa shadow/glow.

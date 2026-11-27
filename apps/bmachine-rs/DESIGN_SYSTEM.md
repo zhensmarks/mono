@@ -2122,3 +2122,127 @@ header (avatar 48px + nama + sapaan jam), grup APLIKASI
 `Terbaru` / `Pembaruan tersedia`). Item = komponen `FlyoutItem`
 (`ui/design.slint`): ikon + label + ekor (hint/Toggle), hover
 `bg-hover`, ikut aturan ikon+teks §7.
+
+## 23. Window Chrome — gaya chrome + tombol kontrol + "wrapped" (abeng, 27 Nov 20:28, 20:34, 21:08, 22:03)
+
+Chrome BMachine headless tapi window tetap bisa dipindah + resize + ikut
+OS snap. Semua gaya bisa dipilih di Settings → Appearance → "Window
+chrome", tersimpan di DB, berlaku live tanpa restart (aturan no-restart
+19:06) ke SEMUA window ber-chrome: utama, Spreadsheet, Toolbox,
+CardList/Trello. Radial + notch TETAP borderless (popup, tanpa chrome).
+
+**4 gaya (`Settings.Chrome`, validator `valid_chrome_style()`,
+nilai tak dikenal → `"custom"`):**
+
+| Gaya | Titlebar | `no-frame` | Konten |
+|---|---|---|---|
+| `custom` (bawaan) | custom 28px | `true` | `content-y` 28, `overlay-y` 32 |
+| `headless` | tanpa titlebar | `true` | `content-y` 0, `overlay-y` 8; drag via strip 28px (lihat bawah) |
+| `native` | OS (Windows) | `false` | `content-y` 0, `overlay-y` 8; custom titlebar disembunyikan |
+| `wrapped` | custom 28px + panel | `true` | `content-y` 36, `overlay-y` 44, `content-bottom` 8 |
+
+`no-frame: root.app-chrome != "native"` — binding langsung di
+`ui/main.slint` dan `ui/windows.slint`. Backend winit Slint 1.19.1
+menerapkan perubahan `no-frame` secara live via `set_decorations`
+(`update_window_properties` di `winitwindowadapter.rs`), jadi ganti
+gaya tidak butuh restart. Catatan: sebelum tugas ini, "native" hanya
+menyembunyikan titlebar custom tanpa menampilkan chrome OS (bug laten
+— `no-frame: true` statis); sekarang diperbaiki.
+
+**Tombol kontrol** — `Settings.Chrome.ButtonStyle`
+(`valid_chrome_button_style()`: `"icons"` | `"dots"`, default
+`"icons"`) dan `Settings.Chrome.ButtonPosition`
+(`valid_chrome_button_position()`: `"right"` | `"left"`, default
+`"right"`). Kedua chip hanya tampil untuk custom/wrapped (di native /
+headless tidak ada tombol). Komponen `WindowControls`
+(`ui/design.slint`): gaya icons = tiga tombol 32×24 (─ □ ×); gaya
+dots = pill putih berisi tiga dot pastel 12px (ref
+`~/workspace/pet-refs/chrome-buttons-ref.jpg`) — merah bg `#F6C6C6` /
+× `#A61B1B`, kuning bg `#F5DFA8` / − `#8A5A00`, hijau bg `#BFE8C0` /
+maximize dua segitiga `#166534`; ada varian hover. Lebar dihitung dari
+`btn-count`. Area drag titlebar menghindar dari tombol (108px kanan /
+130px kiri). Di window sekunder, tinggi titlebar mengikuti window-nya
+(Spreadsheet 46px ala C#, sisanya 28px).
+
+**Wrapped** — konten duduk dalam SATU panel rounded inset
+(`surface-elevated`, border 1px `separator`, radius 12px): panel
+`x=8`, `y=chrome-content-y` (36 di main), lebar `width-16`, bawah
+`content-bottom` 8. Titlebar + tombol tetap di frame. Aturan anti
+double-wrap (abeng 22:03, "masa bungkus didalam bungkus ya wkwk"):
+saat wrapped aktif dan Settings dibuka, sidebar Settings pindah ke area
+frame (`x=20..200`, Rectangle sidebar transparan tanpa border) dan
+konten Settings = panel window itu sendiri (panel mulai `x=208`) —
+BUKAN panel kedua. Saat wrapped tidak aktif, Settings pakai panel
+rounded-nya sendiri (lihat §17). **Batasan untuk item layout Settings
+yang akan datang:** panel rounded + collapse sidebar di item itu WAJIB
+cek `chrome == "wrapped"` dan melewati panelnya sendiri saat wrapped
+aktif, supaya tidak double-wrap.
+
+**Headless — drag strip:** strip `TouchArea` 28px teratas, double-click
+= maximize, `win-move` delta → `set_position` (Rust). Strip
+dideklarasikan PALING ATAS (setelah titlebar, sebelum dialog) —
+percobaan pertama menaruhnya di bawah overlay membuat window TIDAK
+bisa dipindah saat Settings dibuka (`settings-back-touch` full-window
++ Flickable isi menelan drag). Konsekuensi: 28px teratas jadi gagang
+drag — klik di pita itu tidak sampai ke konten (ujung atas avatar /
+kapsul nav ±8px; klik tengah avatar/kapsul tetap jalan). Jalur tutup
+di headless: flyout profil → "Log Out" → dialog EXIT → konfirmasi.
+Minimize di headless: tidak ada tombol (taskbar/dock OS saja).
+
+**Sinkronisasi live:** `src/main.rs` — `push_chrome_to_sheet /
+toolbox / cardlist` + `sync_chrome_to_windows()`, dipanggil dari
+`on_apply_appearance` dan `on_reset_appearance` (reset juga
+mengembalikan tombol ke icons + kanan). Window sekunder menerima gaya
+saat dibuat DAN saat dibuka-ulang (`push_chrome_to_*` di handler
+`on_open_*`); perubahan di Settings saat window sekunder sedang
+terbuka langsung diterapkan tanpa restart. Setiap window OS punya
+instans `Design` sendiri — sinkronisasi per-window WAJIB (pelajaran
+yang sama seperti dynamic bar / radial, lihat §21/§19.7a).
+
+**Resize + OS snap:** native = perilaku OS penuh (resize + snap
+bawaan). Gaya frameless (custom/headless/wrapped) = perilaku hari ini:
+drag manual untuk pindah; resize via hit-test tepi winit (Windows) —
+drag manual TIDAK memicu Aero snap (keterbatasan bawaan, sama seperti
+titlebar custom sebelumnya — jangan klaim snap jalan di mode frameless).
+
+**Terverifikasi (27 Nov 2026, Xvfb :98, APPDATA terisolasi
+`appdata-chrome-verify/`, DB asli abeng TIDAK disentuh):** build exit
+0 (warning lama saja), cargo test **66 passed** (64 lama + 2 baru
+validator chrome), 0 failed, 1 ignored. Main window: custom/icons/
+kanan (bawaan); dots kanan (pill putih x 882–953, dot merah
+`(246,198,198)`, kuning, hijau `(191,232,192)` + ikon ×/−/panah);
+dots kiri (pill x 14–85); headless (titlebar hilang, konten dari y=8,
+drag strip: dashboard (0,0)→(80,40), dari Settings — sidebar +
+konten — (0,0)→(80,40)→(140,70), setelah perbaikan strip-topmost);
+wrapped (panel tunggal x 8–952, y 36–632; Settings: sidebar di frame
+x 20–200, konten = panel x 208–952, tanpa panel kedua); native
+(`Settings.Chrome=native`, titlebar custom hilang, preview "Title bar
+OS"). Persistensi: restart → headless tetap, DB
+`Settings.Chrome=headless`, `ButtonStyle=dots`, `ButtonPosition=left`
+tersimpan. Window sekunder: Spreadsheet ("BMachine — Spreadsheet
+Editor" 1000×600) dots kiri → live-sync ke icons kiri saat gaya tombol
+diubah di Settings selagi window terbuka (tanpa restart); CardList
+("BMachine — Trello Cards" 450×600) icons kiri; Toolbox ("BMachine
+Toolbox" 1024×730) icons kiri — dibuka via radial Shift+klik tengah →
+segmen TOOLBOX (Timur) → release-to-execute. Tombol close dot merah
+terbukti menutup Spreadsheet (klik di pusat dot (149,112) → window
+hilang dari daftar visible). Screenshots di
+`~/workspace/rust-gui-contoh/`: `chrome-*.png`.
+
+**Masih terbuka:** (1) maximize/minimize: tombol ter-wire (komponen
+`WindowControls` yang sama dengan close yang terbukti jalan;
+`set_minimized` / `set_maximized` di Rust) tapi efek resize/sembunyi
+TIDAK teramati di Xvfb — tanpa window manager, winit tidak bisa
+menjalankan permintaan min/max; HARUS dites di PC Windows abeng.
+(2) Native: chrome OS sendiri tidak tergambar di Xvfb (tanpa WM);
+yang terbukti baru DB + titlebar custom hilang + binding `no-frame`
+di sumber Slint — tampilan chrome OS asli HARUS dites di Windows.
+(3) OS snap di mode frameless tidak jalan (drag manual saja) —
+keterbatasan bawaan, lihat atas. (4) Perilaku Xvfb yang dicatat saat
+verifikasi (bukan bug aplikasi): klik panah widget kadang meleset
+(handler tidak jalan saat meleset — diduga artefak Xvfb; klik badan
+widget tetap jalan); setelah menutup window sekunder, main window
+kehilangan fokus (tanpa WM) sehingga klik tidak bereaksi sampai
+window di-raise/diklik dulu; `xdotool windowkill` membunuh SELURUH
+proses aplikasi (XKillClient) — jangan pakai untuk menutup SATU window
+sekunder, pakai tombol close-nya; `xprop` tidak terpasang di VM ini.

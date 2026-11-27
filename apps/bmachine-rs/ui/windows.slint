@@ -2,7 +2,7 @@
 // Sesuai arsitektur C# (SpreadsheetWindow.axaml & CardListWindow.axaml)
 // Dibuka saat pengguna mengklik tanda panah widget atau tombol "Buka Window Baru".
 
-import { Design, Btn, SvgIcon, TextField } from "design.slint";
+import { Design, Btn, SvgIcon, TextField, WindowControls } from "design.slint";
 import { SpreadsheetComponent } from "spreadsheet.slint";
 import { TrelloDetailPanel } from "trello-detail.slint";
 import { RadialMenuView } from "radial.slint";
@@ -72,26 +72,95 @@ export component ToolboxWindow inherits Window {
     // ukuran buka 1024x730 tetap sama; lantai resize tidak ditegakkan.
     background: Design.app-bg;
     default-font-family: Design.font-family;
+    // Chrome window (lihat DESIGN_SYSTEM.md §23): "native" = chrome
+    // bawaan OS, lainnya frameless + titlebar kustom di bawah.
+    // Didorong Rust saat window dibuat / pengaturan berubah.
+    no-frame: root.chrome-style != "native";
+    in-out property <string> chrome-style: "custom";
+    in-out property <string> chrome-button-style: "icons";
+    in-out property <string> chrome-button-position: "right";
 
     callback close-window();
+    callback minimize-window();
+    callback maximize-window();
+    callback move-window(length, length);
     callback toast(string);
     in-out property <string> tool-tab: "MantraNama";
+
+    // Drag strip mode headless (tanpa titlebar): seret 28px teratas
+    // konten (di bawah elemen interaktif — tab/tombol tetap
+    // menerima kliknya sendiri).
+    if root.chrome-style == "headless" : TouchArea {
+        x: 0; y: 0;
+        width: 100%;
+        height: 28px;
+        property <length> press-x: 0px;
+        property <length> press-y: 0px;
+        property <bool> dragging: false;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                self.press-x = self.mouse-x;
+                self.press-y = self.mouse-y;
+                self.dragging = true;
+            } else if (ev.kind == PointerEventKind.up) {
+                self.dragging = false;
+            } else if (ev.kind == PointerEventKind.move && self.dragging) {
+                root.move-window(self.mouse-x - self.press-x, self.mouse-y - self.press-y);
+            }
+        }
+    }
 
     VerticalLayout {
         padding: 0;
         spacing: 0;
 
-        // Custom Titlebar Toolbox Window
-        Rectangle {
+        // Custom Titlebar Toolbox Window (hanya saat chrome
+        // "custom" / "wrapped"; saat "native" titlebar OS yang
+        // tampil, saat "headless" tidak ada titlebar sama sekali).
+        // Drag via TouchArea (dulu window ini mengandalkan frame OS
+        // untuk dipindah — sejak chrome kustom, drag harus ada di
+        // titlebar sendiri).
+        if root.chrome-style == "custom" || root.chrome-style == "wrapped" : Rectangle {
             height: 38px;
             background: Design.surface-elevated;
             border-color: Design.separator;
             border-width: 0.5px;
 
+            tb-drag := TouchArea {
+                x: root.chrome-button-position == "left" ? 130px : 0px;
+                y: 0;
+                width: parent.width - (root.chrome-button-position == "left" ? 130px : 108px);
+                height: 100%;
+                property <length> press-x: 0px;
+                property <length> press-y: 0px;
+                property <bool> dragging: false;
+                pointer-event(ev) => {
+                    if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                        self.press-x = self.mouse-x;
+                        self.press-y = self.mouse-y;
+                        self.dragging = true;
+                    } else if (ev.kind == PointerEventKind.up) {
+                        self.dragging = false;
+                    } else if (ev.kind == PointerEventKind.move && self.dragging) {
+                        root.move-window(self.mouse-x - self.press-x, self.mouse-y - self.press-y);
+                    }
+                }
+                double-clicked => { root.maximize-window(); }
+            }
+
             HorizontalLayout {
                 padding-left: 14px;
                 padding-right: 14px;
                 spacing: 8px;
+
+                // Tombol kontrol di kiri (gaya macOS).
+                if root.chrome-button-position == "left" : WindowControls {
+                    y: (parent.height - self.height) / 2;
+                    button-style: root.chrome-button-style;
+                    minimize() => { root.minimize-window(); }
+                    maximize() => { root.maximize-window(); }
+                    close() => { root.close-window(); }
+                }
 
                 Text {
                     text: "BMachine Toolbox";
@@ -103,40 +172,45 @@ export component ToolboxWindow inherits Window {
 
                 Rectangle { horizontal-stretch: 1; }
 
-                // Tombol Tutup Window
-                Rectangle {
-                    width: 28px;
-                    height: 28px;
+                // Tombol kontrol di kanan (gaya Windows, bawaan).
+                if root.chrome-button-position == "right" : WindowControls {
                     y: (parent.height - self.height) / 2;
-                    background: tb-close-touch.has-hover ? Design.status-danger : transparent;
-                    border-radius: Design.radius-sm;
-
-                    tb-close-touch := TouchArea {
-                        mouse-cursor: pointer;
-                        clicked => { root.close-window(); }
-                    }
-
-                    Text {
-                        text: "×";
-                        font-size: 18px;
-                        font-weight: 700;
-                        color: tb-close-touch.has-hover ? #ffffff : Design.text-secondary;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                        width: 100%;
-                        height: 100%;
-                    }
+                    button-style: root.chrome-button-style;
+                    minimize() => { root.minimize-window(); }
+                    maximize() => { root.maximize-window(); }
+                    close() => { root.close-window(); }
                 }
             }
         }
 
-        // Isi Toolbox (komponen yang sama dengan overlay lama).
-        tb := ToolboxView {
-            width: 100%;
+        // Isi Toolbox — dalam panel rounded saat chrome "wrapped"
+        // (titlebar tetap di frame; panel inset 8px).
+        HorizontalLayout {
             vertical-stretch: 1;
-            tool-tab <=> root.tool-tab;
-            back() => { root.close-window(); }
-            toast(text) => { root.toast(text); }
+            padding-left: root.chrome-style == "wrapped" ? 8px : 0px;
+            padding-right: root.chrome-style == "wrapped" ? 8px : 0px;
+            padding-top: root.chrome-style == "wrapped" ? 8px : 0px;
+            padding-bottom: root.chrome-style == "wrapped" ? 8px : 0px;
+            Rectangle {
+                horizontal-stretch: 1;
+                vertical-stretch: 1;
+                background: root.chrome-style == "wrapped" ? Design.surface-elevated : transparent;
+                border-color: Design.separator;
+                border-width: root.chrome-style == "wrapped" ? 1px : 0px;
+                border-radius: root.chrome-style == "wrapped" ? 12px : 0px;
+                clip: true;
+
+                // Isi Toolbox (komponen yang sama dengan overlay lama).
+                tb := ToolboxView {
+                    x: root.chrome-style == "wrapped" ? 8px : 0px;
+                    y: root.chrome-style == "wrapped" ? 8px : 0px;
+                    width: parent.width - (root.chrome-style == "wrapped" ? 16px : 0px);
+                    height: parent.height - (root.chrome-style == "wrapped" ? 16px : 0px);
+                    tool-tab <=> root.tool-tab;
+                    back() => { root.close-window(); }
+                    toast(text) => { root.toast(text); }
+                }
+            }
         }
     }
 }
@@ -308,8 +382,17 @@ export component SpreadsheetWindow inherits Window {
     height: 600px;
     background: Design.app-bg;
     default-font-family: Design.font-family;
+    // Chrome window (lihat DESIGN_SYSTEM.md §23): "native" = chrome
+    // bawaan OS, lainnya frameless + titlebar kustom di bawah.
+    // Didorong Rust saat window dibuat / pengaturan berubah.
+    no-frame: root.chrome-style != "native";
+    in-out property <string> chrome-style: "custom";
+    in-out property <string> chrome-button-style: "icons";
+    in-out property <string> chrome-button-position: "right";
 
     callback close-window();
+    callback minimize-window();
+    callback maximize-window();
     callback toast(string);
     // Guard + draft (Rust): teruskan ke SpreadsheetComponent.
     callback sheet-cell-edited(int, int, string, string);
@@ -337,22 +420,48 @@ export component SpreadsheetWindow inherits Window {
     // Margin 0,0,420,0 — kanan 420px bebas untuk toolbar/tombol close).
     callback move-window(length, length);
 
+    // Drag strip mode headless (tanpa titlebar): seret 28px teratas
+    // konten (di bawah elemen interaktif — toolbar tetap menerima
+    // kliknya sendiri).
+    if root.chrome-style == "headless" : TouchArea {
+        x: 0; y: 0;
+        width: 100%;
+        height: 28px;
+        property <length> press-x: 0px;
+        property <length> press-y: 0px;
+        property <bool> dragging: false;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                self.press-x = self.mouse-x;
+                self.press-y = self.mouse-y;
+                self.dragging = true;
+            } else if (ev.kind == PointerEventKind.up) {
+                self.dragging = false;
+            } else if (ev.kind == PointerEventKind.move && self.dragging) {
+                root.move-window(self.mouse-x - self.press-x, self.mouse-y - self.press-y);
+            }
+        }
+    }
+
     VerticalLayout {
         padding: 0;
         spacing: 0;
 
         // Custom Titlebar Spreadsheet Window — 46px (C# drag handle
         // Height 46); area drag hanya kiri (lebar − 420px), tombol
-        // close di kanan-atas di luar area drag.
-        Rectangle {
+        // close di kanan-atas di luar area drag. Hanya saat chrome
+        // "custom" / "wrapped" (saat "native" titlebar OS yang
+        // tampil, saat "headless" tidak ada titlebar sama sekali).
+        if root.chrome-style == "custom" || root.chrome-style == "wrapped" : Rectangle {
             height: 46px;
             background: Design.surface-elevated;
             border-color: Design.separator;
             border-width: 0.5px;
 
             sheet-drag := TouchArea {
-                x: 0; y: 0;
-                width: max(0px, parent.width - 420px);
+                x: root.chrome-button-position == "left" ? 130px : 0px;
+                y: 0;
+                width: max(0px, parent.width - 420px - (root.chrome-button-position == "left" ? 130px : 0px));
                 height: 100%;
                 mouse-cursor: pointer;
                 property <length> press-x: 0px;
@@ -376,6 +485,15 @@ export component SpreadsheetWindow inherits Window {
                 padding-right: 14px;
                 spacing: 8px;
 
+                // Tombol kontrol di kiri (gaya macOS).
+                if root.chrome-button-position == "left" : WindowControls {
+                    y: (parent.height - self.height) / 2;
+                    button-style: root.chrome-button-style;
+                    minimize() => { root.minimize-window(); }
+                    maximize() => { root.maximize-window(); }
+                    close() => { root.close-window(); }
+                }
+
                 VerticalLayout {
                     alignment: center;
                     SvgIcon {
@@ -395,36 +513,40 @@ export component SpreadsheetWindow inherits Window {
 
                 Rectangle { horizontal-stretch: 1; }
 
-                // Tombol Tutup Window
-                Rectangle {
-                    width: 28px;
-                    height: 28px;
+                // Tombol kontrol di kanan (gaya Windows, bawaan).
+                if root.chrome-button-position == "right" : WindowControls {
                     y: (parent.height - self.height) / 2;
-                    background: close-touch.has-hover ? Design.status-danger : transparent;
-                    border-radius: Design.radius-sm;
-
-                    close-touch := TouchArea {
-                        mouse-cursor: pointer;
-                        clicked => { root.close-window(); }
-                    }
-
-                    Text {
-                        text: "×";
-                        font-size: 18px;
-                        font-weight: 700;
-                        color: close-touch.has-hover ? #ffffff : Design.text-secondary;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                        width: 100%;
-                        height: 100%;
-                    }
+                    button-style: root.chrome-button-style;
+                    minimize() => { root.minimize-window(); }
+                    maximize() => { root.maximize-window(); }
+                    close() => { root.close-window(); }
                 }
             }
         }
 
-        // Isi Spreadsheet
-        SpreadsheetComponent {
-            is-standalone: true;
+        // Isi Spreadsheet — dalam panel rounded saat chrome "wrapped"
+        // (titlebar tetap di frame; panel inset 8px).
+        HorizontalLayout {
+            vertical-stretch: 1;
+            padding-left: root.chrome-style == "wrapped" ? 8px : 0px;
+            padding-right: root.chrome-style == "wrapped" ? 8px : 0px;
+            padding-top: root.chrome-style == "wrapped" ? 8px : 0px;
+            padding-bottom: root.chrome-style == "wrapped" ? 8px : 0px;
+            Rectangle {
+                horizontal-stretch: 1;
+                vertical-stretch: 1;
+                background: root.chrome-style == "wrapped" ? Design.surface-elevated : transparent;
+                border-color: Design.separator;
+                border-width: root.chrome-style == "wrapped" ? 1px : 0px;
+                border-radius: root.chrome-style == "wrapped" ? 12px : 0px;
+                clip: true;
+
+                SpreadsheetComponent {
+                    x: root.chrome-style == "wrapped" ? 8px : 0px;
+                    y: root.chrome-style == "wrapped" ? 8px : 0px;
+                    width: parent.width - (root.chrome-style == "wrapped" ? 16px : 0px);
+                    height: parent.height - (root.chrome-style == "wrapped" ? 16px : 0px);
+                    is-standalone: true;
             col-a <=> root.col-a;
             col-b <=> root.col-b;
             col-c <=> root.col-c;
@@ -446,6 +568,8 @@ export component SpreadsheetWindow inherits Window {
             refresh-data() => { root.sheet-refresh(); }
             toast(msg) => { root.toast(msg); }
             close-view() => { root.close-window(); }
+                }
+            }
         }
     }
 }
@@ -463,6 +587,13 @@ export component CardListWindow inherits Window {
     height: 600px;
     background: Design.app-bg;
     default-font-family: Design.font-family;
+    // Chrome window (lihat DESIGN_SYSTEM.md §23): "native" = chrome
+    // bawaan OS, lainnya frameless + titlebar kustom di bawah.
+    // Didorong Rust saat window dibuat / pengaturan berubah.
+    no-frame: root.chrome-style != "native";
+    in-out property <string> chrome-style: "custom";
+    in-out property <string> chrome-button-style: "icons";
+    in-out property <string> chrome-button-position: "right";
 
     in-out property <string> category: "EDITING";
     in-out property <color> category-accent: Design.cat-editing;
@@ -481,24 +612,86 @@ export component CardListWindow inherits Window {
     in-out property <[bool]> card-done: [];
 
     callback close-window();
+    callback minimize-window();
+    callback maximize-window();
+    callback move-window(length, length);
     callback toggle-done(int);
     callback toast(string);
+
+    // Drag strip mode headless (tanpa titlebar): seret 28px teratas
+    // konten (di bawah elemen interaktif — search bar tetap
+    // menerima kliknya sendiri).
+    if root.chrome-style == "headless" : TouchArea {
+        x: 0; y: 0;
+        width: 100%;
+        height: 28px;
+        property <length> press-x: 0px;
+        property <length> press-y: 0px;
+        property <bool> dragging: false;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                self.press-x = self.mouse-x;
+                self.press-y = self.mouse-y;
+                self.dragging = true;
+            } else if (ev.kind == PointerEventKind.up) {
+                self.dragging = false;
+            } else if (ev.kind == PointerEventKind.move && self.dragging) {
+                root.move-window(self.mouse-x - self.press-x, self.mouse-y - self.press-y);
+            }
+        }
+    }
 
     VerticalLayout {
         padding: 0;
         spacing: 0;
 
-        // Custom Titlebar Card List Window
-        Rectangle {
+        // Custom Titlebar Card List Window (hanya saat chrome
+        // "custom" / "wrapped"; saat "native" titlebar OS yang
+        // tampil, saat "headless" tidak ada titlebar sama sekali).
+        // Drag via TouchArea (dulu window ini mengandalkan frame OS
+        // untuk dipindah — sejak chrome kustom, drag harus ada di
+        // titlebar sendiri).
+        if root.chrome-style == "custom" || root.chrome-style == "wrapped" : Rectangle {
             height: 38px;
             background: Design.surface-elevated;
             border-color: Design.separator;
             border-width: 0.5px;
 
+            card-drag := TouchArea {
+                x: root.chrome-button-position == "left" ? 130px : 0px;
+                y: 0;
+                width: parent.width - (root.chrome-button-position == "left" ? 130px : 108px);
+                height: 100%;
+                property <length> press-x: 0px;
+                property <length> press-y: 0px;
+                property <bool> dragging: false;
+                pointer-event(ev) => {
+                    if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                        self.press-x = self.mouse-x;
+                        self.press-y = self.mouse-y;
+                        self.dragging = true;
+                    } else if (ev.kind == PointerEventKind.up) {
+                        self.dragging = false;
+                    } else if (ev.kind == PointerEventKind.move && self.dragging) {
+                        root.move-window(self.mouse-x - self.press-x, self.mouse-y - self.press-y);
+                    }
+                }
+                double-clicked => { root.maximize-window(); }
+            }
+
             HorizontalLayout {
                 padding-left: 14px;
                 padding-right: 14px;
                 spacing: 8px;
+
+                // Tombol kontrol di kiri (gaya macOS).
+                if root.chrome-button-position == "left" : WindowControls {
+                    y: (parent.height - self.height) / 2;
+                    button-style: root.chrome-button-style;
+                    minimize() => { root.minimize-window(); }
+                    maximize() => { root.maximize-window(); }
+                    close() => { root.close-window(); }
+                }
 
                 Rectangle {
                     width: 8px; height: 8px;
@@ -517,29 +710,13 @@ export component CardListWindow inherits Window {
 
                 Rectangle { horizontal-stretch: 1; }
 
-                // Tombol Tutup Window
-                Rectangle {
-                    width: 28px;
-                    height: 28px;
+                // Tombol kontrol di kanan (gaya Windows, bawaan).
+                if root.chrome-button-position == "right" : WindowControls {
                     y: (parent.height - self.height) / 2;
-                    background: card-close-touch.has-hover ? Design.status-danger : transparent;
-                    border-radius: Design.radius-sm;
-
-                    card-close-touch := TouchArea {
-                        mouse-cursor: pointer;
-                        clicked => { root.close-window(); }
-                    }
-
-                    Text {
-                        text: "×";
-                        font-size: 18px;
-                        font-weight: 700;
-                        color: card-close-touch.has-hover ? #ffffff : Design.text-secondary;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                        width: 100%;
-                        height: 100%;
-                    }
+                    button-style: root.chrome-button-style;
+                    minimize() => { root.minimize-window(); }
+                    maximize() => { root.maximize-window(); }
+                    close() => { root.close-window(); }
                 }
             }
         }
@@ -548,8 +725,28 @@ export component CardListWindow inherits Window {
         // CompactThreshold 800; window 450px selalu compact — daftar
         // tampil saat belum ada kartu dipilih, detail layar penuh saat
         // ada kartu dipilih). `if` dipakai, bukan `visible` (visible:
-        // false tetap makan ruang di layout Slint).
+        // false tetap makan ruang di layout Slint). Dalam panel
+        // rounded saat chrome "wrapped" (titlebar tetap di frame;
+        // panel inset 8px).
         HorizontalLayout {
+            vertical-stretch: 1;
+            padding-left: root.chrome-style == "wrapped" ? 8px : 0px;
+            padding-right: root.chrome-style == "wrapped" ? 8px : 0px;
+            padding-top: root.chrome-style == "wrapped" ? 8px : 0px;
+            padding-bottom: root.chrome-style == "wrapped" ? 8px : 0px;
+            Rectangle {
+                horizontal-stretch: 1;
+                vertical-stretch: 1;
+                background: root.chrome-style == "wrapped" ? Design.surface-elevated : transparent;
+                border-color: Design.separator;
+                border-width: root.chrome-style == "wrapped" ? 1px : 0px;
+                border-radius: root.chrome-style == "wrapped" ? 12px : 0px;
+                clip: true;
+        HorizontalLayout {
+            x: root.chrome-style == "wrapped" ? 8px : 0px;
+            y: root.chrome-style == "wrapped" ? 8px : 0px;
+            width: parent.width - (root.chrome-style == "wrapped" ? 16px : 0px);
+            height: parent.height - (root.chrome-style == "wrapped" ? 16px : 0px);
             padding: Design.space-md;
             spacing: Design.space-md;
 
@@ -699,6 +896,8 @@ export component CardListWindow inherits Window {
                     done: root.card-done[root.selected-idx];
                     description: "Edit pas foto sekolah — crop, centering kepala di guide, logo terlihat rapi dan warna seimbang.";
                     close() => { root.selected-idx = -1; root.toast("Detail ditutup"); }
+                }
+            }
                 }
             }
         }

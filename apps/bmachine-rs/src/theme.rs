@@ -46,6 +46,38 @@ pub fn valid_widget_style(raw: &str) -> String {
     }
 }
 
+/// Validasi gaya window chrome — nilai tak dikenal → "custom".
+/// "custom" = titlebar kustom 28px; "headless" = tanpa titlebar;
+/// "native" = chrome bawaan OS; "wrapped" = titlebar kustom + konten
+/// dalam panel rounded inset (lihat DESIGN_SYSTEM.md §23).
+pub fn valid_chrome_style(raw: &str) -> String {
+    match unquote(raw).to_lowercase().as_str() {
+        "headless" => "headless".to_string(),
+        "native" => "native".to_string(),
+        "wrapped" => "wrapped".to_string(),
+        _ => "custom".to_string(),
+    }
+}
+
+/// Validasi gaya tombol kontrol window — nilai tak dikenal → "icons".
+/// "icons" = glyph ─ □ ×; "dots" = traffic-light pastel ala macOS
+/// (tiga dot dalam pill putih, ref chrome-buttons-ref.jpg).
+pub fn valid_chrome_button_style(raw: &str) -> String {
+    match unquote(raw).to_lowercase().as_str() {
+        "dots" => "dots".to_string(),
+        _ => "icons".to_string(),
+    }
+}
+
+/// Validasi posisi tombol kontrol window — nilai tak dikenal → "right".
+/// "left" = gaya macOS (kiri), "right" = gaya Windows (kanan).
+pub fn valid_chrome_button_position(raw: &str) -> String {
+    match unquote(raw).to_lowercase().as_str() {
+        "left" => "left".to_string(),
+        _ => "right".to_string(),
+    }
+}
+
 impl ThemePalette {
     fn new(
         id: &str,
@@ -937,7 +969,15 @@ pub fn load_theme_from_db(ui: &AppWindow, db: &DatabaseService) {
         ui.set_app_nav_style(SharedString::from(unquote(&v)));
     }
     if let Some(v) = db.get("Settings.Chrome") {
-        ui.set_app_chrome(SharedString::from(unquote(&v)));
+        ui.set_app_chrome(SharedString::from(valid_chrome_style(&v)));
+    }
+    if let Some(v) = db.get("Settings.Chrome.ButtonStyle") {
+        ui.set_app_chrome_button_style(SharedString::from(valid_chrome_button_style(&v)));
+    }
+    if let Some(v) = db.get("Settings.Chrome.ButtonPosition") {
+        ui.set_app_chrome_button_position(SharedString::from(valid_chrome_button_position(
+            &v,
+        )));
     }
     // Kepadatan (C# `Settings.UiDensity`: "Compact"/"Normal"/
     // "Comfortable", dikutip JSON) → "compact"/"normal"/"comfortable".
@@ -1017,7 +1057,21 @@ pub fn save_theme_to_db(ui: &AppWindow, db: &mut DatabaseService) {
         ui.get_app_nav_style().as_str(),
         "String",
     );
-    let _ = db.set("Settings.Chrome", ui.get_app_chrome().as_str(), "String");
+    let _ = db.set(
+        "Settings.Chrome",
+        valid_chrome_style(ui.get_app_chrome().as_str()).as_str(),
+        "String",
+    );
+    let _ = db.set(
+        "Settings.Chrome.ButtonStyle",
+        valid_chrome_button_style(ui.get_app_chrome_button_style().as_str()).as_str(),
+        "String",
+    );
+    let _ = db.set(
+        "Settings.Chrome.ButtonPosition",
+        valid_chrome_button_position(ui.get_app_chrome_button_position().as_str()).as_str(),
+        "String",
+    );
     // Kepadatan — nilai kapital seperti C# (`UiDensityService`).
     let density = match ui.get_app_ui_density().as_str() {
         "compact" => "Compact",
@@ -1077,6 +1131,30 @@ mod tests {
         assert!(palette_for("gwen").is_some());
         assert!(palette_for("armor").is_some());
         assert!(palette_for("tidak-ada").is_none());
+    }
+
+    #[test]
+    fn valid_chrome_style_accepts_known_and_defaults_unknown() {
+        assert_eq!(valid_chrome_style("custom"), "custom");
+        assert_eq!(valid_chrome_style("headless"), "headless");
+        assert_eq!(valid_chrome_style("native"), "native");
+        assert_eq!(valid_chrome_style("wrapped"), "wrapped");
+        assert_eq!(valid_chrome_style("WRAPPED"), "wrapped");
+        assert_eq!(valid_chrome_style("\"native\""), "native");
+        assert_eq!(valid_chrome_style("aneh"), "custom");
+        assert_eq!(valid_chrome_style(""), "custom");
+    }
+
+    #[test]
+    fn valid_chrome_button_style_and_position_default_unknown() {
+        assert_eq!(valid_chrome_button_style("dots"), "dots");
+        assert_eq!(valid_chrome_button_style("icons"), "icons");
+        assert_eq!(valid_chrome_button_style("DOTS"), "dots");
+        assert_eq!(valid_chrome_button_style("aneh"), "icons");
+        assert_eq!(valid_chrome_button_position("left"), "left");
+        assert_eq!(valid_chrome_button_position("right"), "right");
+        assert_eq!(valid_chrome_button_position("LEFT"), "left");
+        assert_eq!(valid_chrome_button_position("tengah"), "right");
     }
 
     #[test]

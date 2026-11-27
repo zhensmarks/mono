@@ -989,10 +989,45 @@ fn open_toolbox_window(
                     ui.set_toast(msg);
                 }
             });
+            // Tombol kontrol chrome (min/max) + drag (titlebar kustom
+            // / strip headless) + gaya chrome awal dari AppWindow
+            // (lihat DESIGN_SYSTEM.md §23).
+            let w_weak_min = w.as_weak();
+            w.on_minimize_window(move || {
+                if let Some(w) = w_weak_min.upgrade() {
+                    w.window().set_minimized(true);
+                }
+            });
+            let w_weak_max = w.as_weak();
+            w.on_maximize_window(move || {
+                if let Some(w) = w_weak_max.upgrade() {
+                    let m = w.window().is_maximized();
+                    w.window().set_maximized(!m);
+                }
+            });
+            let w_weak_move = w.as_weak();
+            w.on_move_window(move |dx, dy| {
+                if let Some(w) = w_weak_move.upgrade() {
+                    let scale = w.window().scale_factor();
+                    let pos = w.window().position();
+                    w.window().set_position(slint::PhysicalPosition::new(
+                        pos.x + (dx * scale) as i32,
+                        pos.y + (dy * scale) as i32,
+                    ));
+                }
+            });
+            if let Some(ui) = ui_weak.upgrade() {
+                push_chrome_to_toolbox(&w, &ui);
+            }
             *opt = Some(w);
         }
     }
     if let Some(w) = opt.as_ref() {
+        // Gaya chrome saat ini (bisa berubah selagi window tertutup
+        // — dorong lagi tiap buka-ulang).
+        if let Some(ui) = ui_weak.upgrade() {
+            push_chrome_to_toolbox(w, &ui);
+        }
         w.set_tool_tab(slint::SharedString::from(tab));
         if let Some(ui) = ui_weak.upgrade() {
             let (cx, cy) = center_over_main(&ui, 1024, 730);
@@ -1590,6 +1625,59 @@ fn sync_radial_theme(ui: &AppWindow, cell: &std::rc::Rc<std::cell::RefCell<Optio
     }
 }
 
+/// Dorong gaya chrome (style + gaya/posisi tombol) ke satu window
+/// sekunder ber-chrome. Dipakai saat window dibuat (nilai awal dari
+/// AppWindow) dan saat pengaturan chrome berubah.
+fn push_chrome_to_sheet(w: &SpreadsheetWindow, ui: &AppWindow) {
+    w.set_chrome_style(slint::SharedString::from(ui.get_app_chrome()));
+    w.set_chrome_button_style(slint::SharedString::from(
+        ui.get_app_chrome_button_style(),
+    ));
+    w.set_chrome_button_position(slint::SharedString::from(
+        ui.get_app_chrome_button_position(),
+    ));
+}
+
+fn push_chrome_to_toolbox(w: &ToolboxWindow, ui: &AppWindow) {
+    w.set_chrome_style(slint::SharedString::from(ui.get_app_chrome()));
+    w.set_chrome_button_style(slint::SharedString::from(
+        ui.get_app_chrome_button_style(),
+    ));
+    w.set_chrome_button_position(slint::SharedString::from(
+        ui.get_app_chrome_button_position(),
+    ));
+}
+
+fn push_chrome_to_cardlist(w: &CardListWindow, ui: &AppWindow) {
+    w.set_chrome_style(slint::SharedString::from(ui.get_app_chrome()));
+    w.set_chrome_button_style(slint::SharedString::from(
+        ui.get_app_chrome_button_style(),
+    ));
+    w.set_chrome_button_position(slint::SharedString::from(
+        ui.get_app_chrome_button_position(),
+    ));
+}
+
+/// Sinkronkan gaya chrome ke window sekunder yang sedang tampil
+/// (dipakai handler appearance — tanpa ini window yang sudah
+/// terbuka ketinggalan gaya chrome baru; berlaku live tanpa restart).
+fn sync_chrome_to_windows(
+    ui: &AppWindow,
+    sheet_cell: &std::rc::Rc<std::cell::RefCell<Option<SpreadsheetWindow>>>,
+    toolbox_cell: &std::rc::Rc<std::cell::RefCell<Option<ToolboxWindow>>>,
+    card_cell: &std::rc::Rc<std::cell::RefCell<Option<CardListWindow>>>,
+) {
+    if let Some(w) = sheet_cell.borrow().as_ref() {
+        push_chrome_to_sheet(w, ui);
+    }
+    if let Some(w) = toolbox_cell.borrow().as_ref() {
+        push_chrome_to_toolbox(w, ui);
+    }
+    if let Some(w) = card_cell.borrow().as_ref() {
+        push_chrome_to_cardlist(w, ui);
+    }
+}
+
 /// Dorong gaya + geometri ring ke window radial: gaya ("glass" |
 /// "hud" | "flat"), jumlah segmen, dan semua perintah Path / posisi
 /// tombol yang dihitung mesin geometri dari N (split rule).
@@ -2042,6 +2130,16 @@ fn main() -> Result<(), slint::PlatformError> {
     // handler tema harus bisa menyinkronkan aksen ke radial yang
     // sedang tampil; window-nya sendiri baru dibuat saat dibuka).
     let radial_win_cell: std::rc::Rc<std::cell::RefCell<Option<RadialMenuWindow>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(None));
+    // Window sekunder ber-chrome (Spreadsheet / CardList / Toolbox) —
+    // dibuat awal juga (alasan sama: handler appearance harus bisa
+    // mendorong gaya chrome ke window yang sedang tampil, live tanpa
+    // restart; window-nya sendiri baru dibuat saat dibuka).
+    let sheet_win_cell: std::rc::Rc<std::cell::RefCell<Option<SpreadsheetWindow>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(None));
+    let card_win_cell: std::rc::Rc<std::cell::RefCell<Option<CardListWindow>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(None));
+    let toolbox_win_cell: std::rc::Rc<std::cell::RefCell<Option<ToolboxWindow>>> =
         std::rc::Rc::new(std::cell::RefCell::new(None));
     // Waktu drag terakhir mode pet (wander tidak jalan 5 detik
     // setelah user selesai men-drag avatar).
@@ -2792,6 +2890,9 @@ fn main() -> Result<(), slint::PlatformError> {
         let db_clone = db.clone();
         let bar_cell_sync = bar_win_cell.clone();
         let radial_cell_sync = radial_win_cell.clone();
+        let sheet_cell_sync = sheet_win_cell.clone();
+        let toolbox_cell_sync = toolbox_win_cell.clone();
+        let card_cell_sync = card_win_cell.clone();
         ui.on_apply_appearance(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 match theme::apply_appearance(&ui) {
@@ -2803,6 +2904,12 @@ fn main() -> Result<(), slint::PlatformError> {
                         }
                         sync_bar_theme(&ui, &bar_cell_sync);
                         sync_radial_theme(&ui, &radial_cell_sync);
+                        sync_chrome_to_windows(
+                            &ui,
+                            &sheet_cell_sync,
+                            &toolbox_cell_sync,
+                            &card_cell_sync,
+                        );
                     }
                     Err(msg) => {
                         ui.set_toast(slint::SharedString::from(msg));
@@ -2816,6 +2923,9 @@ fn main() -> Result<(), slint::PlatformError> {
         let db_clone = db.clone();
         let bar_cell_sync = bar_win_cell.clone();
         let radial_cell_sync = radial_win_cell.clone();
+        let sheet_cell_sync = sheet_win_cell.clone();
+        let toolbox_cell_sync = toolbox_win_cell.clone();
+        let card_cell_sync = card_win_cell.clone();
         ui.on_reset_appearance(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 ui.set_app_color_mode(slint::SharedString::from("dark"));
@@ -2843,9 +2953,17 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.set_app_corner_style(slint::SharedString::from("default"));
                 ui.set_app_nav_style(slint::SharedString::from("capsule"));
                 ui.set_app_chrome(slint::SharedString::from("custom"));
+                ui.set_app_chrome_button_style(slint::SharedString::from("icons"));
+                ui.set_app_chrome_button_position(slint::SharedString::from("right"));
                 let _ = theme::apply_appearance(&ui);
                 sync_bar_theme(&ui, &bar_cell_sync);
                 sync_radial_theme(&ui, &radial_cell_sync);
+                sync_chrome_to_windows(
+                    &ui,
+                    &sheet_cell_sync,
+                    &toolbox_cell_sync,
+                    &card_cell_sync,
+                );
                 if let Some(ref db_mutex) = db_clone {
                     if let Ok(mut db_guard) = db_mutex.lock() {
                         theme::save_theme_to_db(&ui, &mut db_guard);
@@ -3367,10 +3485,6 @@ fn main() -> Result<(), slint::PlatformError> {
     }
 
     // ---- Standalone Multi-Window Handlers (SpreadsheetWindow & CardListWindow) ----
-    let sheet_win_cell: std::rc::Rc<std::cell::RefCell<Option<SpreadsheetWindow>>> =
-        std::rc::Rc::new(std::cell::RefCell::new(None));
-    let card_win_cell: std::rc::Rc<std::cell::RefCell<Option<CardListWindow>>> =
-        std::rc::Rc::new(std::cell::RefCell::new(None));
 
     {
         let sheet_cell = sheet_win_cell.clone();
@@ -3415,6 +3529,24 @@ fn main() -> Result<(), slint::PlatformError> {
                                 .set_position(slint::PhysicalPosition::new(nx, ny));
                         }
                     });
+                    // Tombol kontrol chrome (min/max) + gaya chrome
+                    // awal dari AppWindow (lihat DESIGN_SYSTEM.md §23).
+                    let w_weak_min = w.as_weak();
+                    w.on_minimize_window(move || {
+                        if let Some(w) = w_weak_min.upgrade() {
+                            w.window().set_minimized(true);
+                        }
+                    });
+                    let w_weak_max = w.as_weak();
+                    w.on_maximize_window(move || {
+                        if let Some(w) = w_weak_max.upgrade() {
+                            let m = w.window().is_maximized();
+                            w.window().set_maximized(!m);
+                        }
+                    });
+                    if let Some(ui) = ui_weak.upgrade() {
+                        push_chrome_to_sheet(&w, &ui);
+                    }
                     // Spreadsheet guard + draft: teruskan callback window
                     // ke state bersama (sama seperti handler window utama).
                     let state_edit = sheet_state.clone();
@@ -3487,6 +3619,11 @@ fn main() -> Result<(), slint::PlatformError> {
                 }
             }
             if let Some(w) = opt.as_ref() {
+                // Gaya chrome saat ini (bisa berubah selagi window
+                // tertutup — dorong lagi tiap buka-ulang).
+                if let Some(ui) = ui_weak.upgrade() {
+                    push_chrome_to_sheet(w, &ui);
+                }
                 // Pulihkan posisi/ukuran terakhir dari DB (C#: buka ->
                 // pulihkan, Activate() bila sudah terbuka). Posisi di-clamp
                 // >= 0: simpanan lama X=-20 (center 1000px di main 960px
@@ -3626,10 +3763,45 @@ fn main() -> Result<(), slint::PlatformError> {
                             let _ = w.hide();
                         }
                     });
+                    // Tombol kontrol chrome (min/max) + drag (titlebar
+                    // kustom / strip headless) + gaya chrome awal dari
+                    // AppWindow (lihat DESIGN_SYSTEM.md §23).
+                    let w_weak_min = w.as_weak();
+                    w.on_minimize_window(move || {
+                        if let Some(w) = w_weak_min.upgrade() {
+                            w.window().set_minimized(true);
+                        }
+                    });
+                    let w_weak_max = w.as_weak();
+                    w.on_maximize_window(move || {
+                        if let Some(w) = w_weak_max.upgrade() {
+                            let m = w.window().is_maximized();
+                            w.window().set_maximized(!m);
+                        }
+                    });
+                    let w_weak_move = w.as_weak();
+                    w.on_move_window(move |dx, dy| {
+                        if let Some(w) = w_weak_move.upgrade() {
+                            let scale = w.window().scale_factor();
+                            let pos = w.window().position();
+                            w.window().set_position(slint::PhysicalPosition::new(
+                                pos.x + (dx * scale) as i32,
+                                pos.y + (dy * scale) as i32,
+                            ));
+                        }
+                    });
+                    if let Some(ui) = ui_weak.upgrade() {
+                        push_chrome_to_cardlist(&w, &ui);
+                    }
                     *opt = Some(w);
                 }
             }
             if let Some(w) = opt.as_ref() {
+                // Gaya chrome saat ini (bisa berubah selagi window
+                // tertutup — dorong lagi tiap buka-ulang).
+                if let Some(ui) = ui_weak.upgrade() {
+                    push_chrome_to_cardlist(w, &ui);
+                }
                 w.set_category(slint::SharedString::from(cat_str.clone()));
                 if let Some(main_ui) = ui_weak.upgrade() {
                     if cat_str == "EDITING" {
@@ -3971,10 +4143,9 @@ fn main() -> Result<(), slint::PlatformError> {
 
     // ---- Radial / Toolbox / ReportBug — window OS (C#
     // RadialMenuWindow / ToolboxWindow / ReportBugDialog). ----
-    // (radial_win_cell dibuat di atas, dekat bar_win_cell, supaya
-    // handler tema bisa menyinkronkan aksen ke radial.)
-    let toolbox_win_cell: std::rc::Rc<std::cell::RefCell<Option<ToolboxWindow>>> =
-        std::rc::Rc::new(std::cell::RefCell::new(None));
+    // (toolbox_win_cell dibuat di atas, dekat bar_win_cell, supaya
+    // handler appearance bisa mendorong gaya chrome ke toolbox yang
+    // sedang tampil.)
     let toolbox_visible: std::rc::Rc<std::cell::Cell<bool>> =
         std::rc::Rc::new(std::cell::Cell::new(false));
     let bug_win_cell: std::rc::Rc<std::cell::RefCell<Option<ReportBugDialog>>> =
