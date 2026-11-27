@@ -17,6 +17,10 @@ use doc_manager::DocManager;
 use local_update::LocalUpdateService;
 use process_log::ProcessLogService;
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicU8, Ordering};
+use std::cell::Cell;
+use std::io::Write;
+use rdev::{Button, Event, EventType, Key};
 
 // TABEL GLOBAL EXPLORER — digenerate tools/gen_explorer_data.py.
 // (folder-key, path, name, kind, ext, base, size, date, preview, loc)
@@ -24,6 +28,106 @@ use std::sync::{Arc, Mutex};
 // TABEL GLOBAL EXPLORER — digenerate tools/gen_explorer_data.py.
 // (folder-key, path, name, kind, ext, base, size, date, preview, loc)
 // Dipakai search (rekursif, substring case-insensitive) & type-ahead.
+// Radial menu global trigger config. The C# `ShortcutConfig` JSON shape is
+// mirrored here so the Rust port can read the same DB key without changing
+// the C# app's storage format.
+#[derive(serde::Deserialize)]
+struct RadialShortcutConfig {
+    #[serde(default = "default_trigger_type")]
+    Type: u8,
+    #[serde(default = "default_mouse_button")]
+    MouseButton: u8,
+    #[serde(default = "default_trigger_key")]
+    Key: u32,
+    #[serde(default = "default_trigger_modifiers")]
+    Modifiers: u8,
+}
+
+fn default_trigger_type() -> u8 { 1 }
+fn default_mouse_button() -> u8 { 2 }
+fn default_trigger_key() -> u32 { 222 }
+fn default_trigger_modifiers() -> u8 { 12 }
+
+fn vk_to_rdev_key(vk: u32) -> Option<Key> {
+    match vk {
+        1 => Some(Key::Backspace),
+        2 => Some(Key::Escape),
+        3 => Some(Key::Tab),
+        4 => Some(Key::CapsLock),
+        5 => Some(Key::F6),
+        6 => Some(Key::F5),
+        7 => Some(Key::F4),
+        8 => Some(Key::F3),
+        9 => Some(Key::F2),
+        10 => Some(Key::F1),
+        11 => Some(Key::Delete),
+        12 => Some(Key::Home),
+        13 => Some(Key::Return),
+        14 => Some(Key::ShiftLeft),
+        15 => Some(Key::ShiftLeft),
+        16 => Some(Key::ControlLeft),
+        17 => Some(Key::ControlRight),
+        18 => Some(Key::Alt),
+        19 => Some(Key::Alt),
+        20 => Some(Key::Alt),
+        21 => Some(Key::MetaLeft),
+        22 => Some(Key::MetaRight),
+        27 => Some(Key::Escape),
+        28 => Some(Key::End),
+        29 => Some(Key::PageDown),
+        30 => Some(Key::PageUp),
+        31 => Some(Key::Insert),
+        32 => Some(Key::Space),
+        33 => Some(Key::LeftArrow),
+        34 => Some(Key::UpArrow),
+        35 => Some(Key::RightArrow),
+        36 => Some(Key::DownArrow),
+        37 => Some(Key::PrintScreen),
+        38 => Some(Key::ScrollLock),
+        39 => Some(Key::Pause),
+        91 => Some(Key::MetaLeft),
+        92 => Some(Key::MetaRight),
+        106 => Some(Key::KpMultiply),
+        107 => Some(Key::KpPlus),
+        109 => Some(Key::KpMinus),
+        110 => Some(Key::Kp0),
+        111 => Some(Key::KpDivide),
+        112 => Some(Key::F1),
+        113 => Some(Key::F2),
+        114 => Some(Key::F3),
+        115 => Some(Key::F4),
+        116 => Some(Key::F5),
+        117 => Some(Key::F6),
+        118 => Some(Key::F7),
+        119 => Some(Key::F8),
+        120 => Some(Key::F9),
+        121 => Some(Key::F10),
+        122 => Some(Key::F11),
+        123 => Some(Key::F12),
+        186 => Some(Key::SemiColon),
+        187 => Some(Key::Equal),
+        188 => Some(Key::LeftBracket),
+        189 => Some(Key::Minus),
+        190 => Some(Key::Dot),
+        191 => Some(Key::Comma),
+        192 => Some(Key::BackQuote),
+        // SharpHook KeyCode::VcOem6 / C# legacy radial default.
+        219 => Some(Key::LeftBracket),
+        221 => Some(Key::RightBracket),
+        222 => Some(Key::Quote),
+        _ => None,
+    }
+}
+
+fn mouse_button_index_to_rdev(index: u8) -> Option<Button> {
+    match index {
+        0 => Some(Button::Left),
+        1 => Some(Button::Right),
+        2 => Some(Button::Middle),
+        _ => None,
+    }
+}
+
 static EXPLORER_ITEMS: &[(&str, &str, &str, &str, &str, &str, &str, &str, &str, &str)] = &[
     ("root", "D:\\#GAWENA", "08 AGUSTUS 2026", "folder", "", "08 AGUSTUS 2026", "", "12 Agu 2026", "", "#GAWENA"),
     ("root", "D:\\#GAWENA", "09 SEPTEMBER 2026", "folder", "", "09 SEPTEMBER 2026", "", "9 Sep 2026", "", "#GAWENA"),
@@ -137,6 +241,9 @@ fn main() -> Result<(), slint::PlatformError> {
     // QA/report helper: membuka state tertentu lewat argumen startup, tanpa
     // menyuntik klik mouse/keyboard ke user. Dipakai runner screenshot VM;
     // tidak ada efek bila aplikasi dijalankan normal (tanpa argumen).
+    let mut no_splash = false;
+    let mut radial_test = false;
+    let mut simulate_hotkey = false;
     for arg in std::env::args().skip(1) {
         if let Some(v) = arg.strip_prefix("--view=") {
             ui.set_overlay_view(v.into());
@@ -148,9 +255,33 @@ fn main() -> Result<(), slint::PlatformError> {
             ui.set_show_logpanel(true);
         } else if arg == "--flyout" {
             ui.set_show_flyout(true);
+        } else if arg == "--no-splash" {
+            no_splash = true;
+        } else if arg == "--radial-test" {
+            radial_test = true;
+        } else if arg == "--simulate-hotkey" {
+            simulate_hotkey = true;
         } else if let Some(v) = arg.strip_prefix("--dialog=") {
             ui.set_dialog_open(v.into());
         }
+    }
+
+    // QA helper: open the radial overlay immediately, without needing the
+    // global shortcut (used to screenshot the radial state in a VM).
+    if radial_test {
+        ui.set_radial_open(true);
+    }
+
+    if simulate_hotkey {
+        let sim = slint::Timer::default();
+        sim.start(slint::TimerMode::SingleShot, std::time::Duration::from_secs(2), move || {
+            let _ = rdev::simulate(&rdev::EventType::KeyPress(Key::MetaLeft));
+            let _ = rdev::simulate(&rdev::EventType::KeyPress(Key::ShiftLeft));
+            let _ = rdev::simulate(&rdev::EventType::KeyPress(Key::Quote));
+            let _ = rdev::simulate(&rdev::EventType::KeyRelease(Key::Quote));
+            let _ = rdev::simulate(&rdev::EventType::KeyRelease(Key::ShiftLeft));
+            let _ = rdev::simulate(&rdev::EventType::KeyRelease(Key::MetaLeft));
+        });
     }
 
     // Inisialisasi Database SQLite BMachine.db nyata di AppData/BMachine
@@ -164,6 +295,10 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let doc_mgr = Arc::new(Mutex::new(DocManager::default()));
     let proc_log = Arc::new(Mutex::new(ProcessLogService::default()));
+    {
+        // Benih log startup nyata (mencerminkan langkah bootstrapper C#).
+        proc_log.lock().unwrap().seed_boot();
+    }
 
     // Sinkronisasi baca setting awal dari SQLite jika ada
     let mut init_trello_key = String::new();
@@ -426,7 +561,10 @@ fn main() -> Result<(), slint::PlatformError> {
 
     // ---- FASE 5: BOOTSTRAPPER & SPLASH SCREEN ----
     // Sesuai siklus C# (Bootstrapper.cs): SQLite -> Theme & UI -> Preload Settings -> Python & Scripts -> Done
-    {
+    // QA: --no-splash skip siklus animasi, langsung ke main (log tetap terisi).
+    if no_splash {
+        ui.set_app_stage(slint::SharedString::from("main"));
+    } else {
         let ui_handle = ui.as_weak();
         let proc_log_clone = Arc::clone(&proc_log);
         std::thread::spawn(move || {
@@ -536,13 +674,161 @@ fn main() -> Result<(), slint::PlatformError> {
         let _ = mgr.write_doc_info_json(0);
     }
 
-    // ---- FASE 5: LOG PROGRESS WATCHER ----
+    // ---- FASE 5: LOG PROGRESS WATCHER (live) ----
+    // Thread nyata mem-poll file progress/result C# (%TEMP%\bmachine_*.json)
+    // tiap ~150ms (throttle UI, bukan append per-baris) dan mendorong snapshot
+    // (baris log terbaru + status + progress + label) ke panel log.
     {
-        let mut log_svc = ProcessLogService::default();
-        log_svc.add_log("[SYSTEM] BMachine Core Initialized".to_string());
-        let _recent = log_svc.get_recent_logs(5);
-        let _ = ProcessLogService::check_progress_file();
-        log_svc.clear();
+        let ui_weak = ui.as_weak();
+        let proc_log_w = Arc::clone(&proc_log);
+        std::thread::spawn(move || {
+            let mut last_prog_key: String = String::new();
+            let mut last_snap: String = String::new();
+            loop {
+                std::thread::sleep(std::time::Duration::from_millis(150));
+                let progress = ProcessLogService::check_progress_file();
+                let result = ProcessLogService::check_result_file();
+
+                // Catat step progress baru ke buffer log (dedupe via key).
+                if let Some((cur, tot, file)) = &progress {
+                    let key = format!("{}|{}", cur, tot);
+                    if (*cur != 0 || !file.is_empty()) && key != last_prog_key {
+                        last_prog_key = key.clone();
+                        let pct = if *tot > 0 { *cur * 100 / *tot } else { 0 };
+                        proc_log_w
+                            .lock()
+                            .unwrap()
+                            .add_log(format!("Proses: {} ({}/{}, {}%)", file, cur, tot, pct));
+                    }
+                }
+
+                // Status + progress + label untuk tampilan panel log.
+                let (status, prog_val, label) = match (&progress, &result) {
+                    (_, Some((ok, s))) => {
+                        let st = if *ok { "DONE" } else { "ERROR" };
+                        let lbl = format!(
+                            "{}: {}",
+                            if *ok { "Selesai" } else { "Gagal" },
+                            s
+                        );
+                        (st.to_string(), 100, lbl)
+                    }
+                    (Some((cur, tot, file)), None) => {
+                        let pct = if *tot > 0 { *cur * 100 / *tot } else { 0 };
+                        ("RUNNING".to_string(), pct, format!("{} ({}/{})", file, cur, tot))
+                    }
+                    (None, None) => ("IDLE".to_string(), 0, "Siap".to_string()),
+                };
+
+                // Dorong snapshot ke UI hanya bila berubah (hemat event loop).
+                let lines = proc_log_w.lock().unwrap().get_display_lines(12);
+                let snap = format!("{}|{}|{}|{}", status, prog_val, label, lines.len());
+                if snap != last_snap {
+                    last_snap = snap;
+                    let lines_src: Vec<slint::SharedString> = lines
+                        .into_iter()
+                        .map(slint::SharedString::from)
+                        .collect();
+                    let s_status = slint::SharedString::from(status);
+                    let s_label = slint::SharedString::from(label);
+                    let _ = slint::invoke_from_event_loop({
+                        let ui_w = ui_weak.clone();
+                        move || {
+                            if let Some(ui) = ui_w.upgrade() {
+                                let model = slint::ModelRc::new(slint::VecModel::from(lines_src));
+                                ui.set_log_lines(model);
+                                ui.set_log_status(s_status);
+                                ui.set_log_progress(prog_val);
+                                ui.set_log_progress_label(s_label);
+                            }
+                        }
+                    });
+                }
+
+                // Proses selesai (success/failed) -> hentikan watcher.
+                if result.is_some() {
+                    break;
+                }
+            }
+        });
+    }
+
+    // Aksi panel log (nyata, bukan toast bohong).
+    {
+        let ui_weak = ui.as_weak();
+        let proc_log_w = Arc::clone(&proc_log);
+        ui.on_clear_log(move || {
+            proc_log_w.lock().unwrap().clear();
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_log_lines(slint::ModelRc::default());
+                ui.set_log_status(slint::SharedString::from("IDLE"));
+                ui.set_log_progress(0);
+                ui.set_log_progress_label(slint::SharedString::from("Siap"));
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let proc_log_w = Arc::clone(&proc_log);
+        ui.on_copy_log(move || {
+            let lines = proc_log_w.lock().unwrap().get_display_lines(1000);
+            let dir = std::env::var("APPDATA")
+                .map(|a| std::path::PathBuf::from(a).join("BMachine"))
+                .unwrap_or_else(|_| std::env::temp_dir());
+            let path = dir.join("bmachine_log.txt");
+            match std::fs::write(&path, lines.join("\n")) {
+                Ok(_) => {
+                    let p = path.display().to_string();
+                    let _ = slint::invoke_from_event_loop({
+                        let ui_w = ui_weak.clone();
+                        move || {
+                            if let Some(ui) = ui_w.upgrade() {
+                                ui.set_toast(slint::SharedString::from(format!(
+                                    "Log disalin ke {}",
+                                    p
+                                )));
+                            }
+                        }
+                    });
+                }
+                Err(e) => {
+                    let _ = slint::invoke_from_event_loop({
+                        let ui_w = ui_weak.clone();
+                        move || {
+                            if let Some(ui) = ui_w.upgrade() {
+                                ui.set_toast(slint::SharedString::from(format!(
+                                    "Gagal menyimpan log: {}",
+                                    e
+                                )));
+                            }
+                        }
+                    });
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let proc_log_w = Arc::clone(&proc_log);
+        ui.on_stop_log(move || {
+            proc_log_w
+                .lock()
+                .unwrap()
+                .add_log(
+                    "[WARNING] Stop diminta — belum ada proses aktif di port ini (Fase 6)."
+                        .to_string(),
+                );
+            let _ = slint::invoke_from_event_loop({
+                let ui_w = ui_weak.clone();
+                move || {
+                    if let Some(ui) = ui_w.upgrade() {
+                        ui.set_log_status(slint::SharedString::from("IDLE"));
+                        ui.set_log_progress(0);
+                        ui.set_log_progress_label(slint::SharedString::from("Siap"));
+                    }
+                }
+            });
+        });
     }
 
     // ---- Search rekursif (substring case-insensitive, `*`/`?` literal) ----
@@ -762,6 +1048,145 @@ fn main() -> Result<(), slint::PlatformError> {
             ui.set_selected_card(slint::SharedString::new());
             ui.set_toast(slint::SharedString::from("Kartu manual dihapus dari daftar."));
         });
+    }
+
+    // Global radial shortcut watcher. The C# app listens globally for the
+    // configured ShortcutConfig; this port mirrors that with rdev. The UI
+    // property `radial-open` is toggled by a Slint timer so the global hook
+    // never blocks or races the UI thread.
+    {
+        let shortcut = {
+            let mut cfg = RadialShortcutConfig {
+                Type: 1,
+                MouseButton: 2,
+                Key: 222,
+                Modifiers: 12,
+            };
+            if let Some(ref db_mutex) = db {
+                if let Ok(guard) = db_mutex.lock() {
+                    if let Some(json) = guard.get("ShortcutConfig") {
+                        if let Ok(parsed) = serde_json::from_str::<RadialShortcutConfig>(&json) {
+                            cfg = parsed;
+                        }
+                    }
+                }
+            }
+            cfg
+        };
+
+        let trigger_key = if shortcut.Type == 1 {
+            vk_to_rdev_key(shortcut.Key)
+        } else {
+            None
+        };
+        let trigger_button = if shortcut.Type == 0 {
+            mouse_button_index_to_rdev(shortcut.MouseButton)
+        } else {
+            None
+        };
+        let trigger_mods = shortcut.Modifiers;
+
+        let state = Arc::new(AtomicU8::new(0)); // 0 idle, 1 open, 2 close
+        let state_for_hook = Arc::clone(&state);
+        let hotkey_log = std::env::var("APPDATA")
+            .ok()
+            .map(|a| std::path::PathBuf::from(a).join("BMachine").join("rdev_hotkey.log"));
+        if let Some(ref p) = hotkey_log {
+            if let Some(parent) = p.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let _ = std::fs::write(p, "Starting global radial shortcut hook (rdev listen)...\n");
+        }
+        std::thread::spawn(move || {
+            let mods_cell = Cell::new(0u8);
+            let log_path = std::env::var("APPDATA")
+                .ok()
+                .map(|a| std::path::PathBuf::from(a).join("BMachine").join("rdev_hotkey.log"));
+            if let Some(ref p) = log_path {
+                if let Some(parent) = p.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+            }
+            let _ = rdev::listen(move |event: Event| {
+                let mut m = mods_cell.get();
+                match event.event_type {
+                    EventType::KeyPress(key) => {
+                        if let Some(ref p) = log_path {
+                            let msg = format!("{}\n", event.name.unwrap_or_default());
+                            let _ = std::fs::OpenOptions::new().create(true).append(true).open(p).unwrap().write(msg.as_bytes());
+                        }
+                        match key {
+                            Key::ShiftLeft | Key::ShiftRight => m |= 4,
+                            Key::ControlLeft | Key::ControlRight => m |= 2,
+                            Key::Alt => m |= 1,
+                            Key::MetaLeft | Key::MetaRight => m |= 8,
+                            _ => {}
+                        }
+                        mods_cell.set(m);
+                        if shortcut.Type == 1 {
+                            if let Some(k) = trigger_key {
+                                if key == k && (m & trigger_mods == trigger_mods) {
+                                    state_for_hook.store(1, Ordering::SeqCst);
+                                }
+                            }
+                        }
+                    }
+                    EventType::KeyRelease(key) => {
+                        if shortcut.Type == 1 {
+                            if let Some(k) = trigger_key {
+                                if key == k {
+                                    state_for_hook.store(2, Ordering::SeqCst);
+                                }
+                            }
+                        }
+                        match key {
+                            Key::ShiftLeft | Key::ShiftRight => m &= !4,
+                            Key::ControlLeft | Key::ControlRight => m &= !2,
+                            Key::Alt => m &= !1,
+                            Key::MetaLeft | Key::MetaRight => m &= !8,
+                            _ => {}
+                        }
+                        mods_cell.set(m);
+                    }
+                    EventType::ButtonPress(button) => {
+                        if shortcut.Type == 0 {
+                            if let Some(b) = trigger_button {
+                                if button == b && (m & trigger_mods == trigger_mods) {
+                                    state_for_hook.store(1, Ordering::SeqCst);
+                                }
+                            }
+                        }
+                    }
+                    EventType::ButtonRelease(button) => {
+                        if shortcut.Type == 0 {
+                            if let Some(b) = trigger_button {
+                                if button == b {
+                                    state_for_hook.store(2, Ordering::SeqCst);
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            });
+        });
+
+        let ui_weak = ui.as_weak();
+        let state = Arc::clone(&state);
+        slint::Timer::default().start(
+            slint::TimerMode::Repeated,
+            std::time::Duration::from_millis(30),
+            move || {
+                let cmd = state.swap(0, Ordering::SeqCst);
+                if let Some(ui) = ui_weak.upgrade() {
+                    if cmd == 1 {
+                        ui.set_radial_open(true);
+                    } else if cmd == 2 {
+                        ui.set_radial_open(false);
+                    }
+                }
+            },
+        );
     }
 
     // ui.run() mengambil alih event loop; show() sudah dipanggil di atas.

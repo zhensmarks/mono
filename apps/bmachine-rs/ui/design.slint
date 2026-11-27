@@ -9,6 +9,11 @@ export global Design {
     // ---------- Warna: tema gelap (sama seperti C# DarkTheme) ----------
     in-out property <color> app-bg: #121212;
     in-out property <color> card-bg: #1A1C20;
+    // Default navigation tokens; account and Home/Batch remain independently configurable.
+    in-out property <color> nav-pill-bg: #1A1C20;
+    in-out property <color> nav-pill-border: #26282C;
+    in-out property <length> nav-pill-radius: 999px;
+    in-out property <length> nav-gap: 16px;
     in-out property <color> nav-selected-bg: #F4F4F5;
     in-out property <color> nav-selected-fg: #18181B;
     in-out property <color> nav-unselected-fg: #A1A1AA;
@@ -370,9 +375,8 @@ export component NavTab inherits Rectangle {
         clicked => { root.clicked(); }
     }
 
-    height: 32px * scale;
-    // Navigasi pill referensi: Home aktif berbentuk kapsul terang,
-        // Batch nonaktif tetap pada bidang pill gelap.
+    height: 40px * scale;
+    // Rounded active highlight is a capsule nested inside the capsule nav host.
     background: selected ? Design.nav-selected-bg : (touch.has-hover ? Design.bg-hover : transparent);
     border-radius: Design.radius-pill;
 

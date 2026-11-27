@@ -154,6 +154,15 @@ export component LogPanelView inherits Rectangle {
     in-out property <string> doc-address: "Jl. Raya Rancaiyuh No. 12, Kec. Parongpong, Kab. Bandung Barat 40559";
     in-out property <string> doc-tab: "1";
 
+    // Tab LOG live — diisi parent (root AppWindow) dari Rust.
+    in property <[string]> log-lines: [];
+    in property <string> log-status: "IDLE";
+    in property <int> log-progress: 0;
+    in property <string> log-progress-label: "Siap";
+    callback clear-log();
+    callback copy-log();
+    callback stop-log();
+
     background: Design.card-bg;
     border-color: Design.separator;
     border-width: 1px;
@@ -226,55 +235,61 @@ export component LogPanelView inherits Rectangle {
                 visible: root.panel-tab == "LOG";
                 spacing: Design.space-sm;
 
-                // Progress bar 2px (proses terakhir 68%).
+                // Progress bar live (0-100) dari watcher file progress/result.
                 VerticalLayout {
                     spacing: Design.space-xs;
                     Rectangle {
-                        height: 2px;
+                        height: 3px;
                         background: Design.separator;
                         border-radius: 1px;
                         Rectangle {
                             x: 0; y: 0;
-                            width: 68%;
+                            width: parent.width * root.log-progress / 100;
                             height: 100%;
-                            background: Design.accent;
+                            background: root.log-status == "DONE" ? Design.status-success
+                                   : (root.log-status == "ERROR" ? Design.status-danger : Design.accent);
                             border-radius: 1px;
+                            visible: root.log-progress > 0 || root.log-status == "DONE";
                         }
                     }
                     Text {
-                        text: "Proses terakhir: 68% — buat_master.py";
+                        text: root.log-progress-label;
                         font-size: Design.font-caption;
                         color: Design.text-muted;
                     }
                 }
 
-                // Daftar log (level warna: Info/Success/Warning/Error).
-                VerticalLayout {
-                    spacing: 2px;
-                    LogRow { text: "[SUCCESS] Batch Selesai."; level-color: Design.status-success; }
-                    LogRow { text: "Menjalankan buat_master.py…"; level-color: Design.text-secondary; }
-                    LogRow { text: "Replace: 24 file diproses"; level-color: Design.text-secondary; }
-                    LogRow { text: "[WARNING] 1 file dilewati (sudah ada)."; level-color: Design.status-warning; }
-                    LogRow { text: "Manifest dibuat: manifest_9f2c.json"; level-color: Design.text-secondary; }
-                    LogRow { text: "[ERROR] Photoshop tidak merespons (retry 1/3)."; level-color: Design.status-danger; }
+                // Daftar log live (12 baris terakhir, warna per level).
+                Rectangle {
+                    vertical-stretch: 1;
+                    clip: true;
+                    VerticalLayout {
+                        x: 0; y: 0; width: 100%; height: 100%;
+                        spacing: 0;
+                        for line in root.log-lines : LogRow {
+                            text: line;
+                            level-color: Design.text-secondary;
+                        }
+                    }
                 }
-
-                Rectangle { vertical-stretch: 1; }
 
                 HSeparator { }
 
-                // Footer: dot status + IDLE + aksi.
+                // Footer: dot status live + aksi nyata (Stop/Copy/Clear).
                 HorizontalLayout {
                     height: 36px;
                     spacing: 6px;
                     Text {
                         text: "●";
                         font-size: 10px;
-                        color: Design.status-success;
+                        color: root.log-status == "RUNNING" ? Design.status-warning
+                               : (root.log-status == "ERROR" ? Design.status-danger
+                               : root.log-status == "DONE" ? Design.status-success
+                               : Design.text-muted);
                         vertical-alignment: center;
                     }
                     Text {
-                        text: "IDLE";
+                        text: root.log-status;
                         font-size: Design.font-body;
                         font-weight: 700;
                         color: Design.text-primary;
@@ -285,19 +300,19 @@ export component LogPanelView inherits Rectangle {
                         label: "Stop";
                         variant: "secondary";
                         small: true;
-                        clicked => { root.toast("Proses dihentikan."); }
+                        clicked => { root.stop-log(); }
                     }
                     Btn {
-                        label: "Copy All";
+                        label: "Copy";
                         variant: "ghost";
                         small: true;
-                        clicked => { root.toast("Semua log disalin."); }
+                        clicked => { root.copy-log(); }
                     }
                     Btn {
                         label: "Clear";
                         variant: "danger";
                         small: true;
-                        clicked => { root.toast("Log dibersihkan."); }
+                        clicked => { root.clear-log(); }
                     }
                 }
             }

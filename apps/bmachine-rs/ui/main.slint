@@ -89,6 +89,20 @@ export component AppWindow inherits Window {
     in-out property <bool> show-logpanel: false;
     property <length> content-width: root.width - (root.show-logpanel ? 300px : 0px);
 
+    // Fase 5: log panel live — baris konsol + status + progress,
+    // diisi Rust dari ProcessLogService + watcher file progress/result.
+    in-out property <[string]> log-lines: [];
+    in-out property <string> log-status: "IDLE"; // "IDLE" | "RUNNING" | "DONE" | "ERROR"
+    in-out property <int> log-progress: 0; // 0-100
+    in-out property <string> log-progress-label: "Siap";
+    callback clear-log();
+    callback copy-log();
+    callback stop-log();
+
+    // Global radial shortcut watcher toggles this property; the UI opens/closes
+    // the RADIAL overlay exactly as the nav orb and local middle-click do.
+    in-out property <bool> radial-open: false;
+
     // Overlay layar penuh (Settings/Toolbox/Sheets/Leaderboard/
     // Explorer/Trello-Window): "" = dashboard tampil (pill nav
     // terlihat); selain itu overlay tampil + pill nav disembunyikan
@@ -105,7 +119,11 @@ export component AppWindow inherits Window {
     // kembalikan fokus ke keys-scope supaya KeyBinding selalu hidup.
     // (Explorer aman: open-explorer memanggil focus-list() SETELAH
     // overlay-view diset, jadi fokus Explorer tetap menang.)
-    changed overlay-view => { keys-scope.focus(); }
+    changed overlay-view => {
+        keys-scope.focus();
+        // Keep the global shortcut watcher's property in sync with the UI.
+        if (root.overlay-view != "RADIAL") { root.radial-open = false; }
+    }
     changed show-flyout => { if (root.show-flyout) { keys-scope.focus(); } }
     // Tab Toolbox yang dibuka dari Radial Menu (submenu TOOLBOX) —
     // two-way dengan ToolboxView.tool-tab supaya radial bisa membuka
@@ -496,6 +514,22 @@ export component AppWindow inherits Window {
             }
         }
 
+    // Global radial shortcut watcher toggles this property; the UI opens/closes
+    // the RADIAL overlay exactly as the nav orb and local middle-click do.
+    Rectangle {
+        x: 0; y: 0; width: 0; height: 0;
+        property <bool> radial-open-watcher: root.radial-open;
+        changed radial-open-watcher => {
+            if (root.radial-open) {
+                radial-view.reset();
+                root.overlay-view = "RADIAL";
+                root.show-flyout = false;
+            } else if (root.overlay-view == "RADIAL") {
+                root.overlay-view = "";
+            }
+        }
+    }
+
     // Dashboard (pill nav + konten) — disembunyikan saat overlay
     // layar penuh terbuka (overlay-view != "").
     VerticalLayout {
@@ -506,16 +540,15 @@ export component AppWindow inherits Window {
         visible: root.overlay-view == "";
         spacing: 0;
 
-        // ===== Pill nav (terpusat, margin 12).
-        // Ikut mengikuti ukuran window lewat ui-scale — di layar besar
-        // nav ikut membesar, tidak tertinggal kecil. =====
+        // Nav meniru referensi: akun terpisah, kelompok tab berpusat,
+        // radial terpisah di kanan. Semua pusat vertikal sama.
         HorizontalLayout {
             height: 68px * root.ui-scale;
+            padding-left: 20px * root.ui-scale;
+            padding-right: 20px * root.ui-scale;
             padding-top: Design.space-md * root.ui-scale;
             padding-bottom: Design.space-md * root.ui-scale;
 
-            // Akun terpisah di kiri; pill hanya untuk Home + Batch.
-            Rectangle { horizontal-stretch: 1; }
             Rectangle {
                 width: 40px * root.ui-scale;
                 height: 40px * root.ui-scale;
@@ -548,19 +581,24 @@ export component AppWindow inherits Window {
                     border-radius: 3px * root.ui-scale;
                 }
             }
+
+            Rectangle { width: Design.nav-gap * root.ui-scale; }
+
+            // Centered capsule; transparent spacers balance account and radial.
+            Rectangle { horizontal-stretch: 1; }
             Rectangle {
                 width: pill-content.preferred-width;
                 height: 44px * root.ui-scale;
-                background: Design.card-bg;
-                border-color: Design.separator;
+                background: Design.nav-pill-bg;
+                border-color: Design.nav-pill-border;
                 border-width: 1px;
-                border-radius: Design.radius-md;
+                border-radius: Design.nav-pill-radius;
 
                 pill-content := HorizontalLayout {
                     width: 100%;
                     height: 100%;
                     padding: 6px * root.ui-scale;
-                    spacing: 2px * root.ui-scale;
+                    spacing: 6px * root.ui-scale;
                     alignment: center;
 
                     NavTab {
@@ -579,27 +617,23 @@ export component AppWindow inherits Window {
                     }
                 }
             }
-
             Rectangle { horizontal-stretch: 1; }
 
-            // Orb Radial Menu (Fase 4) — ujung kanan bar nav, di LUAR
-            // pill (nav §15 tidak diubah: pill tetap profil + HOME +
-            // BATCH saja). Entry point utama radial: selalu terlihat
-            // di dashboard, tidak menabrak grid / BATCH / daftar.
-            // Bentuk: cincin aksen + titik aksen (bukan emoji).
+            // Radial trigger remains visually separate from the capsule.
+            Rectangle { width: Design.nav-gap * root.ui-scale; }
             Rectangle {
-                width: 48px * root.ui-scale;
+                width: 40px * root.ui-scale;
+                height: 40px * root.ui-scale;
                 Rectangle {
                     width: 36px * root.ui-scale;
                     height: 36px * root.ui-scale;
-                    x: (parent.width - 36px * root.ui-scale) / 2;
-                    y: (parent.height - 36px * root.ui-scale) / 2;
+                    x: 2px * root.ui-scale;
+                    y: 2px * root.ui-scale;
                     background: orb-touch.has-hover ? Design.accent-subtle : transparent;
                     border-color: Design.accent;
                     border-width: 1px;
-                    border-radius: 18px * root.ui-scale;
+                    border-radius: 20px * root.ui-scale;
                     animate background { duration: Design.anim-normal; }
-                    // Stepped outline hexagon, avoiding font-dependent glyph fallback.
                     Rectangle { x: 12px * root.ui-scale; y: 9px * root.ui-scale; width: 12px * root.ui-scale; height: 2px; background: Design.accent; }
                     Rectangle { x: 9px * root.ui-scale; y: 11px * root.ui-scale; width: 4px * root.ui-scale; height: 2px; background: Design.accent; }
                     Rectangle { x: 23px * root.ui-scale; y: 11px * root.ui-scale; width: 4px * root.ui-scale; height: 2px; background: Design.accent; }
@@ -637,15 +671,15 @@ export component AppWindow inherits Window {
                 // Settings ke bawah (layout gap, 26 Nov).
                 height: root.height - 68px * root.ui-scale;
 
-            // ----- Radial Menu (Fase 4): Shift + Klik Tengah di latar
-            // dashboard = buka Radial Menu (trigger default C# K20:
-            // MouseButton=2 / Middle, Modifiers=4 / Shift). TouchArea
-            // ini anak PERTAMA (di belakang semua isi) — klik kiri
-            // tidak ditangani di sini, hanya pointer tengah + Shift.
-            // Keterbatasan: klik tengah DI ATAS widget/baris tidak
-            // sampai ke sini (TouchArea widget di atasnya menangkap
-            // event duluan) — hanya celah latar (padding/gutter) yang
-            // merespons; tombol orb di bar nav adalah entry utama.
+            // ----- Radial menu (phase 4): Shift + middle click on dashboard
+            // background = open the radial menu (default trigger C# K20:
+            // MouseButton=2 / Middle, Modifiers=4 / Shift). This TouchArea
+            // is the first child (behind all content) — left click is not
+            // handled here, only middle button + Shift.
+            // Limitation: middle click on top of widget/row doesn't reach
+            // here (TouchArea of widget on top captures event first) —
+            // only the background gap (padding/gutter) reacts;
+            // the orb button in the nav bar is the main entry.
             radial-trigger-touch := TouchArea {
                 x: 0; y: 0; width: 100%; height: 100%;
                 pointer-event(ev) => {
@@ -2953,8 +2987,15 @@ export component AppWindow inherits Window {
                 height: root.height - 68px * root.ui-scale;
                 visible: root.show-logpanel;
                 panel-tab: root.logpanel-tab;
+                log-lines: root.log-lines;
+                log-status: root.log-status;
+                log-progress: root.log-progress;
+                log-progress-label: root.log-progress-label;
                 toast(text) => { root.toast = text; }
                 close() => { root.show-logpanel = false; }
+                clear-log() => { root.clear-log(); }
+                copy-log() => { root.copy-log(); }
+                stop-log() => { root.stop-log(); }
                 open-explorer(path) => {
                     root.ex-start-path = path;
                     root.overlay-view = "EXPLORER";

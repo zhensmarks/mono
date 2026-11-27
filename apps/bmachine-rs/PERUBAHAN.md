@@ -5,6 +5,17 @@ sebelum commit + push (format lengkap di `AGENTS.md`). Entri terbaru di
 paling atas. Dengan log ini, siapa pun yang menerima project — Dex, Hermes,
 atau orang lain — langsung tahu apa saja yang diubah tanpa menebak.
 
+## 2026-11-27 — Antigravity Agent — Nav centering/kapsul + shortcut global radial (rdev) + argumen QA
+- Diubah:
+  - `ui/main.slint`: Nav bar dashboard kini terpusat penuh: akun kiri, grup pill HOME/BATCH tengah (sejajar), radial kanan. Spasi antar ikon akun dan pill dibuat jelas; highlight pill aktif memakai kapsul oval yang mengikuti bentuk dasar.
+  - `ui/design.slint`: Token kapsul nav (`nav-pill-*`) dan token radial baru (`radial-*`) ditambahkan; radius pill aktif full, outer ring dan slot mengikuti highlight.
+  - `src/main.rs`: Trigger radial kini global dengan `rdev` (`--` `Cargo.toml` menambah `rdev = "0.5.3"`). Shortcut default mengikuti `ShortcutConfig` C# (`Key: 222`, `Modifiers: 12` = Win+Shift+`). Argumen QA `--radial-test` membuka radial overlay tanpa shortcut untuk screenshot VM, dan `--simulate-hotkey` menjalankan simulasi `Win+Shift+'` lewat `rdev::simulate` untuk tes hook global.
+  - `src/main.rs`, `src/process_log.rs`, `ui/logpanel.slint`: QA argumen `--view=`, `--group=`, `--tab=`, `--log`, `--flyout`, `--dialog=` untuk laporan screenshot semua tampilan.
+  - `apps/bmachine-rs/start_app.ps1`, `start_app.bat`, `copy_rdev.bat`: Helper QA di dalam shared folder VM (`Y:\apps\bmachine-rs`) untuk menjalankan app di guest tanpa menyentuh desktop host.
+- Alasan: User minta nav benar-benar sejajar/kapsul seperti referensi, dan radial menu dipanggil dari shortcut seperti C# (bukan hanya klik lokal).
+- Terverifikasi: `cargo build --release` exit 0. Di VM `Win10LTSC-Dev` (shared folder `Y:`), radial overlay terbuka via `--radial-test`; dashboard nav menampilkan akun kiri, HOME pill kapsul, BATCH pill, radial kanan. Screenshot VM: `D:/VMs/vm_radial_test.png`.
+- Catatan: Shortcut global Win+Shift+' diimplementasi dengan `rdev`, tetapi verifikasi in-guest via `VBoxManage keyboardputscancode` belum menampilkan radial karena injeksi scancode LWin/Shift di VM tidak selalu sampai ke hook global; `--radial-test` dan `--simulate-hotkey` tersedia untuk tes tanpa input fisik user.
+
 ## 2026-11-27 — Antigravity Agent — Argumen startup QA untuk laporan screenshot semua tampilan
 - Diubah:
   - `src/main.rs`: Argumen startup `--view=`, `--group=`, `--tab=`, `--log`, `--flyout`, `--dialog=` kini membuka state UI yang diminta tanpa klik mouse/keyboard fisik. Dipakai runner screenshot VM; normal startup tanpa argumen tidak berubah.
