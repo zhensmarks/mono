@@ -36,6 +36,19 @@ info baru — mulai dari sini.
   bertentangan dengan kebebasan "tampilan boleh dirombak" di tempat lain,
   **tanya abeng dulu, jangan menebak**. Detail hasil test C# v15.15.3 ada
   di `CATATAN_CSHARP_V15153.md`.
+- **Aturan presisi abeng (27 Nov 2026, 16:30 WIB):** "harus sama" itu
+  konkret: (1) panah widget EDITING → UnifiedTrello, dan itu **new
+  window, bukan popup** (C#: `OpenEditingWindow()` → `OpenUnifiedWindow`
+  → `IsEmbedded = false` → `CardListWindow`); (2) Spreadsheet = **new
+  window "Spreadsheet Editor" 1000×600** berisi DataGrid gaya Excel
+  (edit langsung di sel, Smart Search, filter tanggal TODAY / Pilih
+  Tanggal, menu Copy Row ID / Open in Trello) — C# **tidak punya formula
+  bar**; (3) side panel, log panel, side panel card details, Comment,
+  Checklist, Move, batch move, comment new window — semuanya disamakan
+  cara pemanggilan + tampilannya; (4) **presisi ukuran kontrol**: icon +
+  teks, TextBox, Dropdown, AutoCompleteBox harus berukuran SAMA dan rata
+  atas-bawah — tidak ada yang menclok-menclok atau beda ukuran. Ukur
+  dari C# (pixel + properti XAML), jangan ditebak.
 
 ## 3. Build, jalan, tes
 

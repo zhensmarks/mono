@@ -5,6 +5,24 @@ sebelum commit + push (format lengkap di `AGENTS.md`). Entri terbaru di
 paling atas. Dengan log ini, siapa pun yang menerima project — Dex, Hermes,
 atau orang lain — langsung tahu apa saja yang diubah tanpa menebak.
 
+## 2026-11-27 — Dex (contoh "harus sama" dari abeng) — Aturan presisi: new window + ukuran kontrol seragam
+
+- Diubah: `LANJUTKAN.md` §2 + aturan presisi — panah EDITING → UnifiedTrello
+  new window (bukan popup); Spreadsheet = new window "Spreadsheet Editor"
+  1000×600 berisi DataGrid Excel (tanpa formula bar); side panel / log panel
+  / detail / Comment / Checklist / Move / batch move / comment new window
+  disamakan; TextBox / Dropdown / AutoCompleteBox + icon/teks berukuran
+  sama dan rata atas-bawah.
+- Alasan: abeng 27 Nov 16:30 — contoh konkret "harus sama" + pertanyaan
+  "spreadsheet itu harusnya gimana sih".
+- Terverifikasi: panah EDITING port sudah membuka new window "BMachine —
+  Trello Cards" (klik sungguhan + screenshot, 27 Nov 16:30); fakta C#
+  dicek dari source (DashboardViewModel.cs:445, CardListWindow.axaml,
+  SpreadsheetWindow.axaml, SpreadsheetView.axaml).
+- Masih terbuka: ukuran SpreadsheetWindow port 980×620 (C#: 1000×600) +
+  formula bar port (C# tidak punya) — perbaiki ke C#; daftar gap lengkap
+  menyusul dari penilaian.
+
 ## 2026-11-27 — Dex (sinkronisasi dari PC abeng, atas perintah abeng) — Push kerja lokal yang gagal ter-push
 
 - Diubah: `src/` (db, doc_manager, executor, local_update, main, process_log,
