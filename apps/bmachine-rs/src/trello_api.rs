@@ -39,6 +39,113 @@ pub struct TrelloMember {
 /// ~/workspace/your_files/spesifikasi-api-trello-kantor-untuk-bmachine.md).
 pub const DEFAULT_BASE_URL: &str = "https://api.trello.com/1";
 
+/// Interval auto-refresh Trello bawaan (detik) — sama dengan C#
+/// (`Settings.Interval.Editing/Revision/Late`, default 60).
+pub const DEFAULT_REFRESH_INTERVAL_SECS: u64 = 60;
+/// Interval auto-refresh Trello minimum (detik) — di bawah ini
+/// dijepit ke 30 supaya API tidak dihujani request.
+pub const MIN_REFRESH_INTERVAL_SECS: u64 = 30;
+/// Interval auto-refresh Trello maksimum (detik) — 1 jam.
+pub const MAX_REFRESH_INTERVAL_SECS: u64 = 3600;
+
+/// Parse interval auto-refresh Trello (detik) dari string Settings
+/// (key DB `Trello.RefreshInterval`, satu nilai untuk ketiga list).
+/// Tidak valid / kosong -> default 60; di bawah 30 -> 30; di atas
+/// 3600 -> 3600.
+pub fn parse_refresh_interval_seconds(raw: &str) -> u64 {
+    let secs: u64 = raw.trim().parse().unwrap_or(DEFAULT_REFRESH_INTERVAL_SECS);
+    secs.clamp(
+        MIN_REFRESH_INTERVAL_SECS,
+        MAX_REFRESH_INTERVAL_SECS,
+    )
+}
+
+/// Jumlah list Trello yang di-sync port (EDITING / REVISION / LATE).
+/// QC / ACC ada key-nya di DB tapi tidak di-fetch port (lihat
+/// DESIGN_SYSTEM.md §15).
+pub const TRELLO_SYNC_LIST_COUNT: usize = 3;
+
+/// Status sinkronisasi Trello per list — dipakai timer auto-refresh
+/// (1 detik, ala C# DashboardViewModel: tick 1 detik, cek elapsed
+/// per list) + refresh manual, supaya tidak ada dua fetch berjalan
+/// untuk list yang sama (`if (!IsRefreshing)` di C#).
+///
+/// `last_sync` di-set saat fetch DIMULAI (ala C#: `_lastEditingSync
+/// = DateTime.Now` sebelum `RefreshCommand` jalan) — jadi refresh
+/// manual ikut me-reset timer auto-refresh list itu.
+pub struct TrelloSyncState {
+    /// true = fetch list ini sedang berjalan (thread).
+    in_flight: [std::sync::atomic::AtomicBool; TRELLO_SYNC_LIST_COUNT],
+    /// Kapan fetch list ini terakhir dimulai.
+    last_sync: [std::sync::Mutex<std::time::Instant>; TRELLO_SYNC_LIST_COUNT],
+}
+
+impl TrelloSyncState {
+    pub fn new() -> Self {
+        let now = std::time::Instant::now();
+        Self {
+            in_flight: [
+                std::sync::atomic::AtomicBool::new(false),
+                std::sync::atomic::AtomicBool::new(false),
+                std::sync::atomic::AtomicBool::new(false),
+            ],
+            last_sync: [
+                std::sync::Mutex::new(now),
+                std::sync::Mutex::new(now),
+                std::sync::Mutex::new(now),
+            ],
+        }
+    }
+
+    /// true bila fetch list `idx` sedang berjalan.
+    pub fn is_running(&self, idx: usize) -> bool {
+        self.in_flight[idx].load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    /// true bila sudah `interval` sejak fetch list `idx` terakhir
+    /// dimulai (dipakai timer 1 detik untuk memutuskan list mana yang
+    /// jatuh tempo).
+    pub fn is_due(&self, idx: usize, interval: std::time::Duration) -> bool {
+        match self.last_sync[idx].lock() {
+            Ok(t) => t.elapsed() >= interval,
+            Err(_) => true,
+        }
+    }
+
+    /// Coba klaim list `idx` untuk fetch: false bila fetch list itu
+    /// masih berjalan (tick di-skip, ala C# `if (!IsRefreshing)`).
+    /// Berhasil -> `last_sync` di-set ke sekarang.
+    pub fn try_begin(&self, idx: usize) -> bool {
+        if self.in_flight[idx]
+            .compare_exchange(
+                false,
+                true,
+                std::sync::atomic::Ordering::SeqCst,
+                std::sync::atomic::Ordering::SeqCst,
+            )
+            .is_err()
+        {
+            return false;
+        }
+        if let Ok(mut t) = self.last_sync[idx].lock() {
+            *t = std::time::Instant::now();
+        }
+        true
+    }
+
+    /// Lepas klaim list `idx` (dipanggil thread fetch saat selesai —
+    /// sukses maupun gagal).
+    pub fn finish(&self, idx: usize) {
+        self.in_flight[idx].store(false, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+impl Default for TrelloSyncState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Normalisasi base URL dari Settings: trim, kosong -> default,
 /// buang garis miring di akhir (supaya `endpoint()` tidak dobel `/`).
 pub fn normalize_base_url(raw: &str) -> String {
@@ -308,6 +415,55 @@ mod tests {
             web_url_for_card("http://127.0.0.1:8080", "abc123"),
             "http://127.0.0.1:8080/c/abc123"
         );
+    }
+
+    #[test]
+    fn parse_refresh_interval_defaults_and_clamps() {
+        assert_eq!(parse_refresh_interval_seconds("60"), 60);
+        assert_eq!(parse_refresh_interval_seconds("30"), 30);
+        assert_eq!(parse_refresh_interval_seconds("120"), 120);
+        // Di bawah minimum -> dijepit ke 30.
+        assert_eq!(parse_refresh_interval_seconds("10"), 30);
+        assert_eq!(parse_refresh_interval_seconds("0"), 30);
+        // Tidak valid / kosong -> default 60.
+        assert_eq!(parse_refresh_interval_seconds(""), 60);
+        assert_eq!(parse_refresh_interval_seconds("abc"), 60);
+        assert_eq!(parse_refresh_interval_seconds("  "), 60);
+        // Spasi di sekitar angka ditoleransi; di atas maksimum -> 3600.
+        assert_eq!(parse_refresh_interval_seconds("  90 "), 90);
+        assert_eq!(parse_refresh_interval_seconds("99999"), 3600);
+    }
+
+    #[test]
+    fn sync_state_try_begin_skips_while_running() {
+        let st = TrelloSyncState::new();
+        // List 0 bebas, list lain tidak terpengaruh.
+        assert!(!st.is_running(0));
+        assert!(st.try_begin(0));
+        assert!(st.is_running(0));
+        // Klaim kedua selagi berjalan -> ditolak (skip tick).
+        assert!(!st.try_begin(0));
+        assert!(st.is_running(1) == false);
+        assert!(st.try_begin(1));
+        // Selesai -> bisa diklaim lagi.
+        st.finish(0);
+        assert!(!st.is_running(0));
+        assert!(st.try_begin(0));
+        st.finish(0);
+        st.finish(1);
+    }
+
+    #[test]
+    fn sync_state_is_due_follows_elapsed() {
+        let st = TrelloSyncState::new();
+        // Baru dibuat: belum jatuh tempo untuk interval besar...
+        assert!(!st.is_due(0, std::time::Duration::from_secs(3600)));
+        // ...tapi jatuh tempo untuk interval 0.
+        assert!(st.is_due(0, std::time::Duration::from_secs(0)));
+        // try_begin me-reset last_sync -> belum jatuh tempo lagi.
+        assert!(st.try_begin(0));
+        assert!(!st.is_due(0, std::time::Duration::from_secs(3600)));
+        st.finish(0);
     }
 
     #[test]

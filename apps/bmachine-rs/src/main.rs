@@ -4145,6 +4145,16 @@ fn main() -> Result<(), slint::PlatformError> {
             if let Some(v) = db_guard.get("Trello.AccListId") {
                 ui.set_acc_list_id(slint::SharedString::from(v));
             }
+            // Interval auto-refresh Trello (detik) — key baru
+            // `Trello.RefreshInterval`; kosong = default 60 (C#
+            // `Settings.Interval.*`). Field Settings selama ini mati
+            // (default "30" hardcode, tidak tersimpan) — mulai run ini
+            // field itu hidup dan dibaca timer auto-refresh.
+            if let Some(v) = db_guard.get("Trello.RefreshInterval") {
+                ui.set_app_trello_interval(slint::SharedString::from(v));
+            } else {
+                ui.set_app_trello_interval(slint::SharedString::from("60"));
+            }
             if let Some(sheet_id) = db_guard.get("Google.SheetId") {
                 ui.set_google_sheet_id(slint::SharedString::from(sheet_id));
             }
@@ -4551,6 +4561,25 @@ fn main() -> Result<(), slint::PlatformError> {
         String::new()
     }
 
+    // Interval auto-refresh Trello (detik) dari properti Settings
+    // (`app-trello-interval`, key DB `Trello.RefreshInterval`).
+    // Override env `BMACHINE_TRELLO_INTERVAL_SECS` HANYA untuk tes
+    // (mempercepat siklus verifikasi — tanpa clamp, tanpa minimum) —
+    // di produksi variabel ini tidak diset sehingga jalurnya selalu
+    // lewat parse + clamp (default 60, min 30).
+    fn trello_refresh_interval(ui: &AppWindow) -> std::time::Duration {
+        if let Ok(v) = std::env::var("BMACHINE_TRELLO_INTERVAL_SECS") {
+            if let Ok(s) = v.trim().parse::<u64>() {
+                if s > 0 {
+                    return std::time::Duration::from_secs(s);
+                }
+            }
+        }
+        std::time::Duration::from_secs(trello_api::parse_refresh_interval_seconds(
+            &ui.get_app_trello_interval(),
+        ))
+    }
+
     fn spawn_trello_sync(
         ui_weak: slint::Weak<AppWindow>,
         k: String,
@@ -4561,11 +4590,16 @@ fn main() -> Result<(), slint::PlatformError> {
         ll: String,
         show_toast: bool,
         bar_store: BarStore,
+        trello_state: std::sync::Arc<trello_api::TrelloSyncState>,
     ) {
         std::thread::spawn(move || {
             let mut synced = 0usize;
             if !k.is_empty() && !t.is_empty() {
-                if !el.is_empty() {
+                // Skip bila list ini masih di-fetch thread lain
+                // (auto-refresh / refresh manual — `if (!IsRefreshing)`
+                // ala C#). `try_begin` juga me-reset `last_sync` list
+                // ini, jadi refresh manual ikut me-reset timer.
+                if !el.is_empty() && trello_state.try_begin(0) {
                     if let Ok(cards) =
                         trello_api::TrelloApiService::fetch_cards(&base_url, &k, &t, &el)
                     {
@@ -4669,8 +4703,9 @@ fn main() -> Result<(), slint::PlatformError> {
                             }
                         });
                     }
+                    trello_state.finish(0);
                 }
-                if !rl.is_empty() {
+                if !rl.is_empty() && trello_state.try_begin(1) {
                     if let Ok(cards) =
                         trello_api::TrelloApiService::fetch_cards(&base_url, &k, &t, &rl)
                     {
@@ -4760,8 +4795,9 @@ fn main() -> Result<(), slint::PlatformError> {
                             }
                         });
                     }
+                    trello_state.finish(1);
                 }
-                if !ll.is_empty() {
+                if !ll.is_empty() && trello_state.try_begin(2) {
                     if let Ok(cards) =
                         trello_api::TrelloApiService::fetch_cards(&base_url, &k, &t, &ll)
                     {
@@ -4851,11 +4887,16 @@ fn main() -> Result<(), slint::PlatformError> {
                             }
                         });
                     }
+                    trello_state.finish(2);
                 }
             }
-            let _ = ui_weak.upgrade_in_event_loop(move |u| {
-                u.set_trello_refreshing(false);
-                if show_toast {
+            // Sync otomatis / startup (show_toast=false) diam-diam:
+            // jangan sentuh `trello-refreshing` (timer .slint 600ms
+            // akan toast tiap tick bila flag ini disentuh) dan jangan
+            // toast. Hanya refresh manual yang menutup flag + toast.
+            if show_toast {
+                let _ = ui_weak.upgrade_in_event_loop(move |u| {
+                    u.set_trello_refreshing(false);
                     if synced > 0 {
                         u.set_toast(slint::SharedString::from(format!(
                             "Trello di-refresh — {} card dimuat",
@@ -4868,10 +4909,14 @@ fn main() -> Result<(), slint::PlatformError> {
                     } else {
                         u.set_toast(slint::SharedString::from("Trello di-refresh"));
                     }
-                }
-            });
+                });
+            }
         });
     }
+
+    // Status sinkronisasi Trello per list (dipakai startup / refresh
+    // manual / timer auto-refresh — lihat `TrelloSyncState`).
+    let trello_sync_state = std::sync::Arc::new(trello_api::TrelloSyncState::new());
 
     // Tarik data live bila kredensial & list sudah ada di database
     if !init_trello_key.is_empty() && !init_trello_tok.is_empty() {
@@ -4885,6 +4930,7 @@ fn main() -> Result<(), slint::PlatformError> {
             init_late_list.clone(),
             false,
             bar_store.clone(),
+            trello_sync_state.clone(),
         );
     }
 
@@ -5201,6 +5247,22 @@ fn main() -> Result<(), slint::PlatformError> {
                             },
                             "Bool",
                         );
+                        // Interval auto-refresh Trello: simpan hasil
+                        // clamp (min 30, default 60) + tulis balik ke
+                        // properti supaya field menampilkan nilai yang
+                        // dipakai timer (bukan ketikan mentah).
+                        let interval_secs =
+                            trello_api::parse_refresh_interval_seconds(
+                                &ui.get_app_trello_interval(),
+                            );
+                        let _ = db_guard.set(
+                            "Trello.RefreshInterval",
+                            &interval_secs.to_string(),
+                            "Int",
+                        );
+                        ui.set_app_trello_interval(slint::SharedString::from(
+                            interval_secs.to_string(),
+                        ));
                     }
                 }
                 ui.set_toast(slint::SharedString::from("Pengaturan General disimpan"));
@@ -5329,6 +5391,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let ui_weak = ui.as_weak();
         let db_clone = db.clone();
         let bar_store_test = bar_store.clone();
+        let trello_state_test = trello_sync_state.clone();
     // ================= BATCH callbacks (Stage 2 + stub tahap 3/4/5) =================
     {
         // -- Tambah folder: dialog folder (thread, blocking) --
@@ -6556,6 +6619,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 let rl = ui.get_revision_list_id().to_string();
                 let ll = ui.get_late_list_id().to_string();
                 let bar_store_thread = bar_store_test.clone();
+                let trello_state_thread = trello_state_test.clone();
                 std::thread::spawn(move || {
                     match trello_api::TrelloApiService::verify_connection(&base_url, &k, &t) {
                         Ok(member) => {
@@ -6583,7 +6647,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                     name
                                 )));
                             });
-                            spawn_trello_sync(ui_w, k, t, base_url, el, rl, ll, false, bar_store_thread);
+                            spawn_trello_sync(ui_w, k, t, base_url, el, rl, ll, false, bar_store_thread, trello_state_thread);
                         }
                         Err(e) => {
                             let _ = ui_w.upgrade_in_event_loop(move |u| {
@@ -6613,6 +6677,7 @@ fn main() -> Result<(), slint::PlatformError> {
     {
         let ui_weak = ui.as_weak();
         let bar_store_refresh = bar_store.clone();
+        let trello_state_refresh = trello_sync_state.clone();
         ui.on_refresh_trello(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 spawn_trello_sync(
@@ -6625,6 +6690,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     ui.get_late_list_id().to_string(),
                     true,
                     bar_store_refresh.clone(),
+                    trello_state_refresh.clone(),
                 );
             }
         });
@@ -9008,10 +9074,11 @@ fn main() -> Result<(), slint::PlatformError> {
     // Timer 2 detik ini HANYA menyalin string yang sudah ada di
     // memori (properti AppWindow → window bar) + satu baca key
     // SQLite lokal (`Stat.Points`) — TIDAK ada polling Trello di
-    // sini. Trello tetap di-sync seperti sebelumnya (startup /
-    // refresh manual / simpan akun). Interval 30 detik di Settings
-    // adalah interval refresh Trello dan TIDAK dipakai port untuk
-    // auto-refresh (tidak ada timer auto-refresh Trello di port).
+    // sini. Trello di-sync saat startup / refresh manual / simpan
+    // akun / tes koneksi, PLUS timer auto-refresh 1 detik di bawah
+    // (`_trello_auto_timer`: cek elapsed per list terhadap interval
+    // Settings > General "Interval refresh Trello", key DB
+    // `Trello.RefreshInterval`, default 60 detik).
     // Bila Stat.Points di DB berubah, dashboard ikut berubah
     // (sumber kebenaran tetap satu: properti AppWindow; bar hanya
     // menyalinnya) dan kenaikan dicatat sebagai notifikasi.
@@ -9084,6 +9151,72 @@ fn main() -> Result<(), slint::PlatformError> {
                     };
                     w.set_pet_mood(slint::SharedString::from(mood.as_str()));
                 }
+            }
+        },
+    );
+
+    // ---- Trello auto-refresh: timer 1 detik (ala C#
+    // DashboardViewModel: DispatcherTimer 1 detik + cek elapsed per
+    // list terhadap interval — default 60 detik, field Settings >
+    // General "Interval refresh Trello", key DB
+    // `Trello.RefreshInterval`; skip bila list masih di-refresh —
+    // `if (!IsRefreshing)`). BUKAN realtime (webhook/push sengaja
+    // tidak dipakai — bikin PC lag, keputusan abeng 28 Nov 00:30).
+    // Tick diam-diam: tidak toast, tidak menyentuh
+    // `trello-refreshing` (timer .slint 600ms akan toast bila flag
+    // itu disentuh). Sync hanya mengganti array model — sama seperti
+    // refresh manual — jadi detail kartu yang terbuka + `selected-card`
+    // tidak disentuh. List yang jatuh tempo saja yang di-sync
+    // (yang lain dilewat dengan string kosong).
+    let _trello_auto_timer = slint::Timer::default();
+    _trello_auto_timer.start(
+        slint::TimerMode::Repeated,
+        std::time::Duration::from_secs(1),
+        {
+            let ui_weak = ui.as_weak();
+            let state = trello_sync_state.clone();
+            let bar_store_timer = bar_store.clone();
+            move || {
+                let Some(ui) = ui_weak.upgrade() else {
+                    return;
+                };
+                let interval = trello_refresh_interval(&ui);
+                let k = ui.get_trello_api_key().to_string();
+                let t = ui.get_trello_token().to_string();
+                if k.is_empty() || t.is_empty() {
+                    return;
+                }
+                let base_url = ui.get_trello_base_url().to_string();
+                let el = if state.is_due(0, interval) && !state.is_running(0) {
+                    ui.get_editing_list_id().to_string()
+                } else {
+                    String::new()
+                };
+                let rl = if state.is_due(1, interval) && !state.is_running(1) {
+                    ui.get_revision_list_id().to_string()
+                } else {
+                    String::new()
+                };
+                let ll = if state.is_due(2, interval) && !state.is_running(2) {
+                    ui.get_late_list_id().to_string()
+                } else {
+                    String::new()
+                };
+                if el.is_empty() && rl.is_empty() && ll.is_empty() {
+                    return;
+                }
+                spawn_trello_sync(
+                    ui_weak.clone(),
+                    k,
+                    t,
+                    base_url,
+                    el,
+                    rl,
+                    ll,
+                    false,
+                    bar_store_timer.clone(),
+                    state.clone(),
+                );
             }
         },
     );

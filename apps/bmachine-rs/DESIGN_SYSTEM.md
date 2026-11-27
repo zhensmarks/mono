@@ -1030,6 +1030,48 @@ tombol × / Esc = tutup window → kembali ke grid dashboard
 (bukan ke daftar embedded — window tidak memakai
 `list-category`). Klik kiri di dim TIDAK menutup.
 
+### 15.4 Auto-refresh interval (28 Nov 2026 — ala C# DashboardViewModel)
+
+- **Bukan realtime** (keputusan abeng 28 Nov 00:30 — realtime
+  bikin PC lag; bottleneck = network + rate limit API + redraw
+  UI, bukan bahasa). Tidak ada webhook / push / server penerima
+  publik. Yang ada: timer interval seperti C#.
+- **Mekanisme (C#):** `DispatcherTimer` tick 1 detik,
+  `SyncTrelloStats()` cek elapsed per list terhadap intervalnya
+  (`Settings.Interval.Editing/Revision/Late`, default 60 detik);
+  list yang jatuh tempo di-refresh, tick di-skip bila refresh
+  list itu masih berjalan (`if (!IsRefreshing)`).
+  **Port:** timer Slint 1 detik (`_trello_auto_timer`,
+  `src/main.rs`) + state per list `TrelloSyncState`
+  (`src/trello_api.rs`: `in_flight` per list +
+  `last_sync` yang di-set saat fetch DIMULAI — jadi refresh
+  manual ikut me-reset timer list itu). Hanya list yang jatuh
+  tempo yang di-sync (yang lain dilewat dengan string kosong).
+- **Interval:** satu nilai untuk ketiga list — field Settings >
+  General "Interval refresh Trello", key DB baru
+  `Trello.RefreshInterval` (Int), **default 60 detik**,
+  **minimum 30 detik** (di bawah itu dijepit ke 30; tidak valid /
+  kosong → 60). Field itu sebelumnya mati (default "30"
+  hardcode di `.slint`, tidak tersimpan, toast "Disimpan"-nya
+  bohong) — mulai run ini field hidup: tampilkan nilai DB,
+  ketikan mengubah properti langsung (timer membaca properti
+  tiap detik — ganti interval berlaku tanpa restart), simpan
+  lewat tombol Simpan General (nilai clamp ditulis balik ke
+  field). Override env `BMACHINE_TRELLO_INTERVAL_SECS` HANYA
+  untuk tes (tanpa clamp) — di produksi tidak diset.
+- **Tick diam-diam:** tidak ada toast tiap tick, tidak
+  menyentuh `trello-refreshing` (timer `.slint` 600ms akan
+  toast bila flag itu disentuh — hanya refresh manual yang
+  menutup flag + toast "Trello di-refresh — N card dimuat").
+  Sync hanya mengganti array model (sama seperti refresh
+  manual): detail kartu yang terbuka + `selected-card` +
+  seleksi tidak disentuh; status bar tetap "Dimuat N card".
+- **Refresh manual (tombol ↻):** tetap jalan; list yang sedang
+  di-fetch auto di-skip oleh manual (fetch yang berjalan
+  mengirim data segar juga), dan list yang di-claim manual
+  me-reset `last_sync`-nya — tidak ada double-fire tepat
+  setelah refresh manual.
+
 ## 16. BATCH — Batch Master (v3)
 
 Sesuai `BATCH_DASHBOARD.md` (dokumen abeng, 26 Nov 15:52 —
