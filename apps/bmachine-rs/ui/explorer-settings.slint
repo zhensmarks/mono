@@ -75,6 +75,9 @@ export component ExplorerSettingsView inherits Rectangle {
     in-out property <bool> exp-hidden: false;
     in-out property <bool> exp-ext: true;
     in-out property <int> exp-zoom: 100;
+    // Gaya toggle on/off ("classic" | "pill" | "outline") — diikat
+    // dari AppWindow (app-toggle-style), lihat DESIGN_SYSTEM.md §5.2.
+    in-out property <string> toggle-style: "classic";
 
     // Klik kanan = kembali ke Explorer (C# OnEmbeddedViewPointerPressed:
     // klik kanan = NavigateBack). TouchArea latar di belakang isi.
@@ -219,6 +222,7 @@ export component ExplorerSettingsView inherits Rectangle {
                     spacing: 6px;
                     FieldLabel { title: "Show hidden files"; desc: "Tampilkan file & folder tersembunyi"; }
                     Toggle {
+                        toggle-style: root.toggle-style;
                         checked: root.exp-hidden;
                         toggled(checked) => { root.exp-hidden = checked; root.toast(checked ? "Disimpan: File tersembunyi ditampilkan" : "Disimpan: File tersembunyi disembunyikan"); }
                     }
@@ -227,6 +231,7 @@ export component ExplorerSettingsView inherits Rectangle {
                     spacing: 6px;
                     FieldLabel { title: "Show file extensions"; desc: "Tampilkan ekstensi file (.psd, .jpg, …)"; }
                     Toggle {
+                        toggle-style: root.toggle-style;
                         checked: root.exp-ext;
                         toggled(checked) => { root.exp-ext = checked; root.toast(checked ? "Disimpan: Ekstensi file ditampilkan" : "Disimpan: Ekstensi file disembunyikan"); }
                     }

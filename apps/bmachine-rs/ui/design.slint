@@ -647,18 +647,33 @@ export component ComboBox inherits Rectangle {
 }
 
 // ============================================================
-// Toggle switch — track 44x24, thumb 18, radius 12.
+// Toggle switch — tiga gaya (dipilih di Settings → Appearance,
+// DB Settings.ToggleStyle, berlaku ke SEMUA Toggle app-wide,
+// live tanpa restart; lihat DESIGN_SYSTEM.md §5.2):
+// - "classic" (bawaan): track 44x24, thumb 18, radius 12.
+// - "pill" (ref toggle-ref.gif): pill hitam lebar 64x24, knob
+//   putih 30x18 berisi teks ON/OFF yang ikut geser; sisi lawan
+//   menampilkan label satunya (abu-abu redup).
+// - "outline": track 44x24 transparan + border 2px, thumb
+//   lingkaran solid 16px.
+// Animasi geser knob 250ms (anim-slow, ease-in-out) di semua gaya.
 // ============================================================
 export component Toggle inherits Rectangle {
     in-out property <bool> checked;
+    // Gaya toggle ("classic" | "pill" | "outline") — diikat dari
+    // AppWindow (app-toggle-style); nilai tak dikenal → "classic".
+    in property <string> toggle-style: "classic";
     callback toggled(bool);
 
-    width: 44px;
+    width: root.toggle-style == "pill" ? 64px : 44px;
     height: 24px;
-    background: checked ? Design.accent : Design.toggle-off-bg;
+    background: root.toggle-style == "pill" ? #111111 : root.toggle-style == "outline" ? transparent : checked ? Design.accent : Design.toggle-off-bg;
+    border-color: root.toggle-style == "outline" ? (checked ? Design.accent : #555555) : transparent;
+    border-width: root.toggle-style == "outline" ? 2px : 0px;
     border-radius: Design.radius-xl;
 
     animate background { duration: Design.anim-slow; easing: ease-in-out; }
+    animate border-color { duration: Design.anim-slow; easing: ease-in-out; }
 
     touch := TouchArea {
         mouse-cursor: pointer;
@@ -668,7 +683,8 @@ export component Toggle inherits Rectangle {
         }
     }
 
-    Rectangle {
+    // Klasik: thumb putih 18px geser kiri-kanan.
+    if root.toggle-style == "classic" : Rectangle {
         width: 18px;
         height: 18px;
         x: checked ? parent.width - 21px : 3px;
@@ -677,6 +693,56 @@ export component Toggle inherits Rectangle {
         border-radius: 9px;
 
         animate x { duration: Design.anim-slow; easing: ease-in-out; }
+    }
+
+    // Pill geser: label lawan di sisi track yang kosong.
+    if root.toggle-style == "pill" : Text {
+        text: checked ? "OFF" : "ON";
+        x: checked ? parent.width - 28px : 4px;
+        y: 0;
+        width: 24px;
+        height: 100%;
+        font-size: 9px;
+        font-weight: 800;
+        color: #666666;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    // Pill geser: knob putih 30x18 dengan teks ON/OFF di dalamnya.
+    if root.toggle-style == "pill" : Rectangle {
+        width: 30px;
+        height: 18px;
+        x: checked ? 3px : parent.width - 33px;
+        y: 3px;
+        background: white;
+        border-radius: 9px;
+
+        animate x { duration: Design.anim-slow; easing: ease-in-out; }
+
+        Text {
+            text: checked ? "ON" : "OFF";
+            font-size: 9px;
+            font-weight: 800;
+            color: #111111;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            width: 100%;
+            height: 100%;
+        }
+    }
+
+    // Outline: thumb lingkaran solid 16px geser kiri-kanan.
+    if root.toggle-style == "outline" : Rectangle {
+        width: 16px;
+        height: 16px;
+        x: checked ? parent.width - 19px : 3px;
+        y: 4px;
+        background: checked ? Design.accent : #888888;
+        border-radius: 8px;
+
+        animate x { duration: Design.anim-slow; easing: ease-in-out; }
+        animate background { duration: Design.anim-slow; easing: ease-in-out; }
     }
 }
 
@@ -695,6 +761,8 @@ export component FlyoutItem inherits Rectangle {
     in property <color> label-color: Design.text-primary;
     in property <bool> show-toggle: false;
     in-out property <bool> toggle-checked: false;
+    // Gaya toggle (diteruskan ke Toggle di dalam — lihat §5.2).
+    in property <string> toggle-style: "classic";
     callback clicked();
     callback toggled(bool);
 
@@ -737,6 +805,7 @@ export component FlyoutItem inherits Rectangle {
         if root.show-toggle : VerticalLayout {
             alignment: center;
             Toggle {
+                toggle-style: root.toggle-style;
                 checked: root.toggle-checked;
                 toggled(checked) => { root.toggled(checked); }
             }

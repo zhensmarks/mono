@@ -179,6 +179,8 @@ export component AppWindow inherits Window {
     callback test-notch-voice();
     // Radial: gaya ring + jumlah segmen (Settings > Script Manager).
     callback radial-settings-changed();
+    // Toggle on/off: gaya toggle (Settings > Appearance).
+    callback toggle-settings-changed();
     callback pet-active-changed(int);
     callback pet-install-requested(string);
     callback pet-remove-requested(int);
@@ -225,6 +227,10 @@ export component AppWindow inherits Window {
     // Settings.Chrome.ButtonPosition, berlaku live tanpa restart.
     in-out property <string> app-chrome-button-style: "icons";
     in-out property <string> app-chrome-button-position: "right";
+    // Gaya toggle on/off ("classic" | "pill" | "outline") — DB
+    // Settings.ToggleStyle, berlaku ke semua Toggle app-wide,
+    // live tanpa restart (lihat DESIGN_SYSTEM.md §5.2).
+    in-out property <string> app-toggle-style: "classic";
     // Turunan geometri chrome (dipakai titlebar, dashboard, overlay,
     // panel wrapped — supaya satu sumber kebenaran, bukan ternary
     // berulang di tiap elemen):
@@ -3431,6 +3437,8 @@ export component AppWindow inherits Window {
         radial-style <=> root.app-radial-style;
         radial-segments <=> root.app-radial-segments;
         radial-settings-changed() => { root.radial-settings-changed(); }
+        toggle-style <=> root.app-toggle-style;
+        toggle-settings-changed() => { root.toggle-settings-changed(); }
         pet-names <=> root.app-pet-names;
         pet-authors <=> root.app-pet-authors;
         pet-slugs <=> root.app-pet-slugs;
@@ -3505,6 +3513,7 @@ export component AppWindow inherits Window {
         x: root.chrome-wrapped ? 8px : 0px; y: root.chrome-overlay-y;
         width: root.width - (root.chrome-wrapped ? 16px : 0px); height: root.height - root.chrome-overlay-y - root.chrome-content-bottom;
         visible: root.overlay-view == "EXPLORER-SETTINGS";
+        toggle-style <=> root.app-toggle-style;
         save-explorer-settings() => { root.save-explorer-settings(); }
         browse-path(k) => { root.browse-path(k); }
         back() => { root.overlay-view = ""; }
@@ -4032,6 +4041,7 @@ export component AppWindow inherits Window {
                 icon-name: "terminal";
                 label: "Terminal";
                 show-toggle: true;
+                toggle-style: root.app-toggle-style;
                 toggle-checked: root.show-logpanel;
                 toggled(checked) => { root.show-logpanel = checked; }
                 clicked => { }
@@ -4044,6 +4054,7 @@ export component AppWindow inherits Window {
                 icon-name: "layers";
                 label: "Dynamic Bar";
                 show-toggle: true;
+                toggle-style: root.app-toggle-style;
                 toggle-checked: root.app-dynamic-bar-visible;
                 toggled(checked) => {
                     if (checked) {

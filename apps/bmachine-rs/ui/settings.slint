@@ -497,6 +497,10 @@ export component SettingsView inherits Rectangle {
     // ring (2–8) — terikat dua arah ke AppWindow.
     in-out property <string> radial-style: "glass";
     in-out property <int> radial-segments: 8;
+    // Gaya toggle on/off ("classic" | "pill" | "outline") —
+    // terikat dua arah ke AppWindow; berlaku ke semua Toggle.
+    in-out property <string> toggle-style: "classic";
+    callback toggle-settings-changed();
     in-out property <bool> notch-voice-enabled: true;
     in-out property <string> notch-voice-name: "";
     in-out property <string> notch-voice-volume: "80";
@@ -1340,6 +1344,64 @@ export component SettingsView inherits Rectangle {
                             }
                         }
 
+                        // Gaya toggle on/off — berlaku ke SEMUA toggle di
+                        // aplikasi (Settings, flyout profil, Explorer,
+                        // Toolbox), langsung tanpa restart. Pratinjau di
+                        // bawah menampilkan gaya yang sedang dipilih
+                        // (klik pratinjau hanya demo animasi geser —
+                        // tidak mengubah pengaturan apa pun).
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Gaya toggle";
+                                desc: "Tampilan saklar on/off — Klasik aksen + thumb putih, Pill geser hitam lebar dengan teks ON/OFF (ref toggle-ref.gif), atau Outline border tipis + thumb lingkaran";
+                            }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OptionChip {
+                                    label: "Klasik";
+                                    horizontal-stretch: 1;
+                                    selected: root.toggle-style == "classic";
+                                    clicked => { root.toggle-style = "classic"; root.toggle-settings-changed(); root.toast("Gaya toggle: Klasik"); }
+                                }
+                                OptionChip {
+                                    label: "Pill geser";
+                                    horizontal-stretch: 1;
+                                    selected: root.toggle-style == "pill";
+                                    clicked => { root.toggle-style = "pill"; root.toggle-settings-changed(); root.toast("Gaya toggle: Pill geser"); }
+                                }
+                                OptionChip {
+                                    label: "Outline";
+                                    horizontal-stretch: 1;
+                                    selected: root.toggle-style == "outline";
+                                    clicked => { root.toggle-style = "outline"; root.toggle-settings-changed(); root.toast("Gaya toggle: Outline"); }
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: 24px;
+                                Text {
+                                    text: "Nyala";
+                                    font-size: Design.font-caption;
+                                    color: Design.text-muted;
+                                    vertical-alignment: center;
+                                }
+                                Toggle {
+                                    toggle-style: root.toggle-style;
+                                    checked: true;
+                                }
+                                Text {
+                                    text: "Mati";
+                                    font-size: Design.font-caption;
+                                    color: Design.text-muted;
+                                    vertical-alignment: center;
+                                }
+                                Toggle {
+                                    toggle-style: root.toggle-style;
+                                    checked: false;
+                                }
+                            }
+                        }
+
                         // Notch hidup (rework 27 Nov 2026, referensi
                         // Nusa): mode Notch / Avatar Pet + voice SAPI
                         // (Windows). Semua perubahan disimpan +
@@ -1462,6 +1524,7 @@ export component SettingsView inherits Rectangle {
                                 desc: "Maskot bicara saat ada kartu baru masuk atau poin bertambah (Windows SAPI — offline, gratis; di Linux tidak ada suara)";
                             }
                             Toggle {
+                                toggle-style: root.toggle-style;
                                 checked: root.notch-voice-enabled;
                                 toggled(checked) => { root.notch-voice-enabled = checked; root.notch-settings-changed(); root.toast(checked ? "Suara maskot nyala" : "Suara maskot mati"); }
                             }
@@ -2668,6 +2731,7 @@ export component SettingsView inherits Rectangle {
                             spacing: 6px;
                             FieldLabel { title: "Animasi startup"; desc: "Tampilkan animasi saat aplikasi dibuka"; }
                             Toggle {
+                                toggle-style: root.toggle-style;
                                 checked: root.anim-startup;
                                 toggled(checked) => { root.anim-startup = checked; root.toast(checked ? "Disimpan: Animasi startup nyala" : "Disimpan: Animasi startup mati"); }
                             }
@@ -2770,6 +2834,7 @@ export component SettingsView inherits Rectangle {
                                     horizontal-stretch: 1;
                                 }
                                 Toggle {
+                                    toggle-style: root.toggle-style;
                                     checked: root.is-batch-visible;
                                     toggled(checked) => {
                                         root.is-batch-visible = checked;
@@ -2786,6 +2851,7 @@ export component SettingsView inherits Rectangle {
                                     horizontal-stretch: 1;
                                 }
                                 Toggle {
+                                    toggle-style: root.toggle-style;
                                     checked: root.is-folder-locker-visible;
                                     toggled(checked) => {
                                         root.is-folder-locker-visible = checked;
@@ -2802,6 +2868,7 @@ export component SettingsView inherits Rectangle {
                                     horizontal-stretch: 1;
                                 }
                                 Toggle {
+                                    toggle-style: root.toggle-style;
                                     checked: root.is-output-explorer-visible;
                                     toggled(checked) => {
                                         root.is-output-explorer-visible = checked;

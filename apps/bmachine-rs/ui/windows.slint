@@ -79,6 +79,9 @@ export component ToolboxWindow inherits Window {
     in-out property <string> chrome-style: "custom";
     in-out property <string> chrome-button-style: "icons";
     in-out property <string> chrome-button-position: "right";
+    // Gaya toggle on/off ("classic" | "pill" | "outline") — didorong
+    // Rust saat window dibuat / pengaturan berubah (lihat §5.2).
+    in-out property <string> toggle-style: "classic";
 
     callback close-window();
     callback minimize-window();
@@ -207,6 +210,7 @@ export component ToolboxWindow inherits Window {
                     width: parent.width - (root.chrome-style == "wrapped" ? 16px : 0px);
                     height: parent.height - (root.chrome-style == "wrapped" ? 16px : 0px);
                     tool-tab <=> root.tool-tab;
+                    toggle-style <=> root.toggle-style;
                     back() => { root.close-window(); }
                     toast(text) => { root.toast(text); }
                 }

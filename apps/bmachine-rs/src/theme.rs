@@ -78,6 +78,19 @@ pub fn valid_chrome_button_position(raw: &str) -> String {
     }
 }
 
+/// Validasi gaya toggle on/off — nilai tak dikenal → "classic".
+/// "classic" = track 44×24 isi aksen + thumb putih 18px (bawaan);
+/// "pill" = pill hitam lebar 64×24, knob putih geser berisi teks ON/OFF
+/// (ref toggle-ref.gif); "outline" = track transparan border 2px +
+/// thumb lingkaran solid.
+pub fn valid_toggle_style(raw: &str) -> String {
+    match unquote(raw).to_lowercase().as_str() {
+        "pill" => "pill".to_string(),
+        "outline" => "outline".to_string(),
+        _ => "classic".to_string(),
+    }
+}
+
 impl ThemePalette {
     fn new(
         id: &str,
@@ -1155,6 +1168,17 @@ mod tests {
         assert_eq!(valid_chrome_button_position("right"), "right");
         assert_eq!(valid_chrome_button_position("LEFT"), "left");
         assert_eq!(valid_chrome_button_position("tengah"), "right");
+    }
+
+    #[test]
+    fn valid_toggle_style_accepts_known_and_defaults_unknown() {
+        assert_eq!(valid_toggle_style("classic"), "classic");
+        assert_eq!(valid_toggle_style("pill"), "pill");
+        assert_eq!(valid_toggle_style("outline"), "outline");
+        assert_eq!(valid_toggle_style("PILL"), "pill");
+        assert_eq!(valid_toggle_style("\"outline\""), "outline");
+        assert_eq!(valid_toggle_style("aneh"), "classic");
+        assert_eq!(valid_toggle_style(""), "classic");
     }
 
     #[test]

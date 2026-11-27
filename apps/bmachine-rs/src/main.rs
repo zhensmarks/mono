@@ -1169,6 +1169,7 @@ fn open_toolbox_window(
             });
             if let Some(ui) = ui_weak.upgrade() {
                 push_chrome_to_toolbox(&w, &ui);
+                push_toggle_style_to_toolbox(&w, &ui);
             }
             *opt = Some(w);
         }
@@ -1178,6 +1179,7 @@ fn open_toolbox_window(
         // — dorong lagi tiap buka-ulang).
         if let Some(ui) = ui_weak.upgrade() {
             push_chrome_to_toolbox(w, &ui);
+            push_toggle_style_to_toolbox(w, &ui);
         }
         w.set_tool_tab(slint::SharedString::from(tab));
         if let Some(ui) = ui_weak.upgrade() {
@@ -1888,6 +1890,12 @@ fn push_chrome_to_toolbox(w: &ToolboxWindow, ui: &AppWindow) {
     ));
 }
 
+/// Dorong gaya toggle on/off ke ToolboxWindow (satu-satunya window
+/// sekunder yang berisi Toggle — Auto-pair di ToolboxView).
+fn push_toggle_style_to_toolbox(w: &ToolboxWindow, ui: &AppWindow) {
+    w.set_toggle_style(slint::SharedString::from(ui.get_app_toggle_style()));
+}
+
 fn push_chrome_to_cardlist(w: &CardListWindow, ui: &AppWindow) {
     w.set_chrome_style(slint::SharedString::from(ui.get_app_chrome()));
     w.set_chrome_button_style(slint::SharedString::from(
@@ -2552,6 +2560,13 @@ fn main() -> Result<(), slint::PlatformError> {
                 }
             }
             ui.set_app_radial_segments(radial_segments as i32);
+            // Gaya toggle on/off (default "classic"; nilai tak
+            // dikenal → "classic" via valid_toggle_style).
+            let mut toggle_style = "classic".to_string();
+            if let Some(v) = db_guard.get("Settings.ToggleStyle") {
+                toggle_style = theme::valid_toggle_style(&v);
+            }
+            ui.set_app_toggle_style(slint::SharedString::from(toggle_style.as_str()));
             let mut vcfg = voice::VoiceConfig::default();
             if let Some(v) = db_guard.get("Settings.Notch.VoiceEnabled") {
                 vcfg.enabled = !(v == "false" || v == "0");
@@ -4799,6 +4814,30 @@ fn main() -> Result<(), slint::PlatformError> {
             if let Some(w) = radial_cell.borrow().as_ref() {
                 theme::sync_design_to_radial(&ui, w);
                 push_radial_geometry(w, &style, n);
+            }
+        });
+    }
+
+    // Gaya toggle on/off berubah di Settings (Appearance): simpan ke
+    // DB; bila ToolboxWindow sedang tampil, dorong langsung (live
+    // tanpa restart). Toggle di window utama ikut via binding
+    // app-toggle-style — tidak perlu dorongan Rust.
+    {
+        let toolbox_cell = toolbox_win_cell.clone();
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
+        ui.on_toggle_settings_changed(move || {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let style = theme::valid_toggle_style(&ui.get_app_toggle_style());
+            if let Some(ref db_mutex) = db_clone {
+                if let Ok(mut guard) = db_mutex.lock() {
+                    let _ = guard.set("Settings.ToggleStyle", &style, "String");
+                }
+            }
+            if let Some(w) = toolbox_cell.borrow().as_ref() {
+                push_toggle_style_to_toolbox(w, &ui);
             }
         });
     }

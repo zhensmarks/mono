@@ -240,10 +240,31 @@ Callback: `accepted(string)` (Enter) dan `edited(string)`.
 
 ### 5.2 Toggle
 
-Komponen `Toggle` (`ui/design.slint`). Track 44×24, radius 12;
-thumb 18px, radius 9, putih. Hidup = latar aksen; mati = latar
-`toggle-off-bg` (`#2A2A2A`). Animasi latar + posisi thumb 250ms
-(`anim-slow`, ease-in-out). Callback `toggled(bool)`.
+Komponen `Toggle` (`ui/design.slint`) — SATU komponen untuk semua
+saklar on/off di aplikasi (Settings, flyout profil via `FlyoutItem`,
+Explorer Settings, Toolbox Auto-pair). Gaya dipilih di Settings →
+Appearance → "Gaya toggle", DB `Settings.ToggleStyle`
+(`"classic"` | `"pill"` | `"outline"`, tak dikenal → `"classic"`),
+berlaku ke semua Toggle app-wide, live tanpa restart (Rust:
+`valid_toggle_style()` di `src/theme.rs`, load di startup +
+`on_toggle_settings_changed` simpan DB + dorong ke ToolboxWindow
+— satu-satunya window sekunder yang berisi Toggle; Toggle di window
+utama ikut via binding `app-toggle-style`).
+
+- **Klasik** (bawaan): track 44×24, radius 12; thumb 18px, radius 9,
+  putih. Hidup = latar aksen; mati = latar `toggle-off-bg`
+  (`#2A2A2A`).
+- **Pill geser** (ref `~/workspace/pet-refs/toggle-ref.gif`): pill
+  hitam lebar 64×24 (`#111111`), knob putih 30×18 berisi teks ON/OFF
+  (hitam, 9px, ExtraBold) yang ikut geser; sisi track yang kosong
+  menampilkan label satunya (`#666666`). Knob ON di kiri, OFF di
+  kanan.
+- **Outline**: track 44×24 transparan + border 2px (aksen saat hidup,
+  `#555555` saat mati); thumb lingkaran solid 16px (aksen saat hidup,
+  `#888888` saat mati).
+
+Animasi latar + posisi thumb 250ms (`anim-slow`, ease-in-out) di
+semua gaya. Callback `toggled(bool)`.
 
 ### 5.3 CheckBox [rekonstruksi]
 

@@ -166,6 +166,9 @@ export component ToolboxView inherits Rectangle {
     callback back();
     callback toast(string);
     in-out property <string> tool-tab: "MantraNama";
+    // Gaya toggle on/off ("classic" | "pill" | "outline") — diikat
+    // dari ToolboxWindow (didorong Rust), lihat DESIGN_SYSTEM.md §5.2.
+    in-out property <string> toggle-style: "classic";
 
     // --- State mockup per tab (eksekusi nyata = Fase 6) ---
     in-out property <string> nama-example: "";
@@ -335,10 +338,11 @@ export component ToolboxView inherits Rectangle {
                                 vertical-alignment: center;
                             }
                             Rectangle {
-                                width: 44px;
+                                width: 64px;
                                 height: 36px;
                                 Toggle {
                                     x: 0; y: 6px;
+                                    toggle-style: root.toggle-style;
                                     checked: root.nama-autopair;
                                     toggled(on) => {
                                         root.nama-autopair = on;
