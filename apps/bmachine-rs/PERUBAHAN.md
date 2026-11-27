@@ -5,6 +5,118 @@ sebelum commit + push (format lengkap di `AGENTS.md`). Entri terbaru di
 paling atas. Dengan log ini, siapa pun yang menerima project — Dex, Hermes,
 atau orang lain — langsung tahu apa saja yang diubah tanpa menebak.
 
+## 2026-11-27 — Dex — P2: Floating Widget / Smart Orb + Spreadsheet fingerprint guard + Splash samakan C#
+
+- Diubah:
+  - (1) Floating Widget / Smart Orb (`ui/floating.slint` BARU,
+    `ui/main.slint`, `src/main.rs`): window OS `FloatingWidgetWindow`
+    100×100 transparan, no-frame, always-on-top; orb 60px + glow
+    bernapas via Timer (kecepatan `Settings.Orb.Speed`, toggle
+    `Settings.Orb.Breathing`); drag kiri ambang 5px, klik kiri expand,
+    klik kanan collapse; menu expand 440×210 (ukuran tersimpan
+    `Settings.Orb.ExpandedWidth/Height`, resize handle min 300×150),
+    nav Master/Action + daftar script vertikal + resize handle;
+    Master = `.py` di `Scripts/Master`, Action = `.jsx` di
+    `Scripts/Action` + `.pyw` di `Scripts`, nama = stem file,
+    alfabetis; posisi tersimpan `Configs.Widget.Position.X/Y`;
+    aksen `Settings.Color.Orb`; visibility `Settings.FloatingWidget`
+    (default True, tampil saat startup, dibuka 300ms setelah window
+    utama agar tidak tertutup); persist di `save-general-settings` +
+    handler toggle. Toggle lama di General yang hanya toast diganti
+    wiring asli ke window ini.
+  - (2) Spreadsheet fingerprint guard (`src/spreadsheet_guard.rs`
+    BARU, `ui/spreadsheet.slint`, `ui/modul.slint`, `ui/windows.slint`,
+    `ui/main.slint`, `src/main.rs`): fingerprint = join seluruh baris
+    dengan `\u{1f}`; anchors per baris; `find_mismatches` lewati baris
+    kosong; `describe` dinamis (nomor baris pertama mismatch + aktual
+    vs yang dimuat, `"(dan N baris lain)"`); draft persist SQLite key
+    `Spreadsheet.Draft` (JSON PascalCase); snapshot persist key
+    `Spreadsheet.SheetSnapshot`; saat reload draft hanya diterapkan
+    bila nilai asli sel masih cocok, sisanya tetap tersimpan sebagai
+    `remaining` (bukan dibuang); setelah save berhasil draft yang
+    terkirim di-drop; status bar guard-result + `Simpan (N)`.
+  - (3) Splash samakan C# (`ui/splash.slint`, `src/main.rs`): logo
+    layers 56px + `"B"` 22px weight 900 aksen + `"MACHINE"` 22px
+    weight 300 letter-spacing 4; `VersionText "VERSION 15.15.3"`;
+    status default `"Memuat..."`; ProgressBar 0–100 tinggi 3; log
+    terminal maks 3 baris prefix `"> "`; langkah 10% SQLite, 25%
+    tema & UI, 50% preload (82 keys), 75% engine Python, 90%
+    layanan eksternal, 100% siap.
+  - (4) Perbaikan bug fokus editor sel (`ui/spreadsheet.slint`,
+    `GridCell`): editor `TextInput` selalu ada di tree (bukan hanya
+    dibuat saat `if is-active`) + `changed is-active => editor.focus()`
+    — sebelumnya ketikan tidak masuk ke sel karena fokus tertahan di
+    elemen sebelumnya. Tambahan: `changed text => editor.text =
+    root.text` — setelah pengguna mengetik, binding `text` editor
+    putus (nilai ketikan menimpa binding), jadi push nilai baru dari
+    Rust (Muat Ulang/Simpan) tidak sampai ke editor sel aktif;
+    tanpa ini sel aktif menampilkan nilai lama setelah Muat Ulang.
+  - (5) Jawaban DESIGN_SYSTEM.md §19.9 butir 4–6 (dari source C#,
+    diverifikasi langsung: `SpreadsheetRowAnchorGuard.cs:63`,
+    `SpreadsheetDraft.cs:81`, `SpreadsheetViewModel.cs:680,719`):
+    Q4 pesan guard dinamis, bukan hardcode; Q5 koreksi premis —
+    C# TIDAK membuang draft sel berubah saat reload, draft tetap
+    tersimpan sebagai remaining dan dicoba lagi; Q6 draft persist
+    antar-sesi di SQLite key `Spreadsheet.Draft`.
+- Alasan: tugas P2 (referensi C#: `FloatingWidgetView.axaml/.cs`,
+  `SpreadsheetRowFingerprint` + `SpreadsheetRowAnchorGuard`,
+  `SplashViewModel.cs` + `SplashWindow.axaml`); 3 keputusan abeng
+  27 Nov 16:54 tetap dijaga (label widget "POINTS", pemicu radial
+  tambahan dihapus — hanya hotkey Shift+klik tengah, titlebar
+  custom 28px + min 520).
+- Terverifikasi: `cargo build --offline` exit 0 (satu-satunya warning
+  lama: unused dependency `sha2`); `cargo test --offline` 18 passed,
+  0 failed (termasuk 6 test `spreadsheet_guard`). Klik sungguhan di
+  Xvfb :98 (APPDATA tes terisolasi `/tmp/p2test/appdata`, DB asli
+  abeng tidak disentuh):
+  - Orb: tampil saat startup di (100,100); klik kiri → expand
+    440×210, Master menampilkan `AlphaMaster`, `TestMaster`
+    (alfabetis); nav Action → `RootScript`, `TestAction`; klik
+    `RootScript` → toast `"[Photoshop] Menjalankan: RootScript"` +
+    collapse; drag (150,150)→(300,300) → posisi (250,250), DB
+    `Configs.Widget.Position` 250/250; klik kanan → collapse;
+    resize handle → 500×250, DB `Settings.Orb.ExpandedWidth/Height`
+    500/250; toggle Settings OFF → widget hilang, DB `false`;
+    ON → muncul lagi di (250,250), DB `true`.
+    (`p2-orb-startup.png`, `p2-orb-expanded5.png`,
+    `p2-orb-action.png`, `p2-orb-after-exec.png`, `p2-orb-dragged.png`,
+    `p2-orb-collapsed.png`, `p2-orb-resized.png`,
+    `p2-orb-toggle-off.png`, `p2-orb-toggle-on.png`)
+  - Spreadsheet guard (build final, DB tes bersih): ketik di B1 +
+    Return → draft tercatat di `Spreadsheet.Draft` (baris 1, kolom
+    B, original "SDN RANCAIYUH I", nilai " EDITSDN RANCAIYUH I"),
+    tombol jadi `Simpan (1)`, status "Perubahan belum disimpan
+    (1 sel)"; ubah snapshot dari luar (B1 → "SDN RANCAIYUH I LUAR")
+    → Simpan DIBLOKIR pesan guard dinamis, draft tetap ada;
+    Muat Ulang → B1 menampilkan "SDN RANCAIYUH I LUAR" (draft tidak
+    diterapkan), draft tetap tersimpan di DB, status "Data dimuat
+    ulang dari sheet."; edit B2 + Simpan (tanpa perubahan luar) →
+    berhasil, snapshot ter-update, draft kosong, status "✓ Semua
+    perubahan tersimpan ke Google Sheets & SQLite".
+    (`p2-sheet-draft.png`, `p2-guard2-block.png`,
+    `p2-guard2-reloaded.png`, `p2-sheet-saved.png`)
+  - Splash (build final): logo layers + `"B"` + `"MACHINE"`,
+    `"VERSION 15.15.3"`, status langkah bootstrapper, ProgressBar,
+    log `"> "` maks 3 baris (`"> Tema Dark diterapkan"`,
+    `"> 82 keys tersimpan ke memori"`,
+    `"> Engine Python OK (Scripts/Master)"`).
+    (`p2-splash-final.png`, sebelumnya `p2-splash-b.png`)
+- Masih terbuka / penyimpangan jujur:
+  - Klik item script floating masih jalur toast radial, eksekusi
+    nyata ikut Fase 6 (sama seperti radial/toolbox).
+  - Menu floating daftar vertikal + Flickable, bukan WrapPanel
+    horizontal C#; belum ada drag-reorder item menu.
+  - Pesan guard menampilkan sel pertama non-kosong baris
+    (`DisplayOf`) — bila sel yang berubah bukan kolom pertama,
+    nilai aktual vs yang dimuat bisa tampak sama; itu perilaku C#
+    apa adanya, bukan bug port.
+  - `set_size()` Rust tidak mengubah properti `width/height` Slint
+    — ukuran window floating diubah lewat binding properti di
+    `.slint`, bukan `set_size()` (pelajaran Slint/Linux, dicatat
+    untuk port berikutnya).
+  - Satu-satunya warning build: unused dependency `sha2` (lama,
+    bukan dari P2).
+
 ## 2026-11-27 — Dex — P1: log panel resize + CardListWindow 450×600 compact + Settings 7 grup + Leaderboard samakan C# + Spreadsheet chrome 46px + Esc tidak tutup Settings
 
 - Diubah (7 item P1):

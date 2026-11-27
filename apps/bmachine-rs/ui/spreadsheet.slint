@@ -57,7 +57,13 @@ component GridCell inherits Rectangle {
 
     // Editor langsung di sel (C# tidak punya formula bar — edit langsung
     // di sel, Enter = terapkan, klik sel lain = batalkan edit).
-    if root.is-active : TextInput {
+    // Selalu ada di tree (visible saat aktif) + difokuskan saat sel
+    // menjadi aktif: kalau editor hanya dibuat oleh `if is-active`,
+    // klik yang mengaktifkan sel tidak pernah sampai ke editor —
+    // fokus keyboard tertahan di elemen sebelumnya dan ketikan hilang
+    // (27 Nov 2026: klik sel B1 lalu ketik tidak masuk ke mana-mana).
+    editor := TextInput {
+        visible: root.is-active;
         x: 6px;
         y: 0;
         width: parent.width - 12px;
@@ -69,6 +75,22 @@ component GridCell inherits Rectangle {
         horizontal-alignment: root.is-numeric ? right : left;
         vertical-alignment: center;
         accepted => { root.edited(self.text); }
+    }
+
+    changed is-active => {
+        if (root.is-active) {
+            editor.focus();
+        }
+    }
+
+    // Sinkronkan editor saat teks sel berubah dari luar (Muat Ulang /
+    // Simpan): setelah pengguna mengetik, binding `text: root.text`
+    // editor putus (nilai ketikan menimpa binding), jadi push nilai baru
+    // dari Rust tidak sampai ke editor — sel aktif menampilkan nilai
+    // lama (27 Nov 2026: setelah Muat Ulang, B1 tetap menampilkan
+    // nilai draft padahal grid sudah dimuat ulang dari sheet).
+    changed text => {
+        editor.text = root.text;
     }
 }
 
@@ -84,12 +106,19 @@ export component SpreadsheetComponent inherits Rectangle {
     in-out property <int> active-row: 0;
     in-out property <int> active-col: 1; // Default di kolom 'Sekolah'
 
+    // Hasil guard saat Simpan (ditulis Rust selama callback save-changes(),
+    // dibaca commit-save() setelahnya): "" = lolos, berisi pesan = diblokir.
+    in-out property <string> guard-result: "";
+
     // Callbacks
     callback toast(string);
     callback save-changes();
     callback refresh-data();
     callback popout-window();
     callback close-view();
+    // Edit sel -> Rust mencatat draft (baris 0-based, kolom 0-based,
+    // nilai asli saat dimuat, nilai baru) + persist ke SQLite.
+    callback cell-edited(int, int, string, string);
 
     // Data Baris Spreadsheet (6 Kolom x 6 Baris Default yang dapat ditambah/diedit)
     in-out property <[string]> col-a: ["47276395", "47276396", "47276397", "47276398", "47276399", "47276400"];
@@ -98,6 +127,14 @@ export component SpreadsheetComponent inherits Rectangle {
     in-out property <[string]> col-d: ["SELESAI", "PROSES", "REVISI", "SELESAI", "ANTRIAN", "SELESAI"];
     in-out property <[string]> col-e: ["1280", "950", "420", "1640", "310", "880"];
     in-out property <[string]> col-f: ["Lengkap", "Foto kurang 2", "Warna jas revisi", "Lunas", "Menunggu konfirmasi", "Cetak master siap"];
+    // Nilai asli saat dimuat (jangkar guard + nilai asli draft) — hanya
+    // berubah saat Muat Ulang / Simpan berhasil (Rust yang menulis).
+    in-out property <[string]> col-a-orig: ["47276395", "47276396", "47276397", "47276398", "47276399", "47276400"];
+    in-out property <[string]> col-b-orig: ["SDN RANCAIYUH I", "SDN CIKAMPEK II", "SMPN 1 PARONGPONG", "SMAN 2 CIMAHI", "SDN SUKAMAJU III", "SDN KARANGANYAR"];
+    in-out property <[string]> col-c-orig: ["SD", "SD", "SMP", "SMA", "SD", "SD"];
+    in-out property <[string]> col-d-orig: ["SELESAI", "PROSES", "REVISI", "SELESAI", "ANTRIAN", "SELESAI"];
+    in-out property <[string]> col-e-orig: ["1280", "950", "420", "1640", "310", "880"];
+    in-out property <[string]> col-f-orig: ["Lengkap", "Foto kurang 2", "Warna jas revisi", "Lunas", "Menunggu konfirmasi", "Cetak master siap"];
     in-out property <int> row-count: 6;
 
     // Mendapatkan teks sel saat ini untuk formula bar
@@ -106,10 +143,14 @@ export component SpreadsheetComponent inherits Rectangle {
         root.active-col = c;
     }
 
-    // Tulis nilai baru dari formula bar / input ke sel aktif
+    // Tulis nilai baru dari formula bar / input ke sel aktif.
+    // Nilai asli diambil dari kolom *-orig (nilai saat dimuat) — itu yang
+    // dicatat draft + dipakai jangkar guard (bukan nilai hasil edit
+    // sebelumnya).
     public function apply-cell-edit(val: string) {
         let r: int = root.active-row;
         let c: int = root.active-col;
+        let orig: string = c == 0 ? root.col-a-orig[r] : c == 1 ? root.col-b-orig[r] : c == 2 ? root.col-c-orig[r] : c == 3 ? root.col-d-orig[r] : c == 4 ? root.col-e-orig[r] : root.col-f-orig[r];
         if (c == 0) { root.col-a[r] = val; }
         else if (c == 1) { root.col-b[r] = val; }
         else if (c == 2) { root.col-c[r] = val; }
@@ -120,6 +161,7 @@ export component SpreadsheetComponent inherits Rectangle {
         root.has-draft = true;
         root.draft-count += 1;
         root.status-text = "● Perubahan belum disimpan (" + root.draft-count + " sel)";
+        root.cell-edited(r, c, orig, val);
     }
 
     // Fungsi Auto-Sum kolom Poin
@@ -139,13 +181,20 @@ export component SpreadsheetComponent inherits Rectangle {
         }
     }
 
-    // Simpan perubahan
+    // Simpan perubahan — guard jalan di Rust selama save-changes():
+    // guard-result "" = lolos (baru bersihkan draft), berisi pesan =
+    // diblokir (draft dipertahankan, pesan guard tampil di status).
     public function commit-save() {
-        root.has-draft = false;
-        root.draft-count = 0;
-        root.status-text = "✓ Semua perubahan tersimpan ke Google Sheets & SQLite";
         root.save-changes();
-        root.toast("Spreadsheet tersimpan");
+        if (root.guard-result == "") {
+            root.has-draft = false;
+            root.draft-count = 0;
+            root.status-text = "✓ Semua perubahan tersimpan ke Google Sheets & SQLite";
+            root.toast("Spreadsheet tersimpan");
+        } else {
+            root.status-text = root.guard-result;
+            root.toast(root.guard-result);
+        }
     }
 
     background: Design.app-bg;

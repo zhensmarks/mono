@@ -16,6 +16,7 @@ import { RadialMenuView } from "radial.slint";
 import { SplashView } from "splash.slint";
 import { ExitConfirmDialog, UpdateDialog } from "dialog.slint";
 export { SpreadsheetWindow, CardListWindow, RadialMenuWindow, ToolboxWindow, ReportBugDialog } from "windows.slint";
+export { FloatingWidgetWindow } from "floating.slint";
 
 export component AppWindow inherits Window {
     no-frame: true;
@@ -38,7 +39,8 @@ export component AppWindow inherits Window {
     // State Fase 5: Splash & Dialog Modal
     in-out property <string> app-stage: "splash";
     in-out property <int> splash-progress: 0;
-    in-out property <string> splash-status: "Menghubungkan Database SQLite...";
+    in-out property <string> splash-status: "Memuat...";
+    in-out property <string> splash-version: "VERSION 15.15.3";
     in-out property <string> splash-log1: "";
     in-out property <string> splash-log2: "";
     in-out property <string> splash-log3: "";
@@ -87,8 +89,29 @@ export component AppWindow inherits Window {
     in-out property <string> google-sheet-row: "12";
     in-out property <string> spreadsheet-sheet-name: "ALL DATA REGULER";
     in-out property <string> spreadsheet-range: "A1:Z";
+    // Data grid spreadsheet + nilai asli + status guard/draft (Rust).
+    in-out property <[string]> sheet-col-a: ["47276395", "47276396", "47276397", "47276398", "47276399", "47276400"];
+    in-out property <[string]> sheet-col-b: ["SDN RANCAIYUH I", "SDN CIKAMPEK II", "SMPN 1 PARONGPONG", "SMAN 2 CIMAHI", "SDN SUKAMAJU III", "SDN KARANGANYAR"];
+    in-out property <[string]> sheet-col-c: ["SD", "SD", "SMP", "SMA", "SD", "SD"];
+    in-out property <[string]> sheet-col-d: ["SELESAI", "PROSES", "REVISI", "SELESAI", "ANTRIAN", "SELESAI"];
+    in-out property <[string]> sheet-col-e: ["1280", "950", "420", "1640", "310", "880"];
+    in-out property <[string]> sheet-col-f: ["Lengkap", "Foto kurang 2", "Warna jas revisi", "Lunas", "Menunggu konfirmasi", "Cetak master siap"];
+    in-out property <[string]> sheet-col-a-orig: ["47276395", "47276396", "47276397", "47276398", "47276399", "47276400"];
+    in-out property <[string]> sheet-col-b-orig: ["SDN RANCAIYUH I", "SDN CIKAMPEK II", "SMPN 1 PARONGPONG", "SMAN 2 CIMAHI", "SDN SUKAMAJU III", "SDN KARANGANYAR"];
+    in-out property <[string]> sheet-col-c-orig: ["SD", "SD", "SMP", "SMA", "SD", "SD"];
+    in-out property <[string]> sheet-col-d-orig: ["SELESAI", "PROSES", "REVISI", "SELESAI", "ANTRIAN", "SELESAI"];
+    in-out property <[string]> sheet-col-e-orig: ["1280", "950", "420", "1640", "310", "880"];
+    in-out property <[string]> sheet-col-f-orig: ["Lengkap", "Foto kurang 2", "Warna jas revisi", "Lunas", "Menunggu konfirmasi", "Cetak master siap"];
+    in-out property <bool> sheet-has-draft: false;
+    in-out property <int> sheet-draft-count: 0;
+    in-out property <string> sheet-status-text: "6 baris siap · Jangkar A1:F6 · Terhubung ke Google Sheets";
+    in-out property <string> sheet-guard-result: "";
     in-out property <string> lb-harian-range: "A2:C10";
     in-out property <string> lb-bulanan-range: "A2:C10";
+
+    callback sheet-cell-edited(int, int, string, string);
+    callback sheet-save();
+    callback sheet-refresh();
 
     callback save-account-settings();
     callback apply-appearance();
@@ -109,6 +132,11 @@ export component AppWindow inherits Window {
     callback open-new-sheet-window();
     callback open-new-card-window(string);
     callback refresh-leaderboard();
+    callback toggle-floating-widget();
+
+    // Toggle Smart Orb di Settings langsung menampilkan/menyembunyikan
+    // Floating Widget (C# OnIsFloatingWidgetEnabledChanged).
+    changed app-smart-orb => { root.toggle-floating-widget(); }
 
     // ---- Appearance & Customization (persisted in SQLite) ----
     in-out property <string> app-color-mode: "dark";
@@ -3303,6 +3331,25 @@ export component AppWindow inherits Window {
         sheet-col0 <=> root.sheet-col0;
         sheet-col1 <=> root.sheet-col1;
         sheet-col2 <=> root.sheet-col2;
+        col-a <=> root.sheet-col-a;
+        col-b <=> root.sheet-col-b;
+        col-c <=> root.sheet-col-c;
+        col-d <=> root.sheet-col-d;
+        col-e <=> root.sheet-col-e;
+        col-f <=> root.sheet-col-f;
+        col-a-orig <=> root.sheet-col-a-orig;
+        col-b-orig <=> root.sheet-col-b-orig;
+        col-c-orig <=> root.sheet-col-c-orig;
+        col-d-orig <=> root.sheet-col-d-orig;
+        col-e-orig <=> root.sheet-col-e-orig;
+        col-f-orig <=> root.sheet-col-f-orig;
+        sheet-has-draft <=> root.sheet-has-draft;
+        sheet-draft-count <=> root.sheet-draft-count;
+        sheet-status-text <=> root.sheet-status-text;
+        sheet-guard-result <=> root.sheet-guard-result;
+        sheet-cell-edited(r, c, orig, val) => { root.sheet-cell-edited(r, c, orig, val); }
+        sheet-save() => { root.sheet-save(); }
+        sheet-refresh() => { root.sheet-refresh(); }
         back() => { root.overlay-view = ""; }
         toast(text) => { root.toast = text; }
         popout-window() => { root.open-new-sheet-window(); }
@@ -4022,6 +4069,7 @@ export component AppWindow inherits Window {
         x: 0; y: 0; width: 100%; height: 100%;
         progress: root.splash-progress;
         status: root.splash-status;
+        version-text: root.splash-version;
         log1: root.splash-log1;
         log2: root.splash-log2;
         log3: root.splash-log3;

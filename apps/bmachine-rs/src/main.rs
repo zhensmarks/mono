@@ -7,6 +7,7 @@ mod local_update;
 mod platform;
 mod process_log;
 mod sheets_api;
+mod spreadsheet_guard;
 mod theme;
 mod trello_api;
 
@@ -28,6 +29,9 @@ use std::sync::{Arc, Mutex};
 // Versi aplikasi untuk footer flyout profil (C# AppVersion =
 // assembly ToString(2) — v15.15.3 -> "15.15"). BUKAN versi Cargo.
 const APP_VERSION: &str = "15.15";
+// Versi lengkap untuk splash (C# SplashViewModel.VersionText =
+// "VERSION " + Assembly Version ToString(3) -> "VERSION 15.15.3").
+const APP_VERSION_FULL: &str = "15.15.3";
 
 // Posisi cursor terakhir (physical px) — dilacak hook rdev (MouseMove).
 // Dipakai cursor_screen_position() di Linux (GetCursorPos hanya Windows).
@@ -483,6 +487,514 @@ fn save_window_geometry(
     let _ = guard.set(&format!("{}.Y", prefix), &y.to_string(), "Int");
     let _ = guard.set(&format!("{}.Width", prefix), &w.to_string(), "Int");
     let _ = guard.set(&format!("{}.Height", prefix), &h.to_string(), "Int");
+}
+
+/// Nilai default grid spreadsheet (mock 6x6) — sama dengan default
+/// .slint (dipakai bila belum ada snapshot di DB).
+const SHEET_DEFAULT_ROWS: [[&str; 6]; 6] = [
+    ["47276395", "SDN RANCAIYUH I", "SD", "SELESAI", "1280", "Lengkap"],
+    ["47276396", "SDN CIKAMPEK II", "SD", "PROSES", "950", "Foto kurang 2"],
+    ["47276397", "SMPN 1 PARONGPONG", "SMP", "REVISI", "420", "Warna jas revisi"],
+    ["47276398", "SMAN 2 CIMAHI", "SMA", "SELESAI", "1640", "Lunas"],
+    ["47276399", "SDN SUKAMAJU III", "SD", "ANTRIAN", "310", "Menunggu konfirmasi"],
+    ["47276400", "SDN KARANGANYAR", "SD", "SELESAI", "880", "Cetak master siap"],
+];
+
+fn sheet_model(v: Vec<String>) -> slint::ModelRc<slint::SharedString> {
+    slint::ModelRc::new(slint::VecModel::from(
+        v.into_iter().map(slint::SharedString::from).collect::<Vec<_>>(),
+    ))
+}
+
+fn sheet_rows_to_cols(rows: &[Vec<String>]) -> Vec<Vec<String>> {
+    let mut cols: Vec<Vec<String>> = vec![Vec::new(); 6];
+    for row in rows {
+        for c in 0..6 {
+            cols[c].push(row.get(c).cloned().unwrap_or_default());
+        }
+    }
+    cols
+}
+
+fn sheet_cols_to_rows(cols: &[Vec<String>]) -> Vec<Vec<String>> {
+    let n = cols.iter().map(|c| c.len()).max().unwrap_or(0);
+    let mut rows = Vec::new();
+    for r in 0..n {
+        let mut row = Vec::new();
+        for c in 0..6 {
+            row.push(cols.get(c).and_then(|col| col.get(r)).cloned().unwrap_or_default());
+        }
+        rows.push(row);
+    }
+    rows
+}
+
+/// Baca grid tampil (6 kolom) dari window utama.
+fn grid_from_main(ui: &AppWindow) -> Vec<Vec<String>> {
+    let cols = vec![
+        read_str_model(ui.get_sheet_col_a()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+        read_str_model(ui.get_sheet_col_b()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+        read_str_model(ui.get_sheet_col_c()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+        read_str_model(ui.get_sheet_col_d()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+        read_str_model(ui.get_sheet_col_e()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+        read_str_model(ui.get_sheet_col_f()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+    ];
+    sheet_cols_to_rows(&cols)
+}
+
+/// Baca grid tampil (6 kolom) dari SpreadsheetWindow.
+fn grid_from_sheet_win(w: &SpreadsheetWindow) -> Vec<Vec<String>> {
+    let cols = vec![
+        read_str_model(w.get_col_a()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+        read_str_model(w.get_col_b()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+        read_str_model(w.get_col_c()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+        read_str_model(w.get_col_d()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+        read_str_model(w.get_col_e()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+        read_str_model(w.get_col_f()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+    ];
+    sheet_cols_to_rows(&cols)
+}
+
+/// Dorong baris tampil + baris asli ke window utama.
+fn push_grid_to_main(ui: &AppWindow, display: &[Vec<String>], orig: &[Vec<String>]) {
+    let dc = sheet_rows_to_cols(display);
+    let oc = sheet_rows_to_cols(orig);
+    ui.set_sheet_col_a(sheet_model(dc[0].clone()));
+    ui.set_sheet_col_b(sheet_model(dc[1].clone()));
+    ui.set_sheet_col_c(sheet_model(dc[2].clone()));
+    ui.set_sheet_col_d(sheet_model(dc[3].clone()));
+    ui.set_sheet_col_e(sheet_model(dc[4].clone()));
+    ui.set_sheet_col_f(sheet_model(dc[5].clone()));
+    ui.set_sheet_col_a_orig(sheet_model(oc[0].clone()));
+    ui.set_sheet_col_b_orig(sheet_model(oc[1].clone()));
+    ui.set_sheet_col_c_orig(sheet_model(oc[2].clone()));
+    ui.set_sheet_col_d_orig(sheet_model(oc[3].clone()));
+    ui.set_sheet_col_e_orig(sheet_model(oc[4].clone()));
+    ui.set_sheet_col_f_orig(sheet_model(oc[5].clone()));
+}
+
+/// Dorong baris tampil + baris asli ke SpreadsheetWindow.
+fn push_grid_to_sheet_win(w: &SpreadsheetWindow, display: &[Vec<String>], orig: &[Vec<String>]) {
+    let dc = sheet_rows_to_cols(display);
+    let oc = sheet_rows_to_cols(orig);
+    w.set_col_a(sheet_model(dc[0].clone()));
+    w.set_col_b(sheet_model(dc[1].clone()));
+    w.set_col_c(sheet_model(dc[2].clone()));
+    w.set_col_d(sheet_model(dc[3].clone()));
+    w.set_col_e(sheet_model(dc[4].clone()));
+    w.set_col_f(sheet_model(dc[5].clone()));
+    w.set_col_a_orig(sheet_model(oc[0].clone()));
+    w.set_col_b_orig(sheet_model(oc[1].clone()));
+    w.set_col_c_orig(sheet_model(oc[2].clone()));
+    w.set_col_d_orig(sheet_model(oc[3].clone()));
+    w.set_col_e_orig(sheet_model(oc[4].clone()));
+    w.set_col_f_orig(sheet_model(oc[5].clone()));
+}
+
+/// Baca snapshot sheet dari DB; bila belum ada, inisialisasi dari data
+/// default dan simpan.
+fn read_sheet_snapshot(
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+    sheet_id: &str,
+    sheet_name: &str,
+) -> spreadsheet_guard::SheetSnapshot {
+    let default_rows: Vec<Vec<String>> = SHEET_DEFAULT_ROWS
+        .iter()
+        .map(|r| r.iter().map(|s| s.to_string()).collect())
+        .collect();
+    let Some(db_mutex) = db.as_ref() else {
+        return spreadsheet_guard::SheetSnapshot {
+            sheet_id: sheet_id.to_string(),
+            sheet_name: sheet_name.to_string(),
+            rows: default_rows,
+        };
+    };
+    let Ok(guard) = db_mutex.lock() else {
+        return spreadsheet_guard::SheetSnapshot {
+            sheet_id: sheet_id.to_string(),
+            sheet_name: sheet_name.to_string(),
+            rows: default_rows,
+        };
+    };
+    if let Some(json) = guard.get(spreadsheet_guard::SNAPSHOT_KEY) {
+        if let Ok(snap) = serde_json::from_str::<spreadsheet_guard::SheetSnapshot>(&json) {
+            if !snap.rows.is_empty() {
+                return snap;
+            }
+        }
+    }
+    drop(guard);
+    let snap = spreadsheet_guard::SheetSnapshot {
+        sheet_id: sheet_id.to_string(),
+        sheet_name: sheet_name.to_string(),
+        rows: default_rows,
+    };
+    persist_sheet_snapshot(db, &snap);
+    snap
+}
+
+fn persist_sheet_snapshot(
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+    snap: &spreadsheet_guard::SheetSnapshot,
+) {
+    if let Some(db_mutex) = db.as_ref() {
+        if let Ok(mut guard) = db_mutex.lock() {
+            let json = serde_json::to_string(snap).unwrap_or_default();
+            let _ = guard.set(spreadsheet_guard::SNAPSHOT_KEY, &json, "String");
+        }
+    }
+}
+
+fn persist_sheet_drafts(
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+    drafts: &[spreadsheet_guard::DraftEntry],
+) {
+    if let Some(db_mutex) = db.as_ref() {
+        if let Ok(mut guard) = db_mutex.lock() {
+            let json = spreadsheet_guard::serialize_drafts(drafts);
+            let _ = guard.set(spreadsheet_guard::DRAFT_KEY, &json, "String");
+        }
+    }
+}
+
+fn load_sheet_drafts(db: &Option<Arc<Mutex<DatabaseService>>>) -> Vec<spreadsheet_guard::DraftEntry> {
+    if let Some(db_mutex) = db.as_ref() {
+        if let Ok(guard) = db_mutex.lock() {
+            if let Some(json) = guard.get(spreadsheet_guard::DRAFT_KEY) {
+                return spreadsheet_guard::deserialize_drafts(&json);
+            }
+        }
+    }
+    Vec::new()
+}
+
+/// Baris tampil dari state (nilai asli + draft yang masih cocok).
+fn sheet_display_rows(state: &spreadsheet_guard::SpreadsheetState) -> Vec<Vec<String>> {
+    let mut display = state.loaded.clone();
+    let _ = spreadsheet_guard::apply_drafts(
+        &state.drafts,
+        &state.sheet_id,
+        &mut display,
+        state.column_count,
+        state.first_sheet_row,
+    );
+    display
+}
+
+/// Hasil guard saat Simpan — dipakai bersama oleh handler window utama
+/// dan SpreadsheetWindow.
+enum SheetSaveOutcome {
+    Blocked(String),
+    Saved(Vec<Vec<String>>),
+}
+
+/// Jalankan guard + commit bila lolos. `current_grid` = nilai grid yang
+/// tampil di window pemanggil. Mengembalikan hasil; pemanggil yang
+/// mendorong nilai baru + status ke UI-nya.
+fn run_sheet_save(
+    state: &mut spreadsheet_guard::SpreadsheetState,
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+    current_grid: Vec<Vec<String>>,
+) -> SheetSaveOutcome {
+    // Baca ulang snapshot dari DB (C#: baca ulang range sheet sebelum tulis).
+    let fresh = read_sheet_snapshot(db, &state.sheet_id.clone(), &state.sheet_name.clone());
+    if let Some(msg) = state.check_save(&fresh.rows) {
+        return SheetSaveOutcome::Blocked(msg);
+    }
+    state.commit_save(current_grid.clone());
+    let snap = spreadsheet_guard::SheetSnapshot {
+        sheet_id: state.sheet_id.clone(),
+        sheet_name: state.sheet_name.clone(),
+        rows: current_grid.clone(),
+    };
+    persist_sheet_snapshot(db, &snap);
+    persist_sheet_drafts(db, &state.drafts);
+    SheetSaveOutcome::Saved(current_grid)
+}
+
+/// Muat ulang dari snapshot terbaru + pulihkan draft (C# LoadData +
+/// RestoreDraftsAsync). Mengembalikan (baris_tampil, diterapkan, sisa).
+fn run_sheet_refresh(
+    state: &mut spreadsheet_guard::SpreadsheetState,
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+) -> (Vec<Vec<String>>, usize, Vec<spreadsheet_guard::DraftEntry>) {
+    // Draft sudah dipersist tiap edit (C#: PersistDraftsAsync sebelum load).
+    persist_sheet_drafts(db, &state.drafts);
+    let fresh = read_sheet_snapshot(db, &state.sheet_id.clone(), &state.sheet_name.clone());
+    let (display, applied, remaining) = state.reload(fresh.rows);
+    persist_sheet_drafts(db, &state.drafts);
+    (display, applied, remaining)
+}
+
+/// Pesan status setelah Muat Ulang (C# RestoreDraftsAsync).
+fn sheet_restore_status(applied: usize, remaining: &[spreadsheet_guard::DraftEntry]) -> String {
+    if applied > 0 {
+        let leftover = if !remaining.is_empty() {
+            format!(
+                " {} draft tidak bisa diterapkan karena data sheet sudah berubah.",
+                remaining.len()
+            )
+        } else {
+            String::new()
+        };
+        format!(
+            "{} perubahan draft dipulihkan, belum di-push ke sheet.{}",
+            applied, leftover
+        )
+    } else {
+        "Data dimuat ulang dari sheet.".to_string()
+    }
+}
+
+/// Pindai daftar script untuk menu Floating Widget (C#
+/// FloatingWidgetViewModel.LoadScripts): Master = .py di Scripts/Master,
+/// Action = .jsx di Scripts/Action + .pyw di Scripts. Nama tampil =
+/// nama file tanpa ekstensi, diurutkan alfabetis (C# memakai urutan
+/// prioritas scripts.json lalu alfabetis — port belum punya metadata
+/// itu, jadi alfabetis).
+fn scan_floating_scripts() -> (Vec<String>, Vec<String>) {
+    let base = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let scripts = base.join("Scripts");
+    let mut masters = Vec::new();
+    let mut actions = Vec::new();
+    let mut collect = |dir: &std::path::Path, exts: &[&str], out: &mut Vec<String>| {
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for e in entries.flatten() {
+                let p = e.path();
+                let is_file = p.is_file();
+                let ext = p
+                    .extension()
+                    .and_then(|x| x.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                if is_file && exts.contains(&ext.as_str()) {
+                    if let Some(stem) = p.file_stem().and_then(|s| s.to_str()) {
+                        out.push(stem.to_string());
+                    }
+                }
+            }
+        }
+    };
+    collect(&scripts.join("Master"), &["py"], &mut masters);
+    collect(&scripts.join("Action"), &["jsx"], &mut actions);
+    collect(&scripts, &["pyw"], &mut actions);
+    masters.sort();
+    actions.sort();
+    (masters, actions)
+}
+
+fn parse_hex_color(hex: &str) -> Option<slint::Color> {
+    let h = hex.trim().trim_start_matches('#');
+    if h.len() != 6 {
+        return None;
+    }
+    let r = u8::from_str_radix(&h[0..2], 16).ok()?;
+    let g = u8::from_str_radix(&h[2..4], 16).ok()?;
+    let b = u8::from_str_radix(&h[4..6], 16).ok()?;
+    Some(slint::Color::from_rgb_u8(r, g, b))
+}
+
+/// Baca preferensi orb dari DB (kunci sama dengan C#).
+fn floating_orb_prefs(
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+) -> (slint::Color, i32, bool, (i32, i32), (i32, i32)) {
+    let mut accent = slint::Color::from_rgb_u8(0x3b, 0x82, 0xf6);
+    let mut speed = 1i32;
+    let mut breathing = true;
+    let mut pos = (100i32, 100i32);
+    let mut size = (440i32, 210i32);
+    if let Some(db_mutex) = db.as_ref() {
+        if let Ok(guard) = db_mutex.lock() {
+            if let Some(v) = guard.get("Settings.Color.Orb") {
+                if let Some(c) = parse_hex_color(&v) {
+                    accent = c;
+                }
+            }
+            if let Some(v) = guard.get("Settings.Orb.Speed") {
+                if let Ok(n) = v.parse::<i32>() {
+                    if (0..=2).contains(&n) {
+                        speed = n;
+                    }
+                }
+            }
+            if let Some(v) = guard.get("Settings.Orb.Breathing") {
+                breathing = !(v == "false" || v == "0");
+            }
+            if let (Some(x), Some(y)) = (
+                guard.get("Configs.Widget.Position.X"),
+                guard.get("Configs.Widget.Position.Y"),
+            ) {
+                if let (Ok(px), Ok(py)) = (x.parse::<i32>(), y.parse::<i32>()) {
+                    pos = (px.max(0), py.max(0));
+                }
+            }
+            if let (Some(w), Some(h)) = (
+                guard.get("Settings.Orb.ExpandedWidth"),
+                guard.get("Settings.Orb.ExpandedHeight"),
+            ) {
+                if let (Ok(ew), Ok(eh)) = (w.parse::<i32>(), h.parse::<i32>()) {
+                    if ew >= 300 && eh >= 150 {
+                        size = (ew, eh);
+                    }
+                }
+            }
+        }
+    }
+    (accent, speed, breathing, pos, size)
+}
+
+/// Buka (atau buka-ulang) FloatingWidgetWindow. Dipakai toggle Settings
+/// + saat startup bila Settings.FloatingWidget true (default C#).
+fn open_floating_widget(
+    cell: &std::rc::Rc<std::cell::RefCell<Option<FloatingWidgetWindow>>>,
+    visible: &std::rc::Rc<std::cell::Cell<bool>>,
+    ui_weak: &slint::Weak<AppWindow>,
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+) {
+    let mut opt = cell.borrow_mut();
+    if !visible.get() {
+        *opt = None;
+    }
+    if opt.is_none() {
+        if let Ok(w) = FloatingWidgetWindow::new() {
+            let (accent, speed, breathing, pos, size) = floating_orb_prefs(db);
+            w.set_accent_color(accent);
+            w.set_speed_index(speed);
+            w.set_breathing(breathing);
+            w.set_expanded_width(size.0);
+            w.set_expanded_height(size.1);
+            let scale = w.window().scale_factor();
+            w.window().set_position(slint::PhysicalPosition::new(
+                (pos.0 as f32 * scale) as i32,
+                (pos.1 as f32 * scale) as i32,
+            ));
+            let w_weak = w.as_weak();
+            w.on_toggle_expand(move || {
+                if let Some(w) = w_weak.upgrade() {
+                    // Ukuran window ikut binding width/height di
+                    // .slint (expanded -> expanded-width/height);
+                    // jangan set_size di sini (properti width Slint
+                    // tidak ikut berubah — menu ter-render 100px).
+                    if w.get_expanded() {
+                        w.set_expanded(false);
+                    } else {
+                        let (masters, actions) = scan_floating_scripts();
+                        w.set_master_items(sheet_model(masters));
+                        w.set_action_items(sheet_model(actions));
+                        w.set_active_menu(slint::SharedString::from("Master"));
+                        w.set_expanded(true);
+                    }
+                }
+            });
+            let w_weak2 = w.as_weak();
+            w.on_collapse(move || {
+                if let Some(w) = w_weak2.upgrade() {
+                    if w.get_expanded() {
+                        w.set_expanded(false);
+                    }
+                }
+            });
+            let w_weak3 = w.as_weak();
+            w.on_move_window(move |dx, dy| {
+                if let Some(w) = w_weak3.upgrade() {
+                    let scale = w.window().scale_factor();
+                    let pos = w.window().position();
+                    let nx = (pos.x + (dx * scale) as i32).max(0);
+                    let ny = (pos.y + (dy * scale) as i32).max(0);
+                    w.window()
+                        .set_position(slint::PhysicalPosition::new(nx, ny));
+                }
+            });
+            let w_weak4 = w.as_weak();
+            w.on_resize_window(move |dx, dy| {
+                if let Some(w) = w_weak4.upgrade() {
+                    // Ukuran window ikut binding width/height di .slint,
+                    // jadi resize = ubah properti expanded-width/height
+                    // (jangan set_size — lihat on_toggle_expand).
+                    // dx/dy sudah logical px (callback length).
+                    let nw = ((w.get_expanded_width() as f32 + dx) as i32).max(300);
+                    let nh = ((w.get_expanded_height() as f32 + dy) as i32).max(150);
+                    w.set_expanded_width(nw);
+                    w.set_expanded_height(nh);
+                }
+            });
+            let w_weak5 = w.as_weak();
+            let db_clone5 = db.clone();
+            w.on_save_position(move || {
+                if let Some(w) = w_weak5.upgrade() {
+                    if let Some(db_mutex) = db_clone5.as_ref() {
+                        if let Ok(mut guard) = db_mutex.lock() {
+                            let scale = w.window().scale_factor();
+                            let pos = w.window().position();
+                            let x = (pos.x as f32 / scale) as i32;
+                            let y = (pos.y as f32 / scale) as i32;
+                            let _ = guard.set("Configs.Widget.Position.X", &x.to_string(), "Int");
+                            let _ = guard.set("Configs.Widget.Position.Y", &y.to_string(), "Int");
+                        }
+                    }
+                }
+            });
+            let w_weak6 = w.as_weak();
+            let db_clone6 = db.clone();
+            w.on_save_expanded_size(move || {
+                if let Some(w) = w_weak6.upgrade() {
+                    if let Some(db_mutex) = db_clone6.as_ref() {
+                        if let Ok(mut guard) = db_mutex.lock() {
+                            let _ = guard.set(
+                                "Settings.Orb.ExpandedWidth",
+                                &w.get_expanded_width().to_string(),
+                                "Int",
+                            );
+                            let _ = guard.set(
+                                "Settings.Orb.ExpandedHeight",
+                                &w.get_expanded_height().to_string(),
+                                "Int",
+                            );
+                        }
+                    }
+                }
+            });
+            let w_weak7 = w.as_weak();
+            let ui_weak7 = ui_weak.clone();
+            w.on_execute_item(move |name| {
+                // Jalur yang sama dengan radial execute-script (saat ini
+                // toast; eksekusi nyata ikut Fase 6 seperti radial).
+                if let Some(ui) = ui_weak7.upgrade() {
+                    ui.set_toast(slint::SharedString::from(format!(
+                        "[Photoshop] Menjalankan: {}",
+                        name
+                    )));
+                }
+                if let Some(w) = w_weak7.upgrade() {
+                    if w.get_expanded() {
+                        w.set_expanded(false);
+                    }
+                }
+            });
+            let ui_weak8 = ui_weak.clone();
+            w.on_toast(move |msg| {
+                if let Some(ui) = ui_weak8.upgrade() {
+                    ui.set_toast(msg);
+                }
+            });
+            *opt = Some(w);
+        }
+    }
+    if let Some(w) = opt.as_ref() {
+        let _ = w.show();
+        visible.set(true);
+    }
+}
+
+/// Sembunyikan FloatingWidgetWindow (toggle Settings mati).
+fn hide_floating_widget(
+    cell: &std::rc::Rc<std::cell::RefCell<Option<FloatingWidgetWindow>>>,
+    visible: &std::rc::Rc<std::cell::Cell<bool>>,
+) {
+    if let Some(w) = cell.borrow().as_ref() {
+        let _ = w.hide();
+    }
+    visible.set(false);
 }
 
 /// Buka (atau buka-ulang) ToolboxWindow di tengah window utama.
@@ -1395,6 +1907,10 @@ fn main() -> Result<(), slint::PlatformError> {
             if let Some(v) = db_guard.get("Settings.Dash.Explorer") {
                 ui.set_is_output_explorer_visible(v == "true" || v == "1");
             }
+            if let Some(v) = db_guard.get("Settings.FloatingWidget") {
+                // C# SettingsViewModel: Settings.FloatingWidget, default True.
+                ui.set_app_smart_orb(!(v == "false" || v == "0"));
+            }
             theme::load_theme_from_db(&ui, &db_guard);
         }
     }
@@ -1416,11 +1932,65 @@ fn main() -> Result<(), slint::PlatformError> {
     // Versi aplikasi untuk footer flyout (C# AppVersion =
     // assembly ToString(2) = "15.15").
     ui.set_app_version(slint::SharedString::from(APP_VERSION));
+    // Versi lengkap untuk splash (C# SplashViewModel.VersionText).
+    ui.set_splash_version(slint::SharedString::from(format!(
+        "VERSION {}",
+        APP_VERSION_FULL
+    )));
 
     // Default widget status awal persis C# (0 jika belum tersambung, bukan angka demo)
     ui.set_stat_editing(slint::SharedString::from("0"));
     ui.set_stat_revision(slint::SharedString::from("0"));
     ui.set_stat_late(slint::SharedString::from("0"));
+
+    // ---- Spreadsheet: state guard + draft (C# SpreadsheetRowAnchorGuard
+    // + SpreadsheetDraftStore). Satu state dipakai bersama tampilan
+    // embedded (SheetsView) + window (SpreadsheetWindow).
+    let sheet_state: std::rc::Rc<std::cell::RefCell<spreadsheet_guard::SpreadsheetState>> = {
+        let (sheet_id, sheet_name) = if let Some(ref db_mutex) = db {
+            match db_mutex.lock() {
+                Ok(g) => (
+                    g.get("Google.SheetId").filter(|s| !s.is_empty()).unwrap_or_else(|| "LOCAL".to_string()),
+                    g.get("Google.SheetName").filter(|s| !s.is_empty()).unwrap_or_else(|| "ALL DATA REGULER".to_string()),
+                ),
+                Err(_) => ("LOCAL".to_string(), "ALL DATA REGULER".to_string()),
+            }
+        } else {
+            ("LOCAL".to_string(), "ALL DATA REGULER".to_string())
+        };
+        let snap = read_sheet_snapshot(&db, &sheet_id, &sheet_name);
+        let mut st = spreadsheet_guard::SpreadsheetState::new(
+            sheet_id,
+            sheet_name,
+            1,
+            6,
+            snap.rows.clone(),
+        );
+        st.drafts = load_sheet_drafts(&db);
+        // Pulihkan draft ke grid (hanya yang nilai aslinya masih cocok —
+        // C# RestoreDraftsAsync; sisa tetap tersimpan di DB).
+        let (display, applied, remaining) = st.reload(snap.rows.clone());
+        persist_sheet_drafts(&db, &st.drafts);
+        let loaded = st.loaded.clone();
+        push_grid_to_main(&ui, &display, &loaded);
+        if applied > 0 {
+            ui.set_sheet_has_draft(true);
+            ui.set_sheet_draft_count(applied as i32);
+            let leftover = if !remaining.is_empty() {
+                format!(
+                    " {} draft tidak bisa diterapkan karena data sheet sudah berubah.",
+                    remaining.len()
+                )
+            } else {
+                String::new()
+            };
+            ui.set_sheet_status_text(slint::SharedString::from(format!(
+                "{} perubahan draft dipulihkan, belum di-push ke sheet.{}",
+                applied, leftover
+            )));
+        }
+        std::rc::Rc::new(std::cell::RefCell::new(st))
+    };
 
     // Baris sheet di-preload dari DB (Rust mengisi, bukan demo UI);
     // leaderboard dimuat load_leaderboard() (dipakai juga saat refresh FAB).
@@ -1813,6 +2383,15 @@ fn main() -> Result<(), slint::PlatformError> {
                             },
                             "Bool",
                         );
+                        let _ = db_guard.set(
+                            "Settings.FloatingWidget",
+                            if ui.get_app_smart_orb() {
+                                "true"
+                            } else {
+                                "false"
+                            },
+                            "Bool",
+                        );
                     }
                 }
                 ui.set_toast(slint::SharedString::from("Pengaturan General disimpan"));
@@ -2113,7 +2692,9 @@ fn main() -> Result<(), slint::PlatformError> {
         let sheet_visible = std::rc::Rc::new(std::cell::Cell::new(false));
         let ui_weak = ui.as_weak();
         let db_clone = db.clone();
+        let sheet_state_clone = sheet_state.clone();
         ui.on_open_new_sheet_window(move || {
+            let sheet_state = sheet_state_clone.clone();
             let mut opt = sheet_cell.borrow_mut();
             if !sheet_visible.get() {
                 *opt = None;
@@ -2142,6 +2723,74 @@ fn main() -> Result<(), slint::PlatformError> {
                             let ny = pos.y + (dy * scale) as i32;
                             w.window()
                                 .set_position(slint::PhysicalPosition::new(nx, ny));
+                        }
+                    });
+                    // Spreadsheet guard + draft: teruskan callback window
+                    // ke state bersama (sama seperti handler window utama).
+                    let state_edit = sheet_state.clone();
+                    let db_edit = db_clone.clone();
+                    w.on_sheet_cell_edited(move |row, col, orig, val| {
+                        let mut st = state_edit.borrow_mut();
+                        if st.record_edit(row as usize, col as usize, orig.as_str(), val.as_str())
+                        {
+                            persist_sheet_drafts(&db_edit, &st.drafts);
+                        }
+                    });
+                    let state_save = sheet_state.clone();
+                    let db_save = db_clone.clone();
+                    let w_weak_save = w.as_weak();
+                    let ui_weak_save = ui_weak.clone();
+                    w.on_sheet_save(move || {
+                        if let Some(w) = w_weak_save.upgrade() {
+                            let current_grid = grid_from_sheet_win(&w);
+                            let mut st = state_save.borrow_mut();
+                            match run_sheet_save(&mut st, &db_save, current_grid) {
+                                SheetSaveOutcome::Blocked(msg) => {
+                                    w.set_sheet_guard_result(slint::SharedString::from(msg));
+                                }
+                                SheetSaveOutcome::Saved(new_values) => {
+                                    let loaded = st.loaded.clone();
+                                    w.set_sheet_guard_result(slint::SharedString::from(""));
+                                    push_grid_to_sheet_win(&w, &new_values, &loaded);
+                                    w.set_sheet_status_text(slint::SharedString::from(
+                                        "✓ Semua perubahan tersimpan ke Google Sheets & SQLite",
+                                    ));
+                                    // Sinkronkan tampilan embedded.
+                                    if let Some(ui) = ui_weak_save.upgrade() {
+                                        push_grid_to_main(&ui, &new_values, &loaded);
+                                        ui.set_sheet_guard_result(slint::SharedString::from(""));
+                                        ui.set_sheet_has_draft(false);
+                                        ui.set_sheet_draft_count(0);
+                                        ui.set_sheet_status_text(slint::SharedString::from(
+                                            "✓ Semua perubahan tersimpan ke Google Sheets & SQLite",
+                                        ));
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    let state_refresh = sheet_state.clone();
+                    let db_refresh = db_clone.clone();
+                    let w_weak_refresh = w.as_weak();
+                    let ui_weak_refresh = ui_weak.clone();
+                    w.on_sheet_refresh(move || {
+                        if let Some(w) = w_weak_refresh.upgrade() {
+                            let mut st = state_refresh.borrow_mut();
+                            let (display, applied, remaining) =
+                                run_sheet_refresh(&mut st, &db_refresh);
+                            let loaded = st.loaded.clone();
+                            let status = sheet_restore_status(applied, &remaining);
+                            push_grid_to_sheet_win(&w, &display, &loaded);
+                            w.set_sheet_has_draft(applied > 0);
+                            w.set_sheet_draft_count(applied as i32);
+                            w.set_sheet_status_text(slint::SharedString::from(status.clone()));
+                            // Sinkronkan tampilan embedded.
+                            if let Some(ui) = ui_weak_refresh.upgrade() {
+                                push_grid_to_main(&ui, &display, &loaded);
+                                ui.set_sheet_has_draft(applied > 0);
+                                ui.set_sheet_draft_count(applied as i32);
+                                ui.set_sheet_status_text(slint::SharedString::from(status));
+                            }
                         }
                     });
                     *opt = Some(w);
@@ -2174,10 +2823,93 @@ fn main() -> Result<(), slint::PlatformError> {
                     w.window()
                         .set_position(slint::PhysicalPosition::new(cx, cy));
                 }
+                // Isi grid dari state bersama (nilai tampil + nilai asli
+                // + status draft) — sinkron dengan tampilan embedded.
+                {
+                    let st = sheet_state.borrow();
+                    let display = sheet_display_rows(&st);
+                    let loaded = st.loaded.clone();
+                    push_grid_to_sheet_win(w, &display, &loaded);
+                    w.set_sheet_has_draft(!st.drafts.is_empty());
+                    w.set_sheet_draft_count(st.drafts.len() as i32);
+                    w.set_sheet_guard_result(slint::SharedString::from(""));
+                }
                 // Hide + show = naik ke depan (Slint tidak punya Activate).
                 let _ = w.hide();
                 let _ = w.show();
                 sheet_visible.set(true);
+            }
+        });
+    }
+
+    // ---- Spreadsheet: guard + draft, handler window utama (tampilan
+    // embedded). Sinkronkan ke SpreadsheetWindow bila sedang terbuka.
+    // ----
+    {
+        let state = sheet_state.clone();
+        let db_clone = db.clone();
+        ui.on_sheet_cell_edited(move |row, col, orig, val| {
+            let mut st = state.borrow_mut();
+            if st.record_edit(row as usize, col as usize, orig.as_str(), val.as_str()) {
+                persist_sheet_drafts(&db_clone, &st.drafts);
+            }
+        });
+    }
+    {
+        let state = sheet_state.clone();
+        let db_clone = db.clone();
+        let ui_weak = ui.as_weak();
+        let sheet_cell = sheet_win_cell.clone();
+        ui.on_sheet_save(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                let current_grid = grid_from_main(&ui);
+                let mut st = state.borrow_mut();
+                match run_sheet_save(&mut st, &db_clone, current_grid) {
+                    SheetSaveOutcome::Blocked(msg) => {
+                        ui.set_sheet_guard_result(slint::SharedString::from(msg));
+                    }
+                    SheetSaveOutcome::Saved(new_values) => {
+                        let loaded = st.loaded.clone();
+                        ui.set_sheet_guard_result(slint::SharedString::from(""));
+                        push_grid_to_main(&ui, &new_values, &loaded);
+                        ui.set_sheet_status_text(slint::SharedString::from(
+                            "✓ Semua perubahan tersimpan ke Google Sheets & SQLite",
+                        ));
+                        if let Some(w) = sheet_cell.borrow().as_ref() {
+                            push_grid_to_sheet_win(w, &new_values, &loaded);
+                            w.set_sheet_guard_result(slint::SharedString::from(""));
+                            w.set_sheet_has_draft(false);
+                            w.set_sheet_draft_count(0);
+                            w.set_sheet_status_text(slint::SharedString::from(
+                                "✓ Semua perubahan tersimpan ke Google Sheets & SQLite",
+                            ));
+                        }
+                    }
+                }
+            }
+        });
+    }
+    {
+        let state = sheet_state.clone();
+        let db_clone = db.clone();
+        let ui_weak = ui.as_weak();
+        let sheet_cell = sheet_win_cell.clone();
+        ui.on_sheet_refresh(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                let mut st = state.borrow_mut();
+                let (display, applied, remaining) = run_sheet_refresh(&mut st, &db_clone);
+                let loaded = st.loaded.clone();
+                let status = sheet_restore_status(applied, &remaining);
+                push_grid_to_main(&ui, &display, &loaded);
+                ui.set_sheet_has_draft(applied > 0);
+                ui.set_sheet_draft_count(applied as i32);
+                ui.set_sheet_status_text(slint::SharedString::from(status.clone()));
+                if let Some(w) = sheet_cell.borrow().as_ref() {
+                    push_grid_to_sheet_win(w, &display, &loaded);
+                    w.set_sheet_has_draft(applied > 0);
+                    w.set_sheet_draft_count(applied as i32);
+                    w.set_sheet_status_text(slint::SharedString::from(status));
+                }
             }
         });
     }
@@ -2253,6 +2985,10 @@ fn main() -> Result<(), slint::PlatformError> {
     let toolbox_win_cell: std::rc::Rc<std::cell::RefCell<Option<ToolboxWindow>>> =
         std::rc::Rc::new(std::cell::RefCell::new(None));
     let toolbox_visible: std::rc::Rc<std::cell::Cell<bool>> =
+        std::rc::Rc::new(std::cell::Cell::new(false));
+    let floating_win_cell: std::rc::Rc<std::cell::RefCell<Option<FloatingWidgetWindow>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(None));
+    let floating_visible: std::rc::Rc<std::cell::Cell<bool>> =
         std::rc::Rc::new(std::cell::Cell::new(false));
     let bug_win_cell: std::rc::Rc<std::cell::RefCell<Option<ReportBugDialog>>> =
         std::rc::Rc::new(std::cell::RefCell::new(None));
@@ -3269,6 +4005,35 @@ fn main() -> Result<(), slint::PlatformError> {
         },
     );
 
+    // ---- Floating Widget: toggle Settings (C#
+    // OnIsFloatingWidgetEnabledChanged — langsung tampil/sembunyi +
+    // persist Settings.FloatingWidget). ----
+    {
+        let floating_cell = floating_win_cell.clone();
+        let floating_vis = floating_visible.clone();
+        let db_clone = db.clone();
+        let ui_weak = ui.as_weak();
+        ui.on_toggle_floating_widget(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                let enabled = ui.get_app_smart_orb();
+                if let Some(ref db_mutex) = db_clone {
+                    if let Ok(mut db_guard) = db_mutex.lock() {
+                        let _ = db_guard.set(
+                            "Settings.FloatingWidget",
+                            if enabled { "true" } else { "false" },
+                            "Bool",
+                        );
+                    }
+                }
+                if enabled {
+                    open_floating_widget(&floating_cell, &floating_vis, &ui_weak, &db_clone);
+                } else {
+                    hide_floating_widget(&floating_cell, &floating_vis);
+                }
+            }
+        });
+    }
+
     // QA helpers (SETELAH semua callback Rust terdaftar — watcher
     // radial memanggil callback Rust; dibuka sebelum registrasi =
     // no-op). --radial-test: buka radial di cursor; --toolbox: buka
@@ -3284,6 +4049,26 @@ fn main() -> Result<(), slint::PlatformError> {
             &ui.as_weak(),
             "MantraNama".to_string(),
         );
+    }
+
+    // Floating Widget tampil saat startup bila diaktifkan (C# default
+    // True — Settings.FloatingWidget). Ditunda 300ms lewat Timer agar
+    // dibuka SETELAH window utama tampil: di X tanpa window manager
+    // (dan umumnya di Linux) window yang show() belakangan menumpuk di
+    // atas, jadi buka langsung di sini akan tertutup window utama
+    // meski always-on-top. Di Windows WS_EX_TOPMOST tetap dijaga OS.
+    if ui.get_app_smart_orb() {
+        let floating_cell = floating_win_cell.clone();
+        let floating_vis = floating_visible.clone();
+        let db_clone = db.clone();
+        let ui_weak = ui.as_weak();
+        slint::Timer::single_shot(std::time::Duration::from_millis(300), move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                if ui.get_app_smart_orb() {
+                    open_floating_widget(&floating_cell, &floating_vis, &ui_weak, &db_clone);
+                }
+            }
+        });
     }
 
     // ui.run() mengambil alih event loop; show() sudah dipanggil di atas.

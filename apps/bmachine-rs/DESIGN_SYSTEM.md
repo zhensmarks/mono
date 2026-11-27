@@ -1522,11 +1522,47 @@ Spreadsheet/Leaderboard.
 4. Spreadsheet: pesan guard memakai nilai tersimpan yang
    di-hardcode ("dimuat: 'SDN RANCAIYUH I'") — sesudah
    Simpan, pesannya basi. Perlu dinamis?
+   **TERJAWAB 27 Nov 2026 (dari source C#):** tidak ada
+   hardcode — `SpreadsheetRowAnchorGuard.Describe`
+   (SpreadsheetRowAnchorGuard.cs:63) sepenuhnya dinamis:
+   nomor baris pertama yang mismatch + `ActualDisplay`
+   (nilai baris di sheet saat ini) vs `ExpectedDisplay`
+   (nilai saat dimuat), plus `"(dan N baris lain)"` bila
+   lebih dari satu baris bergeser. Port sudah sama
+   (`src/spreadsheet_guard.rs: describe`, terverifikasi
+   klik 27 Nov: "baris 1 di sheet berisi '47276395',
+   sedangkan yang dimuat '47276395'"). Catatan: yang
+   ditampilkan adalah sel pertama non-kosong baris itu
+   (`DisplayOf`), jadi bila sel yang berubah bukan kolom
+   pertama, kedua nilainya bisa tampak sama — itu perilaku
+   C# apa adanya, bukan bug port.
 5. Spreadsheet: draft bertahan pindah overlay (mockup)
    vs C# yang membuang draft sel yang berubah saat
    reload — perilaku mana yang dipakai?
+   **TERJAWAB 27 Nov 2026 (dari source C#):** premis
+   pertanyaan SALAH — C# TIDAK membuang draft itu.
+   `SpreadsheetDraftStore.Apply` (SpreadsheetDraft.cs:81):
+   draft yang nilai aslinya sudah tidak cocok dengan sheet
+   ("Sheet sudah berubah di sel itu: jangan timpa, simpan
+   sebagai sisa") masuk `remaining`, dan
+   `RestoreDraftsAsync` (SpreadsheetViewModel.cs:719)
+   menulis ulang `remaining` ke penyimpanan. Draft hanya
+   tidak DITERAPKAN ke grid saat reload, tapi tetap
+   tersimpan dan dicoba lagi di reload berikutnya. Port
+   sudah sama (`reload` → `remaining`, terverifikasi klik
+   27 Nov: setelah Muat Ulang B1 menampilkan nilai baru
+   sheet, draft tetap ada di `Spreadsheet.Draft`).
 6. Spreadsheet: draft hanya di memori sesi — persistensi
    antar-sesi (SQLite?) atau cukup sesi?
+   **TERJAWAB 27 Nov 2026 (dari source C#):** persist
+   antar-sesi di SQLite. `PersistDraftsAsync`
+   (SpreadsheetViewModel.cs:680) menulis JSON draft ke
+   key `Spreadsheet.Draft` (`SpreadsheetDraftStore
+   .StorageKey`); `RestoreDraftsAsync` membacanya kembali
+   saat load. Port sudah sama (key `Spreadsheet.Draft`,
+   persist tiap edit + tiap save/refresh, restore saat
+   startup; terverifikasi: draft bertahan di DB setelah
+   Muat Ulang dan setelah restart aplikasi).
 7. Leaderboard: perunggu `#cd7f32` masih literal, belum
    token Design — tokenisasi nanti.
 8. Data contoh: EDITING 24 / REVISION 7 (widget, diubah

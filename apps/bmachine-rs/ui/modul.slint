@@ -742,6 +742,10 @@ export component SheetsView inherits Rectangle {
     callback back();
     callback toast(string);
     callback popout-window();
+    // Guard + draft (Rust): teruskan ke SpreadsheetComponent.
+    callback sheet-cell-edited(int, int, string, string);
+    callback sheet-save();
+    callback sheet-refresh();
 
     // Baris sheet dari akun (kompatibilitas binding main.slint)
     in-out property <string> sheet-s1: "SDN RANCAIYUH I";
@@ -751,6 +755,24 @@ export component SheetsView inherits Rectangle {
     in-out property <[string]> sheet-col0: [];
     in-out property <[string]> sheet-col1: [];
     in-out property <[string]> sheet-col2: [];
+
+    // Data grid + nilai asli + status guard/draft (binding main.slint).
+    in-out property <[string]> col-a: ["47276395", "47276396", "47276397", "47276398", "47276399", "47276400"];
+    in-out property <[string]> col-b: ["SDN RANCAIYUH I", "SDN CIKAMPEK II", "SMPN 1 PARONGPONG", "SMAN 2 CIMAHI", "SDN SUKAMAJU III", "SDN KARANGANYAR"];
+    in-out property <[string]> col-c: ["SD", "SD", "SMP", "SMA", "SD", "SD"];
+    in-out property <[string]> col-d: ["SELESAI", "PROSES", "REVISI", "SELESAI", "ANTRIAN", "SELESAI"];
+    in-out property <[string]> col-e: ["1280", "950", "420", "1640", "310", "880"];
+    in-out property <[string]> col-f: ["Lengkap", "Foto kurang 2", "Warna jas revisi", "Lunas", "Menunggu konfirmasi", "Cetak master siap"];
+    in-out property <[string]> col-a-orig: ["47276395", "47276396", "47276397", "47276398", "47276399", "47276400"];
+    in-out property <[string]> col-b-orig: ["SDN RANCAIYUH I", "SDN CIKAMPEK II", "SMPN 1 PARONGPONG", "SMAN 2 CIMAHI", "SDN SUKAMAJU III", "SDN KARANGANYAR"];
+    in-out property <[string]> col-c-orig: ["SD", "SD", "SMP", "SMA", "SD", "SD"];
+    in-out property <[string]> col-d-orig: ["SELESAI", "PROSES", "REVISI", "SELESAI", "ANTRIAN", "SELESAI"];
+    in-out property <[string]> col-e-orig: ["1280", "950", "420", "1640", "310", "880"];
+    in-out property <[string]> col-f-orig: ["Lengkap", "Foto kurang 2", "Warna jas revisi", "Lunas", "Menunggu konfirmasi", "Cetak master siap"];
+    in-out property <bool> sheet-has-draft: false;
+    in-out property <int> sheet-draft-count: 0;
+    in-out property <string> sheet-status-text: "6 baris siap · Jangkar A1:F6 · Terhubung ke Google Sheets";
+    in-out property <string> sheet-guard-result: "";
 
     // Klik kanan = kembali ke dashboard
     sheets-back-touch := TouchArea {
@@ -799,6 +821,25 @@ export component SheetsView inherits Rectangle {
         // Full Interactive Spreadsheet Component
         SpreadsheetComponent {
             is-standalone: false;
+            col-a <=> root.col-a;
+            col-b <=> root.col-b;
+            col-c <=> root.col-c;
+            col-d <=> root.col-d;
+            col-e <=> root.col-e;
+            col-f <=> root.col-f;
+            col-a-orig <=> root.col-a-orig;
+            col-b-orig <=> root.col-b-orig;
+            col-c-orig <=> root.col-c-orig;
+            col-d-orig <=> root.col-d-orig;
+            col-e-orig <=> root.col-e-orig;
+            col-f-orig <=> root.col-f-orig;
+            has-draft <=> root.sheet-has-draft;
+            draft-count <=> root.sheet-draft-count;
+            status-text <=> root.sheet-status-text;
+            guard-result <=> root.sheet-guard-result;
+            cell-edited(r, c, orig, val) => { root.sheet-cell-edited(r, c, orig, val); }
+            save-changes() => { root.sheet-save(); }
+            refresh-data() => { root.sheet-refresh(); }
             toast(msg) => { root.toast(msg); }
             popout-window() => { root.popout-window(); }
             close-view() => { root.back(); }
