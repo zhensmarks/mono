@@ -5,6 +5,13 @@ sebelum commit + push (format lengkap di `AGENTS.md`). Entri terbaru di
 paling atas. Dengan log ini, siapa pun yang menerima project — Dex, Hermes,
 atau orang lain — langsung tahu apa saja yang diubah tanpa menebak.
 
+## 2026-11-27 — Dex — Pill nav HOME/BATCH dirapatkan ke avatar
+
+- Diubah: `ui/main.slint` bar atas — spacer `horizontal-stretch` pertama (yang mendorong kapsul ke tengah jendela) dihapus; kapsul kini duduk tepat setelah avatar + gap; `ui/design.slint` token `nav-gap` 16px → 12px (hanya dipakai spacer ini). Komentar bar atas diperbarui. `DESIGN_SYSTEM.md` §22: catatan posisi pill nav.
+- Alasan: abeng 27 Nov 19:40 — jarak avatar dan nav HOME/BATCH terlalu jauh (pill di tengah jendela); referensi: dua kelompok pill berdekatan dengan jarak kecil.
+- Terverifikasi: build exit 0 (warning lama sha2), cargo test 27 passed. Klik sungguhan + ukur pixel di Xvfb :98 (APPDATA tes /tmp/navgap/appdata, DB asli abeng TIDAK disentuh): gap tepi kanan avatar (x=80) ke tepi kiri kapsul (x=98) = 17px ≈ 12px*scale (scale 1,325 → 15,9px, +1px antialiasing); tengah pill putih y 47–100 (73,5) = tengah kapsul y 44–103 (73,5) → selisih 0px (perbaikan 19:03 tetap terjaga); tengah pill vs tengah bar atas (y 28–118) = 0,5px. Klik BATCH → tab BATCH terpilih (ikon+teks), HOME ikon saja, tampilan BATCH terbuka; klik HOME → balik ke dashboard; klik avatar → flyout tetap menempel avatar dan terbuka (header tanpa avatar, "Selamat siang"). Nav dinamis + animasi tidak diubah. Screenshots: `~/workspace/rust-gui-contoh/navgap-verify.png`, `navgap-batch.png`, `navgap-flyout.png`.
+- Masih terbuka: (lama) item radial belum dites klik langsung; Ctrl+L kedua tidak menutup Log Panel saat fokus di panel.
+
 ## 2026-11-27 — Dex — Gaya latar widget dashboard (Solid/Gradien/Kaca/Outline) sebagai bagian sistem tema
 
 - Diubah:

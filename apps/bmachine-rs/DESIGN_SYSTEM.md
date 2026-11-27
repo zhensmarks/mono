@@ -1958,6 +1958,12 @@ WAJIB pakai `<=>` (dua arah) — lihat komentar di `TextField`
 padding vertikal pill-content 2*scale (slot 40*scale). Jangan
 ubah tinggi NavTab. Terukur: tengah pill = tengah kapsul (0px).
 
+**Posisi pill nav (27 Nov 19:54, abeng):** kapsul HOME/BATCH
+rapat di kiri, tepat setelah avatar + gap `nav-gap` 12px*scale —
+BUKAN di tengah jendela. Spacer stretch pertama (yang dulu
+mendorong kapsul ke tengah) dihapus; spacer stretch di belakang
+kapsul mengisi sisa lebar bar atas.
+
 **Flyout profil (redesain 27 Nov 19:04):** posisi TETAP menempel
 avatar (`x: 20px*scale`, `y: chrome + 60px*scale`). Isi:
 header (avatar 48px + nama + sapaan jam), grup APLIKASI

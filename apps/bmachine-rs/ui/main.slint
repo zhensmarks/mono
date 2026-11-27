@@ -739,8 +739,10 @@ export component AppWindow inherits Window {
         visible: root.overlay-view == "";
         spacing: 0;
 
-        // Nav meniru referensi: akun terpisah, kelompok tab berpusat,
-        // radial terpisah di kanan. Semua pusat vertikal sama.
+        // Nav rapat ke avatar (abeng 27 Nov 19:40 — referensi: dua
+        // kelompok pill berdekatan, jarak kecil): avatar → gap 12px →
+        // kapsul HOME/BATCH di kiri, BUKAN di tengah jendela. Pusat
+        // vertikal avatar dan kapsul tetap sama.
         HorizontalLayout {
             height: 68px * root.ui-scale;
             padding-left: 20px * root.ui-scale;
@@ -770,8 +772,10 @@ export component AppWindow inherits Window {
 
             Rectangle { width: Design.nav-gap * root.ui-scale; }
 
-            // Centered capsule; transparent spacers balance account and radial.
-            Rectangle { horizontal-stretch: 1; }
+            // Kapsul langsung setelah avatar + gap (tanpa spacer
+            // stretch di depannya — dulu spacer ini yang mendorong
+            // kapsul ke tengah jendela). Spacer stretch di belakang
+            // kapsul mengisi sisa lebar bar atas.
             Rectangle {
                 width: pill-content.preferred-width;
                 height: 44px * root.ui-scale;
