@@ -2064,6 +2064,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.set_app_ui_density(slint::SharedString::from("normal"));
                 ui.set_app_font_choice(slint::SharedString::from("Inter"));
                 ui.set_widget_bg(slint::SharedString::from("doodle"));
+                ui.set_widget_style(slint::SharedString::from("solid"));
                 ui.set_app_corner_style(slint::SharedString::from("default"));
                 ui.set_app_nav_style(slint::SharedString::from("capsule"));
                 ui.set_app_chrome(slint::SharedString::from("custom"));

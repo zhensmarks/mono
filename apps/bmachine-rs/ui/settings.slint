@@ -402,6 +402,8 @@ export component SettingsView inherits Rectangle {
     in-out property <string> current-shortcut-label: "Shift + Mouse Middle"; // default C# TriggerConfig (Mouse/Middle/Shift) — di-overwrite Rust saat startup
     // Widget background — terikat dua arah ke AppWindow (kartu dashboard ikut berubah).
     in-out property <string> widget-bg: "doodle";
+    // Gaya latar widget — terikat dua arah ke AppWindow (permukaan kartu ikut berubah).
+    in-out property <string> widget-style: "solid";
 
     in-out property <string> group: "General";
 
@@ -1140,12 +1142,12 @@ export component SettingsView inherits Rectangle {
                             }
                         }
 
-                        // Widget background — mengubah widget-bg global.
+                        // Pola latar widget — mengubah widget-bg global.
                         VerticalLayout {
                             spacing: 6px;
                             FieldLabel {
-                                title: "Widget background";
-                                desc: "Latar kartu statistik di dashboard — ganti satu tempat, semua kartu berubah";
+                                title: "Pola latar widget";
+                                desc: "Motif dekorasi di atas kartu statistik — ganti satu tempat, semua kartu berubah";
                             }
                             HorizontalLayout {
                                 spacing: 6px;
@@ -1172,6 +1174,44 @@ export component SettingsView inherits Rectangle {
                                     horizontal-stretch: 1;
                                     selected: root.widget-bg == "none";
                                     clicked => { root.widget-bg = "none"; root.appearance-changed(); root.toast("Widget background: none"); }
+                                }
+                            }
+                        }
+
+                        // Gaya latar widget — permukaan kartu statistik
+                        // (bagian dari tema: tiap preset mendefinisikan
+                        // gayanya; ubah manual → preset jadi "custom").
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Gaya latar widget";
+                                desc: "Permukaan kartu statistik di dashboard — Solid datar, Gradien tinta aksen, Kaca terangkat, atau Outline border aksen";
+                            }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OptionChip {
+                                    label: "Solid";
+                                    horizontal-stretch: 1;
+                                    selected: root.widget-style == "solid";
+                                    clicked => { root.theme-preset = "custom"; root.widget-style = "solid"; root.appearance-changed(); root.toast("Gaya latar widget: Solid"); }
+                                }
+                                OptionChip {
+                                    label: "Gradien";
+                                    horizontal-stretch: 1;
+                                    selected: root.widget-style == "gradient";
+                                    clicked => { root.theme-preset = "custom"; root.widget-style = "gradient"; root.appearance-changed(); root.toast("Gaya latar widget: Gradien"); }
+                                }
+                                OptionChip {
+                                    label: "Kaca";
+                                    horizontal-stretch: 1;
+                                    selected: root.widget-style == "glass";
+                                    clicked => { root.theme-preset = "custom"; root.widget-style = "glass"; root.appearance-changed(); root.toast("Gaya latar widget: Kaca"); }
+                                }
+                                OptionChip {
+                                    label: "Outline";
+                                    horizontal-stretch: 1;
+                                    selected: root.widget-style == "outline";
+                                    clicked => { root.theme-preset = "custom"; root.widget-style = "outline"; root.appearance-changed(); root.toast("Gaya latar widget: Outline"); }
                                 }
                             }
                         }
@@ -1388,8 +1428,9 @@ export component SettingsView inherits Rectangle {
                                             suffix: "POIN";
                                             accent: root.pv-accent;
                                             bg: root.widget-bg;
+                                            bg-style: root.widget-style;
                                             scale: 1;
-                                            clicked => { root.toast("Preview StatWidget — widget-bg: " + root.widget-bg); }
+                                            clicked => { root.toast("Preview StatWidget — pola: " + root.widget-bg + ", gaya: " + root.widget-style); }
                                         }
                                         Rectangle { horizontal-stretch: 1; }
                                     }

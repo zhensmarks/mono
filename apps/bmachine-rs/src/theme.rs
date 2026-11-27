@@ -4,13 +4,14 @@ use serde::{Deserialize, Serialize};
 use slint::{Color, Global, SharedString, VecModel};
 
 /// Satu tema = satu palet warna penuh (mode + aksen + background +
-/// foreground + warna 4 widget). Inilah unit customisasi ala Omarchy:
-/// "change the palette, not three apps" — satu palet dibaca seluruh
-/// permukaan (dashboard, nav, Settings, Trello, spreadsheet, dialog,
-/// radial, log panel) lewat token global `Design`.
+/// foreground + warna 4 widget + gaya latar widget). Inilah unit
+/// customisasi ala Omarchy: "change the palette, not three apps" —
+/// satu palet dibaca seluruh permukaan (dashboard, nav, Settings,
+/// Trello, spreadsheet, dialog, radial, log panel) lewat token
+/// global `Design`.
 /// Key SQLite: preset bawaan di `Appearance.Palette` (kompatibel C#)
 /// + `Settings.ThemePreset`; tema user di `Settings.Theme.UserThemes`
-/// (JSON array).
+/// (JSON array); gaya latar widget di `Settings.WidgetStyle`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ThemePalette {
     pub id: String,
@@ -23,6 +24,26 @@ pub struct ThemePalette {
     pub revision: String,
     pub late: String,
     pub points: String,
+    /// Gaya permukaan kartu widget ("solid" | "gradient" | "glass" |
+    /// "outline"). `#[serde(default)]` supaya tema user lama (JSON
+    /// tanpa field ini) tetap terbaca — default "solid".
+    #[serde(default = "default_widget_style")]
+    pub widget_style: String,
+}
+
+/// Gaya latar widget default (tema user lama tanpa field ini).
+fn default_widget_style() -> String {
+    "solid".to_string()
+}
+
+/// Validasi gaya latar widget — nilai tak dikenal → "solid".
+pub fn valid_widget_style(raw: &str) -> String {
+    match unquote(raw).as_str() {
+        "gradient" => "gradient".to_string(),
+        "glass" => "glass".to_string(),
+        "outline" => "outline".to_string(),
+        _ => "solid".to_string(),
+    }
 }
 
 impl ThemePalette {
@@ -49,7 +70,15 @@ impl ThemePalette {
             revision: revision.to_string(),
             late: late.to_string(),
             points: points.to_string(),
+            widget_style: default_widget_style(),
         }
+    }
+
+    /// Gaya latar widget preset ini (rantai setelah `new`).
+    /// Nilai divalidasi — tak dikenal → "solid".
+    fn with_widget_style(mut self, style: &str) -> Self {
+        self.widget_style = valid_widget_style(style);
+        self
     }
 }
 
@@ -61,6 +90,11 @@ impl ThemePalette {
 /// Midnight OLED, Symbiote ≈ monokrom — tidak diduplikasi).
 /// Catppuccin Mocha memakai nilai palet Catppuccin (mauve/peach/red/
 /// green) — hex palet publik, bukan aset berlisensi.
+/// Gaya latar widget tiap preset (opinionated): BMachine Dark/Light
+/// + Armor = "solid" (bawaan); Midnight OLED = "outline" (hitam
+/// pekat, border aksen saja); Catppuccin Mocha + Spider Red =
+/// "gradient" (tinta aksen memudar); Emerald Studio + Gwen Pink =
+/// "glass" (permukaan terangkat).
 pub fn builtin_presets() -> Vec<ThemePalette> {
     vec![
         ThemePalette::new(
@@ -98,7 +132,8 @@ pub fn builtin_presets() -> Vec<ThemePalette> {
             "#F97316",
             "#EF4444",
             "#2DD4BF",
-        ),
+        )
+        .with_widget_style("outline"),
         ThemePalette::new(
             "catppuccin-mocha",
             "Catppuccin Mocha",
@@ -110,7 +145,8 @@ pub fn builtin_presets() -> Vec<ThemePalette> {
             "#FAB387",
             "#F38BA8",
             "#A6E3A1",
-        ),
+        )
+        .with_widget_style("gradient"),
         ThemePalette::new(
             "emerald-studio",
             "Emerald Studio",
@@ -122,7 +158,8 @@ pub fn builtin_presets() -> Vec<ThemePalette> {
             "#F59E0B",
             "#EF4444",
             "#34D399",
-        ),
+        )
+        .with_widget_style("glass"),
         ThemePalette::new(
             "spider",
             "Spider Red",
@@ -134,7 +171,8 @@ pub fn builtin_presets() -> Vec<ThemePalette> {
             "#1557A5",
             "#EF4444",
             "#F97316",
-        ),
+        )
+        .with_widget_style("gradient"),
         ThemePalette::new(
             "gwen",
             "Gwen Pink",
@@ -146,7 +184,8 @@ pub fn builtin_presets() -> Vec<ThemePalette> {
             "#65D6D6",
             "#EF4444",
             "#10B981",
-        ),
+        )
+        .with_widget_style("glass"),
         ThemePalette::new(
             "armor",
             "Armor Red",
@@ -608,6 +647,7 @@ pub fn apply_preset(ui: &AppWindow, id: &str) -> Result<(), String> {
         .ok_or_else(|| format!("Tema tidak dikenal: {}", id))?;
     ui.set_app_color_mode(SharedString::from(p.mode.clone()));
     ui.set_app_theme_preset(SharedString::from(p.id.clone()));
+    ui.set_widget_style(SharedString::from(p.widget_style.clone()));
     set_hex_pair(ui, "accent", &p.accent);
     set_hex_pair(ui, "bg", &p.bg);
     set_hex_pair(ui, "fg", &p.fg);
@@ -657,6 +697,9 @@ fn set_hex_pair(ui: &AppWindow, which: &str, hex: &str) {
 pub fn apply_user_theme(ui: &AppWindow, theme: &ThemePalette) -> Result<(), String> {
     ui.set_app_color_mode(SharedString::from(theme.mode.clone()));
     ui.set_app_theme_preset(SharedString::from(theme.id.clone()));
+    ui.set_widget_style(SharedString::from(
+        valid_widget_style(&theme.widget_style),
+    ));
     set_hex_pair(ui, "accent", &theme.accent);
     set_hex_pair(ui, "bg", &theme.bg);
     set_hex_pair(ui, "fg", &theme.fg);
@@ -736,6 +779,7 @@ pub fn snapshot_current_as_user_theme(ui: &AppWindow, name: &str) -> Result<Them
         revision: ui.get_app_widget_revision_hex_good().to_string(),
         late: ui.get_app_widget_late_hex_good().to_string(),
         points: ui.get_app_widget_points_hex_good().to_string(),
+        widget_style: valid_widget_style(&ui.get_widget_style().to_string()),
     })
 }
 
@@ -812,6 +856,11 @@ pub fn load_theme_from_db(ui: &AppWindow, db: &DatabaseService) {
     if let Some(v) = db.get("Settings.WidgetBg") {
         ui.set_widget_bg(SharedString::from(unquote(&v)));
     }
+    // Gaya latar widget (port; C# tidak punya padanan) — nilai tak
+    // dikenal → "solid".
+    if let Some(v) = db.get("Settings.WidgetStyle") {
+        ui.set_widget_style(SharedString::from(valid_widget_style(&v)));
+    }
     if let Some(v) = db.get("Settings.CornerRadius") {
         ui.set_app_corner_style(SharedString::from(unquote(&v)));
     }
@@ -884,6 +933,11 @@ pub fn save_theme_to_db(ui: &AppWindow, db: &mut DatabaseService) {
     );
     let _ = db.set("Settings.Font", ui.get_app_font_choice().as_str(), "String");
     let _ = db.set("Settings.WidgetBg", ui.get_widget_bg().as_str(), "String");
+    let _ = db.set(
+        "Settings.WidgetStyle",
+        ui.get_widget_style().as_str(),
+        "String",
+    );
     let _ = db.set(
         "Settings.CornerRadius",
         ui.get_app_corner_style().as_str(),
@@ -997,5 +1051,52 @@ mod tests {
         let broken: Vec<ThemePalette> =
             serde_json::from_str("{bukan json").unwrap_or_default();
         assert!(broken.is_empty());
+    }
+
+    #[test]
+    fn valid_widget_style_falls_back_to_solid() {
+        assert_eq!(valid_widget_style("gradient"), "gradient");
+        assert_eq!(valid_widget_style("glass"), "glass");
+        assert_eq!(valid_widget_style("outline"), "outline");
+        assert_eq!(valid_widget_style("solid"), "solid");
+        assert_eq!(valid_widget_style("tidak-ada"), "solid");
+        assert_eq!(valid_widget_style(""), "solid");
+        assert_eq!(valid_widget_style("\"glass\""), "glass");
+    }
+
+    #[test]
+    fn preset_widget_styles_are_valid_and_mapped() {
+        for p in builtin_presets() {
+            assert!(
+                ["solid", "gradient", "glass", "outline"].contains(&p.widget_style.as_str()),
+                "preset {} gaya tidak valid: {}",
+                p.id,
+                p.widget_style
+            );
+        }
+        // Pemetaan opinionated (§22): default solid; OLED outline;
+        // Mocha + Spider gradient; Emerald + Gwen glass.
+        assert_eq!(palette_for("bmachine-dark").unwrap().widget_style, "solid");
+        assert_eq!(palette_for("bmachine-light").unwrap().widget_style, "solid");
+        assert_eq!(palette_for("armor").unwrap().widget_style, "solid");
+        assert_eq!(palette_for("midnight-oled").unwrap().widget_style, "outline");
+        assert_eq!(
+            palette_for("catppuccin-mocha").unwrap().widget_style,
+            "gradient"
+        );
+        assert_eq!(palette_for("spider").unwrap().widget_style, "gradient");
+        assert_eq!(palette_for("emerald-studio").unwrap().widget_style, "glass");
+        assert_eq!(palette_for("gwen").unwrap().widget_style, "glass");
+    }
+
+    #[test]
+    fn old_user_theme_json_without_widget_style_still_parses() {
+        // Tema user yang disimpan sebelum field widget_style ada
+        // (JSON tanpa field itu) harus tetap terbaca, gaya = "solid".
+        let old_json = r##"[{"id":"user:tema-lama","name":"Tema Lama","mode":"dark","accent":"#D9272E","bg":"#171717","fg":"#FFFFFF","editing":"#D9272E","revision":"#1557A5","late":"#EF4444","points":"#F97316"}]"##;
+        let back: Vec<ThemePalette> = serde_json::from_str(old_json).unwrap();
+        assert_eq!(back.len(), 1);
+        assert_eq!(back[0].widget_style, "solid");
+        assert_eq!(back[0].name, "Tema Lama");
     }
 }

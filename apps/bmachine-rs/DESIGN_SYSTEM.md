@@ -355,6 +355,34 @@ tambah satu wadah + satu nilai.
   wave[i] × 52px`). Dekorasi, bukan grafik data.
 - `"none"`: polos.
 
+**Gaya latar widget (permukaan kartu — setting `widget-style`,
+bagian dari tema, 27 Nov 2026):** `"solid" | "gradient" |
+"glass" | "outline"`. Default `"solid"`. BEDA dengan pola latar
+di atas: pola = motif dekorasi di ATAS kartu; gaya = permukaan
+kartunya sendiri. Semua StatWidget membaca `bg-style:
+root.widget-style` dari AppWindow, jadi ganti satu tempat =
+ganti semua kartu. Per preset (lihat §22): BMachine Dark/Light +
+Armor = solid, Midnight OLED = outline, Catppuccin Mocha +
+Spider = gradient, Emerald Studio + Gwen = glass. Pilih manual
+di Settings → Appearance → "Gaya latar widget" (override →
+preset jadi `custom`); tersimpan di SQLite key
+`Settings.WidgetStyle`. AUDIT C#: C# TIDAK punya gaya latar
+widget — `AppearancePalette.cs` hanya warna (Primary/Secondary/
+Background/LightBackground + 4 warna widget), StatWidget C#
+selalu permukaan `CardBackgroundBrush` + garis aksen; keempat
+gaya ini murni invensi port, konsisten dengan design system.
+
+- `"solid"`: permukaan `card-bg`, border separator, garis aksen
+  2px di tepi atas (tampilan C# asli).
+- `"gradient"`: permukaan `card-bg` + overlay gradien vertikal
+  tint aksen (alpha 0,22 di atas → 0 di 65% tinggi), garis aksen
+  atas tetap ada.
+- `"glass"`: permukaan `surface-elevated` (lebih terang) +
+  border tint aksen (alpha 0,45), garis aksen atas tetap ada.
+- `"outline"`: transparan (latar app) + border aksen penuh
+  1,5px, TANPA garis aksen atas (lapisan luar dibuat
+  transparan, lapisan dalam y=0 setinggi penuh).
+
 **Hover**: border dalam jadi warna aksen. **Klik**: callback
 `clicked()` — membuka daftar kartu Fase 3 (lihat §15).
 Skala fluid lewat properti `scale` (diberi AppWindow via
@@ -1846,12 +1874,20 @@ ringan, sekali klik ubah seluruh aplikasi secara konsisten.
 
 - **Satu tema = satu palet penuh.** `src/theme.rs::ThemePalette`
   (id, nama, mode, accent, bg, fg, editing, revision, late,
-  points) + `builtin_presets()` — 8 preset terkurasi:
-  `bmachine-dark`, `bmachine-light`, `midnight-oled`,
+  points, widget-style) + `builtin_presets()` — 8 preset
+  terkurasi: `bmachine-dark`, `bmachine-light`, `midnight-oled`,
   `catppuccin-mocha`, `emerald-studio`, `spider`, `gwen`,
   `armor`. Palet C# (`AppearancePalette.cs`) dipakai apa adanya
   untuk spider/gwen/armor/midnight; sisanya palet port.
   Definisi palet SATU tempat di Rust — Slint hanya memanggil id.
+  **Gaya latar widget per preset** (bagian dari palet, 27 Nov
+  2026 — C# tidak punya padanan, invensi port): solid =
+  `bmachine-dark`, `bmachine-light`, `armor`; outline =
+  `midnight-oled`; gradient = `catppuccin-mocha`, `spider`;
+  glass = `emerald-studio`, `gwen`. Lihat §8 untuk arti
+  keempat gaya (solid/gradient/glass/outline) dan bedanya
+  dengan pola latar widget (`widget-bg`: doodle/dots/impulse/
+  none — motif dekorasi, BUKAN permukaan).
 - **Satu palet dibaca semua permukaan.** `apply_appearance()`
   menurunkan SEMUA token global `Design` (warna, `cat-*`, font,
   spacing, radius) dari properti AppWindow; dashboard, nav,
@@ -1863,7 +1899,12 @@ ringan, sekali klik ubah seluruh aplikasi secara konsisten.
   satu `ThemeRow` + preview 4 titik (aksen, revisi, bg, fg) +
   ✓ saat aktif. Di bawahnya: **Tema saya** (tema buatan user),
   **Kepadatan** (Compact/Normal/Comfortable — C#
-  `Settings.UiDensity`), **Warna widget** (C# `Settings.Color.*`).
+  `Settings.UiDensity`), **Warna widget** (C# `Settings.Color.*`),
+  **Pola latar widget** (`widget-bg`: doodle/dots/impulse/none —
+  motif dekorasi di atas kartu), **Gaya latar widget**
+  (`widget-style`: Solid/Gradien/Kaca/Outline — permukaan
+  kartu; pilih manual = override, preset jadi `custom`). Preview
+  miniatur di bawah ikut gaya widget aktif.
 - **Tema user = override berlapis.** Simpan snapshot tampilan
   saat ini dengan nama → masuk picker (id `user:<slug>`).
   Ubah warna manual saat tema aktif → preset jadi `custom`
@@ -1876,8 +1917,12 @@ ringan, sekali klik ubah seluruh aplikasi secara konsisten.
   mode `Settings.Theme`; aksen `Settings.Accent`; bg
   `Appearance.Background.Dark/Light`; fg `Settings.Foreground`;
   widget `Settings.Color.Editing/Revision/Late/Points`; density
-  `Settings.UiDensity` (Compact/Normal/Comfortable); tema user
-  `Settings.Theme.UserThemes` (satu key, JSON array). Nilai C#
+  `Settings.UiDensity` (Compact/Normal/Comfortable); **gaya
+  latar widget `Settings.WidgetStyle`** (`"solid" | "gradient" |
+  "glass" | "outline"`, default `"solid"`, nilai tak dikenal →
+  `"solid"` via `valid_widget_style()`); tema user
+  `Settings.Theme.UserThemes` (satu key, JSON array — tiap tema
+  menyimpan juga `widget_style`). Nilai C#
   dikutip JSON dan berawalan alpha `#FF`/`#AARRGGBB` — loader
   mengupas keduanya (`unquote`, `normalize_hex`).
 - **RINGAN:** tema hanya palet + token — ganti instan, tanpa
@@ -1897,7 +1942,8 @@ handler; yang butuh restart di C# adalah **import database**
 mengatasinya di P0 dengan VACUUM INTO tanpa restart) dan
 **update aplikasi** (ganti biner — wajar butuh restart).
 `Reset ke Default` mengembalikan SEMUA ke BMachine Dark
-(termasuk 4 warna widget + density Normal).
+(termasuk 4 warna widget + density Normal + gaya latar widget
+Solid + pola doodle).
 
 **Pola binding TextField (jebakan Slint):** binding satu arah
 `text: root.xxx` PUTUS saat user mengetik (assignment ke properti

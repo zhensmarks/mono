@@ -353,6 +353,12 @@ export component AppWindow inherits Window {
     // Semua StatWidget membaca setting ini (bg: root.widget-bg),
     // jadi ganti satu tempat = ganti semua kartu. Default: "doodle".
     in-out property <string> widget-bg: "doodle";
+    // SETTING: gaya permukaan kartu widget — dipilih user di Settings
+    // → Appearance ("Gaya latar widget") dan didefinisikan tiap
+    // preset tema (§22). Nilai: "solid" | "gradient" | "glass" |
+    // "outline". Semua StatWidget membaca setting ini
+    // (bg-style: root.widget-style). Default: "solid".
+    in-out property <string> widget-style: "solid";
 
     // FASE 3 — Daftar kartu + detail (Trello).
     // list-category: "" = grid dashboard; "EDITING"/"REVISION"/
@@ -855,6 +861,7 @@ export component AppWindow inherits Window {
                         label: "EDITING"; value: root.stat-editing; suffix: "CARD";
                         accent: Design.cat-editing;
                         bg: root.widget-bg;
+                        bg-style: root.widget-style;
                         scale: root.card-scale;
                         clicked => {
                             root.list-titles = root.editing-titles;
@@ -879,6 +886,7 @@ export component AppWindow inherits Window {
                         label: "REVISION"; value: root.stat-revision; suffix: "CARD";
                         accent: Design.cat-revision;
                         bg: root.widget-bg;
+                        bg-style: root.widget-style;
                         scale: root.card-scale;
                         clicked => {
                             root.list-titles = root.revision-titles;
@@ -907,6 +915,7 @@ export component AppWindow inherits Window {
                         label: "LATE"; value: root.stat-late; suffix: "CARD";
                         accent: Design.cat-late;
                         bg: root.widget-bg;
+                        bg-style: root.widget-style;
                         scale: root.card-scale;
                         clicked => {
                             root.list-titles = root.late-titles;
@@ -931,6 +940,7 @@ export component AppWindow inherits Window {
                         label: "POINTS"; value: root.stat-points; suffix: "POIN";
                         accent: Design.cat-points;
                         bg: root.widget-bg;
+                        bg-style: root.widget-style;
                         scale: root.card-scale;
                         clicked => {
                             root.list-category = "";
@@ -3258,6 +3268,7 @@ export component AppWindow inherits Window {
         width: 100%; height: root.height - (root.app-chrome == "custom" ? 32px : 8px);
         visible: root.overlay-view == "SETTINGS";
         widget-bg <=> root.widget-bg;
+        widget-style <=> root.widget-style;
         group <=> root.settings-group;
         color-mode <=> root.app-color-mode;
         theme-preset <=> root.app-theme-preset;
