@@ -1968,14 +1968,9 @@ WAJIB pakai `<=>` (dua arah) — lihat komentar di `TextField`
 padding vertikal pill-content 2*scale (slot 40*scale). Jangan
 ubah tinggi NavTab. Terukur: tengah pill = tengah kapsul (0px).
 
-**Posisi pill nav (27 Nov 19:54, abeng):** kapsul HOME/BATCH
-rapat di kiri, tepat setelah avatar + gap `nav-gap` 12px*scale —
-BUKAN di tengah jendela. Spacer stretch pertama (yang dulu
-mendorong kapsul ke tengah) dihapus; spacer stretch di belakang
-kapsul mengisi sisa lebar bar atas.
+**Posisi pill nav (27 Nov 20:04, abeng — koreksi 19:54):** kelompok avatar + gap `nav-gap` 12px*scale + kapsul HOME/BATCH TETAP berdekatan, tapi KESELURUHAN kelompok dipusatkan di bar atas (spacer stretch di depan DAN di belakang kelompok) — BUKAN nempel kiri ("aneh", 20:04) dan bukan kapsul saja di tengah. **Sejajar vertikal (aturan abeng 20:19 — satu garis tengah):** avatar 44px*scale, SAMA tinggi dengan kapsul (dulu 40px — top-aligned di slot 44*scale sehingga tengahnya naik ~3px, terukur pixel). Flyout profil menempel avatar lewat `avatar-btn.absolute-position` (x dan y — bukan hardcode lagi, avatar pindah ke tengah dan tingginya berubah).
 
-**Flyout profil (redesain 27 Nov 19:04):** posisi TETAP menempel
-avatar (`x: 20px*scale`, `y: chrome + 60px*scale`). Isi:
+**Flyout profil (redesain 27 Nov 19:04):** posisi TETAP menempel avatar (`x` dan `y` dari `avatar-btn.absolute-position` + jarak 8px*scale di bawah avatar). Isi:
 header (avatar 48px + nama + sapaan jam), grup APLIKASI
 (Terminal + Toggle, Settings + shortcut `Ctrl+,`), grup LAINNYA
 (Laporkan Bug, Log Out merah), footer (versi + status update

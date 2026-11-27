@@ -744,10 +744,15 @@ export component AppWindow inherits Window {
         visible: root.overlay-view == "";
         spacing: 0;
 
-        // Nav rapat ke avatar (abeng 27 Nov 19:40 — referensi: dua
-        // kelompok pill berdekatan, jarak kecil): avatar → gap 12px →
-        // kapsul HOME/BATCH di kiri, BUKAN di tengah jendela. Pusat
-        // vertikal avatar dan kapsul tetap sama.
+        // Nav rata tengah (abeng 27 Nov 20:04 — koreksi: kelompok di
+        // kiri itu "aneh"): avatar → gap 12px → kapsul HOME/BATCH
+        // TETAP berdekatan, tapi KESELURUHAN kelompok dipusatkan di bar
+        // atas — spacer stretch di depan DAN di belakang kelompok.
+        // Sejajar vertikal (aturan abeng 20:19 — satu garis tengah):
+        // avatar dibuat 44px*scale, SAMA dengan kapsul (dulu 40px —
+        // top-aligned di slot 44*scale sehingga tengahnya naik ~3px,
+        // terukur pixel). Keduanya kini mengisi slot persis → tengah
+        // avatar = tengah kapsul.
         HorizontalLayout {
             height: 68px * root.ui-scale;
             padding-left: 20px * root.ui-scale;
@@ -755,13 +760,18 @@ export component AppWindow inherits Window {
             padding-top: Design.space-md * root.ui-scale;
             padding-bottom: Design.space-md * root.ui-scale;
 
-            Rectangle {
-                width: 40px * root.ui-scale;
-                height: 40px * root.ui-scale;
+            // Spacer depan (20:04): bersama spacer belakang, kelompok
+            // avatar+gap+kapsul terpusat di bar atas. Padding kiri/kanan
+            // simetris (20px) sehingga tengah kelompok = tengah jendela.
+            Rectangle { horizontal-stretch: 1; }
+
+            avatar-btn := Rectangle {
+                width: 44px * root.ui-scale;
+                height: 44px * root.ui-scale;
                 background: root.show-flyout ? Design.bg-hover : Design.card-bg;
                 border-color: Design.separator;
                 border-width: 1px;
-                border-radius: 20px * root.ui-scale;
+                border-radius: 22px * root.ui-scale;
                 account-touch := TouchArea {
                     mouse-cursor: pointer;
                     clicked => { root.show-flyout = !root.show-flyout; }
@@ -777,10 +787,9 @@ export component AppWindow inherits Window {
 
             Rectangle { width: Design.nav-gap * root.ui-scale; }
 
-            // Kapsul langsung setelah avatar + gap (tanpa spacer
-            // stretch di depannya — dulu spacer ini yang mendorong
-            // kapsul ke tengah jendela). Spacer stretch di belakang
-            // kapsul mengisi sisa lebar bar atas.
+            // Kapsul langsung setelah avatar + gap (20:04: spacer
+            // stretch kini ADA di depan avatar — kelompok avatar+gap+
+            // kapsul terpusat di bar atas; spacer belakang menyeimbangi).
             Rectangle {
                 width: pill-content.preferred-width;
                 height: 44px * root.ui-scale;
@@ -3814,15 +3823,16 @@ export component AppWindow inherits Window {
     // ===== Flyout profil (overlay, di bawah tombol profil) =====
     // Posisi menempel tombol pemanggil (C#: Button.Flyout di tombol
     // akun — bawah tombol, rata kiri): x = tepi kiri tombol avatar
-    // (padding-left bar atas 20px*scale); y = bawah tombol avatar
-    // (chrome 28px + padding 12px + tinggi 40px = 52px*scale) + jarak
-    // 8px*scale. DULU: x di tengah layar + y 60px — SALAH (abeng,
+    // dan y = bawah tombol avatar + jarak 8px*scale — keduanya dari
+    // absolute-position avatar (avatar kini di tengah bar atas sejak
+    // 27 Nov 20:04 dan tingginya 44px*scale, jadi x DAN y tidak boleh
+    // hardcode lagi). DULU: x di tengah layar + y 60px — SALAH (abeng,
     // 27 Nov 18:48: flyout muncul di tengah, harusnya di posisi
     // tombol yang memanggilnya).
     Rectangle {
         visible: root.show-flyout && root.overlay-view == "";
-        x: 20px * root.ui-scale;
-        y: (root.app-chrome == "custom" ? 28px : 0px) + 60px * root.ui-scale;
+        x: avatar-btn.absolute-position.x;
+        y: avatar-btn.absolute-position.y + avatar-btn.height + 8px * root.ui-scale;
         width: 256px;
         height: flyout-layout.preferred-height;
         background: Design.surface-elevated;
@@ -3831,11 +3841,12 @@ export component AppWindow inherits Window {
         border-radius: Design.radius-md;
 
         // Redesain 27 Nov 19:04 (abeng: "1000x lebih bagus") — posisi
-        // TETAP menempel avatar (x=20, di bawah bar atas, jangan ubah):
-        // header profil (nama + sapaan, TANPA avatar — 27 Nov 19:37),
-        // item dikelompokkan (APLIKASI / LAINNYA) dengan ikon + label +
-        // shortcut yang konsisten + hover jelas, footer rapi (versi +
-        // status update). Semua warna dari token Design → ikut tema aktif.
+        // TETAP menempel avatar (di bawah bar atas, x mengikuti avatar,
+        // jangan hardcode): header profil (nama + sapaan, TANPA avatar
+        // — 27 Nov 19:37), item dikelompokkan (APLIKASI / LAINNYA)
+        // dengan ikon + label + shortcut yang konsisten + hover jelas,
+        // footer rapi (versi + status update). Semua warna dari token
+        // Design → ikut tema aktif.
         flyout-layout := VerticalLayout {
             padding: Design.space-md;
             spacing: 4px;
