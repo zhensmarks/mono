@@ -33,18 +33,76 @@ pub struct TrelloMember {
     pub username: String,
 }
 
+/// Base URL bawaan: API Trello asli. Trello kantor diganti lewat
+/// Settings (key DB `Trello.BaseUrl`) — cukup ganti base URL + API
+/// Key + Token, tanpa rombak dan tanpa rebuild (lihat
+/// ~/workspace/your_files/spesifikasi-api-trello-kantor-untuk-bmachine.md).
+pub const DEFAULT_BASE_URL: &str = "https://api.trello.com/1";
+
+/// Normalisasi base URL dari Settings: trim, kosong -> default,
+/// buang garis miring di akhir (supaya `endpoint()` tidak dobel `/`).
+pub fn normalize_base_url(raw: &str) -> String {
+    let t = raw.trim().trim_end_matches('/');
+    if t.is_empty() {
+        DEFAULT_BASE_URL.to_string()
+    } else {
+        t.to_string()
+    }
+}
+
+/// Gabung base URL + path endpoint, misal
+/// `endpoint("http://127.0.0.1:8080", "/lists/x/cards")`.
+fn endpoint(base_url: &str, path: &str) -> String {
+    format!("{}{}", normalize_base_url(base_url), path)
+}
+
+/// Origin web UI board dari base URL API — dipakai untuk membangun
+/// link kartu saat API tidak mengembalikan `shortUrl` (misal kartu
+/// manual yang ditempel hanya ID-nya).
+/// Trello asli: API di `api.trello.com`, web di `trello.com`.
+/// Trello kantor diasumsikan melayani web UI di origin yang sama
+/// dengan API-nya.
+pub fn web_origin(base_url: &str) -> String {
+    let base = normalize_base_url(base_url);
+    if base == DEFAULT_BASE_URL {
+        return "https://trello.com".to_string();
+    }
+    // Ambil scheme://host[:port] — buang semua path sesudahnya.
+    let after_scheme = match base.find("://") {
+        Some(i) => &base[i + 3..],
+        None => base.as_str(),
+    };
+    let host = after_scheme.split('/').next().unwrap_or("");
+    let scheme = if base.starts_with("http://") {
+        "http://"
+    } else {
+        "https://"
+    };
+    format!("{}{}", scheme, host)
+}
+
+/// Link web satu kartu, misal `https://trello.com/c/<id>`.
+pub fn web_url_for_card(base_url: &str, card_id: &str) -> String {
+    format!("{}/c/{}", web_origin(base_url), card_id.trim())
+}
+
 pub struct TrelloApiService;
 
 impl TrelloApiService {
     #[allow(dead_code)]
-    pub fn fetch_boards(api_key: &str, token: &str) -> Result<Vec<TrelloBoardItem>, String> {
+    pub fn fetch_boards(
+        base_url: &str,
+        api_key: &str,
+        token: &str,
+    ) -> Result<Vec<TrelloBoardItem>, String> {
         let client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()
             .map_err(|e| e.to_string())?;
 
         let url = format!(
-            "https://api.trello.com/1/members/me/boards?key={}&token={}&fields=name,id",
+            "{}?key={}&token={}&fields=name,id",
+            endpoint(base_url, "/members/me/boards"),
             api_key, token
         );
 
@@ -63,6 +121,7 @@ impl TrelloApiService {
 
     #[allow(dead_code)]
     pub fn fetch_lists(
+        base_url: &str,
         api_key: &str,
         token: &str,
         board_id: &str,
@@ -73,8 +132,9 @@ impl TrelloApiService {
             .map_err(|e| e.to_string())?;
 
         let url = format!(
-            "https://api.trello.com/1/boards/{}/lists?key={}&token={}&fields=name,id,idBoard",
-            board_id, api_key, token
+            "{}?key={}&token={}&fields=name,id,idBoard",
+            endpoint(base_url, &format!("/boards/{}/lists", board_id)),
+            api_key, token
         );
 
         let res = client
@@ -90,14 +150,19 @@ impl TrelloApiService {
         Ok(lists)
     }
 
-    pub fn verify_connection(api_key: &str, token: &str) -> Result<TrelloMember, String> {
+    pub fn verify_connection(
+        base_url: &str,
+        api_key: &str,
+        token: &str,
+    ) -> Result<TrelloMember, String> {
         let client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()
             .map_err(|e| e.to_string())?;
 
         let url = format!(
-            "https://api.trello.com/1/members/me?key={}&token={}&fields=fullName,username",
+            "{}?key={}&token={}&fields=fullName,username",
+            endpoint(base_url, "/members/me"),
             api_key.trim(),
             token.trim()
         );
@@ -114,6 +179,7 @@ impl TrelloApiService {
     }
 
     pub fn fetch_cards(
+        base_url: &str,
         api_key: &str,
         token: &str,
         list_id: &str,
@@ -124,8 +190,8 @@ impl TrelloApiService {
             .map_err(|e| e.to_string())?;
 
         let url = format!(
-            "https://api.trello.com/1/lists/{}/cards?key={}&token={}&fields=name,desc,due,id,shortUrl",
-            list_id.trim(),
+            "{}?key={}&token={}&fields=name,desc,due,id,shortUrl",
+            endpoint(base_url, &format!("/lists/{}/cards", list_id.trim())),
             api_key.trim(),
             token.trim()
         );
@@ -145,6 +211,7 @@ impl TrelloApiService {
 
     #[allow(dead_code)]
     pub fn add_comment(
+        base_url: &str,
         api_key: &str,
         token: &str,
         card_id: &str,
@@ -155,8 +222,11 @@ impl TrelloApiService {
             .build()
             .map_err(|e| e.to_string())?;
         let url = format!(
-            "https://api.trello.com/1/cards/{}/actions/comments?key={}&token={}",
-            card_id.trim(),
+            "{}?key={}&token={}",
+            endpoint(
+                base_url,
+                &format!("/cards/{}/actions/comments", card_id.trim())
+            ),
             api_key.trim(),
             token.trim()
         );
@@ -169,5 +239,142 @@ impl TrelloApiService {
             return Err(format!("Gagal kirim komentar: {}", res.status()));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalize_empty_or_blank_uses_default() {
+        assert_eq!(normalize_base_url(""), DEFAULT_BASE_URL);
+        assert_eq!(normalize_base_url("   "), DEFAULT_BASE_URL);
+    }
+
+    #[test]
+    fn normalize_trims_and_strips_trailing_slashes() {
+        assert_eq!(
+            normalize_base_url("  http://127.0.0.1:8080/  "),
+            "http://127.0.0.1:8080"
+        );
+        assert_eq!(
+            normalize_base_url("https://api.trello.com/1/"),
+            "https://api.trello.com/1"
+        );
+    }
+
+    #[test]
+    fn endpoint_joins_custom_base_without_double_slash() {
+        assert_eq!(
+            endpoint("http://127.0.0.1:8080/", "/lists/abc/cards"),
+            "http://127.0.0.1:8080/lists/abc/cards"
+        );
+        assert_eq!(
+            endpoint("https://trello.kantor.local/api/v1", "/members/me"),
+            "https://trello.kantor.local/api/v1/members/me"
+        );
+        assert_eq!(
+            endpoint("", "/members/me"),
+            "https://api.trello.com/1/members/me"
+        );
+    }
+
+    #[test]
+    fn web_origin_trello_is_trello_com() {
+        assert_eq!(web_origin("https://api.trello.com/1"), "https://trello.com");
+        assert_eq!(web_origin(""), "https://trello.com");
+    }
+
+    #[test]
+    fn web_origin_custom_base_uses_same_origin() {
+        assert_eq!(
+            web_origin("https://trello.kantor.local/api/v1"),
+            "https://trello.kantor.local"
+        );
+        assert_eq!(
+            web_origin("http://127.0.0.1:8080/1"),
+            "http://127.0.0.1:8080"
+        );
+    }
+
+    #[test]
+    fn web_url_for_card_builds_card_link() {
+        assert_eq!(
+            web_url_for_card("https://api.trello.com/1", "abc123"),
+            "https://trello.com/c/abc123"
+        );
+        assert_eq!(
+            web_url_for_card("http://127.0.0.1:8080", "abc123"),
+            "http://127.0.0.1:8080/c/abc123"
+        );
+    }
+
+    #[test]
+    fn add_comment_posts_to_custom_base_url() {
+        // Bukti end-to-end (tanpa jaringan luar): server TCP lokal
+        // mencatat request mentah, lalu add_comment harus POST ke
+        // base URL custom itu — bukan ke api.trello.com.
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let base = format!("http://127.0.0.1:{}/api", port);
+
+        let handle = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                .unwrap();
+            let mut buf = Vec::new();
+            let mut chunk = [0u8; 1024];
+            loop {
+                let n = stream.read(&mut chunk).unwrap();
+                if n == 0 {
+                    break;
+                }
+                buf.extend_from_slice(&chunk[..n]);
+                if let Some(pos) = buf.windows(4).position(|w| w == b"\r\n\r\n") {
+                    let header = String::from_utf8_lossy(&buf[..pos]).to_string();
+                    let len: usize = header
+                        .lines()
+                        .find_map(|l| {
+                            l.to_ascii_lowercase()
+                                .strip_prefix("content-length:")
+                                .and_then(|v| v.trim().parse().ok())
+                        })
+                        .unwrap_or(0);
+                    let total = pos + 4 + len;
+                    while buf.len() < total {
+                        let n = stream.read(&mut chunk).unwrap();
+                        if n == 0 {
+                            break;
+                        }
+                        buf.extend_from_slice(&chunk[..n]);
+                    }
+                    break;
+                }
+            }
+            let req = String::from_utf8_lossy(&buf).to_string();
+            let resp =
+                b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}";
+            let _ = stream.write_all(resp);
+            req
+        });
+
+        let r = TrelloApiService::add_comment(&base, "kunci", "token", "card-9", "halo mock");
+        assert!(r.is_ok(), "add_comment gagal: {:?}", r.err());
+        let req = handle.join().unwrap();
+        assert!(
+            req.starts_with("POST /api/cards/card-9/actions/comments?key=kunci&token=token "),
+            "request line salah: {}",
+            req.lines().next().unwrap_or("")
+        );
+        assert!(
+            req.contains("text=halo+mock"),
+            "body form salah: {}",
+            req
+        );
     }
 }

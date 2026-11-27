@@ -88,6 +88,10 @@ export component TrelloDetailPanel inherits Rectangle {
     in property <string> due-text;
     in property <bool> is-manual;
     in property <string> manual-url;
+    // Link web kartu dari API (`shortUrl`, via AppWindow.list-urls) —
+    // dipakai sebagai `card-url` untuk kartu API; kosong bila server
+    // tidak mengembalikannya (tombol buka-link disembunyikan).
+    in property <string> card-url-override: "";
     in property <string> category-label;
     in property <color> accent;
     in property <bool> done;
@@ -116,7 +120,7 @@ export component TrelloDetailPanel inherits Rectangle {
     property <bool> is-narrow: root.width < 360px;
     property <bool> is-points: root.category-label == "POINTS";
     property <string> progress-text: root.done ? "3/3" : "1/3";
-    property <string> card-url: root.is-manual ? root.manual-url : "https://trello.com/c/" + root.display-id;
+    property <string> card-url: root.is-manual ? root.manual-url : root.card-url-override;
 
     send-comment => {
         if (root.comment-draft == "") {
@@ -327,7 +331,7 @@ export component TrelloDetailPanel inherits Rectangle {
                     height: 100%;
                 }
             }
-            if root.is-manual || root.display-id != "" : HorizontalLayout {
+            if root.card-url != "" : HorizontalLayout {
                 spacing: 8px;
                 IconBtn {
                     glyph: "⎘";

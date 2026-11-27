@@ -52,6 +52,9 @@ export component AppWindow inherits Window {
     callback check-update();
     in-out property <string> trello-api-key: "";
     in-out property <string> trello-token: "";
+    // Base URL server board (default API Trello asli — Trello kantor
+    // diganti di Settings > Account; berlaku langsung tanpa restart).
+    in-out property <string> trello-base-url: "https://api.trello.com/1";
     in-out property <string> google-sheet-id: "";
 
     in-out property <string> stat-editing: "0";
@@ -435,6 +438,13 @@ export component AppWindow inherits Window {
     in-out property <[string]> editing-ids: ["47276395", "48328499", "30816883", "29332964", "49109072", ""];
     in-out property <[string]> revision-ids: ["", "", "", "", ""];
     in-out property <[string]> late-ids: ["", "", ""];
+    // Link web tiap kartu dari API (`shortUrl`) — detail kartu
+    // membukanya di browser; "" bila server tidak mengembalikannya.
+    // Diisi Rust saat sync (sama seperti editing-ids); mockup di bawah
+    // hanya untuk tampilan awal sebelum sync pertama.
+    in-out property <[string]> editing-urls: ["https://trello.com/c/47276395", "https://trello.com/c/48328499", "https://trello.com/c/30816883", "https://trello.com/c/29332964", "https://trello.com/c/49109072", ""];
+    in-out property <[string]> revision-urls: ["", "", "", "", ""];
+    in-out property <[string]> late-urls: ["", "", ""];
 
     // Status checklist per kartu (C# TrelloCard.ChecklistStatusLabel:
     // DONE = checklist format nama user sudah diceklis, TODO = belum).
@@ -448,6 +458,9 @@ export component AppWindow inherits Window {
     // ID badge detail (sejajar list-done: window pakai trello-window-cat,
     // embedded pakai list-category).
     property <[string]> list-ids: root.trello-window-cat == "EDITING" ? root.editing-ids : root.trello-window-cat == "REVISION" ? root.revision-ids : root.trello-window-cat == "LATE" ? root.late-ids : root.list-category == "EDITING" ? root.editing-ids : root.list-category == "REVISION" ? root.revision-ids : root.list-category == "LATE" ? root.late-ids : [];
+    // Link web kartu aktif (sejajar list-ids) — dipakai detail kartu
+    // untuk tombol buka di browser (dari `shortUrl` API).
+    property <[string]> list-urls: root.trello-window-cat == "EDITING" ? root.editing-urls : root.trello-window-cat == "REVISION" ? root.revision-urls : root.trello-window-cat == "LATE" ? root.late-urls : root.list-category == "EDITING" ? root.editing-urls : root.list-category == "REVISION" ? root.revision-urls : root.list-category == "LATE" ? root.late-urls : [];
 
     // Bar status Trello (C# UnifiedTrelloView Row 0 / Row 3):
     // dot status + "Dimuat N card" + tombol + (EDITING saja)
@@ -1444,6 +1457,7 @@ export component AppWindow inherits Window {
                     due-text: root.selected-is-manual ? "" : "Due: " + root.list-due[root.selected-index];
                     is-manual: root.selected-is-manual;
                     manual-url: root.selected-is-manual ? root.manual-urls[root.selected-manual-index] : "";
+                    card-url-override: root.selected-is-manual ? "" : root.list-urls[root.selected-index];
                     category-label: root.list-category == "REVISION" ? "REVISI" : root.list-category == "LATE" ? "SUSULAN" : root.list-category;
                     accent: root.list-accent;
                     done: root.selected-is-manual ? root.manual-done[root.selected-manual-index] : root.list-done[root.selected-index];
@@ -1528,7 +1542,7 @@ export component AppWindow inherits Window {
                     Text {
                         x: 15px;
                         y: 15px;
-                        text: "https://trello.com/c/...";
+                        text: "https://.../c/...";
                         font-size: 13px;
                         color: Design.text-muted;
                         visible: root.manual-input == "";
@@ -3361,6 +3375,7 @@ export component AppWindow inherits Window {
         path-profesi <=> root.app-path-profesi;
         trello-api-key <=> root.trello-api-key;
         trello-token <=> root.trello-token;
+        trello-base-url <=> root.trello-base-url;
         google-sheet-id <=> root.google-sheet-id;
         editing-board-id <=> root.editing-board-id;
         editing-list-id <=> root.editing-list-id;
@@ -3707,6 +3722,7 @@ export component AppWindow inherits Window {
                             due-text: root.selected-is-manual ? "" : "Due: " + root.list-due[root.selected-index];
                             is-manual: root.selected-is-manual;
                             manual-url: root.selected-is-manual ? root.manual-urls[root.selected-manual-index] : "";
+                            card-url-override: root.selected-is-manual ? "" : root.list-urls[root.selected-index];
                             category-label: root.trello-window-cat == "REVISION" ? "REVISI" : root.trello-window-cat == "LATE" ? "SUSULAN" : root.trello-window-cat;
                             accent: root.tw-accent;
                             done: root.selected-is-manual ? root.manual-done[root.selected-manual-index] : root.list-done[root.selected-index];

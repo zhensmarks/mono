@@ -833,6 +833,37 @@ State di AppWindow (`ui/main.slint`):
   di panel komentar menutup panel — C# CardDetailPanelHost;
   direset true tiap kartu dibuka).
 
+### 15.0 Provider board — Trello asli / Trello kantor (27 Nov 2026)
+
+Semua panggilan board terkumpul di SATU file `src/trello_api.rs`
+(`TrelloApiService`, 5 endpoint: boards, lists, members/me, cards,
+add comment — spesifikasi untuk tim kantor:
+`~/workspace/your_files/spesifikasi-api-trello-kantor-untuk-bmachine.md`).
+Pindah provider cukup ganti pengaturan di **Settings > Account >
+Trello Integration**, tanpa rombak dan tanpa rebuild:
+
+- **Base URL** — key DB baru `Trello.BaseUrl`, default
+  `https://api.trello.com/1` (kosong = default; garis miring di
+  akhir dibuang otomatis). API Key / Token TIDAK di-rename
+  (`Trello.ApiKey` / `Trello.Token` — DB lama tetap terbaca).
+- **Tes koneksi** — tombol Connect yang sama memanggil
+  `verify_connection` ke base URL yang dikonfigurasi; sukses →
+  Base URL + Key + Token disimpan, sync langsung jalan ke server
+  baru. Simpan pengaturan akun juga menyimpan Base URL.
+  Berlaku langsung tanpa restart (aturan port).
+- **Link web kartu** — diambil dari `shortUrl` API
+  (`editing/revision/late-urls` → `list-urls` → detail
+  `card-url-override`); bila server tidak mengembalikan shortUrl,
+  tombol buka-link di detail disembunyikan. Link kartu manual yang
+  ditempel apa adanya dipertahankan domainnya; bila yang ditempel
+  hanya ID polos, link dibangun dari origin base URL
+  (`trello_api::web_url_for_card` — Trello asli → `trello.com`).
+- Tombol **Get Key** hanya tampil bila base URL = Trello asli
+  (Trello kantor key-nya dari server kantor sendiri).
+- Checklist / lampiran / label / webhook BELUM dipakai API live
+  (masih mockup di UI) — Trello kantor versi pertama cukup
+  menyediakan 5 endpoint di atas.
+
 ### 15.1 Daftar kartu
 
 Header: "← Kembali" + judul kategori + jumlah ("N kartu").
@@ -1216,6 +1247,11 @@ tetap memakan ruang) — perbaikannya butuh `height: 0` kondisional.
   `Settings.FloatingWidget` / `Settings.Orb.*` /
   `Configs.Widget.Position` tidak lagi dibaca/ditulis port,
   tapi TIDAK dihapus dari database.)
+- **Account**: Trello Integration — **Base URL** (default
+  `https://api.trello.com/1`, key DB `Trello.BaseUrl`),
+  API Key, Token, tombol Connect (= Tes koneksi ke base URL
+  yang dikonfigurasi); Google Integration; Board
+  Synchronization (board/list ID). Lihat §15.0.
 - **Explorer**: Default Explorer Path (`D:\#GAWENA`), View
   Mode ("Details"), Sort ("Name"), Group ("None"), Show
   hidden files, Show file extensions, Content zoom (75–200%).

@@ -2044,10 +2044,13 @@ fn subtree_keys(key: &str) -> Vec<&str> {
 use slint::Model;
 
 // ---- Kartu manual Trello (C# ManualCards.Editing) ----
-// Parse satu link Trello -> (id, judul, url). Judul diambil dari
+// Parse satu link kartu board -> (id, judul, url). Judul diambil dari
 // slug di link (nama asli dari API Trello di Fase 6); kalau tidak
 // ada slug, judul = ID. Link kosong/salah -> None.
-fn parse_trello_link(link: &str) -> Option<(String, String, String)> {
+// Link ditempel apa adanya dipertahankan (domain Trello kantor ikut
+// terbawa); bila yang ditempel hanya ID polos, link dibangun dari
+// base URL yang dikonfigurasi (lihat trello_api::web_url_for_card).
+fn parse_trello_link(link: &str, base_url: &str) -> Option<(String, String, String)> {
     let link = link.trim();
     if link.is_empty() {
         return None;
@@ -2071,7 +2074,7 @@ fn parse_trello_link(link: &str) -> Option<(String, String, String)> {
         return Some((
             link.to_string(),
             link.to_string(),
-            format!("https://trello.com/c/{}", link),
+            trello_api::web_url_for_card(base_url, link),
         ));
     }
     None
@@ -2222,6 +2225,7 @@ fn main() -> Result<(), slint::PlatformError> {
     // Sinkronisasi baca setting awal dari SQLite jika ada
     let mut init_trello_key = String::new();
     let mut init_trello_tok = String::new();
+    let mut init_trello_base_url = String::new();
     let mut init_edit_list = String::new();
     let mut init_rev_list = String::new();
     let mut init_late_list = String::new();
@@ -2236,6 +2240,15 @@ fn main() -> Result<(), slint::PlatformError> {
                 init_trello_tok = token.clone();
                 ui.set_trello_token(slint::SharedString::from(token));
             }
+            // Base URL server board (default Trello asli; Trello
+            // kantor diganti di Settings — tanpa rebuild).
+            if let Some(v) = db_guard.get("Trello.BaseUrl") {
+                init_trello_base_url = trello_api::normalize_base_url(&v);
+            }
+            if init_trello_base_url.is_empty() {
+                init_trello_base_url = trello_api::DEFAULT_BASE_URL.to_string();
+            }
+            ui.set_trello_base_url(slint::SharedString::from(init_trello_base_url.as_str()));
             if let Some(v) = db_guard.get("Trello.EditingBoardId") {
                 ui.set_editing_board_id(slint::SharedString::from(v));
             }
@@ -2543,6 +2556,7 @@ fn main() -> Result<(), slint::PlatformError> {
         ui_weak: slint::Weak<AppWindow>,
         k: String,
         t: String,
+        base_url: String,
         el: String,
         rl: String,
         ll: String,
@@ -2553,7 +2567,9 @@ fn main() -> Result<(), slint::PlatformError> {
             let mut synced = 0usize;
             if !k.is_empty() && !t.is_empty() {
                 if !el.is_empty() {
-                    if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &el) {
+                    if let Ok(cards) =
+                        trello_api::TrelloApiService::fetch_cards(&base_url, &k, &t, &el)
+                    {
                         synced += cards.len();
                         // Dynamic Bar: kartu baru di list ini.
                         if let Ok(mut st) = bar_store.lock() {
@@ -2618,6 +2634,17 @@ fn main() -> Result<(), slint::PlatformError> {
                             })
                             .collect();
                         let dones: Vec<bool> = vec![false; cards.len()];
+                        // Link web kartu dari API (`shortUrl`) — detail
+                        // kartu membukanya di browser; kosong bila server
+                        // tidak mengembalikannya.
+                        let urls: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| {
+                                slint::SharedString::from(
+                                    c.short_url.clone().unwrap_or_default(),
+                                )
+                            })
+                            .collect();
                         let _ = ui_weak.upgrade_in_event_loop(move |u| {
                             u.set_stat_editing(count.into());
                             u.set_editing_titles(slint::ModelRc::new(slint::VecModel::from(
@@ -2630,6 +2657,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                 dues.clone(),
                             )));
                             u.set_editing_ids(slint::ModelRc::new(slint::VecModel::from(ids)));
+                            u.set_editing_urls(slint::ModelRc::new(slint::VecModel::from(urls)));
                             u.set_editing_done(slint::ModelRc::new(slint::VecModel::from(dones)));
                             if u.get_list_category().as_str() == "EDITING"
                                 || u.get_trello_window_cat().as_str() == "EDITING"
@@ -2644,7 +2672,9 @@ fn main() -> Result<(), slint::PlatformError> {
                     }
                 }
                 if !rl.is_empty() {
-                    if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &rl) {
+                    if let Ok(cards) =
+                        trello_api::TrelloApiService::fetch_cards(&base_url, &k, &t, &rl)
+                    {
                         synced += cards.len();
                         // Dynamic Bar: kartu baru di list ini.
                         if let Ok(mut st) = bar_store.lock() {
@@ -2698,6 +2728,14 @@ fn main() -> Result<(), slint::PlatformError> {
                             .map(|c| slint::SharedString::from(extract_card_display_id(&c.name)))
                             .collect();
                         let dones: Vec<bool> = vec![false; cards.len()];
+                        let urls: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| {
+                                slint::SharedString::from(
+                                    c.short_url.clone().unwrap_or_default(),
+                                )
+                            })
+                            .collect();
                         let _ = ui_weak.upgrade_in_event_loop(move |u| {
                             u.set_stat_revision(count.into());
                             u.set_revision_titles(slint::ModelRc::new(slint::VecModel::from(
@@ -2710,6 +2748,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                 dues.clone(),
                             )));
                             u.set_revision_ids(slint::ModelRc::new(slint::VecModel::from(ids)));
+                            u.set_revision_urls(slint::ModelRc::new(slint::VecModel::from(urls)));
                             u.set_revision_done(slint::ModelRc::new(slint::VecModel::from(dones)));
                             if u.get_list_category().as_str() == "REVISION"
                                 || u.get_trello_window_cat().as_str() == "REVISION"
@@ -2724,7 +2763,9 @@ fn main() -> Result<(), slint::PlatformError> {
                     }
                 }
                 if !ll.is_empty() {
-                    if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &ll) {
+                    if let Ok(cards) =
+                        trello_api::TrelloApiService::fetch_cards(&base_url, &k, &t, &ll)
+                    {
                         synced += cards.len();
                         // Dynamic Bar: kartu baru di list ini.
                         if let Ok(mut st) = bar_store.lock() {
@@ -2778,6 +2819,14 @@ fn main() -> Result<(), slint::PlatformError> {
                             .map(|c| slint::SharedString::from(extract_card_display_id(&c.name)))
                             .collect();
                         let dones: Vec<bool> = vec![false; cards.len()];
+                        let urls: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| {
+                                slint::SharedString::from(
+                                    c.short_url.clone().unwrap_or_default(),
+                                )
+                            })
+                            .collect();
                         let _ = ui_weak.upgrade_in_event_loop(move |u| {
                             u.set_stat_late(count.into());
                             u.set_late_titles(slint::ModelRc::new(slint::VecModel::from(
@@ -2790,6 +2839,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                 dues.clone(),
                             )));
                             u.set_late_ids(slint::ModelRc::new(slint::VecModel::from(ids)));
+                            u.set_late_urls(slint::ModelRc::new(slint::VecModel::from(urls)));
                             u.set_late_done(slint::ModelRc::new(slint::VecModel::from(dones)));
                             if u.get_list_category().as_str() == "LATE"
                                 || u.get_trello_window_cat().as_str() == "LATE"
@@ -2830,6 +2880,7 @@ fn main() -> Result<(), slint::PlatformError> {
             ui.as_weak(),
             init_trello_key.clone(),
             init_trello_tok.clone(),
+            init_trello_base_url.clone(),
             init_edit_list.clone(),
             init_rev_list.clone(),
             init_late_list.clone(),
@@ -3239,6 +3290,7 @@ fn main() -> Result<(), slint::PlatformError> {
             if let Some(ui) = ui_weak.upgrade() {
                 let k = ui.get_trello_api_key().to_string();
                 let t = ui.get_trello_token().to_string();
+                let base_url = ui.get_trello_base_url().to_string();
                 if k.trim().is_empty() || t.trim().is_empty() {
                     ui.set_toast(slint::SharedString::from(
                         "Isi API Key dan Token Trello dulu",
@@ -3253,13 +3305,18 @@ fn main() -> Result<(), slint::PlatformError> {
                 let ll = ui.get_late_list_id().to_string();
                 let bar_store_thread = bar_store_test.clone();
                 std::thread::spawn(move || {
-                    match trello_api::TrelloApiService::verify_connection(&k, &t) {
+                    match trello_api::TrelloApiService::verify_connection(&base_url, &k, &t) {
                         Ok(member) => {
                             let name = member.full_name.unwrap_or(member.username);
                             if let Some(ref db_mutex) = db_c {
                                 if let Ok(mut g) = db_mutex.lock() {
                                     let _ = g.set("Trello.ApiKey", &k, "String");
                                     let _ = g.set("Trello.Token", &t, "String");
+                                    let _ = g.set(
+                                        "Trello.BaseUrl",
+                                        &trello_api::normalize_base_url(&base_url),
+                                        "String",
+                                    );
                                     let _ = g.set("Trello.IsConnected", "true", "Bool");
                                 }
                             }
@@ -3274,7 +3331,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                     name
                                 )));
                             });
-                            spawn_trello_sync(ui_w, k, t, el, rl, ll, false, bar_store_thread);
+                            spawn_trello_sync(ui_w, k, t, base_url, el, rl, ll, false, bar_store_thread);
                         }
                         Err(e) => {
                             let _ = ui_w.upgrade_in_event_loop(move |u| {
@@ -3310,6 +3367,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     ui_weak.clone(),
                     ui.get_trello_api_key().to_string(),
                     ui.get_trello_token().to_string(),
+                    ui.get_trello_base_url().to_string(),
                     ui.get_editing_list_id().to_string(),
                     ui.get_revision_list_id().to_string(),
                     ui.get_late_list_id().to_string(),
@@ -4047,6 +4105,7 @@ fn main() -> Result<(), slint::PlatformError> {
             if let Some(ui) = ui_weak.upgrade() {
                 let k = ui.get_trello_api_key().to_string();
                 let t = ui.get_trello_token().to_string();
+                let base_url = ui.get_trello_base_url().to_string();
                 let e_b = ui.get_editing_board_id().to_string();
                 let e_l = ui.get_editing_list_id().to_string();
                 let r_b = ui.get_revision_board_id().to_string();
@@ -4070,6 +4129,11 @@ fn main() -> Result<(), slint::PlatformError> {
                     if let Ok(mut db_guard) = db_mutex.lock() {
                         let _ = db_guard.set("Trello.ApiKey", &k, "String");
                         let _ = db_guard.set("Trello.Token", &t, "String");
+                        let _ = db_guard.set(
+                            "Trello.BaseUrl",
+                            &trello_api::normalize_base_url(&base_url),
+                            "String",
+                        );
                         let _ = db_guard.set("Trello.EditingBoardId", &e_b, "String");
                         let _ = db_guard.set("Trello.EditingListId", &e_l, "String");
                         let _ = db_guard.set("Trello.RevisionBoardId", &r_b, "String");
@@ -4098,7 +4162,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     if !k.is_empty() && !t.is_empty() {
                         if !e_l.is_empty() {
                             if let Ok(cards) =
-                                trello_api::TrelloApiService::fetch_cards(&k, &t, &e_l)
+                                trello_api::TrelloApiService::fetch_cards(&base_url, &k, &t, &e_l)
                             {
                                 let count = format!("{}", cards.len());
                                 // Dynamic Bar: kartu baru di list ini.
@@ -4131,7 +4195,7 @@ fn main() -> Result<(), slint::PlatformError> {
                         }
                         if !r_l.is_empty() {
                             if let Ok(cards) =
-                                trello_api::TrelloApiService::fetch_cards(&k, &t, &r_l)
+                                trello_api::TrelloApiService::fetch_cards(&base_url, &k, &t, &r_l)
                             {
                                 let count = format!("{}", cards.len());
                                 // Dynamic Bar: kartu baru di list ini.
@@ -4165,7 +4229,7 @@ fn main() -> Result<(), slint::PlatformError> {
                         }
                         if !l_l.is_empty() {
                             if let Ok(cards) =
-                                trello_api::TrelloApiService::fetch_cards(&k, &t, &l_l)
+                                trello_api::TrelloApiService::fetch_cards(&base_url, &k, &t, &l_l)
                             {
                                 let count = format!("{}", cards.len());
                                 // Dynamic Bar: kartu baru di list ini.
@@ -4637,7 +4701,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 if line.is_empty() {
                     continue;
                 }
-                match parse_trello_link(line) {
+                match parse_trello_link(line, &ui.get_trello_base_url()) {
                     Some((_id, title, url)) => {
                         if count as usize >= titles.len() {
                             failed += 1;
@@ -4670,11 +4734,11 @@ fn main() -> Result<(), slint::PlatformError> {
                 }));
             } else if failed > 0 {
                 ui.set_toast(slint::SharedString::from(format!(
-                    "{} link gagal dibaca — tempel link Trello (https://trello.com/c/...).",
+                    "{} link gagal dibaca — tempel link kartu board (https://.../c/...).",
                     failed
                 )));
             } else {
-                ui.set_toast(slint::SharedString::from("Tempel dulu link Trello-nya."));
+                ui.set_toast(slint::SharedString::from("Tempel dulu link kartunya."));
             }
         });
     }

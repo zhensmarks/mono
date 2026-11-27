@@ -434,6 +434,9 @@ export component SettingsView inherits Rectangle {
     // --- Account Integration (Trello & Google Spreadsheet) ---
     in-out property <string> trello-api-key: "";
     in-out property <string> trello-token: "";
+    // Base URL server board — default API Trello asli; isi alamat
+    // Trello kantor bila sudah ada (berlaku langsung tanpa restart).
+    in-out property <string> trello-base-url: "https://api.trello.com/1";
     in-out property <bool> trello-connected: false;
     in-out property <string> trello-status: "Belum tersambung ke Trello.";
     in-out property <string> editing-board-id: "";
@@ -1564,6 +1567,17 @@ export component SettingsView inherits Rectangle {
 
                                 VerticalLayout {
                                     spacing: 4px;
+                                    FieldLabel { title: "Base URL"; desc: "Alamat server board — Trello asli atau Trello kantor (tanpa / di akhir)"; }
+                                    TextField {
+                                        horizontal-stretch: 1;
+                                        text: root.trello-base-url;
+                                        placeholder: "https://api.trello.com/1";
+                                        edited(text) => { root.trello-base-url = text; }
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    spacing: 4px;
                                     FieldLabel { title: "API Key"; desc: "Key pengembang Trello Power-Up"; }
                                     HorizontalLayout {
                                         spacing: 8px;
@@ -1576,6 +1590,9 @@ export component SettingsView inherits Rectangle {
                                         Btn {
                                             label: "Get Key";
                                             variant: "secondary";
+                                            // Hanya untuk Trello asli — Trello kantor
+                                            // key-nya dari server kantor sendiri.
+                                            visible: root.trello-base-url == "" || root.trello-base-url == "https://api.trello.com/1";
                                             clicked => { root.open-url("https://trello.com/power-ups/admin"); }
                                         }
                                     }
