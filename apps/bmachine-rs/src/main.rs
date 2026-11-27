@@ -134,6 +134,25 @@ fn read_bool_model(m: slint::ModelRc<bool>) -> Vec<bool> {
 fn main() -> Result<(), slint::PlatformError> {
     let ui = AppWindow::new()?;
 
+    // QA/report helper: membuka state tertentu lewat argumen startup, tanpa
+    // menyuntik klik mouse/keyboard ke user. Dipakai runner screenshot VM;
+    // tidak ada efek bila aplikasi dijalankan normal (tanpa argumen).
+    for arg in std::env::args().skip(1) {
+        if let Some(v) = arg.strip_prefix("--view=") {
+            ui.set_overlay_view(v.into());
+        } else if let Some(v) = arg.strip_prefix("--group=") {
+            ui.set_settings_group(v.into());
+        } else if let Some(v) = arg.strip_prefix("--tab=") {
+            ui.set_current_tab(v.into());
+        } else if arg == "--log" {
+            ui.set_show_logpanel(true);
+        } else if arg == "--flyout" {
+            ui.set_show_flyout(true);
+        } else if let Some(v) = arg.strip_prefix("--dialog=") {
+            ui.set_dialog_open(v.into());
+        }
+    }
+
     // Inisialisasi Database SQLite BMachine.db nyata di AppData/BMachine
     let db = match DatabaseService::init() {
         Ok(d) => Some(Arc::new(Mutex::new(d))),

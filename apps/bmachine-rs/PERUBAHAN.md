@@ -5,6 +5,12 @@ sebelum commit + push (format lengkap di `AGENTS.md`). Entri terbaru di
 paling atas. Dengan log ini, siapa pun yang menerima project — Dex, Hermes,
 atau orang lain — langsung tahu apa saja yang diubah tanpa menebak.
 
+## 2026-11-27 — Antigravity Agent — Argumen startup QA untuk laporan screenshot semua tampilan
+- Diubah:
+  - `src/main.rs`: Argumen startup `--view=`, `--group=`, `--tab=`, `--log`, `--flyout`, `--dialog=` kini membuka state UI yang diminta tanpa klik mouse/keyboard fisik. Dipakai runner screenshot VM; normal startup tanpa argumen tidak berubah.
+- Alasan: User meminta laporan gambar semua tampilan; state seperti Settings per grup, overlay Radial/Sheets/Leaderboard, dan dialog tidak bisa dibuka hanya dengan shortcut keyboard.
+- Terverifikasi: `cargo build` exit 0. Screenshot VM di-generate untuk 20 state ke `D:/VMs/qa/` (lihat `manifest.jsonl`).
+
 ## 2026-11-27 — Antigravity Agent — Navbar dashboard mengikuti referensi (Akun kiri, Home/Batch pill, radial kanan)
 - Diubah:
   - `ui/main.slint`: Kontrol Akun dipisah ke sisi kiri nav, pill tengah hanya Home + Batch; tombol close `×` yang tidak ada di referensi dihilangkan. Tombol radial kanan kini memakai hexagon geometris.
@@ -16,7 +22,7 @@ atau orang lain — langsung tahu apa saja yang diubah tanpa menebak.
 ## 2026-11-27 — Antigravity Agent — Polish Tampilan: Widget Live dari Akun, Tokenisasi Warna, No-Frame Window, Ukuran Jendela Pas
 - Diubah:
   - `ui/design.slint`: Token warna baru `done-row-bg`, `done-row-border`, `done-text`, `done-text-alt`, `row-border-idle`, `row-text-dim`, `row-text-alt`, `overlay-dim`, `overlay-solid`, `medal-bronze` — menggantikan hardcoded hex di seluruh UI.
-  - `ui/main.slint`: Semua hardcoded warna diganti token `Design.*`. Window `no-frame: true` + tombol close kustom (×) di bar nav. `ui-scale` max 1.8 (bukan 2.5) agar card tidak membesar berlebihan. Tinggi card di-capping 240px. `padding-bottom` dashboard 24px.
+  - `ui/main.slint`: Semua hardcoded warna diganti token `Design.*`. Window `no-frame: true` + title bar gelap kustom. `ui-scale` max 1.8 (bukan 2.5) agar card tidak membesar berlebihan. Tinggi card di-capping 240px. `padding-bottom` dashboard 24px.
   - `ui/settings.slint`: Widget preview EDITING/POINTS kini membaca `stat-editing`/`stat-points` (live dari akun), bukan hardcoded "24"/"1.280".
   - `ui/modul.slint`: Sheet rows & leaderboard rows kini di-drive oleh `sheet-rows`/`lb-rows` (Rust mengisi dari DB), bukan hardcoded sekolah/poin demo. Token `Design.medal-bronze` menggantikan `#cd7f32`.
   - `ui/explorer.slint`: `#00000080` → `Design.overlay-dim`.
