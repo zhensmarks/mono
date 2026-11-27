@@ -571,7 +571,19 @@ export component ComboBox inherits Rectangle {
     callback selected(int);
 
     // Tinggi = field 36px + (daftar bila terbuka).
+    // `preferred-height` WAJIB sama dengan `height`: layout Slint
+    // TIDAK memakai binding `height` untuk mengukur tinggi baris
+    // induk — tanpa preferred-height, baris induk tetap setinggi
+    // field (32/36px) saat terbuka, daftar hanya meluber visual ke
+    // bawah dan menumpuk elemen di bawahnya; elemen di bawah itu
+    // (z-order lebih tinggi karena datang belakangan di layout)
+    // menelan klik item — terbukti 28 Nov 2026 di popup Kelola:
+    // klik "07 Juli 2026" malah memilih baris tabel sekolah di
+    // bawahnya dan `selected` tidak pernah jalan. Dengan
+    // preferred-height, baris induk tumbuh saat terbuka dan daftar
+    // mendorong konten ke bawah (bukan menumpuknya).
     height: root.open ? 36px + 4px + root.model.length * 36px : 36px;
+    preferred-height: root.open ? 36px + 4px + root.model.length * 36px : 36px;
 
     VerticalLayout {
         spacing: 4px;

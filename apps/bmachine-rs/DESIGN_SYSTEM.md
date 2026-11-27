@@ -1201,13 +1201,17 @@ Sumber: studi master_creator (`~/workspace/master-creator-study/`,
 - **Filter bulan:** dropdown berisi "Semua bulan" + bulan-bulan unik
   dari hasil scan (urut natural); pilihan tersimpan di
   `Batch.FolderReguler.Month` dan dipulihkan saat popup dibuka.
-  CATATAN (defect terbuka, 28 Nov 2026): ComboBox bulan Slint di popup
-  ini tidak menerima klik item — klik pada item jatuh ke baris tabel
-  sekolah di bawah popup dan `selected` tidak pernah jalan, sehingga
-  pilihan bulan tidak tersimpan. Logika filter bulan sendiri benar
-  (unit test `reguler_status_and_filter` lolos; `filter_reguler_rows`
-  terbukti lewat filter teks). Perbaikan butuh dropdown kustom atau
-  pemindahan ComboBox agar tidak menumpuk tabel.
+  Perbaikan 28 Nov 2026 (defect ComboBox — lihat PERUBAHAN.md):
+  daftar bulan kini mendorong tabel ke bawah saat terbuka (bukan
+  menumpuknya), jadi item bisa diklik. Akar masalah: layout Slint
+  TIDAK memakai binding `height` ComboBox untuk mengukur tinggi
+  baris induk — baris tetap setinggi field, daftar hanya meluber
+  visual dan klik item ditelan elemen di bawahnya (z-order).
+  Perbaikan: `preferred-height` di komponen `ComboBox`
+  (`ui/design.slint`) + hapus height tetap pada baris induk di
+  header BATCH dan baris filter popup ini. Efek samping yang sama:
+  dropdown Folder Reguler di header BATCH kini juga bisa memilih
+  item kedua (sebelumnya tertutup kartu SOURCE/OUTPUT).
 - **Dropdown header** ("Folder Reguler" di header BATCH) memakai daftar
   yang sama; memilih direktori = memuatnya sebagai SOURCE (sama seperti
   Pilih Folder). Klik ganda baris sekolah = jadikan SOURCE + tutup

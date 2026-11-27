@@ -2134,8 +2134,12 @@ export component AppWindow inherits Window {
                 spacing: Design.space-md;
 
                 // Header: judul + deskripsi + Folder Reguler + tambah.
+                // TANPA height tetap: ComboBox di baris ini harus bisa
+                // tumbuh saat terbuka (preferred-height) dan mendorong
+                // tree ke bawah — height tetap 36px membuat daftarnya
+                // meluber menumpuk tree di bawah dan klik item ditelan
+                // kartu SOURCE/OUTPUT (defect 28 Nov 2026).
                 HorizontalLayout {
-                    height: 36px * root.ui-scale;
                     spacing: 8px * root.ui-scale;
                     Text {
                         text: "BATCH";
@@ -3796,8 +3800,12 @@ export component AppWindow inherits Window {
                         vertical-alignment: center;
                     }
                 }
+                // TANPA height tetap: ComboBox bulan harus bisa tumbuh
+                // saat terbuka (preferred-height) dan mendorong tabel
+                // ke bawah — height tetap 32px membuat daftarnya
+                // meluber menumpuk tabel sekolah dan klik item ditelan
+                // baris tabel di bawahnya (defect 28 Nov 2026).
                 HorizontalLayout {
-                    height: 32px * root.ui-scale;
                     spacing: 8px * root.ui-scale;
                     TextField {
                         placeholder: "Cari nama sekolah atau marketing…";
