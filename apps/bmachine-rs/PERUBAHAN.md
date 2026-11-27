@@ -5,6 +5,24 @@ sebelum commit + push (format lengkap di `AGENTS.md`). Entri terbaru di
 paling atas. Dengan log ini, siapa pun yang menerima project — Dex, Hermes,
 atau orang lain — langsung tahu apa saja yang diubah tanpa menebak.
 
+## 2026-11-27 — Antigravity Agent — Full Live Theme Customization, Custom Titlebar, Real Trello Sync & Persistensi SQLite
+- Diubah:
+  - `src/theme.rs` (baru): Engine tema live-customizable (`apply_appearance`, `parse_hex_rgb`, `is_windows_light_mode`, `load_theme_from_db`, `save_theme_to_db`). Mendukung input hex `#RRGGBB` bebas untuk Accent/Background/Foreground, mode Terang/Gelap/Ikut Sistem, preset (`BMachine Dark`, `BMachine Light`, `Midnight OLED`, `Catppuccin Mocha`, `Emerald Studio`, `Custom`), font global (`Inter` / `JetBrains Mono`), corner radius (`sharp`/`default`/`rounded`), nav pill style (`capsule`/`rounded`/`flat`), dan widget background (`doodle`/`dots`/`impulse`/`none`), semuanya diterapkan langsung ke global `Design` dan disimpan ke SQLite (`BMachine.db`).
+  - `src/platform.rs` (baru): Helper native OS untuk membuka URL di browser (`open_url`) serta dialog native Windows (`pick_folder`, `pick_file`) untuk Browse path/credentials.
+  - `ui/design.slint`: Menambahkan token `font-family` dan `density-scale`.
+  - `ui/settings.slint`: Mengubah Appearance dari mockup preview lokal menjadi kontrol tema global live (`appearance-changed()`, `reset-appearance()`), menambah preset baru, Corner radius, Nav pill style, dan tombol Reset ke Default; menyambungkan tombol `Get Key`, `Connect` (`test-trello`), dan `Browse` di Account/Explorer/Paths ke aksi nyata.
+  - `ui/main.slint`: Export `Design` ke Rust, `default-font-family: Design.font-family`, two-way binding (`<=>`) penuh ke `SettingsView` (termasuk perbaikan `widget-bg` yang sebelumnya one-way), menambahkan custom titlebar frameless 28px (drag window, minimize, maximize, close), toast ber-border aksen dengan `overflow: elide`, dan menyambungkan `refresh-trello()` serta `open-url()`.
+  - `ui/trello-detail.slint`: Menyambungkan tombol buka kartu di browser (`↗`) ke `open-url`.
+  - `src/trello_api.rs`: Menambahkan `verify_connection` (`/1/members/me`), `shortUrl`, dan `add_comment`.
+  - `src/main.rs`: Menghapus panggilan HTTP dummy sinkron saat startup yang memperlambat boot; menyambungkan `spawn_trello_sync` agar mengisi count widget sekaligus daftar kartu nyata (`editing-titles/subs/due/ids`, `revision-*`, `late-*`); menyambungkan persistensi General & Paths ke SQLite, window drag/min/max, dan membersihkan seluruh compiler warning.
+- Alasan: Instruksi user untuk melanjutkan port dengan kualitas `#POLISH`, menyamakan logika/fungsi C# (Trello sync, persistensi DB, dialog native), dan membuat tampilan bisa full customisasi secara live.
+- Terverifikasi:
+  - `cargo build` exit 0 dengan **0 warning** (36.94s).
+  - Smoke test launch `target/debug/bmachine-slint-demo.exe --no-splash` berjalan stabil (`RUNNING_OK PID=17692`).
+- Masih terbuka:
+  - Pengambilan screenshot desktop dari terminal non-interaktif gagal (`CopyFromScreen: The handle is invalid`), sehingga verifikasi visual di layar desktop perlu dicek langsung oleh user.
+  - Eksekusi Python `batch_wrapper.py` / Photoshop JSX di tombol footer BATCH masih perlu diuji dengan folder `Scripts/` & Photoshop lokal user.
+
 ## 2026-11-27 — Antigravity Agent — Nav centering/kapsul + shortcut global radial (rdev) + argumen QA
 - Diubah:
   - `ui/main.slint`: Nav bar dashboard kini terpusat penuh: akun kiri, grup pill HOME/BATCH tengah (sejajar), radial kanan. Spasi antar ikon akun dan pill dibuat jelas; highlight pill aktif memakai kapsul oval yang mengikuti bentuk dasar.

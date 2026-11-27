@@ -308,6 +308,14 @@ export component SettingsView inherits Rectangle {
     callback toast(string);
     callback back();
     callback check-update();
+    callback appearance-changed();
+    callback reset-appearance();
+    callback save-general-settings();
+    callback save-paths-settings();
+    callback save-explorer-settings();
+    callback browse-path(string);
+    callback test-trello();
+    callback open-url(string);
     // Widget background — terikat dua arah ke AppWindow (kartu dashboard ikut berubah).
     in-out property <string> widget-bg: "doodle";
 
@@ -360,19 +368,22 @@ export component SettingsView inherits Rectangle {
     in-out property <string> lb-bulanan-range: "A2:C10";
     callback save-account-settings();
 
-    // --- Appearance (state lokal mockup) ---
+    // --- Appearance (live global theme) ---
     in-out property <string> color-mode: "dark";
     in-out property <string> theme-preset: "BMachine Dark";
-    in-out property <color> accent-color: #339CFF;
-    in-out property <string> accent-hex: "#339CFF";
-    in-out property <string> accent-hex-good: "#339CFF";
-    in-out property <color> bg-color: #191919;
-    in-out property <string> bg-hex: "#191919";
-    in-out property <string> bg-hex-good: "#191919";
+    in-out property <color> accent-color: #3b82f6;
+    in-out property <string> accent-hex: "#3b82f6";
+    in-out property <string> accent-hex-good: "#3b82f6";
+    in-out property <color> bg-color: #121212;
+    in-out property <string> bg-hex: "#121212";
+    in-out property <string> bg-hex-good: "#121212";
     in-out property <color> fg-color: #FFFFFF;
     in-out property <string> fg-hex: "#FFFFFF";
     in-out property <string> fg-hex-good: "#FFFFFF";
     in-out property <string> font-choice: "Inter";
+    in-out property <string> corner-style: "default"; // "sharp" | "default" | "rounded"
+    in-out property <string> nav-style: "capsule";    // "capsule" | "rounded" | "flat"
+    in-out property <string> ui-density: "normal";   // "compact" | "normal" | "comfortable"
     in-out property <string> chrome: "custom";
     // Baris hex responsif (26 Nov): di window sempit (<580px) field
     // mengecil 120→96px dan jarak 8→2px supaya kelima dot tetap muat
@@ -625,19 +636,39 @@ export component SettingsView inherits Rectangle {
                                     mode: "light";
                                     horizontal-stretch: 1;
                                     selected: root.color-mode == "light";
-                                    clicked => { root.color-mode = "light"; root.toast("Disimpan: Color mode Terang"); }
+                                    clicked => {
+                                        root.color-mode = "light";
+                                        if (root.bg-hex == "#121212" || root.bg-hex == "#191919" || root.bg-hex == "#000000" || root.bg-hex == "#1E1E2E") {
+                                            root.bg-hex = "#F5F5F5"; root.bg-hex-good = "#F5F5F5"; root.bg-color = #F5F5F5;
+                                            root.fg-hex = "#111111"; root.fg-hex-good = "#111111"; root.fg-color = #111111;
+                                        }
+                                        root.appearance-changed();
+                                        root.toast("Tema Terang diterapkan");
+                                    }
                                 }
                                 ColorModeCard {
                                     mode: "dark";
                                     horizontal-stretch: 1;
                                     selected: root.color-mode == "dark";
-                                    clicked => { root.color-mode = "dark"; root.toast("Disimpan: Color mode Gelap"); }
+                                    clicked => {
+                                        root.color-mode = "dark";
+                                        if (root.bg-hex == "#F5F5F5" || root.bg-hex == "#FFFFFF") {
+                                            root.bg-hex = "#121212"; root.bg-hex-good = "#121212"; root.bg-color = #121212;
+                                            root.fg-hex = "#FFFFFF"; root.fg-hex-good = "#FFFFFF"; root.fg-color = #FFFFFF;
+                                        }
+                                        root.appearance-changed();
+                                        root.toast("Tema Gelap diterapkan");
+                                    }
                                 }
                                 ColorModeCard {
                                     mode: "system";
                                     horizontal-stretch: 1;
                                     selected: root.color-mode == "system";
-                                    clicked => { root.color-mode = "system"; root.toast("Disimpan: Color mode Ikut sistem"); }
+                                    clicked => {
+                                        root.color-mode = "system";
+                                        root.appearance-changed();
+                                        root.toast("Tema mengikuti sistem");
+                                    }
                                 }
                             }
                         }
@@ -656,9 +687,10 @@ export component SettingsView inherits Rectangle {
                                     root.theme-preset = "BMachine Dark";
                                     root.color-mode = "dark";
                                     root.accent-color = #3b82f6; root.accent-hex = "#3b82f6"; root.accent-hex-good = "#3b82f6";
-                                    root.bg-color = #191919; root.bg-hex = "#191919"; root.bg-hex-good = "#191919";
+                                    root.bg-color = #121212; root.bg-hex = "#121212"; root.bg-hex-good = "#121212";
                                     root.fg-color = #FFFFFF; root.fg-hex = "#FFFFFF"; root.fg-hex-good = "#FFFFFF";
-                                    root.toast("Disimpan: Tema BMachine Dark");
+                                    root.appearance-changed();
+                                    root.toast("Tema BMachine Dark diterapkan");
                                 }
                             }
                             ThemeRow {
@@ -670,7 +702,47 @@ export component SettingsView inherits Rectangle {
                                     root.accent-color = #3b82f6; root.accent-hex = "#3b82f6"; root.accent-hex-good = "#3b82f6";
                                     root.bg-color = #F5F5F5; root.bg-hex = "#F5F5F5"; root.bg-hex-good = "#F5F5F5";
                                     root.fg-color = #111111; root.fg-hex = "#111111"; root.fg-hex-good = "#111111";
-                                    root.toast("Disimpan: Tema BMachine Light");
+                                    root.appearance-changed();
+                                    root.toast("Tema BMachine Light diterapkan");
+                                }
+                            }
+                            ThemeRow {
+                                label: "Midnight OLED";
+                                selected: root.theme-preset == "Midnight OLED";
+                                clicked => {
+                                    root.theme-preset = "Midnight OLED";
+                                    root.color-mode = "dark";
+                                    root.accent-color = #38BDF8; root.accent-hex = "#38BDF8"; root.accent-hex-good = "#38BDF8";
+                                    root.bg-color = #000000; root.bg-hex = "#000000"; root.bg-hex-good = "#000000";
+                                    root.fg-color = #F8FAFC; root.fg-hex = "#F8FAFC"; root.fg-hex-good = "#F8FAFC";
+                                    root.appearance-changed();
+                                    root.toast("Tema Midnight OLED diterapkan");
+                                }
+                            }
+                            ThemeRow {
+                                label: "Catppuccin Mocha";
+                                selected: root.theme-preset == "Catppuccin Mocha";
+                                clicked => {
+                                    root.theme-preset = "Catppuccin Mocha";
+                                    root.color-mode = "dark";
+                                    root.accent-color = #CBA6F7; root.accent-hex = "#CBA6F7"; root.accent-hex-good = "#CBA6F7";
+                                    root.bg-color = #1E1E2E; root.bg-hex = "#1E1E2E"; root.bg-hex-good = "#1E1E2E";
+                                    root.fg-color = #CDD6F4; root.fg-hex = "#CDD6F4"; root.fg-hex-good = "#CDD6F4";
+                                    root.appearance-changed();
+                                    root.toast("Tema Catppuccin Mocha diterapkan");
+                                }
+                            }
+                            ThemeRow {
+                                label: "Emerald Studio";
+                                selected: root.theme-preset == "Emerald Studio";
+                                clicked => {
+                                    root.theme-preset = "Emerald Studio";
+                                    root.color-mode = "dark";
+                                    root.accent-color = #10B981; root.accent-hex = "#10B981"; root.accent-hex-good = "#10B981";
+                                    root.bg-color = #0F1715; root.bg-hex = "#0F1715"; root.bg-hex-good = "#0F1715";
+                                    root.fg-color = #ECFDF5; root.fg-hex = "#ECFDF5"; root.fg-hex-good = "#ECFDF5";
+                                    root.appearance-changed();
+                                    root.toast("Tema Emerald Studio diterapkan");
                                 }
                             }
                             ThemeRow {
@@ -678,11 +750,8 @@ export component SettingsView inherits Rectangle {
                                 selected: root.theme-preset == "Custom";
                                 clicked => {
                                     root.theme-preset = "Custom";
-                                    root.color-mode = "dark";
-                                    root.accent-color = #339CFF; root.accent-hex = "#339CFF"; root.accent-hex-good = "#339CFF";
-                                    root.bg-color = #191919; root.bg-hex = "#191919"; root.bg-hex-good = "#191919";
-                                    root.fg-color = #FFFFFF; root.fg-hex = "#FFFFFF"; root.fg-hex-good = "#FFFFFF";
-                                    root.toast("Disimpan: Tema Custom");
+                                    root.appearance-changed();
+                                    root.toast("Mode Custom aktif — ubah warna atau font di bawah");
                                 }
                             }
                         }
@@ -692,7 +761,7 @@ export component SettingsView inherits Rectangle {
                             spacing: 6px;
                             FieldLabel {
                                 title: "Accent";
-                                desc: "Set the color for highlights and selected controls";
+                                desc: "Set the color for highlights and selected controls (ketik #RRGGBB + Enter)";
                             }
                             HorizontalLayout {
                                 spacing: root.hex-compact ? 2px : 8px;
@@ -707,41 +776,38 @@ export component SettingsView inherits Rectangle {
                                 TextField {
                                     width: root.hex-compact ? 96px : 120px;
                                     text: root.accent-hex;
-                                    placeholder: "#339CFF";
+                                    placeholder: "#3b82f6";
                                     edited(text) => { root.accent-hex = text; }
                                     accepted(text) => {
-                                        if (text == "#3b82f6") { root.accent-color = #3b82f6; root.accent-hex-good = text; root.toast("Disimpan: Accent #3b82f6"); }
-                                        else if (text == "#339CFF") { root.accent-color = #339CFF; root.accent-hex-good = text; root.toast("Disimpan: Accent #339CFF"); }
-                                        else if (text == "#f97316") { root.accent-color = #f97316; root.accent-hex-good = text; root.toast("Disimpan: Accent #f97316"); }
-                                        else if (text == "#2dd4bf") { root.accent-color = #2dd4bf; root.accent-hex-good = text; root.toast("Disimpan: Accent #2dd4bf"); }
-                                        else if (text == "#8B5CF6") { root.accent-color = #8B5CF6; root.accent-hex-good = text; root.toast("Disimpan: Accent #8B5CF6"); }
-                                        else { root.toast("Hex belum didukung di mockup — pilih dari swatch."); root.accent-hex = root.accent-hex-good; }
+                                        root.theme-preset = "Custom";
+                                        root.accent-hex = text;
+                                        root.appearance-changed();
                                     }
                                 }
                                 SwatchDot {
                                     swatch: #3b82f6;
                                     selected: root.accent-color == #3b82f6;
-                                    clicked => { root.accent-color = #3b82f6; root.accent-hex = "#3b82f6"; root.accent-hex-good = "#3b82f6"; root.toast("Disimpan: Accent #3b82f6"); }
+                                    clicked => { root.theme-preset = "Custom"; root.accent-color = #3b82f6; root.accent-hex = "#3b82f6"; root.accent-hex-good = "#3b82f6"; root.appearance-changed(); root.toast("Accent #3b82f6 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #339CFF;
                                     selected: root.accent-color == #339CFF;
-                                    clicked => { root.accent-color = #339CFF; root.accent-hex = "#339CFF"; root.accent-hex-good = "#339CFF"; root.toast("Disimpan: Accent #339CFF"); }
+                                    clicked => { root.theme-preset = "Custom"; root.accent-color = #339CFF; root.accent-hex = "#339CFF"; root.accent-hex-good = "#339CFF"; root.appearance-changed(); root.toast("Accent #339CFF diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #f97316;
                                     selected: root.accent-color == #f97316;
-                                    clicked => { root.accent-color = #f97316; root.accent-hex = "#f97316"; root.accent-hex-good = "#f97316"; root.toast("Disimpan: Accent #f97316"); }
+                                    clicked => { root.theme-preset = "Custom"; root.accent-color = #f97316; root.accent-hex = "#f97316"; root.accent-hex-good = "#f97316"; root.appearance-changed(); root.toast("Accent #f97316 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #2dd4bf;
                                     selected: root.accent-color == #2dd4bf;
-                                    clicked => { root.accent-color = #2dd4bf; root.accent-hex = "#2dd4bf"; root.accent-hex-good = "#2dd4bf"; root.toast("Disimpan: Accent #2dd4bf"); }
+                                    clicked => { root.theme-preset = "Custom"; root.accent-color = #2dd4bf; root.accent-hex = "#2dd4bf"; root.accent-hex-good = "#2dd4bf"; root.appearance-changed(); root.toast("Accent #2dd4bf diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #8B5CF6;
                                     selected: root.accent-color == #8B5CF6;
-                                    clicked => { root.accent-color = #8B5CF6; root.accent-hex = "#8B5CF6"; root.accent-hex-good = "#8B5CF6"; root.toast("Disimpan: Accent #8B5CF6"); }
+                                    clicked => { root.theme-preset = "Custom"; root.accent-color = #8B5CF6; root.accent-hex = "#8B5CF6"; root.accent-hex-good = "#8B5CF6"; root.appearance-changed(); root.toast("Accent #8B5CF6 diterapkan"); }
                                 }
                             }
                         }
@@ -751,7 +817,7 @@ export component SettingsView inherits Rectangle {
                             spacing: 6px;
                             FieldLabel {
                                 title: "Background";
-                                desc: "Set the color behind app content";
+                                desc: "Set the color behind app content (ketik #RRGGBB + Enter)";
                             }
                             HorizontalLayout {
                                 spacing: root.hex-compact ? 2px : 8px;
@@ -766,41 +832,38 @@ export component SettingsView inherits Rectangle {
                                 TextField {
                                     width: root.hex-compact ? 96px : 120px;
                                     text: root.bg-hex;
-                                    placeholder: "#191919";
+                                    placeholder: "#121212";
                                     edited(text) => { root.bg-hex = text; }
                                     accepted(text) => {
-                                        if (text == "#191919") { root.bg-color = #191919; root.bg-hex-good = text; root.toast("Disimpan: Background #191919"); }
-                                        else if (text == "#121212") { root.bg-color = #121212; root.bg-hex-good = text; root.toast("Disimpan: Background #121212"); }
-                                        else if (text == "#1A1C20") { root.bg-color = #1A1C20; root.bg-hex-good = text; root.toast("Disimpan: Background #1A1C20"); }
-                                        else if (text == "#F5F5F5") { root.bg-color = #F5F5F5; root.bg-hex-good = text; root.toast("Disimpan: Background #F5F5F5"); }
-                                        else if (text == "#FFFFFF") { root.bg-color = #FFFFFF; root.bg-hex-good = text; root.toast("Disimpan: Background #FFFFFF"); }
-                                        else { root.toast("Hex belum didukung di mockup — pilih dari swatch."); root.bg-hex = root.bg-hex-good; }
+                                        root.theme-preset = "Custom";
+                                        root.bg-hex = text;
+                                        root.appearance-changed();
                                     }
-                                }
-                                SwatchDot {
-                                    swatch: #191919;
-                                    selected: root.bg-color == #191919;
-                                    clicked => { root.bg-color = #191919; root.bg-hex = "#191919"; root.bg-hex-good = "#191919"; root.toast("Disimpan: Background #191919"); }
                                 }
                                 SwatchDot {
                                     swatch: #121212;
                                     selected: root.bg-color == #121212;
-                                    clicked => { root.bg-color = #121212; root.bg-hex = "#121212"; root.bg-hex-good = "#121212"; root.toast("Disimpan: Background #121212"); }
+                                    clicked => { root.theme-preset = "Custom"; root.bg-color = #121212; root.bg-hex = "#121212"; root.bg-hex-good = "#121212"; root.appearance-changed(); root.toast("Background #121212 diterapkan"); }
+                                }
+                                SwatchDot {
+                                    swatch: #000000;
+                                    selected: root.bg-color == #000000;
+                                    clicked => { root.theme-preset = "Custom"; root.bg-color = #000000; root.bg-hex = "#000000"; root.bg-hex-good = "#000000"; root.appearance-changed(); root.toast("Background #000000 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #1A1C20;
                                     selected: root.bg-color == #1A1C20;
-                                    clicked => { root.bg-color = #1A1C20; root.bg-hex = "#1A1C20"; root.bg-hex-good = "#1A1C20"; root.toast("Disimpan: Background #1A1C20"); }
+                                    clicked => { root.theme-preset = "Custom"; root.bg-color = #1A1C20; root.bg-hex = "#1A1C20"; root.bg-hex-good = "#1A1C20"; root.appearance-changed(); root.toast("Background #1A1C20 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #F5F5F5;
                                     selected: root.bg-color == #F5F5F5;
-                                    clicked => { root.bg-color = #F5F5F5; root.bg-hex = "#F5F5F5"; root.bg-hex-good = "#F5F5F5"; root.toast("Disimpan: Background #F5F5F5"); }
+                                    clicked => { root.theme-preset = "Custom"; root.bg-color = #F5F5F5; root.bg-hex = "#F5F5F5"; root.bg-hex-good = "#F5F5F5"; root.appearance-changed(); root.toast("Background #F5F5F5 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #FFFFFF;
                                     selected: root.bg-color == #FFFFFF;
-                                    clicked => { root.bg-color = #FFFFFF; root.bg-hex = "#FFFFFF"; root.bg-hex-good = "#FFFFFF"; root.toast("Disimpan: Background #FFFFFF"); }
+                                    clicked => { root.theme-preset = "Custom"; root.bg-color = #FFFFFF; root.bg-hex = "#FFFFFF"; root.bg-hex-good = "#FFFFFF"; root.appearance-changed(); root.toast("Background #FFFFFF diterapkan"); }
                                 }
                             }
                         }
@@ -810,7 +873,7 @@ export component SettingsView inherits Rectangle {
                             spacing: 6px;
                             FieldLabel {
                                 title: "Foreground";
-                                desc: "Choose the main text color";
+                                desc: "Choose the main text color (ketik #RRGGBB + Enter)";
                             }
                             HorizontalLayout {
                                 spacing: root.hex-compact ? 2px : 8px;
@@ -828,38 +891,35 @@ export component SettingsView inherits Rectangle {
                                     placeholder: "#FFFFFF";
                                     edited(text) => { root.fg-hex = text; }
                                     accepted(text) => {
-                                        if (text == "#FFFFFF") { root.fg-color = #FFFFFF; root.fg-hex-good = text; root.toast("Disimpan: Foreground #FFFFFF"); }
-                                        else if (text == "#111111") { root.fg-color = #111111; root.fg-hex-good = text; root.toast("Disimpan: Foreground #111111"); }
-                                        else if (text == "#E4E4E7") { root.fg-color = #E4E4E7; root.fg-hex-good = text; root.toast("Disimpan: Foreground #E4E4E7"); }
-                                        else if (text == "#999999") { root.fg-color = #999999; root.fg-hex-good = text; root.toast("Disimpan: Foreground #999999"); }
-                                        else if (text == "#3b82f6") { root.fg-color = #3b82f6; root.fg-hex-good = text; root.toast("Disimpan: Foreground #3b82f6"); }
-                                        else { root.toast("Hex belum didukung di mockup — pilih dari swatch."); root.fg-hex = root.fg-hex-good; }
+                                        root.theme-preset = "Custom";
+                                        root.fg-hex = text;
+                                        root.appearance-changed();
                                     }
                                 }
                                 SwatchDot {
                                     swatch: #FFFFFF;
                                     selected: root.fg-color == #FFFFFF;
-                                    clicked => { root.fg-color = #FFFFFF; root.fg-hex = "#FFFFFF"; root.fg-hex-good = "#FFFFFF"; root.toast("Disimpan: Foreground #FFFFFF"); }
+                                    clicked => { root.theme-preset = "Custom"; root.fg-color = #FFFFFF; root.fg-hex = "#FFFFFF"; root.fg-hex-good = "#FFFFFF"; root.appearance-changed(); root.toast("Foreground #FFFFFF diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #111111;
                                     selected: root.fg-color == #111111;
-                                    clicked => { root.fg-color = #111111; root.fg-hex = "#111111"; root.fg-hex-good = "#111111"; root.toast("Disimpan: Foreground #111111"); }
+                                    clicked => { root.theme-preset = "Custom"; root.fg-color = #111111; root.fg-hex = "#111111"; root.fg-hex-good = "#111111"; root.appearance-changed(); root.toast("Foreground #111111 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #E4E4E7;
                                     selected: root.fg-color == #E4E4E7;
-                                    clicked => { root.fg-color = #E4E4E7; root.fg-hex = "#E4E4E7"; root.fg-hex-good = "#E4E4E7"; root.toast("Disimpan: Foreground #E4E4E7"); }
+                                    clicked => { root.theme-preset = "Custom"; root.fg-color = #E4E4E7; root.fg-hex = "#E4E4E7"; root.fg-hex-good = "#E4E4E7"; root.appearance-changed(); root.toast("Foreground #E4E4E7 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #999999;
                                     selected: root.fg-color == #999999;
-                                    clicked => { root.fg-color = #999999; root.fg-hex = "#999999"; root.fg-hex-good = "#999999"; root.toast("Disimpan: Foreground #999999"); }
+                                    clicked => { root.theme-preset = "Custom"; root.fg-color = #999999; root.fg-hex = "#999999"; root.fg-hex-good = "#999999"; root.appearance-changed(); root.toast("Foreground #999999 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #3b82f6;
                                     selected: root.fg-color == #3b82f6;
-                                    clicked => { root.fg-color = #3b82f6; root.fg-hex = "#3b82f6"; root.fg-hex-good = "#3b82f6"; root.toast("Disimpan: Foreground #3b82f6"); }
+                                    clicked => { root.theme-preset = "Custom"; root.fg-color = #3b82f6; root.fg-hex = "#3b82f6"; root.fg-hex-good = "#3b82f6"; root.appearance-changed(); root.toast("Foreground #3b82f6 diterapkan"); }
                                 }
                             }
                         }
@@ -878,14 +938,14 @@ export component SettingsView inherits Rectangle {
                                     font-family: "Inter";
                                     horizontal-stretch: 1;
                                     selected: root.font-choice == "Inter";
-                                    clicked => { root.font-choice = "Inter"; root.toast("Disimpan: Font Inter"); }
+                                    clicked => { root.font-choice = "Inter"; root.appearance-changed(); root.toast("Font Inter diterapkan"); }
                                 }
                                 FontCard {
                                     font-name: "JetBrains Mono";
                                     font-family: "JetBrains Mono";
                                     horizontal-stretch: 1;
                                     selected: root.font-choice == "JetBrains Mono";
-                                    clicked => { root.font-choice = "JetBrains Mono"; root.toast("Disimpan: Font JetBrains Mono"); }
+                                    clicked => { root.font-choice = "JetBrains Mono"; root.appearance-changed(); root.toast("Font JetBrains Mono diterapkan"); }
                                 }
                             }
                         }
@@ -903,25 +963,84 @@ export component SettingsView inherits Rectangle {
                                     label: "doodle";
                                     horizontal-stretch: 1;
                                     selected: root.widget-bg == "doodle";
-                                    clicked => { root.widget-bg = "doodle"; root.toast("Disimpan: Widget background doodle"); }
+                                    clicked => { root.widget-bg = "doodle"; root.appearance-changed(); root.toast("Widget background: doodle"); }
                                 }
                                 OptionChip {
                                     label: "dots";
                                     horizontal-stretch: 1;
                                     selected: root.widget-bg == "dots";
-                                    clicked => { root.widget-bg = "dots"; root.toast("Disimpan: Widget background dots"); }
+                                    clicked => { root.widget-bg = "dots"; root.appearance-changed(); root.toast("Widget background: dots"); }
                                 }
                                 OptionChip {
                                     label: "impulse";
                                     horizontal-stretch: 1;
                                     selected: root.widget-bg == "impulse";
-                                    clicked => { root.widget-bg = "impulse"; root.toast("Disimpan: Widget background impulse"); }
+                                    clicked => { root.widget-bg = "impulse"; root.appearance-changed(); root.toast("Widget background: impulse"); }
                                 }
                                 OptionChip {
                                     label: "none";
                                     horizontal-stretch: 1;
                                     selected: root.widget-bg == "none";
-                                    clicked => { root.widget-bg = "none"; root.toast("Disimpan: Widget background none"); }
+                                    clicked => { root.widget-bg = "none"; root.appearance-changed(); root.toast("Widget background: none"); }
+                                }
+                            }
+                        }
+
+                        // Corner Radius & Nav Pill Style
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Corner radius";
+                                desc: "Kelengkungan sudut kartu, tombol, dan panel";
+                            }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OptionChip {
+                                    label: "Sharp";
+                                    horizontal-stretch: 1;
+                                    selected: root.corner-style == "sharp";
+                                    clicked => { root.corner-style = "sharp"; root.appearance-changed(); root.toast("Corner radius: Sharp"); }
+                                }
+                                OptionChip {
+                                    label: "Default";
+                                    horizontal-stretch: 1;
+                                    selected: root.corner-style == "default";
+                                    clicked => { root.corner-style = "default"; root.appearance-changed(); root.toast("Corner radius: Default"); }
+                                }
+                                OptionChip {
+                                    label: "Rounded";
+                                    horizontal-stretch: 1;
+                                    selected: root.corner-style == "rounded";
+                                    clicked => { root.corner-style = "rounded"; root.appearance-changed(); root.toast("Corner radius: Rounded"); }
+                                }
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Navigation pill style";
+                                desc: "Bentuk bar navigasi atas (HOME / BATCH)";
+                            }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OptionChip {
+                                    label: "Capsule";
+                                    horizontal-stretch: 1;
+                                    selected: root.nav-style == "capsule";
+                                    clicked => { root.nav-style = "capsule"; root.appearance-changed(); root.toast("Nav style: Capsule"); }
+                                }
+                                OptionChip {
+                                    label: "Rounded";
+                                    horizontal-stretch: 1;
+                                    selected: root.nav-style == "rounded";
+                                    clicked => { root.nav-style = "rounded"; root.appearance-changed(); root.toast("Nav style: Rounded"); }
+                                }
+                                OptionChip {
+                                    label: "Flat";
+                                    horizontal-stretch: 1;
+                                    selected: root.nav-style == "flat";
+                                    clicked => { root.nav-style = "flat"; root.appearance-changed(); root.toast("Nav style: Flat"); }
                                 }
                             }
                         }
@@ -931,7 +1050,7 @@ export component SettingsView inherits Rectangle {
                             spacing: 6px;
                             FieldLabel {
                                 title: "Window chrome";
-                                desc: "Pakai window chrome bawaan OS, atau title bar custom BMachine (berlaku setelah restart di aplikasi asli)";
+                                desc: "Pakai window chrome bawaan OS, atau title bar custom BMachine";
                             }
                             HorizontalLayout {
                                 spacing: 6px;
@@ -939,15 +1058,25 @@ export component SettingsView inherits Rectangle {
                                     label: "Native OS";
                                     horizontal-stretch: 1;
                                     selected: root.chrome == "native";
-                                    clicked => { root.chrome = "native"; root.toast("Disimpan: Window chrome Native OS"); }
+                                    clicked => { root.chrome = "native"; root.appearance-changed(); root.toast("Window chrome: Native OS"); }
                                 }
                                 OptionChip {
                                     label: "Custom BMachine";
                                     horizontal-stretch: 1;
                                     selected: root.chrome == "custom";
-                                    clicked => { root.chrome = "custom"; root.toast("Disimpan: Window chrome Custom BMachine"); }
+                                    clicked => { root.chrome = "custom"; root.appearance-changed(); root.toast("Window chrome: Custom BMachine"); }
                                 }
                             }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Btn {
+                                label: "Reset ke Default";
+                                variant: "danger";
+                                clicked => { root.reset-appearance(); }
+                            }
+                            Rectangle { horizontal-stretch: 1; }
                         }
 
                         // PREVIEW — miniatur jendela yang mencerminkan pilihan.
@@ -1075,7 +1204,7 @@ export component SettingsView inherits Rectangle {
                                         Rectangle { horizontal-stretch: 1; }
                                     }
                                     Text {
-                                        text: "Preview memakai tema yang dipilih di atas (koneksi tema global = Fase 6).";
+                                        text: "Tema aktif diterapkan langsung ke seluruh aplikasi & tersimpan otomatis.";
                                         font-size: 11px;
                                         color: root.pv-muted;
                                         horizontal-alignment: center;
@@ -1121,7 +1250,7 @@ export component SettingsView inherits Rectangle {
                                         Btn {
                                             label: "Get Key";
                                             variant: "secondary";
-                                            clicked => { root.toast("Buka browser: Trello Power-Up Admin"); }
+                                            clicked => { root.open-url("https://trello.com/power-ups/admin"); }
                                         }
                                     }
                                 }
@@ -1146,9 +1275,7 @@ export component SettingsView inherits Rectangle {
                                                     root.trello-status = "Koneksi Trello terputus.";
                                                     root.toast("Trello disconnected.");
                                                 } else {
-                                                    root.trello-connected = true;
-                                                    root.trello-status = "Tersambung sebagai abeng (Token Valid).";
-                                                    root.toast("Tersambung ke Trello!");
+                                                    root.test-trello();
                                                 }
                                             }
                                         }
@@ -1189,7 +1316,7 @@ export component SettingsView inherits Rectangle {
                                         Btn {
                                             label: "Browse";
                                             variant: "secondary";
-                                            clicked => { root.toast("Pilih file credentials.json…"); }
+                                            clicked => { root.browse-path("creds"); }
                                         }
                                     }
                                 }
@@ -1803,7 +1930,7 @@ export component SettingsView inherits Rectangle {
                                 Btn {
                                     label: "Browse";
                                     variant: "secondary";
-                                    clicked => { root.toast("Pilih folder… (dialog file di aplikasi asli)"); }
+                                    clicked => { root.browse-path("explorer"); }
                                 }
                             }
                         }
@@ -1954,12 +2081,12 @@ export component SettingsView inherits Rectangle {
                                     horizontal-stretch: 1;
                                     text: root.path-local;
                                     edited(text) => { root.path-local = text; }
-                                    accepted(text) => { root.toast("Disimpan: Local Output"); }
+                                    accepted(text) => { root.save-paths-settings(); }
                                 }
                                 Btn {
                                     label: "Browse";
                                     variant: "secondary";
-                                    clicked => { root.toast("Pilih folder Local Output… (dialog file di aplikasi asli)"); }
+                                    clicked => { root.browse-path("local"); }
                                 }
                             }
                         }
@@ -1973,12 +2100,12 @@ export component SettingsView inherits Rectangle {
                                     text: root.path-okebase;
                                     placeholder: "Share OKE BASE (jaringan)";
                                     edited(text) => { root.path-okebase = text; }
-                                    accepted(text) => { root.toast("Disimpan: OKE BASE"); }
+                                    accepted(text) => { root.save-paths-settings(); }
                                 }
                                 Btn {
                                     label: "Browse";
                                     variant: "secondary";
-                                    clicked => { root.toast("Pilih folder OKE BASE… (dialog file di aplikasi asli)"); }
+                                    clicked => { root.browse-path("okebase"); }
                                 }
                             }
                         }
@@ -1992,12 +2119,12 @@ export component SettingsView inherits Rectangle {
                                     text: root.path-photoshop;
                                     placeholder: "Photoshop.exe";
                                     edited(text) => { root.path-photoshop = text; }
-                                    accepted(text) => { root.toast("Disimpan: Photoshop Path"); }
+                                    accepted(text) => { root.save-paths-settings(); }
                                 }
                                 Btn {
                                     label: "Browse";
                                     variant: "secondary";
-                                    clicked => { root.toast("Pilih Photoshop.exe… (dialog file di aplikasi asli)"); }
+                                    clicked => { root.browse-path("photoshop"); }
                                 }
                             }
                         }
@@ -2010,12 +2137,12 @@ export component SettingsView inherits Rectangle {
                                     horizontal-stretch: 1;
                                     text: root.path-pasfoto;
                                     edited(text) => { root.path-pasfoto = text; }
-                                    accepted(text) => { root.toast("Disimpan: Master Pas Foto"); }
+                                    accepted(text) => { root.save-paths-settings(); }
                                 }
                                 Btn {
                                     label: "Browse";
                                     variant: "secondary";
-                                    clicked => { root.toast("Pilih folder Master Pas Foto… (dialog file di aplikasi asli)"); }
+                                    clicked => { root.browse-path("pasfoto"); }
                                 }
                             }
                         }
@@ -2028,12 +2155,12 @@ export component SettingsView inherits Rectangle {
                                     horizontal-stretch: 1;
                                     text: root.path-manasik;
                                     edited(text) => { root.path-manasik = text; }
-                                    accepted(text) => { root.toast("Disimpan: Master Manasik"); }
+                                    accepted(text) => { root.save-paths-settings(); }
                                 }
                                 Btn {
                                     label: "Browse";
                                     variant: "secondary";
-                                    clicked => { root.toast("Pilih folder Master Manasik… (dialog file di aplikasi asli)"); }
+                                    clicked => { root.browse-path("manasik"); }
                                 }
                             }
                         }
@@ -2046,12 +2173,12 @@ export component SettingsView inherits Rectangle {
                                     horizontal-stretch: 1;
                                     text: root.path-wisuda;
                                     edited(text) => { root.path-wisuda = text; }
-                                    accepted(text) => { root.toast("Disimpan: Master Wisuda"); }
+                                    accepted(text) => { root.save-paths-settings(); }
                                 }
                                 Btn {
                                     label: "Browse";
                                     variant: "secondary";
-                                    clicked => { root.toast("Pilih folder Master Wisuda… (dialog file di aplikasi asli)"); }
+                                    clicked => { root.browse-path("wisuda"); }
                                 }
                             }
                         }
@@ -2064,12 +2191,12 @@ export component SettingsView inherits Rectangle {
                                     horizontal-stretch: 1;
                                     text: root.path-profesi;
                                     edited(text) => { root.path-profesi = text; }
-                                    accepted(text) => { root.toast("Disimpan: Master Profesi"); }
+                                    accepted(text) => { root.save-paths-settings(); }
                                 }
                                 Btn {
                                     label: "Browse";
                                     variant: "secondary";
-                                    clicked => { root.toast("Pilih folder Master Profesi… (dialog file di aplikasi asli)"); }
+                                    clicked => { root.browse-path("profesi"); }
                                 }
                             }
                         }

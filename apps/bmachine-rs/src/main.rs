@@ -4,13 +4,16 @@ mod db;
 mod doc_manager;
 mod executor;
 mod local_update;
+mod platform;
 mod process_log;
 mod sheets_api;
+mod theme;
 mod trello_api;
 
 use db::DatabaseService;
 #[allow(unused_imports)]
 use executor::ScriptExecutor;
+#[allow(unused_imports)]
 use sheets_api::GoogleSheetsService;
 
 use doc_manager::DocManager;
@@ -32,6 +35,7 @@ use rdev::{Button, Event, EventType, Key};
 // mirrored here so the Rust port can read the same DB key without changing
 // the C# app's storage format.
 #[derive(serde::Deserialize)]
+#[allow(non_snake_case)]
 struct RadialShortcutConfig {
     #[serde(default = "default_trigger_type")]
     Type: u8,
@@ -379,6 +383,38 @@ fn main() -> Result<(), slint::PlatformError> {
             } else {
                 ui.set_stat_points(slint::SharedString::from("0"));
             }
+            if let Some(v) = db_guard.get("User.Name") {
+                ui.set_app_user_name(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Paths.LocalOutput") {
+                ui.set_app_path_local(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Paths.OkeBase") {
+                ui.set_app_path_okebase(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Paths.Photoshop") {
+                ui.set_app_path_photoshop(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Paths.PasFoto") {
+                ui.set_app_path_pasfoto(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Paths.Manasik") {
+                ui.set_app_path_manasik(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Paths.Wisuda") {
+                ui.set_app_path_wisuda(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Paths.Profesi") {
+                ui.set_app_path_profesi(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Trello.IsConnected") {
+                let conn = v == "true" || v == "1";
+                ui.set_app_trello_connected(conn);
+                if conn {
+                    ui.set_app_trello_status(slint::SharedString::from("Tersambung ke Trello."));
+                }
+            }
+            theme::load_theme_from_db(&ui, &db_guard);
         }
     }
 
@@ -425,38 +461,395 @@ fn main() -> Result<(), slint::PlatformError> {
         ui.set_lb_col1(slint::ModelRc::new(slint::VecModel::from(lc1)));
     }
 
+    // Sinkronisasi kartu Trello live (mengisi count widget + daftar kartu nyata)
+    fn extract_card_display_id(name: &str) -> String {
+        if let Some(idx) = name.find('_') {
+            let prefix = &name[..idx];
+            if !prefix.is_empty() && prefix.chars().all(|c| c.is_ascii_digit()) {
+                return prefix.to_string();
+            }
+        }
+        String::new()
+    }
+
+    fn spawn_trello_sync(
+        ui_weak: slint::Weak<AppWindow>,
+        k: String,
+        t: String,
+        el: String,
+        rl: String,
+        ll: String,
+        show_toast: bool,
+    ) {
+        std::thread::spawn(move || {
+            let mut synced = 0usize;
+            if !k.is_empty() && !t.is_empty() {
+                if !el.is_empty() {
+                    if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &el) {
+                        synced += cards.len();
+                        let count = format!("{}", cards.len());
+                        let titles: Vec<slint::SharedString> = cards.iter().map(|c| slint::SharedString::from(c.name.as_str())).collect();
+                        let subs: Vec<slint::SharedString> = cards.iter().map(|c| {
+                            let s = c.desc.as_deref().unwrap_or("").lines().next().unwrap_or("").trim();
+                            slint::SharedString::from(if s.is_empty() { "Trello Card" } else { s })
+                        }).collect();
+                        let dues: Vec<slint::SharedString> = cards.iter().map(|c| {
+                            let d = c.due.as_deref().unwrap_or("-");
+                            slint::SharedString::from(d.get(..10).unwrap_or(d))
+                        }).collect();
+                        let ids: Vec<slint::SharedString> = cards.iter().map(|c| {
+                            let did = extract_card_display_id(&c.name);
+                            slint::SharedString::from(if did.is_empty() { c.id.clone() } else { did })
+                        }).collect();
+                        let dones: Vec<bool> = vec![false; cards.len()];
+                        let _ = ui_weak.upgrade_in_event_loop(move |u| {
+                            u.set_stat_editing(count.into());
+                            u.set_editing_titles(slint::ModelRc::new(slint::VecModel::from(titles.clone())));
+                            u.set_editing_subs(slint::ModelRc::new(slint::VecModel::from(subs.clone())));
+                            u.set_editing_due(slint::ModelRc::new(slint::VecModel::from(dues.clone())));
+                            u.set_editing_ids(slint::ModelRc::new(slint::VecModel::from(ids)));
+                            u.set_editing_done(slint::ModelRc::new(slint::VecModel::from(dones)));
+                            if u.get_list_category().as_str() == "EDITING" || u.get_trello_window_cat().as_str() == "EDITING" {
+                                u.set_list_titles(slint::ModelRc::new(slint::VecModel::from(titles)));
+                                u.set_list_subs(slint::ModelRc::new(slint::VecModel::from(subs)));
+                                u.set_list_due(slint::ModelRc::new(slint::VecModel::from(dues)));
+                            }
+                        });
+                    }
+                }
+                if !rl.is_empty() {
+                    if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &rl) {
+                        synced += cards.len();
+                        let count = format!("{}", cards.len());
+                        let titles: Vec<slint::SharedString> = cards.iter().map(|c| slint::SharedString::from(c.name.as_str())).collect();
+                        let subs: Vec<slint::SharedString> = cards.iter().map(|c| {
+                            let s = c.desc.as_deref().unwrap_or("").lines().next().unwrap_or("").trim();
+                            slint::SharedString::from(if s.is_empty() { "Revisi" } else { s })
+                        }).collect();
+                        let dues: Vec<slint::SharedString> = cards.iter().map(|c| {
+                            let d = c.due.as_deref().unwrap_or("-");
+                            slint::SharedString::from(d.get(..10).unwrap_or(d))
+                        }).collect();
+                        let ids: Vec<slint::SharedString> = cards.iter().map(|c| slint::SharedString::from(extract_card_display_id(&c.name))).collect();
+                        let dones: Vec<bool> = vec![false; cards.len()];
+                        let _ = ui_weak.upgrade_in_event_loop(move |u| {
+                            u.set_stat_revision(count.into());
+                            u.set_revision_titles(slint::ModelRc::new(slint::VecModel::from(titles.clone())));
+                            u.set_revision_subs(slint::ModelRc::new(slint::VecModel::from(subs.clone())));
+                            u.set_revision_due(slint::ModelRc::new(slint::VecModel::from(dues.clone())));
+                            u.set_revision_ids(slint::ModelRc::new(slint::VecModel::from(ids)));
+                            u.set_revision_done(slint::ModelRc::new(slint::VecModel::from(dones)));
+                            if u.get_list_category().as_str() == "REVISION" || u.get_trello_window_cat().as_str() == "REVISION" {
+                                u.set_list_titles(slint::ModelRc::new(slint::VecModel::from(titles)));
+                                u.set_list_subs(slint::ModelRc::new(slint::VecModel::from(subs)));
+                                u.set_list_due(slint::ModelRc::new(slint::VecModel::from(dues)));
+                            }
+                        });
+                    }
+                }
+                if !ll.is_empty() {
+                    if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &ll) {
+                        synced += cards.len();
+                        let count = format!("{}", cards.len());
+                        let titles: Vec<slint::SharedString> = cards.iter().map(|c| slint::SharedString::from(c.name.as_str())).collect();
+                        let subs: Vec<slint::SharedString> = cards.iter().map(|c| {
+                            let s = c.desc.as_deref().unwrap_or("").lines().next().unwrap_or("").trim();
+                            slint::SharedString::from(if s.is_empty() { "Susulan" } else { s })
+                        }).collect();
+                        let dues: Vec<slint::SharedString> = cards.iter().map(|c| {
+                            let d = c.due.as_deref().unwrap_or("-");
+                            slint::SharedString::from(d.get(..10).unwrap_or(d))
+                        }).collect();
+                        let ids: Vec<slint::SharedString> = cards.iter().map(|c| slint::SharedString::from(extract_card_display_id(&c.name))).collect();
+                        let dones: Vec<bool> = vec![false; cards.len()];
+                        let _ = ui_weak.upgrade_in_event_loop(move |u| {
+                            u.set_stat_late(count.into());
+                            u.set_late_titles(slint::ModelRc::new(slint::VecModel::from(titles.clone())));
+                            u.set_late_subs(slint::ModelRc::new(slint::VecModel::from(subs.clone())));
+                            u.set_late_due(slint::ModelRc::new(slint::VecModel::from(dues.clone())));
+                            u.set_late_ids(slint::ModelRc::new(slint::VecModel::from(ids)));
+                            u.set_late_done(slint::ModelRc::new(slint::VecModel::from(dones)));
+                            if u.get_list_category().as_str() == "LATE" || u.get_trello_window_cat().as_str() == "LATE" {
+                                u.set_list_titles(slint::ModelRc::new(slint::VecModel::from(titles)));
+                                u.set_list_subs(slint::ModelRc::new(slint::VecModel::from(subs)));
+                                u.set_list_due(slint::ModelRc::new(slint::VecModel::from(dues)));
+                            }
+                        });
+                    }
+                }
+            }
+            let _ = ui_weak.upgrade_in_event_loop(move |u| {
+                u.set_trello_refreshing(false);
+                if show_toast {
+                    if synced > 0 {
+                        u.set_toast(slint::SharedString::from(format!("Trello di-refresh — {} card dimuat", synced)));
+                    } else if k.is_empty() || t.is_empty() {
+                        u.set_toast(slint::SharedString::from("Isi API Key & Token Trello di Settings > Account"));
+                    } else {
+                        u.set_toast(slint::SharedString::from("Trello di-refresh"));
+                    }
+                }
+            });
+        });
+    }
+
     // Tarik data live bila kredensial & list sudah ada di database
     if !init_trello_key.is_empty() && !init_trello_tok.is_empty() {
+        spawn_trello_sync(
+            ui.as_weak(),
+            init_trello_key.clone(),
+            init_trello_tok.clone(),
+            init_edit_list.clone(),
+            init_rev_list.clone(),
+            init_late_list.clone(),
+            false,
+        );
+    }
+
+    // ---- Appearance, Window Controls, Trello & Path Callbacks ----
+    {
         let ui_weak = ui.as_weak();
-        let k = init_trello_key.clone();
-        let t = init_trello_tok.clone();
-        let el = init_edit_list.clone();
-        let rl = init_rev_list.clone();
-        let ll = init_late_list.clone();
-        std::thread::spawn(move || {
-            if !el.is_empty() {
-                if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &el) {
-                    let count = format!("{}", cards.len());
-                    let _ = ui_weak.upgrade_in_event_loop(move |u| {
-                        u.set_stat_editing(count.into());
-                    });
+        let db_clone = db.clone();
+        ui.on_apply_appearance(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                match theme::apply_appearance(&ui) {
+                    Ok(()) => {
+                        if let Some(ref db_mutex) = db_clone {
+                            if let Ok(mut db_guard) = db_mutex.lock() {
+                                theme::save_theme_to_db(&ui, &mut db_guard);
+                            }
+                        }
+                    }
+                    Err(msg) => {
+                        ui.set_toast(slint::SharedString::from(msg));
+                    }
                 }
             }
-            if !rl.is_empty() {
-                if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &rl) {
-                    let count = format!("{}", cards.len());
-                    let _ = ui_weak.upgrade_in_event_loop(move |u| {
-                        u.set_stat_revision(count.into());
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
+        ui.on_reset_appearance(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_app_color_mode(slint::SharedString::from("dark"));
+                ui.set_app_theme_preset(slint::SharedString::from("BMachine Dark"));
+                ui.set_app_accent_hex(slint::SharedString::from("#3B82F6"));
+                ui.set_app_accent_hex_good(slint::SharedString::from("#3B82F6"));
+                ui.set_app_bg_hex(slint::SharedString::from("#121212"));
+                ui.set_app_bg_hex_good(slint::SharedString::from("#121212"));
+                ui.set_app_fg_hex(slint::SharedString::from("#FFFFFF"));
+                ui.set_app_fg_hex_good(slint::SharedString::from("#FFFFFF"));
+                ui.set_app_font_choice(slint::SharedString::from("Inter"));
+                ui.set_widget_bg(slint::SharedString::from("doodle"));
+                ui.set_app_corner_style(slint::SharedString::from("default"));
+                ui.set_app_nav_style(slint::SharedString::from("capsule"));
+                ui.set_app_chrome(slint::SharedString::from("custom"));
+                let _ = theme::apply_appearance(&ui);
+                if let Some(ref db_mutex) = db_clone {
+                    if let Ok(mut db_guard) = db_mutex.lock() {
+                        theme::save_theme_to_db(&ui, &mut db_guard);
+                    }
+                }
+                ui.set_toast(slint::SharedString::from("Tema dikembalikan ke BMachine Dark default"));
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
+        ui.on_save_general_settings(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                if let Some(ref db_mutex) = db_clone {
+                    if let Ok(mut db_guard) = db_mutex.lock() {
+                        let _ = db_guard.set("User.Name", ui.get_app_user_name().as_str(), "String");
+                        let _ = db_guard.set("Settings.StartupAnim", if ui.get_app_anim_startup() { "true" } else { "false" }, "Bool");
+                        let _ = db_guard.set("Settings.StatSpeed", ui.get_app_anim_speed().as_str(), "String");
+                    }
+                }
+                ui.set_toast(slint::SharedString::from("Pengaturan General disimpan"));
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
+        ui.on_save_paths_settings(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                if let Some(ref db_mutex) = db_clone {
+                    if let Ok(mut db_guard) = db_mutex.lock() {
+                        let _ = db_guard.set("Paths.LocalOutput", ui.get_app_path_local().as_str(), "String");
+                        let _ = db_guard.set("Paths.OkeBase", ui.get_app_path_okebase().as_str(), "String");
+                        let _ = db_guard.set("Paths.Photoshop", ui.get_app_path_photoshop().as_str(), "String");
+                        let _ = db_guard.set("Paths.PasFoto", ui.get_app_path_pasfoto().as_str(), "String");
+                        let _ = db_guard.set("Paths.Manasik", ui.get_app_path_manasik().as_str(), "String");
+                        let _ = db_guard.set("Paths.Wisuda", ui.get_app_path_wisuda().as_str(), "String");
+                        let _ = db_guard.set("Paths.Profesi", ui.get_app_path_profesi().as_str(), "String");
+                    }
+                }
+                ui.set_toast(slint::SharedString::from("Path folder disimpan ke database"));
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_save_explorer_settings(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_toast(slint::SharedString::from("Pengaturan Explorer disimpan"));
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
+        ui.on_browse_path(move |target| {
+            let ui_w = ui_weak.clone();
+            let db_c = db_clone.clone();
+            let kind = target.to_string();
+            std::thread::spawn(move || {
+                let picked = match kind.as_str() {
+                    "creds" => platform::pick_file("Pilih credentials.json", "JSON Files (*.json)|*.json|All Files (*.*)|*.*"),
+                    "photoshop" => platform::pick_file("Pilih Photoshop.exe", "Executable (*.exe)|*.exe|All Files (*.*)|*.*"),
+                    _ => platform::pick_folder("Pilih Folder"),
+                };
+                if let Some(path) = picked {
+                    let _ = ui_w.upgrade_in_event_loop(move |ui| {
+                        let p = slint::SharedString::from(&path);
+                        match kind.as_str() {
+                            "creds" => ui.set_google_creds_path(p.clone()),
+                            "local" => ui.set_app_path_local(p.clone()),
+                            "okebase" => ui.set_app_path_okebase(p.clone()),
+                            "photoshop" => ui.set_app_path_photoshop(p.clone()),
+                            "pasfoto" => ui.set_app_path_pasfoto(p.clone()),
+                            "manasik" => ui.set_app_path_manasik(p.clone()),
+                            "wisuda" => ui.set_app_path_wisuda(p.clone()),
+                            "profesi" => ui.set_app_path_profesi(p.clone()),
+                            "explorer" => ui.set_ex_start_path(p.clone()),
+                            _ => {}
+                        }
+                        if let Some(ref db_mutex) = db_c {
+                            if let Ok(mut g) = db_mutex.lock() {
+                                let key = match kind.as_str() {
+                                    "creds" => Some("Google.CredsPath"),
+                                    "local" => Some("Paths.LocalOutput"),
+                                    "okebase" => Some("Paths.OkeBase"),
+                                    "photoshop" => Some("Paths.Photoshop"),
+                                    "pasfoto" => Some("Paths.PasFoto"),
+                                    "manasik" => Some("Paths.Manasik"),
+                                    "wisuda" => Some("Paths.Wisuda"),
+                                    "profesi" => Some("Paths.Profesi"),
+                                    _ => None,
+                                };
+                                if let Some(k) = key {
+                                    let _ = g.set(k, &path, "String");
+                                }
+                            }
+                        }
+                        ui.set_toast(slint::SharedString::from(format!("Dipilih: {}", path)));
                     });
+                }
+            });
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
+        ui.on_test_trello(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                let k = ui.get_trello_api_key().to_string();
+                let t = ui.get_trello_token().to_string();
+                if k.trim().is_empty() || t.trim().is_empty() {
+                    ui.set_toast(slint::SharedString::from("Isi API Key dan Token Trello dulu"));
+                    return;
+                }
+                ui.set_app_trello_status(slint::SharedString::from("Menghubungkan ke Trello..."));
+                let ui_w = ui_weak.clone();
+                let db_c = db_clone.clone();
+                let el = ui.get_editing_list_id().to_string();
+                let rl = ui.get_revision_list_id().to_string();
+                let ll = ui.get_late_list_id().to_string();
+                std::thread::spawn(move || {
+                    match trello_api::TrelloApiService::verify_connection(&k, &t) {
+                        Ok(member) => {
+                            let name = member.full_name.unwrap_or(member.username);
+                            if let Some(ref db_mutex) = db_c {
+                                if let Ok(mut g) = db_mutex.lock() {
+                                    let _ = g.set("Trello.ApiKey", &k, "String");
+                                    let _ = g.set("Trello.Token", &t, "String");
+                                    let _ = g.set("Trello.IsConnected", "true", "Bool");
+                                }
+                            }
+                            let _ = ui_w.upgrade_in_event_loop(move |u| {
+                                u.set_app_trello_connected(true);
+                                u.set_app_trello_status(slint::SharedString::from(format!("Tersambung sebagai {}", name)));
+                                u.set_toast(slint::SharedString::from(format!("Trello tersambung ({})", name)));
+                            });
+                            spawn_trello_sync(ui_w, k, t, el, rl, ll, false);
+                        }
+                        Err(e) => {
+                            let _ = ui_w.upgrade_in_event_loop(move |u| {
+                                u.set_app_trello_connected(false);
+                                u.set_app_trello_status(slint::SharedString::from(format!("Gagal: {}", e)));
+                                u.set_toast(slint::SharedString::from(e));
+                            });
+                        }
+                    }
+                });
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_open_url(move |url| {
+            if let Err(e) = platform::open_url(&url) {
+                if let Some(ui) = ui_weak.upgrade() {
+                    ui.set_toast(slint::SharedString::from(e));
                 }
             }
-            if !ll.is_empty() {
-                if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &ll) {
-                    let count = format!("{}", cards.len());
-                    let _ = ui_weak.upgrade_in_event_loop(move |u| {
-                        u.set_stat_late(count.into());
-                    });
-                }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_refresh_trello(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                spawn_trello_sync(
+                    ui_weak.clone(),
+                    ui.get_trello_api_key().to_string(),
+                    ui.get_trello_token().to_string(),
+                    ui.get_editing_list_id().to_string(),
+                    ui.get_revision_list_id().to_string(),
+                    ui.get_late_list_id().to_string(),
+                    true,
+                );
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_win_minimize(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.window().set_minimized(true);
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_win_maximize(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                let m = ui.window().is_maximized();
+                ui.window().set_maximized(!m);
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_win_move(move |dx, dy| {
+            if let Some(ui) = ui_weak.upgrade() {
+                let scale = ui.window().scale_factor();
+                let pos = ui.window().position();
+                let nx = pos.x + (dx * scale) as i32;
+                let ny = pos.y + (dy * scale) as i32;
+                ui.window().set_position(slint::PhysicalPosition::new(nx, ny));
             }
         });
     }
@@ -553,11 +946,7 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     }
 
-    // Helper trello & sheets service test
-    let _ = trello_api::TrelloApiService::fetch_boards("dummy", "dummy");
-    let _ = trello_api::TrelloApiService::fetch_lists("dummy", "dummy", "dummy");
-    let _ = GoogleSheetsService::validate_credentials("credentials.json");
-    let _ = GoogleSheetsService::get_range_url("dummy_sheet_id", "Sheet1", "A1:Z");
+    // Startup: no blocking dummy HTTP calls!
 
     // ---- FASE 5: BOOTSTRAPPER & SPLASH SCREEN ----
     // Sesuai siklus C# (Bootstrapper.cs): SQLite -> Theme & UI -> Preload Settings -> Python & Scripts -> Done

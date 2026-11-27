@@ -5,6 +5,7 @@
 // Klik StatWidget menampilkan toast. Tombol profil membuka flyout.
 
 import { Design, Card, HSeparator, NavTab, StatWidget, Btn, IconBtn, Toggle, TextField } from "design.slint";
+export { Design }
 import { SettingsView } from "settings.slint";
 import { ToolboxView, SheetsView, LeaderboardView } from "modul.slint";
 import { LogPanelView } from "logpanel.slint";
@@ -20,6 +21,7 @@ export component AppWindow inherits Window {
     height: Design.window-height;
     title: "BMachine";
     background: Design.app-bg;
+    default-font-family: Design.font-family;
 
     in-out property <string> current-tab: "HOME";
     in-out property <bool> show-flyout: false;
@@ -78,9 +80,57 @@ export component AppWindow inherits Window {
     in-out property <string> lb-bulanan-range: "A2:C10";
 
     callback save-account-settings();
+    callback apply-appearance();
+    callback reset-appearance();
+    callback save-general-settings();
+    callback save-paths-settings();
+    callback save-explorer-settings();
+    callback browse-path(string);
+    callback test-trello();
+    callback open-url(string);
+    callback refresh-trello();
     callback apply-update();
     callback dismiss-update();
     callback confirm-exit();
+    callback win-minimize();
+    callback win-maximize();
+    callback win-move(length, length);
+
+    // ---- Appearance & Customization (persisted in SQLite) ----
+    in-out property <string> app-color-mode: "dark";
+    in-out property <string> app-theme-preset: "BMachine Dark";
+    in-out property <color> app-accent-color: #3b82f6;
+    in-out property <string> app-accent-hex: "#3b82f6";
+    in-out property <string> app-accent-hex-good: "#3b82f6";
+    in-out property <color> app-bg-color: #121212;
+    in-out property <string> app-bg-hex: "#121212";
+    in-out property <string> app-bg-hex-good: "#121212";
+    in-out property <color> app-fg-color: #FFFFFF;
+    in-out property <string> app-fg-hex: "#FFFFFF";
+    in-out property <string> app-fg-hex-good: "#FFFFFF";
+    in-out property <string> app-font-choice: "Inter";
+    in-out property <string> app-corner-style: "default";
+    in-out property <string> app-nav-style: "capsule";
+    in-out property <string> app-ui-density: "normal";
+    in-out property <string> app-chrome: "custom";
+
+    // ---- General & Paths (persisted in SQLite) ----
+    in-out property <string> app-user-name: "abeng";
+    in-out property <string> app-lang: "Indonesia";
+    in-out property <bool> app-anim-startup: true;
+    in-out property <string> app-anim-speed: "Normal";
+    in-out property <string> app-trello-interval: "30";
+    in-out property <bool> app-smart-orb: true;
+    in-out property <bool> app-trello-connected: false;
+    in-out property <string> app-trello-status: "Belum tersambung ke Trello.";
+
+    in-out property <string> app-path-local: "D:\\#GAWENA";
+    in-out property <string> app-path-okebase: "";
+    in-out property <string> app-path-photoshop: "";
+    in-out property <string> app-path-pasfoto: "D:\\#DATA ABENG\\MASTER\\PASFOTO";
+    in-out property <string> app-path-manasik: "D:\\#DATA ABENG\\MASTER\\MANASIK";
+    in-out property <string> app-path-wisuda: "D:\\#DATA ABENG\\MASTER\\WISUDA";
+    in-out property <string> app-path-profesi: "D:\\#DATA ABENG\\MASTER\\PROFESI";
 
     // Log Panel (sidebar kanan): lebar 300px saat terbuka; konten
     // utama menyusut (content-width) supaya tidak tertutup panel.
@@ -211,29 +261,29 @@ export component AppWindow inherits Window {
     // Data daftar Trello — SATU sumber (jangan duplikasi literal di
     // tiap handler). Dipakai handler klik badan widget, tab embedded,
     // dan panah window. Pola sama seperti kids-b-* (BATCH).
-    property <[string]> editing-titles: ["47276395_SDN RANCAIYUH 1_GUSFIARI", "48328499_SDN BANTAR KAMBING 03_YOGA", "30816883_TK ISLAM ARAFAH 1024_NISSA", "29332964_PAUD CAHAYA UMMAT 0724_NISSA", "49109072_TK ISLAM AL GHIFARI_NISSA", "TK ASSALAM_FENTI"];
-    property <[string]> editing-subs: ["KELAS 2 · Pas Foto", "9 anak · 1 belum dikirim", "QC · Revisi", "Revisi Alfan", "Revisi Alfan", "QC Alif"];
-    property <[string]> editing-due: ["28 Nov 2026", "30 Nov 2026", "1 Des 2026", "2 Des 2026", "3 Des 2026", "4 Des 2026"];
-    property <[string]> revision-titles: ["TK ASSALAM_FENTI", "PAUD HAUR WANGUN_FENTI", "PAUD AL FURQON_SURYA", "PAUD TUNAS BANGSA_SURYA", "RA ATS-TSABIT_SURYA"];
-    property <[string]> revision-subs: ["Revisi Alif", "Revisi Alif", "Revisi Surya", "Revisi Riyan", "Revisi Rahmah"];
-    property <[string]> revision-due: ["28 Nov 2026", "29 Nov 2026", "30 Nov 2026", "1 Des 2026", "2 Des 2026"];
-    property <[string]> late-titles: ["PAUD TUNAS BANGSA GUNUNG PUTRI_SURYA", "RA ATS-TSABIT_SURYA", "SDN BANTAR KAMBING 03_YOGA"];
-    property <[string]> late-subs: ["Telat 2 hari", "Telat 3 hari", "Telat 1 hari"];
-    property <[string]> late-due: ["24 Nov 2026", "23 Nov 2026", "25 Nov 2026"];
+    in-out property <[string]> editing-titles: ["47276395_SDN RANCAIYUH 1_GUSFIARI", "48328499_SDN BANTAR KAMBING 03_YOGA", "30816883_TK ISLAM ARAFAH 1024_NISSA", "29332964_PAUD CAHAYA UMMAT 0724_NISSA", "49109072_TK ISLAM AL GHIFARI_NISSA", "TK ASSALAM_FENTI"];
+    in-out property <[string]> editing-subs: ["KELAS 2 · Pas Foto", "9 anak · 1 belum dikirim", "QC · Revisi", "Revisi Alfan", "Revisi Alfan", "QC Alif"];
+    in-out property <[string]> editing-due: ["28 Nov 2026", "30 Nov 2026", "1 Des 2026", "2 Des 2026", "3 Des 2026", "4 Des 2026"];
+    in-out property <[string]> revision-titles: ["TK ASSALAM_FENTI", "PAUD HAUR WANGUN_FENTI", "PAUD AL FURQON_SURYA", "PAUD TUNAS BANGSA_SURYA", "RA ATS-TSABIT_SURYA"];
+    in-out property <[string]> revision-subs: ["Revisi Alif", "Revisi Alif", "Revisi Surya", "Revisi Riyan", "Revisi Rahmah"];
+    in-out property <[string]> revision-due: ["28 Nov 2026", "29 Nov 2026", "30 Nov 2026", "1 Des 2026", "2 Des 2026"];
+    in-out property <[string]> late-titles: ["PAUD TUNAS BANGSA GUNUNG PUTRI_SURYA", "RA ATS-TSABIT_SURYA", "SDN BANTAR KAMBING 03_YOGA"];
+    in-out property <[string]> late-subs: ["Telat 2 hari", "Telat 3 hari", "Telat 1 hari"];
+    in-out property <[string]> late-due: ["24 Nov 2026", "23 Nov 2026", "25 Nov 2026"];
     // ID numerik tiap kartu (prefix nama — C# CardDetailPanelHost
     // DisplayId; "" bila nama tanpa prefix numerik).
-    property <[string]> editing-ids: ["47276395", "48328499", "30816883", "29332964", "49109072", ""];
-    property <[string]> revision-ids: ["", "", "", "", ""];
-    property <[string]> late-ids: ["", "", ""];
+    in-out property <[string]> editing-ids: ["47276395", "48328499", "30816883", "29332964", "49109072", ""];
+    in-out property <[string]> revision-ids: ["", "", "", "", ""];
+    in-out property <[string]> late-ids: ["", "", ""];
 
     // Status checklist per kartu (C# TrelloCard.ChecklistStatusLabel:
     // DONE = checklist format nama user sudah diceklis, TODO = belum).
     // Badge ini penanda user apakah kartu sudah dikerjakan atau belum —
     // JANGAN dihilangkan. list-done dihitung dari kategori/window
     // aktif (satu sumber, tidak di-assign di handler).
-    property <[bool]> editing-done: [true, false, false, true, false, false];
-    property <[bool]> revision-done: [false, true, false, false, false];
-    property <[bool]> late-done: [false, false, true];
+    in-out property <[bool]> editing-done: [true, false, false, true, false, false];
+    in-out property <[bool]> revision-done: [false, true, false, false, false];
+    in-out property <[bool]> late-done: [false, false, true];
     property <[bool]> list-done: root.trello-window-cat == "EDITING" ? root.editing-done : root.trello-window-cat == "REVISION" ? root.revision-done : root.trello-window-cat == "LATE" ? root.late-done : root.list-category == "EDITING" ? root.editing-done : root.list-category == "REVISION" ? root.revision-done : root.list-category == "LATE" ? root.late-done : [];
     // ID badge detail (sejajar list-done: window pakai trello-window-cat,
     // embedded pakai list-category).
@@ -534,9 +584,9 @@ export component AppWindow inherits Window {
     // layar penuh terbuka (overlay-view != "").
     VerticalLayout {
         x: 0;
-        y: 0;
+        y: root.app-chrome == "custom" ? 28px : 0px;
         width: 100%;
-        height: 100%;
+        height: root.height - (root.app-chrome == "custom" ? 28px : 0px);
         visible: root.overlay-view == "";
         spacing: 0;
 
@@ -914,6 +964,7 @@ export component AppWindow inherits Window {
                                 clicked => {
                                     if (!root.trello-refreshing) {
                                         root.trello-refreshing = true;
+                                        root.refresh-trello();
                                     }
                                 }
                             }
@@ -1266,6 +1317,7 @@ export component AppWindow inherits Window {
                     close => { root.selected-card = ""; root.detail-panel = ""; root.detail-added-count = 0; }
                     unlink => { root.remove-manual(root.selected-manual-index); root.selected-card = ""; root.detail-panel = ""; root.detail-added-count = 0; }
                     show-toast(text) => { root.toast = text; }
+                    open-url(u) => { root.open-url(u); }
                 }
             }
 
@@ -3014,10 +3066,42 @@ export component AppWindow inherits Window {
     // "Toolbox" (tanpa launcher Modul — tidak ada layar Modul di C#).
     // Explorer overlay ("EXPLORER") = Build B. =====
     SettingsView {
-        x: 0; y: 0; width: 100%; height: 100%;
+        x: 0; y: root.app-chrome == "custom" ? 28px : 0px;
+        width: 100%; height: root.height - (root.app-chrome == "custom" ? 28px : 0px);
         visible: root.overlay-view == "SETTINGS";
-        widget-bg: root.widget-bg;
+        widget-bg <=> root.widget-bg;
         group <=> root.settings-group;
+        color-mode <=> root.app-color-mode;
+        theme-preset <=> root.app-theme-preset;
+        accent-color <=> root.app-accent-color;
+        accent-hex <=> root.app-accent-hex;
+        accent-hex-good <=> root.app-accent-hex-good;
+        bg-color <=> root.app-bg-color;
+        bg-hex <=> root.app-bg-hex;
+        bg-hex-good <=> root.app-bg-hex-good;
+        fg-color <=> root.app-fg-color;
+        fg-hex <=> root.app-fg-hex;
+        fg-hex-good <=> root.app-fg-hex-good;
+        font-choice <=> root.app-font-choice;
+        corner-style <=> root.app-corner-style;
+        nav-style <=> root.app-nav-style;
+        ui-density <=> root.app-ui-density;
+        chrome <=> root.app-chrome;
+        user-name <=> root.app-user-name;
+        lang <=> root.app-lang;
+        anim-startup <=> root.app-anim-startup;
+        anim-speed <=> root.app-anim-speed;
+        trello-interval <=> root.app-trello-interval;
+        smart-orb <=> root.app-smart-orb;
+        trello-connected <=> root.app-trello-connected;
+        trello-status <=> root.app-trello-status;
+        path-local <=> root.app-path-local;
+        path-okebase <=> root.app-path-okebase;
+        path-photoshop <=> root.app-path-photoshop;
+        path-pasfoto <=> root.app-path-pasfoto;
+        path-manasik <=> root.app-path-manasik;
+        path-wisuda <=> root.app-path-wisuda;
+        path-profesi <=> root.app-path-profesi;
         trello-api-key <=> root.trello-api-key;
         trello-token <=> root.trello-token;
         google-sheet-id <=> root.google-sheet-id;
@@ -3043,6 +3127,14 @@ export component AppWindow inherits Window {
         stat-late <=> root.stat-late;
         stat-points <=> root.stat-points;
         save-account-settings() => { root.save-account-settings(); }
+        appearance-changed() => { root.apply-appearance(); }
+        reset-appearance() => { root.reset-appearance(); }
+        save-general-settings() => { root.save-general-settings(); }
+        save-paths-settings() => { root.save-paths-settings(); }
+        save-explorer-settings() => { root.save-explorer-settings(); }
+        browse-path(k) => { root.browse-path(k); }
+        test-trello() => { root.test-trello(); }
+        open-url(u) => { root.open-url(u); }
         back() => { root.overlay-view = ""; }
         toast(text) => { root.toast = text; }
         check-update() => { root.check-update(); }
@@ -3350,6 +3442,7 @@ export component AppWindow inherits Window {
                             close => { root.selected-card = ""; root.detail-panel = ""; root.detail-added-count = 0; }
                             unlink => { root.remove-manual(root.selected-manual-index); root.selected-card = ""; root.detail-panel = ""; root.detail-added-count = 0; }
                             show-toast(text) => { root.toast = text; }
+                    open-url(u) => { root.open-url(u); }
                         }
                     }
                 }
@@ -3487,7 +3580,7 @@ export component AppWindow inherits Window {
             spacing: 0;
 
             Text {
-                text: "abeng";
+                text: root.app-user-name;
                 font-size: Design.font-h3;
                 font-weight: 700;
                 color: Design.text-primary;
@@ -3597,27 +3690,145 @@ export component AppWindow inherits Window {
     }
 
     // ===== Toast (umpan balik aksi, hilang sendiri 2,5 detik) =====
-    // Lebar 480px supaya pesan panjang (mis. "[SUCCESS] Batch
-    // Selesai.") tidak terpotong.
     Rectangle {
         visible: root.toast != "";
-        x: (root.width - 480px) / 2;
-        y: root.height - 60px;
-        width: 480px;
+        x: (root.width - min(480px, root.width - 32px)) / 2;
+        y: root.height - 56px;
+        width: min(480px, root.width - 32px);
         height: 36px;
         background: Design.surface-elevated;
-        border-color: Design.border-hover;
+        border-color: Design.accent;
         border-width: 1px;
-        border-radius: Design.radius-sm;
+        border-radius: Design.radius-md;
+        clip: true;
 
-        Text {
-            text: root.toast;
-            font-size: Design.font-body;
-            color: Design.text-primary;
-            horizontal-alignment: center;
-            vertical-alignment: center;
-            width: 100%;
+        HorizontalLayout {
+            padding-left: 14px;
+            padding-right: 14px;
+            spacing: 8px;
+            Text {
+                text: "●";
+                font-size: 8px;
+                color: Design.accent;
+                vertical-alignment: center;
+            }
+            Text {
+                text: root.toast;
+                font-size: Design.font-body;
+                font-weight: 500;
+                color: Design.text-primary;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                overflow: elide;
+            }
+        }
+    }
+
+    // ===== Custom Titlebar (frameless drag + min/max/close) =====
+    if root.app-chrome == "custom" && root.app-stage == "main" : Rectangle {
+        x: 0; y: 0;
+        width: 100%;
+        height: 28px;
+        background: Design.app-bg;
+
+        title-drag := TouchArea {
+            x: 0; y: 0;
+            width: parent.width - 108px;
             height: 100%;
+            property <length> press-x: 0px;
+            property <length> press-y: 0px;
+            property <bool> dragging: false;
+            pointer-event(ev) => {
+                if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                    self.press-x = self.mouse-x;
+                    self.press-y = self.mouse-y;
+                    self.dragging = true;
+                } else if (ev.kind == PointerEventKind.up) {
+                    self.dragging = false;
+                } else if (ev.kind == PointerEventKind.move && self.dragging) {
+                    root.win-move(self.mouse-x - self.press-x, self.mouse-y - self.press-y);
+                }
+            }
+            double-clicked => { root.win-maximize(); }
+        }
+
+        HorizontalLayout {
+            x: 0; y: 0; width: 100%; height: 100%;
+            padding-left: 14px;
+            padding-right: 6px;
+            spacing: 8px;
+
+            Text {
+                text: "●";
+                font-size: 7px;
+                color: root.app-trello-connected ? Design.status-success : Design.accent;
+                vertical-alignment: center;
+            }
+            Text {
+                text: "BMACHINE";
+                font-size: 10px;
+                font-weight: 800;
+                letter-spacing: 1.4px;
+                color: Design.text-muted;
+                vertical-alignment: center;
+            }
+            Rectangle { horizontal-stretch: 1; }
+            // Window controls: Minimize / Maximize / Close
+            Rectangle {
+                width: 32px; height: 24px;
+                y: 2px;
+                border-radius: Design.radius-xs;
+                background: min-touch.has-hover ? Design.ghost-hover : transparent;
+                min-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.win-minimize(); }
+                }
+                Text {
+                    text: "─";
+                    font-size: 11px;
+                    color: Design.text-secondary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    width: 100%; height: 100%;
+                }
+            }
+            Rectangle {
+                width: 32px; height: 24px;
+                y: 2px;
+                border-radius: Design.radius-xs;
+                background: max-touch.has-hover ? Design.ghost-hover : transparent;
+                max-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.win-maximize(); }
+                }
+                Text {
+                    text: "□";
+                    font-size: 11px;
+                    color: Design.text-secondary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    width: 100%; height: 100%;
+                }
+            }
+            Rectangle {
+                width: 32px; height: 24px;
+                y: 2px;
+                border-radius: Design.radius-xs;
+                background: close-touch.has-hover ? Design.status-danger : transparent;
+                close-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.confirm-exit(); }
+                }
+                Text {
+                    text: "×";
+                    font-size: 14px;
+                    font-weight: 700;
+                    color: close-touch.has-hover ? white : Design.text-secondary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    width: 100%; height: 100%;
+                }
+            }
         }
     }
 
