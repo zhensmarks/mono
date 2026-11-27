@@ -14,12 +14,18 @@ import { TrelloDetailPanel } from "trello-detail.slint";
 import { RadialMenuView } from "radial.slint";
 import { SplashView } from "splash.slint";
 import { ExitConfirmDialog, UpdateDialog } from "dialog.slint";
-export { SpreadsheetWindow, CardListWindow } from "windows.slint";
+export { SpreadsheetWindow, CardListWindow, RadialMenuWindow, ToolboxWindow, ReportBugDialog } from "windows.slint";
 
 export component AppWindow inherits Window {
     no-frame: true;
-    width: Design.window-width;
-    height: Design.window-height;
+    // Resizable (keputusan abeng 27 Nov 2026 16:54): window utama BOLEH
+    // di-resize sampai compact/kecil — min-width 520 seperti C#
+    // MainWindow.axaml (MinWidth="520", tanpa MinHeight). Ukuran awal
+    // 960x640 di-set dari Rust (main.rs, setelah AppWindow::new) karena
+    // Slint melarang width + min-width pada satu Window. Titlebar tetap
+    // custom 28px (app-chrome). Tampilan yang hilang/terpotong di ukuran
+    // sangat kecil itu wajar — user menyesuaikan sendiri.
+    min-width: Design.window-min-width;
     title: "BMachine";
     background: Design.app-bg;
     default-font-family: Design.font-family;
@@ -152,19 +158,84 @@ export component AppWindow inherits Window {
     callback copy-log();
     callback stop-log();
 
-    // Global radial shortcut watcher toggles this property; the UI opens/closes
-    // the RADIAL overlay exactly as the nav orb and local middle-click do.
+    // Global radial shortcut watcher toggles this property; Rust membuka/
+    // menutup window OS radial di cursor (bukan overlay). Satu-satunya
+    // pemicu: hotkey global rdev (keputusan abeng 27 Nov 2026 16:54 —
+    // orb nav + Shift+klik tengah dihapus).
     in-out property <bool> radial-open: false;
+    // Jumlah tab dokumen untuk roda radial (diteruskan ke RadialMenuWindow
+    // saat dibuka; dihitung dari log-panel.doc-tab).
+    in-out property <int> radial-doc-tab-count: 1;
+    // Sapaan flyout profil dari jam lokal (C# DashboardViewModel:
+    // <12 GoodMorning, <15 GoodAfternoon, else GoodEvening) —
+    // dihitung Rust (chrono::Local) saat startup.
+    in-out property <string> greeting-text: "Selamat datang kembali";
+    // Versi aplikasi untuk footer flyout (C# AppVersion =
+    // assembly ToString(2) = "15.15").
+    in-out property <string> app-version: "15.15";
+    // Ada pembaruan tersedia (diisi Rust saat check-update) — item
+    // "Ada pembaruan vX" muncul di flyout bila true.
+    in-out property <bool> has-pending-update: false;
+    // DASHBOARD VISIBILITY (C# Settings.Dash.*): tab BATCH
+    // disembunyikan bila false; Folder Locker / Output Explorer
+    // tidak punya padanan di port — hanya disimpan/dimuat.
+    in-out property <bool> is-batch-visible: true;
+    in-out property <bool> is-folder-locker-visible: true;
+    in-out property <bool> is-output-explorer-visible: true;
+    // FILTERS (C# Settings.Batch.Filter): filter ekstensi file
+    // batch, "" = semua.
+    in-out property <string> batch-file-filter: "";
     in-out property <bool> recording-shortcut: false;
-    in-out property <string> current-shortcut-label: "Win + Shift + '";
+    in-out property <string> current-shortcut-label: "Shift + Mouse Middle"; // default C# TriggerConfig (Mouse/Middle/Shift) — di-overwrite Rust saat startup
     callback start-recording-shortcut();
     callback cancel-recording-shortcut();
+    // Radial / Toolbox / Laporkan Bug kini window OS (C#) — callback
+    // Rust: buka/tutup window di cursor / tengah window utama.
+    callback open-radial-at-cursor();
+    callback close-radial-window();
+    callback open-toolbox-window(string);
+    callback open-report-bug();
+    // Backup / restore database (Settings → General → DATA).
+    callback export-database();
+    callback import-database();
+    // Pindah dari BATCH ke HOME bila tab BATCH disembunyikan.
+    changed is-batch-visible => {
+        if (!root.is-batch-visible && root.current-tab == "BATCH") { root.current-tab = "HOME"; }
+    }
+
+    // Pulihkan dataset contoh A ke SOURCE (dipakai tombol "+ Tambah
+    // Folder" dan drop zone BATCH saat SOURCE kosong — mockup: Slint
+    // belum mendukung drag-drop OS, jadi klik = simulasi drop).
+    public function restore-batch-source() {
+        root.use-folder-b = false;
+        root.src-name = "27_SDN RANCAIYUH I";
+        root.selected-source = "27_SDN RANCAIYUH I";
+        root.selected-output = "27_SDN RANCAIYUH I";
+        root.src-folders = ["PAS FOTO", "FOTO10RP_FREE SEKOLAH_GRAIS", "SOUVENIR_FREE ID CARD", "SOUVENIR_FREE KARTU PELAJA"];
+        root.kids-0 = ["Ahmad.jpg", "Budi.jpg", "template.psd"];
+        root.kids-1 = ["foto_01.jpg", "foto_02.jpg", "foto_03.jpg"];
+        root.kids-2 = ["id_01.jpg", "id_02.jpg", "template.psd"];
+        root.kids-3 = ["kartu_01.jpg", "kartu_02.jpg", "kartu_03.jpg"];
+        root.expanded-node = "";
+        root.selected-nodes = [];
+        root.ctx-node = "";
+        root.has-manifest = false;
+        root.out-folders = ["", "", "", ""];
+        root.out-kids-0 = ["", "", ""];
+        root.out-kids-1 = ["", "", ""];
+        root.out-kids-2 = ["", "", ""];
+        root.out-kids-3 = ["", "", ""];
+        root.expanded-out = "";
+        root.toast = "Folder SOURCE dipulihkan: 27_SDN RANCAIYUH I";
+    }
 
     // Overlay layar penuh (Settings/Toolbox/Sheets/Leaderboard/
     // Explorer/Trello-Window): "" = dashboard tampil (pill nav
     // terlihat); selain itu overlay tampil + pill nav disembunyikan
     // (seperti C#: MainWindow ContentControl beralih dari DashboardView).
-    // Nilai: "" | "SETTINGS" | "TOOLBOX" | "SHEETS" | "LEADERBOARD" | "EXPLORER" | "TRELLO-WINDOW" | "RADIAL"
+    // Nilai: "" | "SETTINGS" | "SHEETS" | "LEADERBOARD" | "EXPLORER" | "TRELLO-WINDOW"
+    // (TOOLBOX + RADIAL kini window OS, bukan overlay; SHEETS hanya
+    // dipakai SheetsView — panah POINTS kini membuka window OS.)
     in-out property <string> overlay-view: "";
     // Esc / shortcut global (KeyBinding di keys-scope) hanya aktif bila
     // FocusScope itu memegang fokus — klik mouse tidak memberi fokus ke
@@ -178,8 +249,8 @@ export component AppWindow inherits Window {
     // overlay-view diset, jadi fokus Explorer tetap menang.)
     changed overlay-view => {
         keys-scope.focus();
-        // Keep the global shortcut watcher's property in sync with the UI.
-        if (root.overlay-view != "RADIAL") { root.radial-open = false; }
+        // Window radial ikut tertutup bila overlay lain dibuka.
+        root.radial-open = false;
     }
     changed show-flyout => { if (root.show-flyout) { keys-scope.focus(); } }
     // Tab Toolbox yang dibuka dari Radial Menu (submenu TOOLBOX) —
@@ -571,18 +642,20 @@ export component AppWindow inherits Window {
             }
         }
 
-    // Global radial shortcut watcher toggles this property; the UI opens/closes
-    // the RADIAL overlay exactly as the nav orb and local middle-click do.
+    // Global radial shortcut watcher toggles this property; Rust membuka/
+    // menutup window OS radial di cursor (bukan overlay). Satu-satunya
+    // pemicu: hotkey global rdev (keputusan abeng 27 Nov 2026 16:54 —
+    // orb nav + Shift+klik tengah dihapus).
     Rectangle {
         x: 0; y: 0; width: 0; height: 0;
         property <bool> radial-open-watcher: root.radial-open;
         changed radial-open-watcher => {
             if (root.radial-open) {
-                radial-view.reset();
-                root.overlay-view = "RADIAL";
+                root.radial-doc-tab-count = log-panel.doc-tab == "2" ? 2 : 1;
                 root.show-flyout = false;
-            } else if (root.overlay-view == "RADIAL") {
-                radial-view.release-execute();
+                root.open-radial-at-cursor();
+            } else {
+                root.close-radial-window();
             }
         }
     }
@@ -652,7 +725,7 @@ export component AppWindow inherits Window {
                         scale: root.ui-scale;
                         clicked => { root.current-tab = "HOME"; root.show-flyout = false; root.list-category = ""; root.selected-card = ""; root.add-manual-open = false; root.detail-panel = ""; root.detail-added-count = 0; }
                     }
-                    NavTab {
+                    if root.is-batch-visible : NavTab {
                         label: "BATCH";
                         selected: root.current-tab == "BATCH";
                         scale: root.ui-scale;
@@ -662,39 +735,8 @@ export component AppWindow inherits Window {
                 }
             }
             Rectangle { horizontal-stretch: 1; }
-
-            // Radial trigger remains visually separate from the capsule.
-            Rectangle { width: Design.nav-gap * root.ui-scale; }
-            Rectangle {
-                width: 40px * root.ui-scale;
-                height: 40px * root.ui-scale;
-                Rectangle {
-                    width: 36px * root.ui-scale;
-                    height: 36px * root.ui-scale;
-                    x: 2px * root.ui-scale;
-                    y: 2px * root.ui-scale;
-                    background: orb-touch.has-hover ? Design.accent-subtle : transparent;
-                    border-color: Design.accent;
-                    border-width: 1px;
-                    border-radius: 20px * root.ui-scale;
-                    animate background { duration: Design.anim-normal; }
-                    SvgIcon {
-                        x: (parent.width - self.width) / 2;
-                        y: (parent.height - self.height) / 2;
-                        name: "hexagon";
-                        size: 18px * root.ui-scale;
-                        icon-color: Design.accent;
-                    }
-                    orb-touch := TouchArea {
-                        mouse-cursor: pointer;
-                        clicked => {
-                            radial-view.reset();
-                            root.overlay-view = "RADIAL";
-                            root.show-flyout = false;
-                        }
-                    }
-                }
-            }
+            // Orb radial DIHAPUS (keputusan abeng 27 Nov 2026 16:54):
+            // pemicu radial yang tersisa hanya hotkey global (rdev).
         }
 
         // ===== Area konten + Log Panel: HorizontalLayout — konten
@@ -714,25 +756,10 @@ export component AppWindow inherits Window {
                 // Settings ke bawah (layout gap, 26 Nov).
                 height: root.height - 68px * root.ui-scale;
 
-            // ----- Radial menu (phase 4): Shift + middle click on dashboard
-            // background = open the radial menu (default trigger C# K20:
-            // MouseButton=2 / Middle, Modifiers=4 / Shift). This TouchArea
-            // is the first child (behind all content) — left click is not
-            // handled here, only middle button + Shift.
-            // Limitation: middle click on top of widget/row doesn't reach
-            // here (TouchArea of widget on top captures event first) —
-            // only the background gap (padding/gutter) reacts;
-            // the orb button in the nav bar is the main entry.
-            radial-trigger-touch := TouchArea {
-                x: 0; y: 0; width: 100%; height: 100%;
-                pointer-event(ev) => {
-                    if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.middle && ev.modifiers.shift) {
-                        radial-view.reset();
-                        root.overlay-view = "RADIAL";
-                        root.show-flyout = false;
-                    }
-                }
-            }
+            // Shift + middle click di latar dashboard DIHAPUS (keputusan
+            // abeng 27 Nov 2026 16:54). Pemicu radial yang tersisa hanya
+            // hotkey global (rdev) — default sama seperti C#
+            // (TriggerConfig: Mouse / Middle / Shift).
 
             // ----- HOME: grid 2x2 StatWidget mengisi window -----
             // Hanya tampil saat tidak ada daftar kategori yang dibuka.
@@ -839,7 +866,7 @@ export component AppWindow inherits Window {
                         arrow-clicked => {
                             root.list-category = "";
                             root.selected-card = "";
-                            root.overlay-view = "SHEETS";
+                            root.open-new-sheet-window();
                             root.toast = "Spreadsheet BMachine";
                         }
                     }
@@ -1430,7 +1457,7 @@ export component AppWindow inherits Window {
             VerticalLayout {
                 x: 0; y: 0;
                 width: 100%; height: 100%;
-                visible: root.current-tab == "BATCH";
+                visible: root.current-tab == "BATCH" && !root.src-empty;
                 padding-left: Design.space-xl;
                 padding-right: Design.space-xl;
                 padding-top: Design.space-md;
@@ -1465,26 +1492,7 @@ export component AppWindow inherits Window {
                             // (bukan append). Mockup: toggle dua dataset
                             // contoh; kalau SOURCE kosong, pulihkan A.
                             if (root.src-empty) {
-                                root.use-folder-b = false;
-                                root.src-name = "27_SDN RANCAIYUH I";
-                                root.selected-source = "27_SDN RANCAIYUH I";
-                                root.selected-output = "27_SDN RANCAIYUH I";
-                                root.src-folders = ["PAS FOTO", "FOTO10RP_FREE SEKOLAH_GRAIS", "SOUVENIR_FREE ID CARD", "SOUVENIR_FREE KARTU PELAJA"];
-                                root.kids-0 = ["Ahmad.jpg", "Budi.jpg", "template.psd"];
-                                root.kids-1 = ["foto_01.jpg", "foto_02.jpg", "foto_03.jpg"];
-                                root.kids-2 = ["id_01.jpg", "id_02.jpg", "template.psd"];
-                                root.kids-3 = ["kartu_01.jpg", "kartu_02.jpg", "kartu_03.jpg"];
-                                root.expanded-node = "";
-                                root.selected-nodes = [];
-                                root.ctx-node = "";
-                                root.has-manifest = false;
-                                root.out-folders = ["", "", "", ""];
-                                root.out-kids-0 = ["", "", ""];
-                                root.out-kids-1 = ["", "", ""];
-                                root.out-kids-2 = ["", "", ""];
-                                root.out-kids-3 = ["", "", ""];
-                                root.expanded-out = "";
-                                root.toast = "Folder SOURCE dipulihkan: 27_SDN RANCAIYUH I";
+                                root.restore-batch-source();
                             } else if (!root.use-folder-b) {
                                 root.use-folder-b = true;
                                 root.src-name = "28_SDN BANTAR KAMBING 03";
@@ -1921,22 +1929,37 @@ export component AppWindow inherits Window {
                                     x: 0; y: 0; width: 100%; height: 100%;
                                     visible: root.src-empty;
                                     border-color: Design.border-hover;
-                                    border-width: 1px;
+                                    border-width: 2px;
                                     border-radius: Design.radius-md;
                                     VerticalLayout {
+                                        x: 0; y: 0; width: 100%; height: 100%;
                                         alignment: center;
-                                        spacing: 8px * root.ui-scale;
-                                        Text {
-                                            text: "+";
-                                            font-size: 32px * root.ui-scale;
-                                            font-weight: 300;
-                                            color: Design.text-muted;
-                                            horizontal-alignment: center;
+                                        spacing: 12px * root.ui-scale;
+                                        HorizontalLayout {
+                                            alignment: center;
+                                            Rectangle {
+                                                width: 64px * root.ui-scale;
+                                                height: 64px * root.ui-scale;
+                                                border-color: Design.text-muted;
+                                                border-width: 2px;
+                                                border-radius: 32px * root.ui-scale;
+                                                opacity: 0.5;
+                                                Text {
+                                                    text: "+";
+                                                    font-size: 36px * root.ui-scale;
+                                                    font-weight: 300;
+                                                    color: Design.text-muted;
+                                                    horizontal-alignment: center;
+                                                    vertical-alignment: center;
+                                                    width: 100%;
+                                                    height: 100%;
+                                                }
+                                            }
                                         }
                                         Text {
                                             text: "DRAG FOLDERS HERE";
-                                            font-size: 14px * root.ui-scale;
-                                            font-weight: 700;
+                                            font-size: 16px * root.ui-scale;
+                                            font-weight: 800;
                                             color: Design.text-primary;
                                             horizontal-alignment: center;
                                         }
@@ -3023,6 +3046,68 @@ export component AppWindow inherits Window {
                 }
             }
 
+            // ----- BATCH kosong: SELURUH tab = satu drop zone (C#
+            // DashboardView.axaml:345-361, tampil bila ShowDropZone).
+            // Slint belum mendukung drag-drop OS — klik "Pilih Folder"
+            // = simulasi drop (pulihkan dataset contoh A).
+            Rectangle {
+                x: 0; y: 0;
+                width: 100%; height: 100%;
+                visible: root.current-tab == "BATCH" && root.src-empty;
+                border-color: Design.border-hover;
+                border-width: 2px;
+                border-radius: Design.radius-md;
+                VerticalLayout {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    alignment: center;
+                    spacing: 12px * root.ui-scale;
+                    HorizontalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 64px * root.ui-scale;
+                            height: 64px * root.ui-scale;
+                            border-color: Design.text-muted;
+                            border-width: 2px;
+                            border-radius: 32px * root.ui-scale;
+                            opacity: 0.5;
+                            Text {
+                                text: "+";
+                                font-size: 36px * root.ui-scale;
+                                font-weight: 300;
+                                color: Design.text-muted;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                                width: 100%;
+                                height: 100%;
+                            }
+                        }
+                    }
+                    Text {
+                        text: "DRAG FOLDERS HERE";
+                        font-size: 16px * root.ui-scale;
+                        font-weight: 800;
+                        color: Design.text-primary;
+                        horizontal-alignment: center;
+                    }
+                    Text {
+                        text: "Drop source folders to begin batch processing";
+                        font-size: 12px * root.ui-scale;
+                        color: Design.text-secondary;
+                        horizontal-alignment: center;
+                    }
+                    HorizontalLayout {
+                        alignment: center;
+                        padding-top: 8px * root.ui-scale;
+                        Btn {
+                            label: "Pilih Folder";
+                            variant: "secondary";
+                            scale: root.ui-scale;
+                            clicked => { root.restore-batch-source(); }
+                        }
+                    }
+                }
+            }
+
             }
 
             // ----- LOG PANEL (sidebar kanan; lebar 0 saat tertutup,
@@ -3055,9 +3140,9 @@ export component AppWindow inherits Window {
 
     // ===== Overlay layar penuh — pill nav disembunyikan saat salah
     // satu overlay terbuka (overlay-view != ""). Settings dibuka dari
-    // flyout profil / Ctrl+,. Toolbox dibuka LANGSUNG dari flyout
-    // "Toolbox" (tanpa launcher Modul — tidak ada layar Modul di C#).
-    // Explorer overlay ("EXPLORER") = Build B. =====
+    // flyout profil / Ctrl+,. Toolbox kini window OS (bukan overlay —
+    // dibuka dari radial / C# ToolboxWindow). Explorer overlay
+    // ("EXPLORER") = Build B. =====
     SettingsView {
         x: 0; y: root.app-chrome == "custom" ? 32px : 8px;
         width: 100%; height: root.height - (root.app-chrome == "custom" ? 32px : 8px);
@@ -3086,6 +3171,10 @@ export component AppWindow inherits Window {
         anim-speed <=> root.app-anim-speed;
         trello-interval <=> root.app-trello-interval;
         smart-orb <=> root.app-smart-orb;
+        batch-file-filter <=> root.batch-file-filter;
+        is-batch-visible <=> root.is-batch-visible;
+        is-folder-locker-visible <=> root.is-folder-locker-visible;
+        is-output-explorer-visible <=> root.is-output-explorer-visible;
         trello-connected <=> root.app-trello-connected;
         trello-status <=> root.app-trello-status;
         path-local <=> root.app-path-local;
@@ -3127,6 +3216,8 @@ export component AppWindow inherits Window {
         appearance-changed() => { root.apply-appearance(); }
         reset-appearance() => { root.reset-appearance(); }
         save-general-settings() => { root.save-general-settings(); }
+        export-database() => { root.export-database(); }
+        import-database() => { root.import-database(); }
         save-paths-settings() => { root.save-paths-settings(); }
         save-explorer-settings() => { root.save-explorer-settings(); }
         browse-path(k) => { root.browse-path(k); }
@@ -3136,14 +3227,7 @@ export component AppWindow inherits Window {
         toast(text) => { root.toast = text; }
         check-update() => { root.check-update(); }
     }
-    ToolboxView {
-        x: 0; y: root.app-chrome == "custom" ? 32px : 8px;
-        width: 100%; height: root.height - (root.app-chrome == "custom" ? 32px : 8px);
-        visible: root.overlay-view == "TOOLBOX";
-        tool-tab <=> root.toolbox-tab;
-        back() => { root.overlay-view = ""; }
-        toast(text) => { root.toast = text; }
-    }
+    // (Toolbox kini window OS — lihat ToolboxWindow di ui/windows.slint.)
     SheetsView {
         x: 0; y: root.app-chrome == "custom" ? 32px : 8px;
         width: 100%; height: root.height - (root.app-chrome == "custom" ? 32px : 8px);
@@ -3169,28 +3253,9 @@ export component AppWindow inherits Window {
         toast(text) => { root.toast = text; }
     }
 
-    // ===== Radial Menu (Fase 4) — overlay "RADIAL": wheel + submenu
-    // + dwell (lihat ui/radial.slint). Dibuka dari orb di bar nav /
-    // Shift + Klik Tengah di latar dashboard. Esc = tutup (cabang Esc
-    // generik di atas sudah menutup overlay apa pun, termasuk RADIAL);
-    // klik kanan / klik backdrop = tutup (di radial.slint).
-    // open-toolbox: radial membuka TOOLBOX langsung pada tab Mantra
-    // yang dipilih (tool-tab <=> toolbox-tab).
-    radial-view := RadialMenuView {
-        x: 0; y: 0; width: 100%; height: 100%;
-        visible: root.overlay-view == "RADIAL";
-        doc-tab-count: log-panel.doc-tab == "2" ? 2 : 1;
-        back() => { root.overlay-view = ""; }
-        toast(text) => { root.toast = text; }
-        execute-script(name) => {
-            root.toast = "[Photoshop] Menjalankan: " + name;
-        }
-        open-toolbox(tab) => {
-            root.toolbox-tab = tab;
-            root.overlay-view = "TOOLBOX";
-            root.toast = "Toolbox — " + tab;
-        }
-    }
+    // Radial Menu kini window OS (C# RadialMenuWindow 320x320 di
+    // cursor) — lihat RadialMenuWindow di ui/windows.slint + wiring
+    // Rust di src/main.rs. Geometri roda tetap 1:1 C#.
 
     // ===== Window Trello (CardListWindow C#) — dibuka dari TANDA
     // PANAH widget EDITING/REVISION/LATE. Panel mengambang di tengah
@@ -3597,7 +3662,7 @@ export component AppWindow inherits Window {
                     vertical-alignment: center;
                 }
                 Text {
-                    text: "Selamat datang kembali";
+                    text: root.greeting-text;
                     font-size: Design.font-caption;
                     color: Design.text-secondary;
                     vertical-alignment: center;
@@ -3606,6 +3671,66 @@ export component AppWindow inherits Window {
 
             HSeparator { }
 
+            // [C#] Item pembaruan — hanya bila ada update tersedia.
+            if root.has-pending-update : Rectangle {
+                height: 36px;
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        root.show-flyout = false;
+                        root.dialog-open = "UPDATE";
+                    }
+                }
+                Text {
+                    text: "Ada pembaruan " + root.update-latest-version;
+                    font-size: Design.font-body;
+                    font-weight: 700;
+                    color: Design.accent;
+                    width: 100%;
+                    height: 100%;
+                    vertical-alignment: center;
+                }
+            }
+            // Saklar Terminal = buka/tutup Log Panel (EXPLORER_SPEC.md
+            // §3.1; Ctrl+L BUKAN toggle panel ini).
+            HorizontalLayout {
+                height: 36px;
+                spacing: 8px;
+                Text {
+                    text: "Terminal";
+                    font-size: Design.font-body;
+                    font-weight: 700;
+                    color: Design.text-primary;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+                VerticalLayout {
+                    alignment: center;
+                    Toggle {
+                        checked: root.show-logpanel;
+                        toggled(checked) => { root.show-logpanel = checked; }
+                    }
+                }
+            }
+            Rectangle {
+                height: 36px;
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        root.show-flyout = false;
+                        root.open-report-bug();
+                    }
+                }
+                Text {
+                    text: "Laporkan Bug";
+                    font-size: Design.font-body;
+                    font-weight: 700;
+                    color: Design.text-primary;
+                    width: 100%;
+                    height: 100%;
+                    vertical-alignment: center;
+                }
+            }
             Rectangle {
                 height: 36px;
                 TouchArea {
@@ -3620,43 +3745,6 @@ export component AppWindow inherits Window {
                     width: 100%;
                     height: 100%;
                     vertical-alignment: center;
-                }
-            }
-            Rectangle {
-                height: 36px;
-                TouchArea {
-                    mouse-cursor: pointer;
-                    clicked => { root.show-flyout = false; root.overlay-view = "TOOLBOX"; }
-                }
-                Text {
-                    text: "Toolbox";
-                    font-size: Design.font-body;
-                    font-weight: 700;
-                    color: Design.text-primary;
-                    width: 100%;
-                    height: 100%;
-                    vertical-alignment: center;
-                }
-            }
-            // Saklar Terminal = buka/tutup Log Panel (EXPLORER_SPEC.md
-            // §3.1; Ctrl+L BUKAN toggle panel ini).
-            HorizontalLayout {
-                height: 36px;
-                spacing: 8px;
-                Text {
-                    text: "Terminal (Log Panel)";
-                    font-size: Design.font-body;
-                    font-weight: 700;
-                    color: Design.text-primary;
-                    vertical-alignment: center;
-                    horizontal-stretch: 1;
-                }
-                VerticalLayout {
-                    alignment: center;
-                    Toggle {
-                        checked: root.show-logpanel;
-                        toggled(checked) => { root.show-logpanel = checked; }
-                    }
                 }
             }
             Rectangle {
@@ -3682,7 +3770,7 @@ export component AppWindow inherits Window {
             HSeparator { }
 
             Text {
-                text: "BMACHINE · v6.5.0";
+                text: "BMACHINE · " + root.app-version;
                 font-size: 9px;
                 color: Design.text-muted;
                 vertical-alignment: center;

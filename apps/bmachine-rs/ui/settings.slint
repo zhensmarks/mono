@@ -9,7 +9,7 @@
 // di layar settings. Koneksi nyata ke tema global = Fase 6.
 // Semua opsi ditumpuk (label di atas, kontrol di bawah) supaya muat di 520px.
 
-import { Design, Card, HSeparator, Btn, TextField, Toggle, StatWidget, SvgIcon } from "design.slint";
+import { Design, Card, HSeparator, Btn, TextField, Toggle, StatWidget, SvgIcon, ComboBox } from "design.slint";
 
 // Baris grup di side panel (ikon + label, gaya NavTab list).
 // Pola gambar referensi (26 Nov 16:54): ikon + label, item terpilih
@@ -310,6 +310,8 @@ export component SettingsView inherits Rectangle {
     callback appearance-changed();
     callback reset-appearance();
     callback save-general-settings();
+    callback export-database();
+    callback import-database();
     callback save-paths-settings();
     callback save-explorer-settings();
     callback browse-path(string);
@@ -319,7 +321,7 @@ export component SettingsView inherits Rectangle {
     callback start-recording-shortcut();
     callback cancel-recording-shortcut();
     in-out property <bool> recording-shortcut: false;
-    in-out property <string> current-shortcut-label: "Win + Shift + '";
+    in-out property <string> current-shortcut-label: "Shift + Mouse Middle"; // default C# TriggerConfig (Mouse/Middle/Shift) — di-overwrite Rust saat startup
     // Widget background — terikat dua arah ke AppWindow (kartu dashboard ikut berubah).
     in-out property <string> widget-bg: "doodle";
 
@@ -403,6 +405,11 @@ export component SettingsView inherits Rectangle {
     in-out property <string> anim-speed: "Normal";
     in-out property <string> trello-interval: "30";
     in-out property <bool> smart-orb: true;
+    // --- General (C# SettingsView.axaml:579-660) ---
+    in-out property <string> batch-file-filter: "";
+    in-out property <bool> is-batch-visible: true;
+    in-out property <bool> is-folder-locker-visible: true;
+    in-out property <bool> is-output-explorer-visible: true;
 
     // --- Explorer (dari ExplorerSettings C#) ---
     in-out property <string> exp-path: "D:\\#GAWENA";
@@ -1707,52 +1714,6 @@ export component SettingsView inherits Rectangle {
                                 padding: Design.space-lg;
                                 spacing: Design.space-md;
                                 Text {
-                                    text: "RADIAL SHORTCUT";
-                                    font-size: Design.font-h3;
-                                    font-weight: 700;
-                                    letter-spacing: 1px;
-                                    color: Design.text-primary;
-                                }
-                                Text {
-                                    text: root.recording-shortcut ? "Tekan kombinasi keyboard atau tombol mouse sekarang. Esc untuk batal." : "Shortcut global membuka radial tepat di posisi cursor.";
-                                    font-size: Design.font-caption;
-                                    color: root.recording-shortcut ? Design.accent : Design.text-muted;
-                                }
-                                HorizontalLayout {
-                                    spacing: Design.space-sm;
-                                    Rectangle {
-                                        width: 260px;
-                                        height: 36px;
-                                        background: Design.bg-hover;
-                                        border-color: root.recording-shortcut ? Design.accent : Design.separator;
-                                        border-width: 1px;
-                                        border-radius: Design.radius-sm;
-                                        Text {
-                                            text: root.recording-shortcut ? "MENUNGGU INPUT…" : root.current-shortcut-label;
-                                            font-size: Design.font-button;
-                                            font-weight: 700;
-                                            color: root.recording-shortcut ? Design.accent : Design.text-primary;
-                                            horizontal-alignment: center;
-                                            vertical-alignment: center;
-                                        }
-                                    }
-                                    Btn {
-                                        label: root.recording-shortcut ? "Batal" : "Rekam Shortcut";
-                                        variant: root.recording-shortcut ? "secondary" : "primary";
-                                        clicked => {
-                                            if (root.recording-shortcut) { root.cancel-recording-shortcut(); }
-                                            else { root.start-recording-shortcut(); }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        Card {
-                            VerticalLayout {
-                                padding: Design.space-lg;
-                                spacing: Design.space-md;
-                                Text {
                                     text: "SCRIPT MANAGER & RADIAL WHEEL CONFIGURATION";
                                     font-size: Design.font-h3;
                                     font-weight: 700;
@@ -1950,19 +1911,27 @@ export component SettingsView inherits Rectangle {
                         VerticalLayout {
                             spacing: 6px;
                             FieldLabel { title: "Bahasa"; desc: "Bahasa antarmuka aplikasi"; }
-                            HorizontalLayout {
-                                spacing: 6px;
-                                OptionChip {
-                                    label: "Indonesia";
-                                    horizontal-stretch: 1;
-                                    selected: root.lang == "Indonesia";
-                                    clicked => { root.lang = "Indonesia"; root.toast("Disimpan: Bahasa Indonesia"); }
+                            ComboBox {
+                                width: 140px;
+                                model: ["English", "Indonesia"];
+                                current-index: root.lang == "Indonesia" ? 1 : 0;
+                                selected(index) => {
+                                    root.lang = index == 1 ? "Indonesia" : "English";
+                                    root.toast("Disimpan: Bahasa " + root.lang);
                                 }
-                                OptionChip {
-                                    label: "English";
-                                    horizontal-stretch: 1;
-                                    selected: root.lang == "English";
-                                    clicked => { root.lang = "English"; root.toast("Disimpan: Bahasa English"); }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Filter ekstensi file"; desc: "Filter file saat batch (kosong = semua)"; }
+                            TextField {
+                                width: 140px;
+                                text: root.batch-file-filter;
+                                placeholder: "All (*)";
+                                edited(text) => { root.batch-file-filter = text; }
+                                accepted(text) => {
+                                    root.save-general-settings();
+                                    root.toast("Disimpan: Filter " + (text == "" ? "All (*)" : text));
                                 }
                             }
                         }
@@ -2026,6 +1995,146 @@ export component SettingsView inherits Rectangle {
                             Toggle {
                                 checked: root.smart-orb;
                                 toggled(checked) => { root.smart-orb = checked; root.toast(checked ? "Disimpan: Smart Orb nyala" : "Disimpan: Smart Orb mati"); }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Data"; desc: "Penyimpanan & cadangan database"; }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                Text {
+                                    text: "Penyimpanan";
+                                    font-size: Design.font-body;
+                                    color: Design.text-primary;
+                                    vertical-alignment: center;
+                                    horizontal-stretch: 1;
+                                }
+                                Btn {
+                                    label: ">";
+                                    variant: "secondary";
+                                    clicked => { root.group = "Paths"; }
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                Btn {
+                                    label: "Export";
+                                    variant: "secondary";
+                                    clicked => { root.export-database(); }
+                                }
+                                Btn {
+                                    label: "Import";
+                                    variant: "secondary";
+                                    clicked => { root.import-database(); }
+                                }
+                            }
+                        }
+                        // Visibilitas: toggle HANYA mengubah properti; penyimpanan
+                        // lewat tombol Simpan (pola C# General.Save).
+                        // Catatan 27 Nov 2026: auto-save per-toggle sengaja
+                        // tidak dipakai di sini (cukup Simpan). Toggle ini
+                        // sempat diduga "tidak merespons", ternyata klik tes
+                        // meleset 27px ke kiri track (x=890, track 896-939)
+                        // — bukan bug aplikasi.
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Visibilitas dashboard"; desc: "Tampilkan / sembunyikan bagian dashboard"; }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                Text {
+                                    text: "Tampilkan Batch";
+                                    font-size: Design.font-body;
+                                    color: Design.text-primary;
+                                    vertical-alignment: center;
+                                    horizontal-stretch: 1;
+                                }
+                                Toggle {
+                                    checked: root.is-batch-visible;
+                                    toggled(checked) => {
+                                        root.is-batch-visible = checked;
+                                    }
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                Text {
+                                    text: "Tampilkan Folder Locker";
+                                    font-size: Design.font-body;
+                                    color: Design.text-primary;
+                                    vertical-alignment: center;
+                                    horizontal-stretch: 1;
+                                }
+                                Toggle {
+                                    checked: root.is-folder-locker-visible;
+                                    toggled(checked) => {
+                                        root.is-folder-locker-visible = checked;
+                                    }
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                Text {
+                                    text: "Tampilkan Output Explorer";
+                                    font-size: Design.font-body;
+                                    color: Design.text-primary;
+                                    vertical-alignment: center;
+                                    horizontal-stretch: 1;
+                                }
+                                Toggle {
+                                    checked: root.is-output-explorer-visible;
+                                    toggled(checked) => {
+                                        root.is-output-explorer-visible = checked;
+                                    }
+                                }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel { title: "Shortcut menu"; desc: "Shortcut global membuka radial tepat di posisi cursor"; }
+                            Text {
+                                text: root.recording-shortcut ? "MENUNGGU INPUT — tekan kombinasi keyboard / tombol mouse. Esc untuk batal." : "Shortcut saat ini:";
+                                font-size: Design.font-caption;
+                                color: root.recording-shortcut ? Design.accent : Design.text-muted;
+                            }
+                            HorizontalLayout {
+                                spacing: Design.space-sm;
+                                Rectangle {
+                                    width: 260px;
+                                    height: 36px;
+                                    background: Design.bg-hover;
+                                    border-color: root.recording-shortcut ? Design.accent : Design.separator;
+                                    border-width: 1px;
+                                    border-radius: Design.radius-sm;
+                                    Text {
+                                        text: root.recording-shortcut ? "MENUNGGU INPUT…" : root.current-shortcut-label;
+                                        font-size: Design.font-button;
+                                        font-weight: 700;
+                                        color: root.recording-shortcut ? Design.accent : Design.text-primary;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                                Btn {
+                                    label: root.recording-shortcut ? "Batal" : "Rekam Shortcut";
+                                    variant: root.recording-shortcut ? "secondary" : "primary";
+                                    clicked => {
+                                        if (root.recording-shortcut) { root.cancel-recording-shortcut(); }
+                                        else { root.start-recording-shortcut(); }
+                                    }
+                                }
+                            }
+                        }
+                        HorizontalLayout {
+                            alignment: end;
+                            padding-top: Design.space-md;
+                            Btn {
+                                label: "Simpan";
+                                variant: "primary";
+                                height-override: 34px;
+                                clicked => {
+                                    root.save-general-settings();
+                                    root.toast("Pengaturan General disimpan");
+                                }
                             }
                         }
                     }

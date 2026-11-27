@@ -225,6 +225,19 @@ export component RadialMenuView inherits Rectangle {
 
         // Buka submenu jika memiliki sub
         if (root.hovered-has-sub) {
+            // TOOLBOX: klik / release pada sektor membuka ToolboxWindow
+            // langsung (port: main.slint "radial membuka TOOLBOX langsung
+            // pada tab MantraNama"). C# membuka window lewat eksekusi
+            // psdbucin_v3.pyw — roda port fixed 8 sektor tanpa item
+            // psdbucin, jadi sektor TOOLBOX yang jadi pemicunya. Hover
+            // tetap membuka submenu 5 skrip _tb_ (pointer-event di atas),
+            // jadi skrip tetap bisa dieksekusi lewat petal.
+            if (root.hovered-id == "TOOLBOX") {
+                root.open-toolbox("MantraNama");
+                root.reset();
+                root.back();
+                return;
+            }
             root.active-submenu = root.hovered-id;
             root.center-subtitle = "PILIH SUB-MENU";
             return;

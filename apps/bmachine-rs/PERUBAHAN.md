@@ -5,6 +5,146 @@ sebelum commit + push (format lengkap di `AGENTS.md`). Entri terbaru di
 paling atas. Dengan log ini, siapa pun yang menerima project — Dex, Hermes,
 atau orang lain — langsung tahu apa saja yang diubah tanpa menebak.
 
+## 2026-11-27 — Dex — P0: radial/spreadsheet/toolbox jadi window OS + General Settings & flyout samakan C# + export/import DB aman + perbaikan reopen window
+
+- Diubah (6 item P0):
+  - (1) Radial menu jadi window OS `RadialMenuWindow` 320×320 di cursor
+    (`src/main.rs`: instansiasi pola sheet/card cell, posisi
+    `radial_window_origin(cursor, scale)` = cursor − 160×scale;
+    TriggerDown/Up via watcher; overlay RADIAL dihapus; geometri roda
+    tidak diubah). `ui/radial.slint` `execute-current()`: hover
+    `TOOLBOX` → `open-toolbox("MantraNama")` (sebelumnya callback tidak
+    pernah dipanggil).
+  - (2) Panah POINTS → `SpreadsheetWindow` OS 1000×600
+    (`open-new-sheet-window()`; pulihkan posisi/ukuran dari SQLite;
+    hide+show untuk re-raise; tanpa formula bar; edit in-cell via
+    `TextInput` + `edited`/`apply-cell-edit`).
+  - (3) Toolbox jadi window OS `ToolboxWindow` 1024×730, titlebar custom
+    38px (`ui/windows.slint` + instansiasi `src/main.rs`); overlay
+    Toolbox dihapus.
+  - (4) BATCH empty state = seluruh tab: drop zone ala C# saat `src-empty`
+    (border 2px, lingkaran-plus 64×64 opacity 0.5, "DRAG FOLDERS HERE"
+    16px/800, subtitle 12px, tombol "Pilih Folder" → dataset contoh A);
+    drop zone panel SOURCE disamakan ukurannya. Drag-drop OS tetap
+    keterbatasan Slint (bukan bug).
+  - (5) General Settings samakan C# (`ui/settings.slint`): Bahasa ComboBox
+    140px, FILTERS TextField "All (*)", DATA (Storage ">" → grup Paths,
+    Export/Import Database), DASHBOARD VISIBILITY (3 toggle: Show Batch /
+    Show Folder Locker / Show Output Explorer), SHORTCUT dipindah dari
+    Script Manager ke General, tombol Save H34. Wiring
+    `src/main.rs`/`src/db.rs` untuk `Settings.Language`,
+    `Settings.Batch.Filter`, `Settings.Dash.Batch/Lock/Explorer`.
+    `ComboBox` baru di `ui/design.slint`; `Btn` tambah `height-override`.
+    Toggle visibilitas TIDAK auto-save per-toggle — penyimpanan lewat
+    tombol Simpan (pola C# General.Save).
+  - (6) Profile flyout samakan C#: sapaan dari jam lokal via `chrono`
+    (<12 "Selamat pagi", <15 "Selamat siang", else "Selamat sore"); item
+    Toolbox dihapus; tambah "Laporkan Bug" → `ReportBugDialog` 560×~400
+    (Ringkasan H36 + Detail H110; ringkasan kosong → toast "Isi
+    ringkasan dulu"; kirim valid → baris `Activities` Type="BugReport" +
+    toast "Laporan terkirim"); label "Terminal" (tanpa "(Log Panel)");
+    urutan [update bila ada], Terminal, Laporkan Bug, Settings (bold),
+    Log Out (merah, bold → dialog logout); footer "BMACHINE · 15.15"
+    (`APP_VERSION = "15.15"` di `src/main.rs`, dari assembly
+    `ToString(2)` untuk v15.15.3). `Cargo.toml` tambah `chrono = "0.4"`.
+- Keputusan abeng 27 Nov 2026, 16:54 WIB (menggantikan "JANGAN UBAH" di
+  brief awal) — sudah diterapkan:
+  - (1) Label widget ke-4 TETAP "POINTS" ("point saja boleh").
+  - (2) Window utama BISA di-resize sampai compact/kecil: hapus
+    `width`/`height` di `AppWindow`, `min-width: 520px`
+    (`ui/design.slint` token `window-min-width`); ukuran awal 960×640
+    di-set dari Rust (`set_size` setelah `AppWindow::new()`).
+    Tampilan yang hilang/terpotong di ukuran sangat kecil itu wajar.
+  - (3) Pemicu radial tambahan DIHAPUS: orb hexagon di nav + Shift+klik
+    tengah di latar dashboard (`radial-trigger-touch`). Yang tersisa
+    hanya hotkey global (rdev, default SAMA seperti C#:
+    Type=Mouse(0), MouseButton=2 (Middle), Modifiers=4 (Shift), Key=0 —
+    `default_trigger_type` 1→0, `default_trigger_key` 222→0,
+    `default_trigger_modifiers` 12→4; label "Shift + Mouse Middle").
+- Diubah (perbaikan saat tes):
+  - Bug hook global radial: polling `hook_rx` dibuat sebagai
+    `slint::Timer::default().start(...)` TANPA binding — `Drop` Timer
+    Slint 1.19 menghapus timer, callback tidak pernah jalan. Perbaikan:
+    timer polling disimpan di `let _hook_timer` (hidup sampai `main()`
+    selesai); timer simulasi di `Vec<slint::Timer>`; `--simulate-hotkey`
+    kini simulasi Shift+Middle ditahan 3 detik. Debug hook sementara:
+    env `BMACHINE_DEBUG_HOOK=1`.
+  - Clamp posisi window: `center_over_main()` di-clamp `max(0)` untuk X
+    dan Y (Toolbox 1024×730 sempat terbit di (-32,-45), titlebar di
+    luar layar). Slint 1.19 tidak menyediakan ukuran layar.
+  - Export/import database (tugas tambahan abeng, prioritas tinggi):
+    `src/platform.rs` `pick_folder`/`pick_file` → enum `PickResult
+    { Picked, Cancelled, Unavailable(String) }` (batal = diam tanpa
+    toast; dialog gagal = toast jujur berisi penyebab; non-Windows =
+    toast "hanya tersedia di Windows"). `src/db.rs`: `backup_to()`
+    buat folder induk dulu; `validate_bmachine_db()` (header 16 byte
+    `SQLite format 3\0` + tabel `KeyValueStore` ada, pesan Indonesia
+    jelas); `import_key_values()` → `Result<usize, String>`, satu
+    transaksi (semua-atau-tidak-sama-sekali); `import_database()` baru
+    (validasi → backup DB aktif dulu ke `.bak` bertimestamp →
+    import satu transaksi; kembalikan `ImportReport`); `unique_path()`
+    (`-2`, `-3` bila sudah ada — `VACUUM INTO` gagal bila file tujuan
+    ada). Handler export/import di `src/main.rs`: lock gagal → toast
+    jelas; sukses import menyebut jumlah + lokasi `.bak` + "restart
+    untuk menerapkan". Export tetap `VACUUM INTO` (benar; C# gagal
+    karena copy mentah file .db terbuka mode WAL).
+  - Reopen window OS (ditemukan saat verifikasi): window yang sudah
+    di-hide TIDAK andal di-show ulang di Slint/winit Linux (reopen
+    SpreadsheetWindow gagal 4× berturut-turut; CardListWindow juga).
+    Perbaikan: buka-ulang setelah tutup SELALU membuat window baru
+    (flag `*_visible: Rc<Cell<bool>>` per window; `*cell = None` saat
+    flag false; close handler hanya set flag false + hide). Berlaku
+    untuk SpreadsheetWindow, CardListWindow, ToolboxWindow,
+    ReportBugDialog (radial tidak diubah — show-only-nya andal).
+    CardListWindow kini juga di-tengah window utama (CenterOwner,
+    860×580) + hide+show seperti sheet. ReportBug: flag juga di-set
+    false saat kirim sukses (hide).
+- Alasan: brief P0 27 Nov 16:31 + 3 keputusan abeng 16:54 + tugas
+  tambahan export/import DB (abeng, prioritas tinggi) + temuan saat tes
+  klik sungguhan.
+- Terverifikasi: `cargo build --offline` exit 0; `cargo test --offline`
+  12 passed, 0 failed (5 radial shortcut + 7 db). Klik sungguhan +
+  screenshot di `~/workspace/rust-gui-contoh/` (prefix `p0*`, `p0b-*`):
+  radial window OS di cursor (Shift+Middle ditahan); SpreadsheetWindow
+  1000×600 buka 3/3 siklus tutup→buka (window id baru tiap siklus,
+  posisi pulih dari DB); Toolbox window OS (0,0 setelah clamp);
+  BATCH drop zone penuh + pulih via "Pilih Folder"; flyout (sapaan jam
+  + Laporkan Bug + footer 15.15) + ReportBug (toast kosong, kirim →
+  baris Activities terverifikasi di SQLite); Settings General lengkap;
+  toggle visibilitas: klik pusat terukur (917,345) → OFF, Simpan → DB
+  `Settings.Dash.Batch='false'`, nav hanya HOME; kembalikan ON +
+  Simpan → DB `'true'`, nav HOME+BATCH. In-cell edit spreadsheet
+  TERBUKTI: double-klik B1 → Ctrl+A + paste "SDN TEST EDIT" → Enter →
+  B1 = "SDN TEST EDIT", "Simpan (1)" + "Perubahan belum disimpan
+  (1 sel)"; nilai dikembalikan ke "SDN RANCAIYUH I" setelah tes.
+  Tes DB pakai salinan DB asli abeng (`~/workspace/user/files/
+  BMachine.db`, TIDAK pernah ditulis; salinan di `/tmp/`):
+  `KeyValueStore` 166 baris, `Activities` 7674 baris, `journal_mode:
+  wal`; export → file valid (166 baris); import → 166 baris; file
+  bukan-DB ditolak dengan pesan jelas, DB aktif utuh, tanpa `.bak`;
+  import 1 baris baik + 1 baris rusak → gagal total + tepat 1 `.bak`.
+  Picker PowerShell (Windows) hanya diverifikasi dengan membaca.
+- Masih terbuka:
+  - Panah EDITING (CardListWindow): klik panah di Xvfb ini hilang
+    ~50% (handler TIDAK jalan — log debug sementara membuktikan;
+    saat klik sampai, window selalu terbuka). Bukan bug logika aplikasi;
+    diduga artefak Xvfb tanpa window manager (`_NET_ACTIVE_WINDOW`
+    tidak didukung). Perlu verifikasi di PC abeng (Windows, WM asli).
+    Koordinat panah sudah benar (hover biru di (416,163); glyph di
+    (427,163)).
+  - `min-width: 520` TIDAK ditegakkan WM Linux/Xvfb ini
+    (`xdotool windowsize 400 500` berhasil). Perlu verifikasi di PC
+    abeng (Windows).
+  - SpreadsheetWindow tersimpan X=-20 (terbit 20px ke kiri layar) —
+    posisi pulih dari DB (center_over_main untuk 1000px di main 960px).
+    Observasi lama, belum diputuskan bug; clamp hanya berlaku bila
+    belum ada simpanan.
+  - Toggle visibilitas sempat diduga "tidak merespons" — ternyata klik
+    tes meleset 27px ke kiri track (x=890, track 896–939). Bukan bug
+    aplikasi. Pelajaran: ukur koordinat klik dari piksel, jangan tebak
+    dari screenshot yang diskalakan. (Sudah masuk LANJUTKAN.md §4 —
+    periksa.)
+
 ## 2026-11-27 — Dex (contoh "harus sama" dari abeng) — Aturan presisi: new window + ukuran kontrol seragam
 
 - Diubah: `LANJUTKAN.md` §2 + aturan presisi — panah EDITING → UnifiedTrello

@@ -49,6 +49,20 @@ info baru — mulai dari sini.
   teks, TextBox, Dropdown, AutoCompleteBox harus berukuran SAMA dan rata
   atas-bawah — tidak ada yang menclok-menclok atau beda ukuran. Ukur
   dari C# (pixel + properti XAML), jangan ditebak.
+- **Keputusan abeng (27 Nov 2026, 16:54 WIB)** — menggantikan "JANGAN UBAH"
+  di brief P0 awal:
+  - (1) Label widget ke-4 TETAP "POINTS" (abeng: "point saja boleh") —
+    jangan ubah ke SPREADSHEET.
+  - (2) Window utama BISA di-resize sampai benar-benar compact/kecil:
+    minimum size kecil (`min-width: 520px` seperti C#
+    `MainWindow.axaml`); titlebar tetap custom 28px; ukuran awal 960×640
+    di-set dari Rust. Tampilan yang hilang/terpotong di ukuran sangat
+    kecil itu WAJAR — user menyesuaikan sendiri. Jangan kunci 960×640,
+    jangan paksa 1280×800.
+  - (3) Pemicu radial tambahan DIHAPUS: orb hexagon di nav + Shift+klik
+    tengah di latar dashboard. Yang tersisa hanya hotkey global (rdev,
+    default SAMA seperti C#: Type=Mouse, MouseButton=2 (Middle),
+    Modifiers=4 (Shift), Key=0).
 
 ## 3. Build, jalan, tes
 
@@ -87,9 +101,11 @@ DISPLAY=:98 SLINT_BACKEND=winit-software ./target/debug/bmachine-slint-demo
   preferred-height di Slint — pakai tinggi eksplisit `max(...)`.
 - KeyBindings di FocusScope mati saat scope kehilangan fokus (klik mouse
   tidak memfokuskan TouchArea) — refokus saat overlay/flyout berubah.
-- `xdotool windowsize` TIDAK me-layout ulang (ukuran window terikat konstanta
-  Design) — untuk tes 520×600 ubah sementara `window-width/height` di
-  `design.slint`, build, tes, kembalikan + rebuild.
+- `xdotool windowsize` ME-layout ulang (terbukti 27 Nov: 520×500 dan
+  400×500 mengubah layout). Catatan lama yang sebaliknya sudah tidak
+  berlaku. Window utama kini resizable dengan `min-width: 520px`
+  (token `window-min-width` di `design.slint`); token `window-width` /
+  `window-height` sudah dihapus 27 Nov — jangan dicari lagi.
 
 ## 5. File kunci
 

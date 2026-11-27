@@ -1,5 +1,21 @@
 use std::process::Command;
 
+/// Hasil dialog pilih file/folder — dibedakan karena penanganannya
+/// beda (27 Nov 2026, perbaikan export/import database):
+/// - Picked: user memilih sesuatu → lanjut.
+/// - Cancelled: user menutup/membatalkan dialog → DIAM, tanpa toast.
+/// - Unavailable: dialog gagal / platform tidak mendukung → toast
+///   jujur berisi penyebabnya (bukan "hanya tersedia di Windows"
+///   saat sedang di Windows).
+/// (Di Linux varian Picked/Cancelled tidak pernah dibangun — dialog
+/// hanya ada di Windows — jadi dead_code di sini sengaja diizinkan.)
+#[allow(dead_code)]
+pub enum PickResult {
+    Picked(String),
+    Cancelled,
+    Unavailable(String),
+}
+
 pub fn open_url(url: &str) -> Result<(), String> {
     let u = url.trim();
     if u.is_empty() {
@@ -23,7 +39,7 @@ pub fn open_url(url: &str) -> Result<(), String> {
     }
 }
 
-pub fn pick_folder(title: &str) -> Option<String> {
+pub fn pick_folder(title: &str) -> PickResult {
     #[cfg(target_os = "windows")]
     {
         let script = format!(
@@ -34,21 +50,42 @@ pub fn pick_folder(title: &str) -> Option<String> {
              if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {{ Write-Output $d.SelectedPath }}",
             title.replace('\'', "''")
         );
-        let out = Command::new("powershell")
+        let out = match Command::new("powershell")
             .args(["-NoProfile", "-STA", "-Command", &script])
             .output()
-            .ok()?;
+        {
+            Ok(o) => o,
+            Err(e) => {
+                return PickResult::Unavailable(format!(
+                    "Gagal menjalankan dialog pilih folder: {}",
+                    e
+                ))
+            }
+        };
+        if !out.status.success() {
+            return PickResult::Unavailable(format!(
+                "Dialog pilih folder gagal (PowerShell exit {}): {}",
+                out.status.code().unwrap_or(-1),
+                String::from_utf8_lossy(&out.stderr).trim()
+            ));
+        }
         let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-        if s.is_empty() { None } else { Some(s) }
+        if s.is_empty() {
+            PickResult::Cancelled
+        } else {
+            PickResult::Picked(s)
+        }
     }
     #[cfg(not(target_os = "windows"))]
     {
         let _ = title;
-        None
+        PickResult::Unavailable(
+            "Pemilih folder hanya tersedia di Windows.".to_string(),
+        )
     }
 }
 
-pub fn pick_file(title: &str, filter: &str) -> Option<String> {
+pub fn pick_file(title: &str, filter: &str) -> PickResult {
     #[cfg(target_os = "windows")]
     {
         let script = format!(
@@ -60,16 +97,37 @@ pub fn pick_file(title: &str, filter: &str) -> Option<String> {
             title.replace('\'', "''"),
             filter.replace('\'', "''")
         );
-        let out = Command::new("powershell")
+        let out = match Command::new("powershell")
             .args(["-NoProfile", "-STA", "-Command", &script])
             .output()
-            .ok()?;
+        {
+            Ok(o) => o,
+            Err(e) => {
+                return PickResult::Unavailable(format!(
+                    "Gagal menjalankan dialog pilih file: {}",
+                    e
+                ))
+            }
+        };
+        if !out.status.success() {
+            return PickResult::Unavailable(format!(
+                "Dialog pilih file gagal (PowerShell exit {}): {}",
+                out.status.code().unwrap_or(-1),
+                String::from_utf8_lossy(&out.stderr).trim()
+            ));
+        }
         let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-        if s.is_empty() { None } else { Some(s) }
+        if s.is_empty() {
+            PickResult::Cancelled
+        } else {
+            PickResult::Picked(s)
+        }
     }
     #[cfg(not(target_os = "windows"))]
     {
         let _ = (title, filter);
-        None
+        PickResult::Unavailable(
+            "Pemilih file hanya tersedia di Windows.".to_string(),
+        )
     }
 }

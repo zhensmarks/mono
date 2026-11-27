@@ -102,8 +102,9 @@ export global Design {
 
     // ---------- Window ----------
     in-out property <length> window-min-width: 520px;
-    in-out property <length> window-width: 960px;
-    in-out property <length> window-height: 640px;
+    // window-width/window-height DIHAPUS 27 Nov 2026: ukuran awal window
+    // utama di-set dari Rust (main.rs) — Slint melarang width + min-width
+    // pada satu Window. Nilai awal tetap 960x640 (lihat main.rs).
 
     // ---------- Durasi transisi ----------
     in-out property <duration> anim-fast: 120ms;
@@ -151,6 +152,7 @@ export component SvgIcon inherits Rectangle {
             : root.name == "plus" ? "M12 5v14 M5 12h14"
             : root.name == "x" ? "M18 6L6 18 M6 6l12 12"
             : root.name == "arrow-right" ? "M5 12h14 M12 5l7 7-7 7"
+            : root.name == "chevron-down" ? "M6 9l6 6 6-6"
             : root.name == "hexagon" ? "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
             : root.name == "save" ? "M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z M17 21v-8H7v8 M7 3v5h8"
             : root.name == "grid" ? "M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z"
@@ -178,6 +180,9 @@ export component Btn inherits Rectangle {
     in property <bool> small: false;
     // Skala fluid (1 = ukuran desain). Diberi pemakai via ui-scale.
     in property <float> scale: 1;
+    // Override tinggi eksplisit (mis. 34px untuk tombol Save C# H34).
+    // 0px = pakai tinggi standar 36px * scale.
+    in property <length> height-override: 0px;
     callback clicked();
 
     touch := TouchArea {
@@ -192,7 +197,7 @@ export component Btn inherits Rectangle {
     property <bool> is-danger: variant == "danger";
     property <bool> is-accent: variant == "accent";
 
-    height: 36px * scale;
+    height: root.height-override > 0px ? root.height-override : 36px * scale;
     border-radius: Design.radius-sm * scale;
     opacity: enabled ? 1 : 0.4;
 
@@ -376,6 +381,96 @@ export component TextField inherits Rectangle {
         vertical-alignment: center;
         x: 10px;
         visible: root.text == "" && !input.has-focus;
+    }
+}
+
+// ============================================================
+// ComboBox — dropdown pilihan (C# ComboBox: LANGUAGE, dsb).
+// Field 36px (sama seperti TextField/Btn — rata atas-bawah),
+// daftar opsi 36px/item muncul di bawah field saat dibuka.
+// In-flow (bukan popup overlay — Slint tidak punya popup global);
+// daftar memakai `if` supaya tidak makan ruang saat tertutup.
+// Tutup: pilih opsi, atau klik field lagi.
+// ============================================================
+export component ComboBox inherits Rectangle {
+    in-out property <[string]> model: [];
+    in-out property <int> current-index: 0;
+    in-out property <bool> open: false;
+    callback selected(int);
+
+    // Tinggi = field 36px + (daftar bila terbuka).
+    height: root.open ? 36px + 4px + root.model.length * 36px : 36px;
+
+    VerticalLayout {
+        spacing: 4px;
+
+        // Field: nilai saat ini + panah.
+        Rectangle {
+            height: 36px;
+            background: Design.bg-input;
+            border-color: root.open ? Design.border-focus : Design.border-default;
+            border-width: 1px;
+            border-radius: Design.radius-sm;
+
+            field-touch := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.open = !root.open; }
+            }
+
+            Text {
+                x: 10px;
+                width: parent.width - 34px;
+                height: 100%;
+                text: root.current-index >= 0 && root.current-index < root.model.length ? root.model[root.current-index] : "";
+                font-size: Design.font-body;
+                color: Design.text-primary;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+            SvgIcon {
+                x: parent.width - 26px;
+                y: (parent.height - self.height) / 2;
+                name: "chevron-down";
+                size: 14px;
+                icon-color: Design.text-muted;
+            }
+        }
+
+        // Daftar opsi (hanya saat terbuka).
+        if root.open : Rectangle {
+            background: Design.surface-elevated;
+            border-color: Design.border-default;
+            border-width: 1px;
+            border-radius: Design.radius-sm;
+            clip: true;
+            height: root.model.length * 36px;
+
+            VerticalLayout {
+                for item[i] in root.model : Rectangle {
+                    height: 36px;
+                    background: item-touch.has-hover ? Design.bg-hover : transparent;
+                    item-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.current-index = i;
+                            root.open = false;
+                            root.selected(i);
+                        }
+                    }
+                    Text {
+                        x: 10px;
+                        width: parent.width - 20px;
+                        height: 100%;
+                        text: item;
+                        font-size: Design.font-body;
+                        font-weight: root.current-index == i ? 700 : 400;
+                        color: root.current-index == i ? Design.accent : Design.text-primary;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                }
+            }
+        }
     }
 }
 

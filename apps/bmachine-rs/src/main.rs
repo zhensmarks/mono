@@ -25,6 +25,14 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 
+// Versi aplikasi untuk footer flyout profil (C# AppVersion =
+// assembly ToString(2) — v15.15.3 -> "15.15"). BUKAN versi Cargo.
+const APP_VERSION: &str = "15.15";
+
+// Posisi cursor terakhir (physical px) — dilacak hook rdev (MouseMove).
+// Dipakai cursor_screen_position() di Linux (GetCursorPos hanya Windows).
+static LAST_MOUSE_POS: Mutex<(i32, i32)> = Mutex::new((640, 400));
+
 // TABEL GLOBAL EXPLORER — digenerate tools/gen_explorer_data.py.
 // (folder-key, path, name, kind, ext, base, size, date, preview, loc)
 // Dipakai search (rekursif, substring case-insensitive) & type-ahead.
@@ -48,16 +56,21 @@ struct RadialShortcutConfig {
 }
 
 fn default_trigger_type() -> u8 {
-    1
+    // C# TriggerConfig.cs: Type = Mouse (0) — default trigger radial C#
+    // adalah Shift + Middle Click, BUKAN keyboard.
+    0
 }
 fn default_mouse_button() -> u8 {
     2
 }
 fn default_trigger_key() -> u32 {
-    222
+    // C# TriggerConfig.Key default = 0 (tidak dipakai saat Type=Mouse).
+    0
 }
 fn default_trigger_modifiers() -> u8 {
-    12
+    // C# TriggerConfig.Modifiers default = 4 (Shift).
+    // Bitmask: 1=Alt, 2=Ctrl, 4=Shift, 8=Win.
+    4
 }
 
 fn vk_to_rdev_key(vk: u32) -> Option<Key> {
@@ -315,12 +328,212 @@ fn cursor_screen_position() -> Option<(i32, i32)> {
     }
     #[cfg(not(target_os = "windows"))]
     {
-        None
+        LAST_MOUSE_POS.lock().ok().map(|p| *p)
     }
 }
 
-fn radial_window_origin(cursor: (i32, i32)) -> (i32, i32) {
-    (cursor.0 - 160, cursor.1 - 160)
+/// Asal window radial (C# App.axaml.cs: posisi tengah di cursor:
+/// screenPos - w*scaling/2, w = 320). `scale` = faktor DPI window
+/// utama; hasil dalam physical px untuk Window::set_position.
+fn radial_window_origin(cursor: (i32, i32), scale: f32) -> (i32, i32) {
+    let half = (160.0 * scale) as i32;
+    (cursor.0 - half, cursor.1 - half)
+}
+
+/// Posisi window (logis w×h) di tengah window utama (CenterOwner /
+/// CenterScreen ala C# — Slint tidak punya API itu; hitung dari
+/// pos/ukuran window utama). Hasil physical px untuk set_position.
+/// Posisi di-clamp >= 0 supaya titlebar selalu dalam layar (tanpa
+/// clamp, window yang lebih besar dari main window — mis. Toolbox
+/// 1024x730 vs main 960x640 — terbit di (-32,-45) dan titlebar
+/// tidak terjangkau). Slint 1.19 tidak menyediakan ukuran layar,
+/// jadi CenterScreen murni tidak bisa — tengah main window + clamp
+/// adalah pendekatan terdekat.
+fn center_over_main(ui: &AppWindow, w: i32, h: i32) -> (i32, i32) {
+    let win = ui.window();
+    let pos = win.position();
+    let size = win.size();
+    let scale = win.scale_factor();
+    let pw = (w as f32 * scale) as i32;
+    let ph = (h as f32 * scale) as i32;
+    (
+        (pos.x + (size.width as i32 - pw) / 2).max(0),
+        (pos.y + (size.height as i32 - ph) / 2).max(0),
+    )
+}
+
+/// Baca geometri window (logis x/y/w/h) dari DB; None bila belum
+/// ada / tidak valid.
+fn read_window_geometry(
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+    prefix: &str,
+) -> Option<(i32, i32, i32, i32)> {
+    let db_mutex = db.as_ref()?;
+    let guard = db_mutex.lock().ok()?;
+    let x: i32 = guard.get(&format!("{}.X", prefix))?.parse().ok()?;
+    let y: i32 = guard.get(&format!("{}.Y", prefix))?.parse().ok()?;
+    let w: i32 = guard.get(&format!("{}.Width", prefix))?.parse().ok()?;
+    let h: i32 = guard.get(&format!("{}.Height", prefix))?.parse().ok()?;
+    if w <= 0 || h <= 0 {
+        return None;
+    }
+    Some((x, y, w, h))
+}
+
+/// Simpan geometri window (logis) ke DB.
+fn save_window_geometry(
+    win: &slint::Window,
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+    prefix: &str,
+) {
+    let Some(db_mutex) = db.as_ref() else {
+        return;
+    };
+    let Ok(mut guard) = db_mutex.lock() else {
+        return;
+    };
+    let scale = win.scale_factor();
+    if scale <= 0.0 {
+        return;
+    }
+    let pos = win.position();
+    let size = win.size();
+    let x = (pos.x as f32 / scale) as i32;
+    let y = (pos.y as f32 / scale) as i32;
+    let w = (size.width as f32 / scale) as i32;
+    let h = (size.height as f32 / scale) as i32;
+    let _ = guard.set(&format!("{}.X", prefix), &x.to_string(), "Int");
+    let _ = guard.set(&format!("{}.Y", prefix), &y.to_string(), "Int");
+    let _ = guard.set(&format!("{}.Width", prefix), &w.to_string(), "Int");
+    let _ = guard.set(&format!("{}.Height", prefix), &h.to_string(), "Int");
+}
+
+/// Buka (atau buka-ulang) ToolboxWindow di tengah window utama.
+/// Dipakai callback AppWindow open-toolbox-window + radial open-toolbox.
+fn open_toolbox_window(
+    cell: &std::rc::Rc<std::cell::RefCell<Option<ToolboxWindow>>>,
+    visible: &std::rc::Rc<std::cell::Cell<bool>>,
+    ui_weak: &slint::Weak<AppWindow>,
+    tab: String,
+) {
+    let mut opt = cell.borrow_mut();
+    // Buka-ulang setelah tutup selalu buat window baru (alasan sama
+    // seperti SpreadsheetWindow: hide->show reuse tidak andal).
+    if !visible.get() {
+        *opt = None;
+    }
+    if opt.is_none() {
+        if let Ok(w) = ToolboxWindow::new() {
+            let w_weak = w.as_weak();
+            let vis_close = visible.clone();
+            w.on_close_window(move || {
+                vis_close.set(false);
+                if let Some(w) = w_weak.upgrade() {
+                    let _ = w.hide();
+                }
+            });
+            let ui_weak2 = ui_weak.clone();
+            w.on_toast(move |msg| {
+                if let Some(ui) = ui_weak2.upgrade() {
+                    ui.set_toast(msg);
+                }
+            });
+            *opt = Some(w);
+        }
+    }
+    if let Some(w) = opt.as_ref() {
+        w.set_tool_tab(slint::SharedString::from(tab));
+        if let Some(ui) = ui_weak.upgrade() {
+            let (cx, cy) = center_over_main(&ui, 1024, 730);
+            w.window()
+                .set_position(slint::PhysicalPosition::new(cx, cy));
+        }
+        // Hide + show = naik ke depan (Slint tidak punya Activate).
+        let _ = w.hide();
+        let _ = w.show();
+        visible.set(true);
+    }
+}
+
+/// Buka ReportBugDialog di tengah window utama. Kirim laporan =
+/// simpan ke tabel Activities + toast; ringkasan kosong ditolak.
+fn open_report_bug_window(
+    cell: &std::rc::Rc<std::cell::RefCell<Option<ReportBugDialog>>>,
+    visible: &std::rc::Rc<std::cell::Cell<bool>>,
+    ui_weak: &slint::Weak<AppWindow>,
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+) {
+    let mut opt = cell.borrow_mut();
+    // Buka-ulang setelah tutup selalu buat window baru (alasan sama
+    // seperti SpreadsheetWindow: hide->show reuse tidak andal).
+    if !visible.get() {
+        *opt = None;
+    }
+    if opt.is_none() {
+        if let Ok(w) = ReportBugDialog::new() {
+            let w_weak = w.as_weak();
+            let vis_close = visible.clone();
+            w.on_close_window(move || {
+                vis_close.set(false);
+                if let Some(w) = w_weak.upgrade() {
+                    let _ = w.hide();
+                }
+            });
+            let ui_weak2 = ui_weak.clone();
+            let db_clone = db.clone();
+            let w_weak_send = w.as_weak();
+            let vis_send = visible.clone();
+            w.on_send_report(move |summary, detail| {
+                let summary = summary.trim().to_string();
+                if summary.is_empty() {
+                    if let Some(ui) = ui_weak2.upgrade() {
+                        ui.set_toast(slint::SharedString::from("Isi ringkasan dulu"));
+                    }
+                    return;
+                }
+                if let Some(ref db_mutex) = db_clone {
+                    if let Ok(mut db_guard) = db_mutex.lock() {
+                        let user = ui_weak2
+                            .upgrade()
+                            .map(|ui| ui.get_app_user_name().to_string())
+                            .unwrap_or_default();
+                        let _ = db_guard.insert_activity(
+                            &user,
+                            "BugReport",
+                            &summary,
+                            detail.as_str(),
+                        );
+                    }
+                }
+                if let Some(ui) = ui_weak2.upgrade() {
+                    ui.set_toast(slint::SharedString::from("Laporan terkirim"));
+                }
+                vis_send.set(false);
+                if let Some(w) = w_weak_send.upgrade() {
+                    let _ = w.hide();
+                }
+            });
+            let ui_weak3 = ui_weak.clone();
+            w.on_toast(move |msg| {
+                if let Some(ui) = ui_weak3.upgrade() {
+                    ui.set_toast(msg);
+                }
+            });
+            *opt = Some(w);
+        }
+    }
+    if let Some(w) = opt.as_ref() {
+        w.set_summary_text(slint::SharedString::from(""));
+        w.set_detail_text(slint::SharedString::from(""));
+        if let Some(ui) = ui_weak.upgrade() {
+            let (cx, cy) = center_over_main(&ui, 560, 400);
+            w.window()
+                .set_position(slint::PhysicalPosition::new(cx, cy));
+        }
+        let _ = w.hide();
+        let _ = w.show();
+        visible.set(true);
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -336,12 +549,19 @@ mod radial_shortcut_tests {
 
     #[test]
     fn csharp_default_shortcut_config_is_preserved() {
+        // Default C# TriggerConfig.cs: Type=Mouse(0), MouseButton=2
+        // (Middle), Modifiers=4 (Shift), Key=0 (tidak dipakai utk Mouse).
+        // Nilai lama port (Type=1/Key=222/Modifiers=12 = Win+Shift+')
+        // BUKAN default C# — diperbaiki 27 Nov 2026 (keputusan abeng
+        // 16:54: hotkey global default sama seperti C#).
         let cfg: RadialShortcutConfig =
-            serde_json::from_str(r#"{"Type":1,"MouseButton":2,"Key":222,"Modifiers":12}"#).unwrap();
-        assert_eq!(cfg.Type, 1);
-        assert_eq!(cfg.Key, 222);
-        assert_eq!(cfg.Modifiers, 12);
-        assert_eq!(vk_to_rdev_key(cfg.Key), Some(Key::Quote));
+            serde_json::from_str(r#"{"Type":0,"MouseButton":2,"Key":0,"Modifiers":4}"#).unwrap();
+        assert_eq!(cfg.Type, 0);
+        assert_eq!(cfg.MouseButton, 2);
+        assert_eq!(cfg.Key, 0);
+        assert_eq!(cfg.Modifiers, 4);
+        assert_eq!(shortcut_label(&cfg), "Shift + Mouse Middle");
+        assert!(shortcut_matches(&cfg, None, Some(Button::Middle), 4));
     }
 
     #[test]
@@ -862,11 +1082,18 @@ fn read_bool_model(m: slint::ModelRc<bool>) -> Vec<bool> {
 fn main() -> Result<(), slint::PlatformError> {
     let ui = AppWindow::new()?;
 
+    // Ukuran awal window utama 960x640 (keputusan abeng 27 Nov 2026
+    // 16:54: resizable, min-width 520 di .slint; BUKAN 1280x800).
+    // Di-set di sini karena Slint melarang width + min-width pada satu
+    // Window — .slint hanya memegang min-width, Rust memegang ukuran awal.
+    ui.window().set_size(slint::PhysicalSize::new(960, 640));
+
     // QA/report helper: membuka state tertentu lewat argumen startup, tanpa
     // menyuntik klik mouse/keyboard ke user. Dipakai runner screenshot VM;
     // tidak ada efek bila aplikasi dijalankan normal (tanpa argumen).
     let mut no_splash = false;
     let mut radial_test = false;
+    let mut toolbox_test = false;
     let mut simulate_hotkey = false;
     for arg in std::env::args().skip(1) {
         if let Some(v) = arg.strip_prefix("--view=") {
@@ -883,6 +1110,8 @@ fn main() -> Result<(), slint::PlatformError> {
             no_splash = true;
         } else if arg == "--radial-test" {
             radial_test = true;
+        } else if arg == "--toolbox" {
+            toolbox_test = true;
         } else if arg == "--simulate-hotkey" {
             simulate_hotkey = true;
         } else if let Some(v) = arg.strip_prefix("--dialog=") {
@@ -890,26 +1119,38 @@ fn main() -> Result<(), slint::PlatformError> {
         }
     }
 
-    // QA helper: open the radial overlay immediately, without needing the
-    // global shortcut (used to screenshot the radial state in a VM).
-    if radial_test {
-        ui.set_radial_open(true);
-    }
+    // QA helper --radial-test / --toolbox: dijalankan di AKHIR main
+    // (lihat sebelum ui.run()) — watcher radial memanggil callback
+    // Rust, jadi membuka sebelum callback terdaftar = no-op.
 
+    // Timer simulasi disimpan di Vec agar hidup sampai ui.run()
+    // selesai (alasan sama: Drop Timer membatalkan timer).
+    let mut _sim_timers: Vec<slint::Timer> = Vec::new();
     if simulate_hotkey {
-        let sim = slint::Timer::default();
-        sim.start(
+        // Simulasi trigger default saat ini (Shift + Middle, ditahan
+        // 3 detik): tekan Shift + Middle di 2 dtk, lepas di 5 dtk.
+        // (Dulu mensimulasi Win+Shift+' — default lama yang sudah
+        // diganti ke Mouse/Middle/Shift pada 27 Nov 2026.)
+        let sim_down = slint::Timer::default();
+        sim_down.start(
             slint::TimerMode::SingleShot,
             std::time::Duration::from_secs(2),
             move || {
-                let _ = rdev::simulate(&rdev::EventType::KeyPress(Key::MetaLeft));
                 let _ = rdev::simulate(&rdev::EventType::KeyPress(Key::ShiftLeft));
-                let _ = rdev::simulate(&rdev::EventType::KeyPress(Key::Quote));
-                let _ = rdev::simulate(&rdev::EventType::KeyRelease(Key::Quote));
-                let _ = rdev::simulate(&rdev::EventType::KeyRelease(Key::ShiftLeft));
-                let _ = rdev::simulate(&rdev::EventType::KeyRelease(Key::MetaLeft));
+                let _ = rdev::simulate(&rdev::EventType::ButtonPress(Button::Middle));
             },
         );
+        _sim_timers.push(sim_down);
+        let sim_up = slint::Timer::default();
+        sim_up.start(
+            slint::TimerMode::SingleShot,
+            std::time::Duration::from_secs(5),
+            move || {
+                let _ = rdev::simulate(&rdev::EventType::ButtonRelease(Button::Middle));
+                let _ = rdev::simulate(&rdev::EventType::KeyRelease(Key::ShiftLeft));
+            },
+        );
+        _sim_timers.push(sim_up);
     }
 
     // Inisialisasi Database SQLite BMachine.db nyata di AppData/BMachine
@@ -1038,9 +1279,42 @@ fn main() -> Result<(), slint::PlatformError> {
                     ui.set_app_trello_status(slint::SharedString::from("Tersambung ke Trello."));
                 }
             }
+            if let Some(v) = db_guard.get("Settings.Language") {
+                ui.set_app_lang(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Settings.Batch.Filter") {
+                ui.set_batch_file_filter(slint::SharedString::from(v));
+            }
+            if let Some(v) = db_guard.get("Settings.Dash.Batch") {
+                ui.set_is_batch_visible(v == "true" || v == "1");
+            }
+            if let Some(v) = db_guard.get("Settings.Dash.Lock") {
+                ui.set_is_folder_locker_visible(v == "true" || v == "1");
+            }
+            if let Some(v) = db_guard.get("Settings.Dash.Explorer") {
+                ui.set_is_output_explorer_visible(v == "true" || v == "1");
+            }
             theme::load_theme_from_db(&ui, &db_guard);
         }
     }
+
+    // Sapaan flyout profil dari jam lokal (C# DashboardViewModel:
+    // <12 GoodMorning, <15 GoodAfternoon, else GoodEvening).
+    {
+        use chrono::Timelike;
+        let hour = chrono::Local::now().hour();
+        let greeting = if hour < 12 {
+            "Selamat pagi"
+        } else if hour < 15 {
+            "Selamat siang"
+        } else {
+            "Selamat sore"
+        };
+        ui.set_greeting_text(slint::SharedString::from(greeting));
+    }
+    // Versi aplikasi untuk footer flyout (C# AppVersion =
+    // assembly ToString(2) = "15.15").
+    ui.set_app_version(slint::SharedString::from(APP_VERSION));
 
     // Default widget status awal persis C# (0 jika belum tersambung, bukan angka demo)
     ui.set_stat_editing(slint::SharedString::from("0"));
@@ -1419,6 +1693,43 @@ fn main() -> Result<(), slint::PlatformError> {
                             ui.get_app_anim_speed().as_str(),
                             "String",
                         );
+                        let _ = db_guard.set(
+                            "Settings.Language",
+                            ui.get_app_lang().as_str(),
+                            "String",
+                        );
+                        let _ = db_guard.set(
+                            "Settings.Batch.Filter",
+                            ui.get_batch_file_filter().as_str(),
+                            "String",
+                        );
+                        let _ = db_guard.set(
+                            "Settings.Dash.Batch",
+                            if ui.get_is_batch_visible() {
+                                "true"
+                            } else {
+                                "false"
+                            },
+                            "Bool",
+                        );
+                        let _ = db_guard.set(
+                            "Settings.Dash.Lock",
+                            if ui.get_is_folder_locker_visible() {
+                                "true"
+                            } else {
+                                "false"
+                            },
+                            "Bool",
+                        );
+                        let _ = db_guard.set(
+                            "Settings.Dash.Explorer",
+                            if ui.get_is_output_explorer_visible() {
+                                "true"
+                            } else {
+                                "false"
+                            },
+                            "Bool",
+                        );
                     }
                 }
                 ui.set_toast(slint::SharedString::from("Pengaturan General disimpan"));
@@ -1502,7 +1813,9 @@ fn main() -> Result<(), slint::PlatformError> {
                     ),
                     _ => platform::pick_folder("Pilih Folder"),
                 };
-                if let Some(path) = picked {
+                // Hanya Picked yang diisi ke field; batal/gagal dialog
+                // diam saja di jalur browse-path ini.
+                if let platform::PickResult::Picked(path) = picked {
                     let _ = ui_w.upgrade_in_event_loop(move |ui| {
                         let p = slint::SharedString::from(&path);
                         match kind.as_str() {
@@ -1664,13 +1977,30 @@ fn main() -> Result<(), slint::PlatformError> {
 
     {
         let sheet_cell = sheet_win_cell.clone();
+        // Window sedang tampil atau tidak. Buka-ulang setelah tutup
+        // SELALU membuat window baru: window yang sudah di-hide
+        // tidak andal di-show ulang di Slint/winit Linux (reopen
+        // sering gagal — window tetap tersembunyi). Window yang
+        // masih tampil cukup di-raise (hide+show).
+        let sheet_visible = std::rc::Rc::new(std::cell::Cell::new(false));
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
         ui.on_open_new_sheet_window(move || {
             let mut opt = sheet_cell.borrow_mut();
+            if !sheet_visible.get() {
+                *opt = None;
+            }
             if opt.is_none() {
                 if let Ok(w) = SpreadsheetWindow::new() {
                     let w_weak = w.as_weak();
+                    let db_clone2 = db_clone.clone();
+                    let vis_close = sheet_visible.clone();
                     w.on_close_window(move || {
+                        vis_close.set(false);
                         if let Some(w) = w_weak.upgrade() {
+                            // Simpan posisi/ukuran terakhir (C#
+                            // DashboardViewModel: Closing -> simpan).
+                            save_window_geometry(w.window(), &db_clone2, "SpreadsheetWindow");
                             let _ = w.hide();
                         }
                     });
@@ -1678,21 +2008,53 @@ fn main() -> Result<(), slint::PlatformError> {
                 }
             }
             if let Some(w) = opt.as_ref() {
+                // Pulihkan posisi/ukuran terakhir dari DB (C#: buka ->
+                // pulihkan, Activate() bila sudah terbuka).
+                let scale = w.window().scale_factor();
+                if let Some((x, y, lw, lh)) =
+                    read_window_geometry(&db_clone, "SpreadsheetWindow")
+                {
+                    w.window().set_position(slint::PhysicalPosition::new(
+                        (x as f32 * scale) as i32,
+                        (y as f32 * scale) as i32,
+                    ));
+                    w.window().set_size(slint::PhysicalSize {
+                        width: (lw as f32 * scale) as u32,
+                        height: (lh as f32 * scale) as u32,
+                    });
+                } else if let Some(ui) = ui_weak.upgrade() {
+                    // Belum ada simpanan: tengah window utama (ukuran
+                    // default 1000x600 sudah di .slint).
+                    let (cx, cy) = center_over_main(&ui, 1000, 600);
+                    w.window()
+                        .set_position(slint::PhysicalPosition::new(cx, cy));
+                }
+                // Hide + show = naik ke depan (Slint tidak punya Activate).
+                let _ = w.hide();
                 let _ = w.show();
+                sheet_visible.set(true);
             }
         });
     }
 
     {
         let card_cell = card_win_cell.clone();
+        // Sama seperti sheet: buka-ulang setelah tutup selalu buat
+        // window baru (hide->show reuse tidak andal di Linux).
+        let card_visible = std::rc::Rc::new(std::cell::Cell::new(false));
         let ui_weak = ui.as_weak();
         ui.on_open_new_card_window(move |cat| {
             let cat_str = cat.as_str().to_string();
             let mut opt = card_cell.borrow_mut();
+            if !card_visible.get() {
+                *opt = None;
+            }
             if opt.is_none() {
                 if let Ok(w) = CardListWindow::new() {
                     let w_weak = w.as_weak();
+                    let vis_close = card_visible.clone();
                     w.on_close_window(move || {
+                        vis_close.set(false);
                         if let Some(w) = w_weak.upgrade() {
                             let _ = w.hide();
                         }
@@ -1723,7 +2085,247 @@ fn main() -> Result<(), slint::PlatformError> {
                         w.set_card_done(main_ui.get_late_done());
                     }
                 }
+                // Tengah window utama (C# CenterOwner; 860x580
+                // sesuai ukuran CardListWindow di .slint).
+                if let Some(main_ui) = ui_weak.upgrade() {
+                    let (cx, cy) = center_over_main(&main_ui, 860, 580);
+                    w.window()
+                        .set_position(slint::PhysicalPosition::new(cx, cy));
+                }
+                // Hide + show = naik ke depan (Slint tidak punya
+                // Activate). show() saja tidak andal di sini.
+                let _ = w.hide();
                 let _ = w.show();
+                card_visible.set(true);
+            }
+        });
+    }
+
+    // ---- Radial / Toolbox / ReportBug — window OS (C#
+    // RadialMenuWindow / ToolboxWindow / ReportBugDialog). ----
+    let radial_win_cell: std::rc::Rc<std::cell::RefCell<Option<RadialMenuWindow>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(None));
+    let toolbox_win_cell: std::rc::Rc<std::cell::RefCell<Option<ToolboxWindow>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(None));
+    let toolbox_visible: std::rc::Rc<std::cell::Cell<bool>> =
+        std::rc::Rc::new(std::cell::Cell::new(false));
+    let bug_win_cell: std::rc::Rc<std::cell::RefCell<Option<ReportBugDialog>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(None));
+    let bug_visible: std::rc::Rc<std::cell::Cell<bool>> =
+        std::rc::Rc::new(std::cell::Cell::new(false));
+    // True hanya saat window radial OS sedang tampil — membedakan
+    // "tutup karena trigger dilepas" (release-to-execute) dari
+    // "tutup karena back()/klik-kanan" (batal, tanpa eksekusi).
+    let radial_visible: std::rc::Rc<std::cell::Cell<bool>> =
+        std::rc::Rc::new(std::cell::Cell::new(false));
+
+    {
+        let radial_cell = radial_win_cell.clone();
+        let radial_vis = radial_visible.clone();
+        let toolbox_cell = toolbox_win_cell.clone();
+        let toolbox_visible_radial = toolbox_visible.clone();
+        let ui_weak = ui.as_weak();
+        ui.on_open_radial_at_cursor(move || {
+            let mut opt = radial_cell.borrow_mut();
+            if opt.is_none() {
+                if let Ok(w) = RadialMenuWindow::new() {
+                    let w_weak = w.as_weak();
+                    let vis_close = radial_vis.clone();
+                    let ui_weak_close = ui_weak.clone();
+                    w.on_close_window(move || {
+                        // back() dari roda (klik-kanan / tengah / backdrop):
+                        // tutup saja, JANGAN release-execute.
+                        vis_close.set(false);
+                        if let Some(w) = w_weak.upgrade() {
+                            let _ = w.hide();
+                        }
+                        if let Some(ui) = ui_weak_close.upgrade() {
+                            ui.set_radial_open(false);
+                        }
+                    });
+                    let ui_weak_exec = ui_weak.clone();
+                    w.on_execute_script(move |name| {
+                        if let Some(ui) = ui_weak_exec.upgrade() {
+                            ui.set_toast(slint::SharedString::from(format!(
+                                "[Photoshop] Menjalankan: {}",
+                                name
+                            )));
+                        }
+                    });
+                    let ui_weak_toast = ui_weak.clone();
+                    w.on_toast(move |msg| {
+                        if let Some(ui) = ui_weak_toast.upgrade() {
+                            ui.set_toast(msg);
+                        }
+                    });
+                    let radial_weak_tb = w.as_weak();
+                    let vis_tb = radial_vis.clone();
+                    let ui_weak_tb = ui_weak.clone();
+                    let tb_cell_inner = toolbox_cell.clone();
+                    let tb_vis_inner = toolbox_visible_radial.clone();
+                    w.on_open_toolbox(move |tab| {
+                        // Radial ditutup (tanpa eksekusi), Toolbox dibuka.
+                        vis_tb.set(false);
+                        if let Some(rw) = radial_weak_tb.upgrade() {
+                            let _ = rw.hide();
+                        }
+                        if let Some(ui) = ui_weak_tb.upgrade() {
+                            ui.set_radial_open(false);
+                        }
+                        open_toolbox_window(&tb_cell_inner, &tb_vis_inner, &ui_weak_tb, tab.to_string());
+                    });
+                    *opt = Some(w);
+                }
+            }
+            if let Some(w) = opt.as_ref() {
+                if let Some(ui) = ui_weak.upgrade() {
+                    w.set_doc_tab_count(ui.get_radial_doc_tab_count());
+                    w.invoke_reset_wheel();
+                    if let Some(cursor) = cursor_screen_position() {
+                        let scale = ui.window().scale_factor();
+                        let (ox, oy) = radial_window_origin(cursor, scale);
+                        w.window()
+                            .set_position(slint::PhysicalPosition::new(ox, oy));
+                    }
+                    let _ = w.show();
+                    radial_vis.set(true);
+                }
+            }
+        });
+    }
+
+    {
+        let radial_cell = radial_win_cell.clone();
+        let radial_vis = radial_visible.clone();
+        ui.on_close_radial_window(move || {
+            // Trigger dilepas: release-to-execute, lalu tutup.
+            if radial_vis.get() {
+                radial_vis.set(false);
+                if let Some(w) = radial_cell.borrow().as_ref() {
+                    w.invoke_release_execute();
+                    let _ = w.hide();
+                }
+            }
+        });
+    }
+
+    {
+        let toolbox_cell = toolbox_win_cell.clone();
+        let toolbox_vis = toolbox_visible.clone();
+        let ui_weak = ui.as_weak();
+        ui.on_open_toolbox_window(move |tab| {
+            open_toolbox_window(&toolbox_cell, &toolbox_vis, &ui_weak, tab.to_string());
+        });
+    }
+
+    {
+        let bug_cell = bug_win_cell.clone();
+        let bug_vis = bug_visible.clone();
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
+        ui.on_open_report_bug(move || {
+            open_report_bug_window(&bug_cell, &bug_vis, &ui_weak, &db_clone);
+        });
+    }
+
+    {
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
+        ui.on_export_database(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                match platform::pick_folder("Pilih folder cadangan database") {
+                    platform::PickResult::Cancelled => {
+                        // User membatalkan dialog — diam, tanpa toast.
+                    }
+                    platform::PickResult::Unavailable(msg) => {
+                        ui.set_toast(slint::SharedString::from(msg));
+                    }
+                    platform::PickResult::Picked(folder) => {
+                        let folder_path = std::path::Path::new(&folder);
+                        // Pastikan folder tujuan ada sebelum VACUUM INTO.
+                        if let Err(e) = std::fs::create_dir_all(folder_path) {
+                            ui.set_toast(slint::SharedString::from(format!(
+                                "Gagal membuat folder cadangan: {}",
+                                e
+                            )));
+                            return;
+                        }
+                        // Nama unik (VACUUM INTO gagal bila file sudah ada).
+                        let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
+                        let dest = crate::db::unique_path(
+                            folder_path,
+                            format!("BMachine-backup-{}.db", stamp),
+                        );
+                        let Some(ref db_mutex) = db_clone else {
+                            ui.set_toast(slint::SharedString::from(
+                                "Database tidak tersedia.",
+                            ));
+                            return;
+                        };
+                        let Ok(db_guard) = db_mutex.lock() else {
+                            ui.set_toast(slint::SharedString::from(
+                                "Gagal mengunci database (sedang dipakai proses lain).",
+                            ));
+                            return;
+                        };
+                        match db_guard.backup_to(&dest) {
+                            Ok(()) => ui.set_toast(slint::SharedString::from(format!(
+                                "Database dicadangkan ke {}",
+                                dest.display()
+                            ))),
+                            Err(e) => ui.set_toast(slint::SharedString::from(format!(
+                                "Gagal mencadangkan: {}",
+                                e
+                            ))),
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    {
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
+        ui.on_import_database(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                match platform::pick_file(
+                    "Pilih file cadangan database",
+                    "Database (*.db)|*.db",
+                ) {
+                    platform::PickResult::Cancelled => {
+                        // User membatalkan dialog — diam, tanpa toast.
+                    }
+                    platform::PickResult::Unavailable(msg) => {
+                        ui.set_toast(slint::SharedString::from(msg));
+                    }
+                    platform::PickResult::Picked(path) => {
+                        let Some(ref db_mutex) = db_clone else {
+                            ui.set_toast(slint::SharedString::from(
+                                "Database tidak tersedia.",
+                            ));
+                            return;
+                        };
+                        let Ok(mut db_guard) = db_mutex.lock() else {
+                            ui.set_toast(slint::SharedString::from(
+                                "Gagal mengunci database (sedang dipakai proses lain).",
+                            ));
+                            return;
+                        };
+                        // import_database: validasi → backup DB aktif
+                        // (.bak bertimestamp) → import satu transaksi.
+                        match db_guard
+                            .import_database(std::path::Path::new(&path))
+                        {
+                            Ok(report) => ui.set_toast(slint::SharedString::from(format!(
+                                "{} pengaturan dipulihkan — cadangan database lama di {} — restart untuk menerapkan.",
+                                report.imported,
+                                report.backup_path.display()
+                            ))),
+                            Err(msg) => ui.set_toast(slint::SharedString::from(msg)),
+                        }
+                    }
+                }
             }
         });
     }
@@ -1920,6 +2522,8 @@ fn main() -> Result<(), slint::PlatformError> {
                     "v{}",
                     info.latest_version
                 )));
+                // Item "Ada pembaruan vX" muncul di flyout profil.
+                ui.set_has_pending_update(true);
                 ui.set_update_size_text(slint::SharedString::from(if info.size_bytes > 0 {
                     format!("{:.1} MB", info.size_bytes as f64 / 1_048_576.0)
                 } else {
@@ -2337,12 +2941,14 @@ fn main() -> Result<(), slint::PlatformError> {
 
     // C# parity: record in Settings, write the same ShortcutConfig JSON, and
     // update the running hook immediately. Queue edges; do not collapse a tap.
+    // Fallback = default C# TriggerConfig.cs (Mouse / Middle / Shift) bila
+    // DB belum menyimpan ShortcutConfig.
     let initial_shortcut = {
         let mut cfg = RadialShortcutConfig {
-            Type: 1,
+            Type: 0,
             MouseButton: 2,
-            Key: 222,
-            Modifiers: 12,
+            Key: 0,
+            Modifiers: 4,
         };
         if let Some(ref db_mutex) = db {
             if let Ok(guard) = db_mutex.lock() {
@@ -2383,11 +2989,18 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let hook_shortcut = Arc::clone(&shortcut);
     let hook_recording = Arc::clone(&recording);
+    // Debug hook (sementara, 27 Nov 2026): BMACHINE_DEBUG_HOOK=1
+    // mencetak tiap event rdev + hasil pencocokan trigger ke stderr.
+    // Dipakai memverifikasi hook global di Linux/Xvfb.
+    let hook_debug = std::env::var("BMACHINE_DEBUG_HOOK").is_ok();
     std::thread::spawn(move || {
         let modifiers = Cell::new(0u8);
         let active = Cell::new(false);
         let _ = rdev::listen(move |event: Event| {
             let mut mods = modifiers.get();
+            if hook_debug {
+                eprintln!("[hook] {:?} mods={}", event.event_type, mods);
+            }
             match event.event_type {
                 EventType::KeyPress(key) => {
                     mods |= modifier_mask_for_key(key);
@@ -2453,6 +3066,13 @@ fn main() -> Result<(), slint::PlatformError> {
                         let _ = hook_tx.send(RadialHookEvent::TriggerUp);
                     }
                 }
+                EventType::MouseMove { x, y } => {
+                    // Lacak posisi cursor terakhir (dipakai posisi
+                    // window radial di Linux — GetCursorPos hanya Windows).
+                    if let Ok(mut pos) = LAST_MOUSE_POS.lock() {
+                        *pos = (x as i32, y as i32);
+                    }
+                }
                 _ => {}
             }
         });
@@ -2462,7 +3082,14 @@ fn main() -> Result<(), slint::PlatformError> {
     let db_for_hook = db.clone();
     let shortcut_for_ui = Arc::clone(&shortcut);
     let recording_for_ui = Arc::clone(&recording);
-    slint::Timer::default().start(
+    // Timer HARUS disimpan dalam binding (bukan temporary):
+    // Drop Timer menghapusnya dari daftar timer — pola
+    // `Timer::default().start(...)` tanpa binding langsung mati dan
+    // event hook tidak pernah sampai ke UI. Itu penyebab hotkey
+    // global tidak pernah membuka radial (ditemukan 27 Nov 2026).
+    // Binding ini hidup sampai main() selesai (setelah ui.run()).
+    let _hook_timer = slint::Timer::default();
+    _hook_timer.start(
         slint::TimerMode::Repeated,
         std::time::Duration::from_millis(16),
         move || {
@@ -2496,6 +3123,23 @@ fn main() -> Result<(), slint::PlatformError> {
             }
         },
     );
+
+    // QA helpers (SETELAH semua callback Rust terdaftar — watcher
+    // radial memanggil callback Rust; dibuka sebelum registrasi =
+    // no-op). --radial-test: buka radial di cursor; --toolbox: buka
+    // ToolboxWindow (tanpa jalur UI — roda radial belum memanggil
+    // open-toolbox).
+    if radial_test {
+        ui.set_radial_open(true);
+    }
+    if toolbox_test {
+        open_toolbox_window(
+            &toolbox_win_cell,
+            &toolbox_visible,
+            &ui.as_weak(),
+            "MantraNama".to_string(),
+        );
+    }
 
     // ui.run() mengambil alih event loop; show() sudah dipanggil di atas.
     ui.run()?;

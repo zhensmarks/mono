@@ -2,8 +2,8 @@
 // Mendukung:
 // - Header Kolom (A: Kode, B: Sekolah, C: Jenjang, D: Status, E: Poin, F: Catatan)
 // - Nomor Baris (1, 2, 3...)
-// - Baris Formula / Cell Coordinate Bar (misal: [ B3 ] = "SDN RANCAIYUH I")
 // - In-cell direct editing & navigasi sel aktif dengan garis aksen 2px ala Excel
+//   (C# tidak punya formula bar — edit langsung di sel, Enter = terapkan)
 // - Tombol Tambah Baris, Hapus Baris, Auto-Sum (∑), Zoom, Refresh, Simpan (Draft tracking)
 // - Mode Standalone Window atau Embedded View di modul utama.
 
@@ -18,6 +18,7 @@ component GridCell inherits Rectangle {
     in property <color> text-color: Design.text-primary;
     callback clicked();
     callback double-clicked();
+    callback edited(string);
 
     background: root.is-active ? Design.accent-subtle : transparent;
     border-color: root.is-active ? Design.accent : Design.separator;
@@ -30,6 +31,7 @@ component GridCell inherits Rectangle {
     }
 
     Text {
+        visible: !root.is-active;
         x: 6px;
         y: 0;
         width: parent.width - 12px;
@@ -52,6 +54,22 @@ component GridCell inherits Rectangle {
         height: 5px;
         background: Design.accent;
     }
+
+    // Editor langsung di sel (C# tidak punya formula bar — edit langsung
+    // di sel, Enter = terapkan, klik sel lain = batalkan edit).
+    if root.is-active : TextInput {
+        x: 6px;
+        y: 0;
+        width: parent.width - 12px;
+        height: 100%;
+        text: root.text;
+        font-size: 12px;
+        font-family: root.is-numeric ? "JetBrains Mono" : Design.font-family;
+        color: Design.text-primary;
+        horizontal-alignment: root.is-numeric ? right : left;
+        vertical-alignment: center;
+        accepted => { root.edited(self.text); }
+    }
 }
 
 export component SpreadsheetComponent inherits Rectangle {
@@ -65,8 +83,6 @@ export component SpreadsheetComponent inherits Rectangle {
     // Sel aktif saat ini: row 0-based, col 0-based (0=A..5=F)
     in-out property <int> active-row: 0;
     in-out property <int> active-col: 1; // Default di kolom 'Sekolah'
-    in-out property <string> formula-bar-text: "SDN RANCAIYUH I";
-    in-out property <bool> is-editing-cell: false;
 
     // Callbacks
     callback toast(string);
@@ -88,17 +104,10 @@ export component SpreadsheetComponent inherits Rectangle {
     public function update-active-cell(r: int, c: int) {
         root.active-row = r;
         root.active-col = c;
-        if (c == 0) { root.formula-bar-text = root.col-a[r]; }
-        else if (c == 1) { root.formula-bar-text = root.col-b[r]; }
-        else if (c == 2) { root.formula-bar-text = root.col-c[r]; }
-        else if (c == 3) { root.formula-bar-text = root.col-d[r]; }
-        else if (c == 4) { root.formula-bar-text = root.col-e[r]; }
-        else if (c == 5) { root.formula-bar-text = root.col-f[r]; }
     }
 
     // Tulis nilai baru dari formula bar / input ke sel aktif
     public function apply-cell-edit(val: string) {
-        root.formula-bar-text = val;
         let r: int = root.active-row;
         let c: int = root.active-col;
         if (c == 0) { root.col-a[r] = val; }
@@ -282,76 +291,7 @@ export component SpreadsheetComponent inherits Rectangle {
             }
         }
 
-        // ===== 2. Formula Bar / Active Cell Bar (Ala Microsoft Excel) =====
-        Rectangle {
-            height: 32px;
-            background: Design.surface-elevated;
-            border-color: Design.separator;
-            border-width: 1px;
-            border-radius: Design.radius-sm;
-
-            HorizontalLayout {
-                padding-left: 8px;
-                padding-right: 8px;
-                spacing: 8px;
-
-                // Indikator Koordinat Sel (misal: B2)
-                Rectangle {
-                    width: 48px;
-                    height: 22px;
-                    background: Design.accent-subtle;
-                    border-radius: 4px;
-                    border-color: Design.accent;
-                    border-width: 1px;
-
-                    Text {
-                        text: (root.active-col == 0 ? "A" :
-                               root.active-col == 1 ? "B" :
-                               root.active-col == 2 ? "C" :
-                               root.active-col == 3 ? "D" :
-                               root.active-col == 4 ? "E" : "F") + (root.active-row + 1);
-                        font-size: 11px;
-                        font-weight: 800;
-                        font-family: "JetBrains Mono";
-                        color: Design.accent;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
-                }
-
-                Text {
-                    text: "fx";
-                    font-size: 13px;
-                    font-weight: 800;
-                    color: Design.text-muted;
-                    vertical-alignment: center;
-                }
-
-                // Input Formula / Teks Sel Langsung
-                formula-input := TextInput {
-                    text <=> root.formula-bar-text;
-                    font-size: 12px;
-                    font-family: Design.font-family;
-                    color: Design.text-primary;
-                    vertical-alignment: center;
-                    horizontal-stretch: 1;
-                    accepted => {
-                        root.apply-cell-edit(self.text);
-                    }
-                }
-
-                Btn {
-                    label: "Terapkan";
-                    variant: "ghost";
-                    small: true;
-                    clicked => {
-                        root.apply-cell-edit(formula-input.text);
-                    }
-                }
-            }
-        }
-
-        // ===== 3. Tabel DataGrid Spreadsheet =====
+        // ===== 2. Tabel DataGrid Spreadsheet =====
         Rectangle {
             vertical-stretch: 1;
             background: Design.card-bg;
@@ -416,6 +356,7 @@ export component SpreadsheetComponent inherits Rectangle {
                         is-numeric: true;
                         is-active: root.active-row == r && root.active-col == 0;
                         clicked => { root.update-active-cell(r, 0); }
+                        edited(text) => { root.apply-cell-edit(text); }
                     }
 
                     // Kolom B: Sekolah
@@ -424,6 +365,7 @@ export component SpreadsheetComponent inherits Rectangle {
                         text: root.col-b[r];
                         is-active: root.active-row == r && root.active-col == 1;
                         clicked => { root.update-active-cell(r, 1); }
+                        edited(text) => { root.apply-cell-edit(text); }
                     }
 
                     // Kolom C: Jenjang
@@ -432,6 +374,7 @@ export component SpreadsheetComponent inherits Rectangle {
                         text: root.col-c[r];
                         is-active: root.active-row == r && root.active-col == 2;
                         clicked => { root.update-active-cell(r, 2); }
+                        edited(text) => { root.apply-cell-edit(text); }
                     }
 
                     // Kolom D: Status
@@ -441,6 +384,7 @@ export component SpreadsheetComponent inherits Rectangle {
                         text-color: root.col-d[r] == "SELESAI" ? Design.status-success : (root.col-d[r] == "REVISI" ? Design.status-danger : Design.status-warning);
                         is-active: root.active-row == r && root.active-col == 3;
                         clicked => { root.update-active-cell(r, 3); }
+                        edited(text) => { root.apply-cell-edit(text); }
                     }
 
                     // Kolom E: Poin
@@ -451,6 +395,7 @@ export component SpreadsheetComponent inherits Rectangle {
                         text-color: Design.cat-points;
                         is-active: root.active-row == r && root.active-col == 4;
                         clicked => { root.update-active-cell(r, 4); }
+                        edited(text) => { root.apply-cell-edit(text); }
                     }
 
                     // Kolom F: Catatan
@@ -459,6 +404,7 @@ export component SpreadsheetComponent inherits Rectangle {
                         text: root.col-f[r];
                         is-active: root.active-row == r && root.active-col == 5;
                         clicked => { root.update-active-cell(r, 5); }
+                        edited(text) => { root.apply-cell-edit(text); }
                     }
                 }
 
@@ -467,7 +413,7 @@ export component SpreadsheetComponent inherits Rectangle {
             }
         }
 
-        // ===== 4. Footer Status Bar =====
+        // ===== 3. Footer Status Bar =====
         HorizontalLayout {
             height: 22px;
             spacing: Design.space-sm;

@@ -6,6 +6,7 @@ import { Design, Btn, SvgIcon, TextField } from "design.slint";
 import { SpreadsheetComponent } from "spreadsheet.slint";
 import { TrelloDetailPanel } from "trello-detail.slint";
 import { RadialMenuView } from "radial.slint";
+import { ToolboxView } from "modul.slint";
 
 // ============================================================
 // RADIAL MENU WINDOW — 320×320 transparent, topmost, cursor-centered.
@@ -22,6 +23,9 @@ export component RadialMenuWindow inherits Window {
     callback close-window();
     callback execute-script(string);
     callback toast(string);
+    callback reset-wheel();
+    callback release-execute();
+    callback open-toolbox(string);
     in-out property <int> doc-tab-count: 1;
 
     wheel := RadialMenuView {
@@ -30,16 +34,262 @@ export component RadialMenuWindow inherits Window {
         back() => { root.close-window(); }
         toast(message) => { root.toast(message); }
         execute-script(name) => { root.execute-script(name); }
+        open-toolbox(tab) => { root.open-toolbox(tab); }
+    }
+
+    reset-wheel() => { wheel.reset(); }
+    release-execute() => { wheel.release-execute(); }
+}
+
+// ============================================================
+// 1. TOOLBOX WINDOW — Window Mandiri Toolbox (C# ToolboxWindow:
+//    1024×730, Min 680×580, CenterScreen). Dibuka dari radial
+//    (submenu TOOLBOX / eksekusi psdbucin). Isi = ToolboxView yang
+//    sama dengan overlay lama, hanya wadahnya window OS.
+// ============================================================
+export component ToolboxWindow inherits Window {
+    title: "BMachine Toolbox";
+    width: 1024px;
+    height: 730px;
+    // C# Min 680x580 tidak bisa dipasang bersama width/height di
+    // Slint (satu Window tidak boleh punya width + min-width) —
+    // ukuran buka 1024x730 tetap sama; lantai resize tidak ditegakkan.
+    background: Design.app-bg;
+    default-font-family: Design.font-family;
+
+    callback close-window();
+    callback toast(string);
+    in-out property <string> tool-tab: "MantraNama";
+
+    VerticalLayout {
+        padding: 0;
+        spacing: 0;
+
+        // Custom Titlebar Toolbox Window
+        Rectangle {
+            height: 38px;
+            background: Design.surface-elevated;
+            border-color: Design.separator;
+            border-width: 0.5px;
+
+            HorizontalLayout {
+                padding-left: 14px;
+                padding-right: 14px;
+                spacing: 8px;
+
+                Text {
+                    text: "BMachine Toolbox";
+                    font-size: Design.font-body;
+                    font-weight: 800;
+                    color: Design.text-primary;
+                    vertical-alignment: center;
+                }
+
+                Rectangle { horizontal-stretch: 1; }
+
+                // Tombol Tutup Window
+                Rectangle {
+                    width: 28px;
+                    height: 28px;
+                    y: (parent.height - self.height) / 2;
+                    background: tb-close-touch.has-hover ? Design.status-danger : transparent;
+                    border-radius: Design.radius-sm;
+
+                    tb-close-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.close-window(); }
+                    }
+
+                    Text {
+                        text: "×";
+                        font-size: 18px;
+                        font-weight: 700;
+                        color: tb-close-touch.has-hover ? #ffffff : Design.text-secondary;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        width: 100%;
+                        height: 100%;
+                    }
+                }
+            }
+        }
+
+        // Isi Toolbox (komponen yang sama dengan overlay lama).
+        tb := ToolboxView {
+            width: 100%;
+            vertical-stretch: 1;
+            tool-tab <=> root.tool-tab;
+            back() => { root.close-window(); }
+            toast(text) => { root.toast(text); }
+        }
     }
 }
 
 // ============================================================
-// 1. SPREADSHEET WINDOW — Window Mandiri Editor Spreadsheet
+// 2. REPORT BUG DIALOG — Window "Laporkan Bug" (C#
+//    Views/Dialogs/MantraData/ReportBugDialog: 560 lebar,
+//    CenterOwner, tanpa dekorasi). Dibuka dari flyout profil.
+// ============================================================
+export component ReportBugDialog inherits Window {
+    title: "Laporkan Bug";
+    width: 560px;
+    height: 400px;
+    background: Design.app-bg;
+    no-frame: true;
+    default-font-family: Design.font-family;
+
+    callback close-window();
+    callback send-report(string, string);
+    callback toast(string);
+
+    in-out property <string> summary-text: "";
+    in-out property <string> detail-text: "";
+
+    VerticalLayout {
+        padding: 0;
+        spacing: 0;
+
+        // Titlebar: judul + tombol tutup (drag via titlebar tidak
+        // didukung Slint tanpa chrome kustom; tutup via × / Batal).
+        Rectangle {
+            height: 38px;
+            background: Design.surface-elevated;
+            border-color: Design.separator;
+            border-width: 0.5px;
+
+            HorizontalLayout {
+                padding-left: 22px;
+                padding-right: 14px;
+                spacing: 8px;
+
+                Text {
+                    text: "Laporkan Bug";
+                    font-size: 16px;
+                    font-weight: 600;
+                    color: Design.text-primary;
+                    vertical-alignment: center;
+                }
+
+                Rectangle { horizontal-stretch: 1; }
+
+                Rectangle {
+                    width: 28px;
+                    height: 28px;
+                    y: (parent.height - self.height) / 2;
+                    background: bug-close-touch.has-hover ? Design.status-danger : transparent;
+                    border-radius: Design.radius-sm;
+
+                    bug-close-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.close-window(); }
+                    }
+
+                    Text {
+                        text: "×";
+                        font-size: 18px;
+                        font-weight: 700;
+                        color: bug-close-touch.has-hover ? #ffffff : Design.text-secondary;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        width: 100%;
+                        height: 100%;
+                    }
+                }
+            }
+        }
+
+        VerticalLayout {
+            padding: 22px;
+            spacing: 0;
+
+            Text {
+                text: "Beri tahu kami apa yang terjadi. Laporan ini dikirim ke tim Project & Bug.";
+                font-size: 12px;
+                color: Design.text-secondary;
+                wrap: word-wrap;
+                height: 36px;
+            }
+
+            Text {
+                text: "Ringkasan";
+                font-size: 12px;
+                color: Design.text-muted;
+                height: 18px;
+            }
+
+            TextField {
+                height: 36px;
+                text <=> root.summary-text;
+                placeholder: "Judul singkat: 'Tombol Ganti Semua tidak merespons'";
+            }
+
+            Text {
+                text: "Detail";
+                font-size: 12px;
+                color: Design.text-muted;
+                height: 18px;
+            }
+
+            Rectangle {
+                height: 110px;
+                background: Design.bg-input;
+                border-color: Design.border-default;
+                border-width: 1px;
+                border-radius: Design.radius-sm;
+                clip: true;
+
+                TextInput {
+                    x: 10px; y: 8px; width: parent.width - 20px; height: parent.height - 16px;
+                    text <=> root.detail-text;
+                    font-size: 13px;
+                    color: Design.text-primary;
+                    wrap: word-wrap;
+                }
+            }
+
+            HorizontalLayout {
+                alignment: end;
+                spacing: 10px;
+                padding-top: 18px;
+
+                Rectangle {
+                    width: 90px;
+                    height: 36px;
+                    Btn {
+                        width: 100%; height: 100%;
+                        label: "Batal";
+                        variant: "secondary";
+                        clicked => { root.close-window(); }
+                    }
+                }
+                Rectangle {
+                    width: 110px;
+                    height: 36px;
+                    Btn {
+                        width: 100%; height: 100%;
+                        label: "Kirim";
+                        variant: "primary";
+                        clicked => {
+                            if (root.summary-text == "") {
+                                root.toast("Isi ringkasan dulu");
+                            } else {
+                                root.send-report(root.summary-text, root.detail-text);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ============================================================
+// 3. SPREADSHEET WINDOW — Window Mandiri Editor Spreadsheet
 // ============================================================
 export component SpreadsheetWindow inherits Window {
     title: "BMachine — Spreadsheet Editor";
-    width: 980px;
-    height: 620px;
+    width: 1000px;
+    height: 600px;
     background: Design.app-bg;
     default-font-family: Design.font-family;
 
