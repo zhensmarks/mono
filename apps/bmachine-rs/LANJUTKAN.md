@@ -165,3 +165,70 @@ Supaya tidak ada yang bingung saat project pindah tangan:
 - Menjalankan script dari sumber tidak jelas / memasukkan kredensial ke
   script pihak ketiga (contoh: tool "Gemini Pro gratis via emulator" —
   jangan pernah dijalankan).
+
+## 10. BATCH: klik salin path + multi-select Replace (Auto) (studi C# 28 Nov 2026)
+
+WAJIB di port (abeng 28 Nov 01:13 — berguna banget untuk kerja cepat).
+Sumber: `apps/bmachine/src/BMachine.UI/ViewModels/BatchViewModel.cs`
+(ReplaceBatchFolderAsync ~2338, TryResolveReplaceFolders ~2440,
+LaunchReplaceScriptAsync ~2517), `ViewModels/BatchFolderRoot.cs`
+(CopyPath ~198), `ViewModels/BatchNodeItem.cs` (CopyPath ~177),
+`Views/DashboardView.axaml` (tree + context menu ~372-411, 652-760),
+`Views/DashboardView.axaml.cs` (OnBatchTreePointerPressed ~77,
+RestoreBatchTreeSelection ~105, OnBatchTreePointerReleased ~126,
+OnNodePointerPressed ~407).
+
+### Klik nama folder = salin path
+- Nama tiap node adalah Button (`plainLink`, tooltip "Left-Click: Copy
+  Path | Right-Click: Expand") bound ke `CopyPathCommand` →
+  `Clipboard.SetTextAsync(path)`. Hanya folder (`IsDirectory`); node
+  biasa salin `FullPath`; root source salin `SourcePath`, root output
+  salin `OutputPath`.
+- Klik kiri tunggal juga set MASTER target (`SelectBatchItemFromTree`)
+  supaya status bar MASTER mengikuti folder yang diklik — TAPI jangan
+  set bila Ctrl/Shift ditekan, karena `SelectedBatchItem` (TwoWay)
+  mereset seleksi TreeView ke 1 item dan menghancurkan multi-select.
+- JANGAN set `e.Handled = true` pada copy — TreeViewItem harus tetap
+  menerima event supaya ter-select secara visual.
+- Klik kanan pada nama = expand/collapse node. Double-klik file teks =
+  buka teks (HandleDoubleTap).
+
+### Multi-select + Replace (Auto) via context menu — bagian tricky
+- Kedua tree `SelectionMode="Multiple"`. View mendorong seleksi live ke
+  VM tiap `SelectionChanged` (`UpdateSelectedSourceItems` /
+  `UpdateSelectedOutputItems` → `SelectedSourceItems` /
+  `SelectedOutputItems` + `IsMultiSelectionActive` bila > 1).
+- **Jebakan:** klik kanan pada TreeViewItem (Avalonia) meruntuhkan
+  multi-select jadi item yang diklik SEBELUM command context menu jalan.
+  Perbaikan C#: (1) `OnBatchTreePointerPressed` (Tunnel) menyimpan
+  seleksi sebelum native TreeView menangani klik kanan, lalu
+  `RestoreBatchTreeSelection` di-post ke `DispatcherPriority.Input`
+  untuk mengembalikannya sesudahnya; (2)
+  `OnBatchTreePointerReleased` snapshot ulang seleksi — toggle Ctrl
+  diterapkan setelah press, jadi snapshot saat release adalah seleksi
+  final yang dipakai command context menu.
+- **Shift+klik range select dibuat MANUAL** (Avalonia Multiple tidak
+  support): anchor = item terakhir diklik, range lo..hi dimasukkan ke
+  `SelectedItems`, `e.Handled = true`, sync ke VM. Ctrl+klik dibiarkan
+  ke toggle native (hanya catat anchor terakhir).
+- `ReplaceBatchFolderAsync(target, isOutputSide, manual)`: bila auto
+  (!manual) dan seleksi > 1 → SEMUA item terpilih di-resolve ke pasangan
+  (output, source) via `TryResolveReplaceFolders`, lalu
+  `LaunchReplaceScriptAsync(pairs[])` — SATU kali jalan `replace.jsx`
+  di Photoshop untuk semua pasangan berurutan + satu laporan gabungan.
+  Target klik kanan hanya fallback bila 1 item terpilih.
+- `TryResolveReplaceFolders`: `BatchFolderRoot` → path yang diklik,
+  relatif ""; `BatchNodeItem` direktori → cari root yang cocok dengan
+  **prefix terpanjang** di antara `SourceFolders` (menang bila folder
+  bersarang), lalu output = `root.OutputPath + relatif`, source =
+  `root.SourcePath + relatif`; sisi yang diklik dipakai apa adanya.
+- `Replace (Manual)`: minta folder pasangan lewat picker
+  (`RequestManualReplaceFolderBrowse`).
+- Context menu: header root + item source/output = New Subfolder /
+  Replace (Auto) / Copy Path / Delete; child node direktori = Replace
+  (Auto) / Copy Path. `LaunchReplaceScriptAsync` validasi kedua folder
+  ada, tulis `bmachine_replace_auto_<guid>.jsx` temp, jalankan sekali.
+- Implikasi port (Slint tidak punya TreeView multi-select bawaan):
+  model seleksi harus dibuat sendiri di Rust — Shift anchor, Ctrl
+  toggle, simpan + pulihkan seleksi saat klik kanan, snapshot saat
+  pointer dilepas.
