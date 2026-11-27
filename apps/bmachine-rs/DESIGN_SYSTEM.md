@@ -1385,40 +1385,107 @@ Toolbox C#); kartu / panel mengikuti Card + Btn port.
 menjalankan `psdbucin_v3.pyw` / script Mantra) — semua aksi
 saat ini toast mockup; eksekusi nyata Fase 6.
 
-### 19.3 Spreadsheet
+### 19.3 Spreadsheet — spreadsheet beneran (27 Nov 2026)
 
-`SheetsView` (`ui/modul.slint`): editor grid SATU Google
-Sheet (service account). Judul "Spreadsheet" + label
-"1 Google Sheet (service account)" (teal). Header kolom:
-No | Sekolah | Status | Poin. Nomor baris = baris sheet
-asli (grid baris i = sheet baris 3+i, range A3:Z).
-Baris 1 bisa diedit (sel Sekolah & Poin — TextInput di
-kotak `bg-input`); baris 2–6 baca saja (contoh).
-Tombol primary "Simpan" + catatan guard: "Guard fingerprint
-baris aktif — save diblokir bila sheet berubah di luar."
-(guard ini disengaja di C# — jangan dihapus). Klik kanan =
-kembali ke dashboard (§10.11).
+`SpreadsheetComponent` (`ui/spreadsheet.slint`, dipakai `SheetsView`
+embedded + `SpreadsheetWindow` 1000×600): grid SATU Google Sheet,
+7 kolom tetap A–G, maks 6 baris:
 
-**Draft vs tersimpan (dibangun Fase 4, 26 Nov):** edit baris 1
-menyalakan indikator "● Draft — belum disimpan" (amber, kanan
-baris status) dan bertahan saat pindah tab/overlay dalam satu
-sesi (terverifikasi: edit → Toolbox → kembali, draft tetap
-ada). "Simpan" meng-commit draft (toast "Tersimpan ke sheet",
-indikator hilang). Baris status penyelaras: hijau "● 6 baris
-selaras · grid 1–6 = sheet 4–9 · jangkar A3 · range A3:Z"
-(REA §3.6); "Simulasikan perubahan di luar" mengubahnya
-menjadi merah "● Baris 4 di sheet berubah di luar —
-fingerprint tidak cocok" dan Simpan DIBLOKIR dengan toast
-penjelas (draft tetap dipertahankan); "Muat ulang" menghapus
-flag, status kembali hijau, draft tetap ada (pilihan mockup —
-C# membuang draft sel yang berubah; perilaku ini pertanyaan
-terbuka §19.5). Simpan sengaja TIDAK di-disable saat
-terblokir. Draft hanya dalam memori sesi (hilang saat app
-restart) — persistensi antar-sesi (SQLite?) pertanyaan
-terbuka.
+| Kolom | Header | Jenis | Kunci? | Opsi |
+|---|---|---|---|---|
+| A | KODE | teks | ya (ID, "Copy Row ID") | – |
+| B | SEKOLAH | teks | tidak | – |
+| C | JENJANG | dropdown | tidak | TK, PAUD, SD, SMP, SMA, SMK |
+| D | STATUS | dropdown | tidak | SELESAI, PROSES, REVISI, ANTRIAN |
+| E | POIN | angka | tidak | – |
+| F | CATATAN | teks | tidak | – |
+| G | TANGGAL | tanggal | tidak | – |
 
-**Yang belum dibangun:** koneksi Google Sheets nyata
-(Fase 6).
+Definisi kolom di `src/sheet_model.rs` (`SHEET_COLUMNS`); jenis
+kolom tetap per kolom, BUKAN ditebak dari header/isi (C# menebak
+dari kata kunci header — lihat §19.3a).
+
+**Seleksi (model C#):** klik = satu sel; Shift+klik / seret =
+rentang dari anchor; Ctrl+klik = tambah/hapus baris dari seleksi.
+Sorotan = baris terpilih × kolom fokus saja (bukan seluruh blok);
+sel aktif = border aksen 2px + titik fill-handle. Nomor baris di
+gutter kiri = nomor baris sheet (bukan indeks grid).
+
+**Edit:** klik tunggal hanya memilih; edit mulai dari klik-ganda /
+F2 / Enter / mengetik langsung. Sel dropdown & tanggal membuka
+editornya saat klik tunggal (C# — "dulu harus klik ganda, jadi
+terasa tidak bisa diklik"). Sel terkunci → toast, tidak jadi edit.
+Enter = terapkan, Esc = batal, klik sel lain = terapkan (teks/
+angka) atau batal (dropdown/tanggal). State edit eksplisit
+(`editing`), bukan toggling `IsReadOnly` seperti C# (§19.3a).
+
+**Dropdown:** daftar opsi muncul di bawah/atas sel (dibalik bila
+tidak muat), ✓ pada nilai saat ini, sorotan keyboard naik/turun +
+Enter memilih; dijepit horizontal supaya tidak keluar window.
+
+**Tanggal:** kalender 240px (Senin dulu, 6×7), bulan digeser ‹ ›,
+hari terpilih = nilai sel, hari ini ditandai; tombol TODAY menulis
+tanggal hari ini (bukan hari yang sama di bulan tampil); pilih
+hari menulis `yyyy-MM-dd`.
+
+**Ctrl+D (Fill Down, row-based, seperti C#):** nilai baris teratas
+seleksi disalin ke baris lain di kolom fokus saja; butuh ≥2 baris
+terpilih (kalau tidak, toast — bukan diam seperti C#).
+Delete/Backspace: mengosongkan sel kolom fokus di baris terpilih
+(sel terkunci dilewati).
+
+**Keyboard:** panah pindah sel, Shift+panah perluas seleksi,
+F2/Enter mulai edit, Esc batal, Delete/Backspace hapus,
+Ctrl+D fill down, ketik langsung = type-to-edit. Fokus keyboard
+kembali ke grid setelah edit selesai (commit/batal/pilih) —
+sebelumnya fokus hilang bersama editor yang tersembunyi sehingga
+panah/Ctrl+D tidak jalan setelah Enter.
+
+**Toolbar:** Search (belum memfilter — dekoratif), + Baris (maks 6),
+∑ SUM (total POIN kolom E yang sebenarnya, dihitung Rust —
+sebelumnya total hardcode), zoom 0.8–1.4 (belum mengubah skala
+grid — dekoratif), Muat Ulang, Simpan (N) = jumlah draft hidup.
+
+**Guard + draft (tetap jalan, jalur simpan sama):** fingerprint
+guard memblokir Simpan bila sheet berubah di luar, pesan dinamis
+menyebut barisnya; draft dipersist ke SQLite `Spreadsheet.Draft`
+tiap edit dan dipulihkan saat app dibuka — draft yang berhasil
+diterapkan TETAP jadi edit belum tersimpan sampai Simpan (perbaikan
+27 Nov 2026: sebelumnya draft diterapkan lalu dibuang, sehingga
+SpreadsheetWindow yang dibuka belakangan menampilkan nilai asli
+dan guard kehilangan baris yang berubah). "Muat Ulang" memuat
+ulang snapshot + menerapkan lagi draft yang masih cocok.
+
+**Yang belum dibangun:** koneksi Google Sheets nyata (Fase 6);
+pencarian & zoom masih dekoratif.
+
+### 19.3a Yang sengaja TIDAK ditiru dari C# ("aneh" — abeng, 27 Nov 2026)
+
+Dibaca dari `SpreadsheetView.axaml.cs` + `SpreadsheetViewModel.cs`,
+perilaku di bawah ini TIDAK disalin — port membuat yang benar:
+
+1. **Edit gating rapuh:** C# mengutak-atik `IsReadOnly` di beberapa
+   tempat + flag `_openDropdownOnNextEdit` + dispatcher post untuk
+   membuka editor. Port: state `editing` eksplisit.
+2. **Tebak jenis kolom dari header:** C# menebak dropdown/tanggal
+   dari kata kunci header (EDITOR/STATUS/TGL/...) atau isi sel.
+   Port: jenis kolom tetap di `SHEET_COLUMNS`.
+3. **Tidak ada lock per-sel:** C# `IsReadOnly = false` di grid;
+   proteksi sheet kantor hanya ditegakkan Google Sheets. Port:
+   kolom KODE terkunci dan ditolak di aplikasi (toast).
+4. **FillDown diam:** C# diam saja bila <2 baris terpilih +
+   menulis teks debug ke status. Port: toast jelas.
+5. **`FixHeaderContentCentering` (+16px margin hack):** workaround
+   tema Avalonia — tidak diperlukan di Slint.
+6. **Format tanggal mendua:** C# bimbang antara "6 Februari 2026"
+   vs ISO. Port: `yyyy-MM-dd` di mana-mana (seperti yang ditulis
+   C# saat commit).
+7. **Pesan guard C#** (`Describe`) menampilkan nilai pengenal baris
+   (sel pertama tak-kosong) di kedua sisi pesan — bila hanya kolom
+   lain yang berubah, pesannya tampak "berisi 'X', sedangkan yang
+   dimuat 'X'" (nilai sama). Perilaku blokirnya benar; wording ini
+   masih terbuka (butuh simpan baris asli di anchor untuk menyebut
+   sel yang berubah).
 
 ### 19.4 Leaderboard
 

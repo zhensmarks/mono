@@ -105,22 +105,48 @@ export component AppWindow inherits Window {
     in-out property <[string]> sheet-col-d: [];
     in-out property <[string]> sheet-col-e: [];
     in-out property <[string]> sheet-col-f: [];
+    in-out property <[string]> sheet-col-g: [];
     in-out property <[string]> sheet-col-a-orig: [];
     in-out property <[string]> sheet-col-b-orig: [];
     in-out property <[string]> sheet-col-c-orig: [];
     in-out property <[string]> sheet-col-d-orig: [];
     in-out property <[string]> sheet-col-e-orig: [];
     in-out property <[string]> sheet-col-f-orig: [];
+    in-out property <[string]> sheet-col-g-orig: [];
     in-out property <bool> sheet-has-draft: false;
     in-out property <int> sheet-draft-count: 0;
     in-out property <string> sheet-status-text: "0 baris · Belum terhubung ke Google Sheets";
     in-out property <string> sheet-guard-result: "";
+    // Seleksi multi-baris + kolom fokus (dibaca Rust saat fill-down /
+    // clear-cells — diteruskan dari SheetsView).
+    in-out property <[bool]> sheet-sel-rows: [true, false, false, false, false, false];
+    in-out property <int> sheet-focus-col: 1;
+    // Jenis kolom + kunci + opsi dropdown + state kalender (dari Rust).
+    in-out property <[string]> sheet-col-kinds: ["text", "text", "dropdown", "dropdown", "number", "text", "date"];
+    in-out property <[bool]> sheet-col-locked: [true, false, false, false, false, false, false];
+    in-out property <[string]> sheet-col-c-items: ["TK", "PAUD", "SD", "SMP", "SMA", "SMK"];
+    in-out property <[string]> sheet-col-d-items: ["SELESAI", "PROSES", "REVISI", "ANTRIAN"];
+    in-out property <int> sheet-cal-year: 2026;
+    in-out property <int> sheet-cal-month: 1;
+    in-out property <string> sheet-cal-label: "";
+    in-out property <[int]> sheet-cal-cells: [];
+    in-out property <int> sheet-cal-today: 0;
+    in-out property <int> sheet-cal-days-in-month: 31;
+    in-out property <string> sheet-cal-today-iso: "";
+    in-out property <int> sheet-cal-selected-day: 0;
     in-out property <string> lb-harian-range: "A2:C10";
     in-out property <string> lb-bulanan-range: "A2:C10";
 
     callback sheet-cell-edited(int, int, string, string);
     callback sheet-save();
     callback sheet-refresh();
+    callback sheet-fill-down();
+    callback sheet-clear-cells();
+    callback sheet-auto-sum();
+    callback sheet-cal-open(string);
+    callback sheet-cal-nav(int);
+    callback sheet-add-row();
+    callback sheet-is-typeahead-char(string) -> bool;
 
     callback save-account-settings();
     callback apply-appearance();
@@ -3500,12 +3526,28 @@ export component AppWindow inherits Window {
         col-d <=> root.sheet-col-d;
         col-e <=> root.sheet-col-e;
         col-f <=> root.sheet-col-f;
+        col-g <=> root.sheet-col-g;
         col-a-orig <=> root.sheet-col-a-orig;
         col-b-orig <=> root.sheet-col-b-orig;
         col-c-orig <=> root.sheet-col-c-orig;
         col-d-orig <=> root.sheet-col-d-orig;
         col-e-orig <=> root.sheet-col-e-orig;
         col-f-orig <=> root.sheet-col-f-orig;
+        col-g-orig <=> root.sheet-col-g-orig;
+        col-kinds <=> root.sheet-col-kinds;
+        col-locked <=> root.sheet-col-locked;
+        col-c-items <=> root.sheet-col-c-items;
+        col-d-items <=> root.sheet-col-d-items;
+        cal-year <=> root.sheet-cal-year;
+        cal-month <=> root.sheet-cal-month;
+        cal-label <=> root.sheet-cal-label;
+        cal-cells <=> root.sheet-cal-cells;
+        cal-today <=> root.sheet-cal-today;
+        cal-days-in-month <=> root.sheet-cal-days-in-month;
+        cal-today-iso <=> root.sheet-cal-today-iso;
+        cal-selected-day <=> root.sheet-cal-selected-day;
+        sel-rows <=> root.sheet-sel-rows;
+        focus-col <=> root.sheet-focus-col;
         sheet-has-draft <=> root.sheet-has-draft;
         sheet-draft-count <=> root.sheet-draft-count;
         sheet-status-text <=> root.sheet-status-text;
@@ -3513,6 +3555,13 @@ export component AppWindow inherits Window {
         sheet-cell-edited(r, c, orig, val) => { root.sheet-cell-edited(r, c, orig, val); }
         sheet-save() => { root.sheet-save(); }
         sheet-refresh() => { root.sheet-refresh(); }
+        sheet-fill-down() => { root.sheet-fill-down(); }
+        sheet-clear-cells() => { root.sheet-clear-cells(); }
+        sheet-auto-sum() => { root.sheet-auto-sum(); }
+        sheet-cal-open(val) => { root.sheet-cal-open(val); }
+        sheet-cal-nav(d) => { root.sheet-cal-nav(d); }
+        sheet-add-row() => { root.sheet-add-row(); }
+        sheet-is-typeahead-char(t) => { return root.sheet-is-typeahead-char(t); }
         back() => { root.overlay-view = ""; }
         toast(text) => { root.toast = text; }
         popout-window() => { root.open-new-sheet-window(); }

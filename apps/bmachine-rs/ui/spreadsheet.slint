@@ -1,26 +1,52 @@
 // SpreadsheetComponent — Komponen Grid Spreadsheet bergaya Excel / Google Sheets
+// (logika spreadsheet beneran — 27 Nov 2026, lihat DESIGN_SYSTEM.md §19.3a)
 // Mendukung:
-// - Header Kolom (A: Kode, B: Sekolah, C: Jenjang, D: Status, E: Poin, F: Catatan)
-// - Nomor Baris (1, 2, 3...)
-// - In-cell direct editing & navigasi sel aktif dengan garis aksen 2px ala Excel
-//   (C# tidak punya formula bar — edit langsung di sel, Enter = terapkan)
-// - Tombol Tambah Baris, Hapus Baris, Auto-Sum (∑), Zoom, Refresh, Simpan (Draft tracking)
+// - Header Kolom (A: Kode, B: Sekolah, C: Jenjang, D: Status, E: Poin, F: Catatan, G: Tanggal)
+// - Nomor Baris (1, 2, 3...) = nomor baris sheet asli
+// - Jenis sel per kolom (dari Rust, sheet_model.rs): teks / angka / dropdown / tanggal;
+//   kolom KODE terkunci (ID baris, tidak bisa diedit)
+// - Seleksi multi-baris ala C# (DataGrid Extended): klik = satu sel, Shift+klik /
+//   seret = rentang baris, Ctrl+klik = tambah/hapus baris dari seleksi;
+//   highlight hanya di kolom fokus (seperti C# UpdateCellSelectionVisuals)
+// - Edit: klik ganda / F2 / Enter / ketik langsung; sel dropdown & tanggal
+//   cukup klik tunggal; Enter = terapkan, Esc = batalkan, klik sel lain =
+//   terapkan (teks) / batalkan (dropdown & tanggal)
+// - Dropdown: daftar pilihan mengambang + panah ▾ di sel; Tanggal: kalender
+//   mengambang + tombol TODAY (format simpan yyyy-MM-dd, seperti C#)
+// - Ctrl+D fill down (baris teratas seleksi -> baris lain, kolom fokus),
+//   Delete/Backspace hapus isi sel terpilih di kolom fokus
+// - Navigasi keyboard: panah (Shift+panah = perluas seleksi)
+// - Tombol Tambah Baris, Auto-Sum (∑, dihitung Rust), Zoom, Refresh, Simpan (Draft tracking)
 // - Mode Standalone Window atau Embedded View di modul utama.
 
 import { Design, Btn, SvgIcon, TextField } from "design.slint";
 
-// Satu sel data grid dengan penanda sel aktif (border aksen 2px + handle dot kecil di sudut kanan-bawah)
+// Satu sel data grid: nilai tampil + penanda sel aktif (border aksen 2px +
+// handle dot kecil di sudut kanan-bawah) + highlight seleksi multi-baris
+// (latar accent-subtle di kolom fokus, seperti C#) + penanda jenis sel
+// (▾ dropdown, ikon kalender tanggal, gembok saat terkunci).
 component GridCell inherits Rectangle {
     in property <string> text;
     in property <bool> is-active;
     in property <bool> is-header;
     in property <bool> is-numeric;
+    in property <bool> is-selected;
+    in property <bool> is-locked;
+    // Jenis sel: "text" | "number" | "dropdown" | "date".
+    in property <string> kind: "text";
     in property <color> text-color: Design.text-primary;
+    // Editor: teks awal saat edit dimulai + apakah seleksi awal dipilih semua.
+    in property <string> edit-initial: "";
+    in property <bool> edit-select-all: true;
+    in property <bool> editing;
     callback clicked();
     callback double-clicked();
+    // edited = terapkan isi editor (Enter / kehilangan fokus). edit-changed
+    // = cermin tiap ketikan (dipakai commit saat klik sel lain / Simpan).
     callback edited(string);
+    callback edit-changed(string);
 
-    background: root.is-active ? Design.accent-subtle : transparent;
+    background: root.is-active || root.is-selected ? Design.accent-subtle : transparent;
     border-color: root.is-active ? Design.accent : Design.separator;
     border-width: root.is-active ? 2px : 0.5px;
     clip: true;
@@ -28,22 +54,55 @@ component GridCell inherits Rectangle {
     cell-touch := TouchArea {
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
+        double-clicked => { root.double-clicked(); }
     }
 
     Text {
-        visible: !root.is-active;
+        // Nilai tampil saat TIDAK mengedit (termasuk saat sel aktif —
+        // editor hanya muncul saat editing, seperti C#: klik = pilih saja).
+        // Saat mengedit dropdown/tanggal, nilai tetap tampil (editornya
+        // daftar/kalender, bukan TextInput — seperti ComboBox C#).
+        visible: !root.editing || root.kind == "dropdown" || root.kind == "date";
         x: 6px;
         y: 0;
-        width: parent.width - 12px;
+        width: parent.width - (root.kind == "dropdown" ? 20px : (root.is-locked ? 20px : 12px));
         height: 100%;
         text: root.text;
         font-size: root.is-header ? Design.font-caption : 12px;
         font-weight: root.is-header ? 800 : (root.is-active ? 700 : 400);
         font-family: root.is-numeric ? "JetBrains Mono" : Design.font-family;
         color: root.is-active ? Design.accent : root.text-color;
-        horizontal-alignment: root.is-numeric ? right : left;
+        horizontal-alignment: root.is-numeric ? right : (root.kind == "date" ? center : left);
         vertical-alignment: center;
         overflow: elide;
+    }
+
+    // Panah ▾ di sel dropdown (C# CreateCellDisplayTemplate) + gembok di
+    // sel terkunci + ikon kalender kecil di sel tanggal.
+    if !root.is-header && root.kind == "dropdown" : Text {
+        text: "▾";
+        font-size: 10px;
+        color: Design.text-muted;
+        x: parent.width - 16px;
+        y: parent.height - 15px;
+        width: 12px;
+        height: 12px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    if !root.is-header && root.is-locked : SvgIcon {
+        name: "lock";
+        size: 11px;
+        icon-color: Design.text-muted;
+        x: parent.width - 17px;
+        y: (parent.height - self.height) / 2;
+    }
+    if !root.is-header && root.kind == "date" && root.text != "" : SvgIcon {
+        name: "calendar";
+        size: 11px;
+        icon-color: Design.text-muted;
+        x: parent.width - 17px;
+        y: (parent.height - self.height) / 2;
     }
 
     // Dot handle seleksi ala Excel di pojok kanan bawah
@@ -56,14 +115,14 @@ component GridCell inherits Rectangle {
     }
 
     // Editor langsung di sel (C# tidak punya formula bar — edit langsung
-    // di sel, Enter = terapkan, klik sel lain = batalkan edit).
-    // Selalu ada di tree (visible saat aktif) + difokuskan saat sel
-    // menjadi aktif: kalau editor hanya dibuat oleh `if is-active`,
-    // klik yang mengaktifkan sel tidak pernah sampai ke editor —
-    // fokus keyboard tertahan di elemen sebelumnya dan ketikan hilang
-    // (27 Nov 2026: klik sel B1 lalu ketik tidak masuk ke mana-mana).
+    // di sel, Enter = terapkan, Esc = batalkan, klik sel lain = terapkan).
+    // Hanya tampil saat sel ini sedang diedit (editing) — klik tunggal
+    // HANYA memilih sel (C# BeginningEdit membatalkan edit klik tunggal).
     editor := TextInput {
-        visible: root.is-active;
+        // Hanya untuk teks & angka. Dropdown memakai daftar opsi,
+        // tanggal memakai kalender (overlay di luar grid) — keduanya
+        // dibuka begin-edit(); TextInput di sini akan salah tempat.
+        visible: root.editing && (root.kind == "text" || root.kind == "number");
         x: 6px;
         y: 0;
         width: parent.width - 12px;
@@ -72,37 +131,45 @@ component GridCell inherits Rectangle {
         font-size: 12px;
         font-family: root.is-numeric ? "JetBrains Mono" : Design.font-family;
         color: Design.text-primary;
-        horizontal-alignment: root.is-numeric ? right : left;
+        horizontal-alignment: root.is-numeric ? right : (root.kind == "date" ? center : left);
         vertical-alignment: center;
         accepted => { root.edited(self.text); }
+        edited => { root.edit-changed(self.text); }
+        changed has-focus => {
+            // Kehilangan fokus = terapkan (klik toolbar / Simpan / sel lain
+            // saat editor tidak sempat commit lewat jalur lain).
+            if (!self.has-focus && root.editing) { root.edited(self.text); }
+        }
     }
 
-    changed is-active => {
-        if (root.is-active) {
+    changed editing => {
+        if (root.editing && (root.kind == "text" || root.kind == "number")) {
+            editor.text = root.edit-initial;
             editor.focus();
+            if (root.edit-select-all) { editor.select-all(); }
         }
     }
 
     // Sinkronkan editor saat teks sel berubah dari luar (Muat Ulang /
-    // Simpan): setelah pengguna mengetik, binding `text: root.text`
+    // Simpan / Fill Down): setelah pengguna mengetik, binding `text: root.text`
     // editor putus (nilai ketikan menimpa binding), jadi push nilai baru
     // dari Rust tidak sampai ke editor — sel aktif menampilkan nilai
     // lama (27 Nov 2026: setelah Muat Ulang, B1 tetap menampilkan
     // nilai draft padahal grid sudah dimuat ulang dari sheet).
     changed text => {
-        editor.text = root.text;
+        if (!root.editing) { editor.text = root.text; }
     }
 }
 
 export component SpreadsheetComponent inherits Rectangle {
     in-out property <bool> is-standalone: false;
     in-out property <string> search-query: "";
-    in-out property <string> status-text: "6 baris siap · Jangkar A1:F6 · Terhubung ke Google Sheets";
+    in-out property <string> status-text: "6 baris siap · Jangkar A1:G6 · Terhubung ke Google Sheets";
     in-out property <bool> has-draft: false;
     in-out property <int> draft-count: 0;
     in-out property <float> zoom-level: 1.0;
 
-    // Sel aktif saat ini: row 0-based, col 0-based (0=A..5=F)
+    // Sel aktif saat ini: row 0-based, col 0-based (0=A..6=G)
     in-out property <int> active-row: 0;
     in-out property <int> active-col: 1; // Default di kolom 'Sekolah'
 
@@ -119,8 +186,23 @@ export component SpreadsheetComponent inherits Rectangle {
     // Edit sel -> Rust mencatat draft (baris 0-based, kolom 0-based,
     // nilai asli saat dimuat, nilai baru) + persist ke SQLite.
     callback cell-edited(int, int, string, string);
+    // Operasi massal + kalender (dikerjakan Rust dari state sheet bersama):
+    // fill-down / clear-cells membaca seleksi + kolom fokus dari properti
+    // window (sel-rows / focus-col); auto-sum menghitung kolom Poin;
+    // cal-open/cal-nav mendorong state kalender (cal-*); add-row
+    // menambah baris kosong (model Slint tidak bisa di-append dari
+    // .slint — operator + bukan concat array di Slint 1.19).
+    callback fill-down();
+    callback clear-cells();
+    callback auto-sum();
+    callback cal-open(string);
+    callback cal-nav(int);
+    callback add-row();
+    // Type-to-edit: apakah satu karakter boleh memulai edit (diputuskan
+    // Rust — karakter kontrol seperti Enter/Tab tidak).
+    callback is-typeahead-char(string) -> bool;
 
-    // Data Baris Spreadsheet (6 Kolom x 6 Baris Default yang dapat ditambah/diedit)
+    // Data Baris Spreadsheet (7 Kolom x 6 Baris Default yang dapat ditambah/diedit)
     // Default KOSONG (27 Nov 2026, keputusan abeng: default publish harus bersih).
     in-out property <[string]> col-a: [];
     in-out property <[string]> col-b: [];
@@ -128,6 +210,7 @@ export component SpreadsheetComponent inherits Rectangle {
     in-out property <[string]> col-d: [];
     in-out property <[string]> col-e: [];
     in-out property <[string]> col-f: [];
+    in-out property <[string]> col-g: [];
     // Nilai asli saat dimuat (jangkar guard + nilai asli draft) — hanya
     // berubah saat Muat Ulang / Simpan berhasil (Rust yang menulis).
     in-out property <[string]> col-a-orig: [];
@@ -136,56 +219,290 @@ export component SpreadsheetComponent inherits Rectangle {
     in-out property <[string]> col-d-orig: [];
     in-out property <[string]> col-e-orig: [];
     in-out property <[string]> col-f-orig: [];
-    in-out property <int> row-count: 0;
+    in-out property <[string]> col-g-orig: [];
+    // Jumlah baris = panjang model kolom (didorong Rust saat push grid;
+    // "+ Baris" menambah entri "" ke semua model — jangan di-set manual).
+    property <int> row-count: root.col-a.length;
+    // Jenis kolom + kunci + opsi dropdown (didorong Rust dari sheet_model.rs;
+    // nilai default di bawah = fallback bila Rust belum sempat mendorong).
+    in-out property <[string]> col-kinds: ["text", "text", "dropdown", "dropdown", "number", "text", "date"];
+    in-out property <[bool]> col-locked: [true, false, false, false, false, false, false];
+    in-out property <[string]> col-c-items: ["TK", "PAUD", "SD", "SMP", "SMA", "SMK"];
+    in-out property <[string]> col-d-items: ["SELESAI", "PROSES", "REVISI", "ANTRIAN"];
 
-    // Mendapatkan teks sel saat ini untuk formula bar
-    public function update-active-cell(r: int, c: int) {
-        root.active-row = r;
-        root.active-col = c;
+    // ===== State seleksi multi-baris (ala C# DataGrid Extended) =====
+    // Baris terpilih (satu bool per baris) + kolom fokus. Highlight hanya
+    // di sel (baris terpilih, kolom fokus) — seperti C#
+    // UpdateCellSelectionVisuals. Anchor = sel awal rentang Shift/drag.
+    in-out property <[bool]> sel-rows: [true, false, false, false, false, false];
+    in-out property <int> focus-col: 1;
+    in-out property <int> anchor-row: 0;
+    in-out property <int> anchor-col: 1;
+    in-out property <bool> dragging: false;
+
+    // ===== State edit =====
+    in-out property <bool> editing: false;
+    // Cermin isi editor teks (diperbarui tiap ketikan — dipakai commit
+    // saat klik sel lain / Simpan / Muat Ulang selagi mengedit).
+    in-out property <string> edit-text: "";
+    in-out property <string> edit-initial: "";
+    in-out property <bool> edit-select-all: true;
+    // Sorotan keyboard di daftar dropdown (-1 = belum ada).
+    in-out property <int> dd-highlight: 0;
+
+    // ===== State kalender tanggal (didorong Rust) =====
+    in-out property <int> cal-year: 2026;
+    in-out property <int> cal-month: 1;
+    in-out property <string> cal-label: "";
+    in-out property <[int]> cal-cells: [];
+    in-out property <int> cal-today: 0;
+    in-out property <int> cal-days-in-month: 31;
+    in-out property <string> cal-today-iso: "";
+    in-out property <int> cal-selected-day: 0;
+
+    public function col-kind(c: int) -> string {
+        c >= 0 && c < root.col-kinds.length ? root.col-kinds[c] : "text"
+    }
+    public function col-is-locked(c: int) -> bool {
+        c >= 0 && c < root.col-locked.length ? root.col-locked[c] : false
+    }
+    public function col-letter(c: int) -> string {
+        c == 0 ? "A" : c == 1 ? "B" : c == 2 ? "C" : c == 3 ? "D" : c == 4 ? "E" : c == 5 ? "F" : "G"
+    }
+    public function edit-kind() -> string {
+        root.col-kind(root.active-col)
+    }
+    public function cell-text(r: int, c: int) -> string {
+        c == 0 ? root.col-a[r] : c == 1 ? root.col-b[r] : c == 2 ? root.col-c[r] : c == 3 ? root.col-d[r] : c == 4 ? root.col-e[r] : c == 5 ? root.col-f[r] : root.col-g[r]
+    }
+    public function dropdown-items(c: int) -> [string] {
+        c == 2 ? root.col-c-items : root.col-d-items
+    }
+    // Hit-test overlay: kolom dari posisi x (gutter 42px + padding 1px,
+    // jadi x<43 = gutter), baris dari posisi y (header 28px, baris 32px).
+    // Lebar kolom B/F stretch — dibaca dari lebar header hasil layout.
+    public function col-from-x(x: length) -> int {
+        x < 43px ? -1
+        : x < 43px + hdr-a.width ? 0
+        : x < 43px + hdr-a.width + hdr-b.width ? 1
+        : x < 43px + hdr-a.width + hdr-b.width + hdr-c.width ? 2
+        : x < 43px + hdr-a.width + hdr-b.width + hdr-c.width + hdr-d.width ? 3
+        : x < 43px + hdr-a.width + hdr-b.width + hdr-c.width + hdr-d.width + hdr-e.width ? 4
+        : x < 43px + hdr-a.width + hdr-b.width + hdr-c.width + hdr-d.width + hdr-e.width + hdr-f.width ? 5
+        : 6
+    }
+    public function row-from-y(y: length) -> int {
+        y < 29px ? -1 : y < 61px ? 0 : y < 93px ? 1 : y < 125px ? 2 : y < 157px ? 3 : y < 189px ? 4 : y < 221px ? 5 : -1
+    }
+
+    // Pilih satu sel (klik biasa / panah): seleksi = baris itu saja,
+    // kolom fokus = kolom klik (C# CurrentCell).
+    public function select-cell(r: int, c: int) {
+        if (r >= 0 && r < root.row-count) {
+            // Klik gutter (c = -1): pilih baris, kolom fokus tetap.
+            let cc = c < 0 ? root.focus-col : c;
+            root.anchor-row = r;
+            root.anchor-col = cc;
+            root.active-row = r;
+            root.active-col = cc;
+            root.focus-col = cc;
+            root.sel-rows = [r == 0, r == 1, r == 2, r == 3, r == 4, r == 5];
+        }
+    }
+    // Shift+klik / seret: rentang baris anchor..r ditambahkan ke seleksi;
+    // kolom fokus TETAP (C# OnDataGridCurrentCellChanged).
+    public function extend-selection(r: int, c: int) {
+        if (r >= 0 && r < root.row-count) {
+            let lo = min(root.anchor-row, r);
+            let hi = max(root.anchor-row, r);
+            root.sel-rows = [root.sel-rows[0] || (lo <= 0 && 0 <= hi), root.sel-rows[1] || (lo <= 1 && 1 <= hi), root.sel-rows[2] || (lo <= 2 && 2 <= hi), root.sel-rows[3] || (lo <= 3 && 3 <= hi), root.sel-rows[4] || (lo <= 4 && 4 <= hi), root.sel-rows[5] || (lo <= 5 && 5 <= hi)];
+            root.active-row = r;
+            if (c >= 0) { root.active-col = c; }
+        }
+    }
+    // Ctrl+klik: tambah/hapus baris dari seleksi; sel aktif pindah ke sel klik.
+    public function toggle-row(r: int, c: int) {
+        if (r >= 0 && r < root.row-count) {
+            let cc = c < 0 ? root.focus-col : c;
+            root.sel-rows = [r == 0 ? !root.sel-rows[0] : root.sel-rows[0], r == 1 ? !root.sel-rows[1] : root.sel-rows[1], r == 2 ? !root.sel-rows[2] : root.sel-rows[2], r == 3 ? !root.sel-rows[3] : root.sel-rows[3], r == 4 ? !root.sel-rows[4] : root.sel-rows[4], r == 5 ? !root.sel-rows[5] : root.sel-rows[5]];
+            root.active-row = r;
+            root.active-col = cc;
+            root.focus-col = cc;
+        }
+    }
+    // Pindah sel aktif (panah): seleksi jadi satu sel.
+    public function move-active(dr: int, dc: int) {
+        root.select-cell(min(max(root.active-row + dr, 0), max(root.row-count - 1, 0)), min(max(root.active-col + dc, 0), 6));
+    }
+    // Shift+panah: vertikal = perluas rentang baris; horizontal = pindah
+    // sel aktif + kolom fokus ikut (seleksi baris tetap).
+    public function move-active-extend(dr: int, dc: int) {
+        let nr = min(max(root.active-row + dr, 0), max(root.row-count - 1, 0));
+        let nc = min(max(root.active-col + dc, 0), 6);
+        if (dc == 0) {
+            root.extend-selection(nr, nc);
+        } else {
+            root.active-row = nr;
+            root.active-col = nc;
+            root.focus-col = nc;
+        }
+    }
+
+    // Mulai edit sel aktif (klik ganda / F2 / Enter / klik tunggal
+    // dropdown & tanggal). Sel terkunci: toast, tidak jadi edit.
+    public function begin-edit() {
+        root.dragging = false;
+        if (root.col-is-locked(root.active-col)) {
+            root.toast("Sel terkunci — kolom " + root.col-letter(root.active-col) + " (" + root.cell-text(root.active-row, root.active-col) + ") tidak bisa diedit");
+        } else {
+            root.edit-initial = root.cell-text(root.active-row, root.active-col);
+            // edit-text harus diinisialisasi dari nilai awal — kalau tidak,
+            // commit tanpa mengetik (klik sel lain / Simpan) akan menulis
+            // nilai basi dari edit sebelumnya.
+            root.edit-text = root.edit-initial;
+            root.edit-select-all = true;
+            root.dd-highlight = 0;
+            root.editing = true;
+            if (root.col-kinds[root.active-col] == "date") {
+                root.cal-open(root.edit-initial);
+            }
+        }
+    }
+    // Ketik langsung saat sel terpilih (type-to-edit): teks/dropdown/
+    // tanggal beda perlakuannya — teks & angka langsung terisi hurufnya.
+    public function begin-edit-with-text(t: string) {
+        root.dragging = false;
+        if (!root.col-is-locked(root.active-col)) {
+            if (root.col-kinds[root.active-col] == "dropdown" || root.col-kinds[root.active-col] == "date") {
+                root.begin-edit();
+            } else {
+                root.edit-initial = t;
+                root.edit-text = t;
+                root.edit-select-all = false;
+                root.editing = true;
+            }
+        }
+    }
+    // Terapkan edit yang sedang berjalan (Enter / klik sel lain / Simpan).
+    // Dropdown & tanggal sudah diterapkan saat dipilih — di sini hanya tutup.
+    public function commit-edit() {
+        if (root.editing) {
+            if (root.edit-kind() == "text" || root.edit-kind() == "number") {
+                root.apply-cell-edit(root.edit-text);
+            }
+            root.dragging = false;
+            root.editing = false;
+            // Editor TextInput menyedot fokus saat edit; kalau tidak
+            // dikembalikan ke scope, panah/Ctrl+D tidak jalan setelah
+            // Enter (fokus hilang bersama editor yang tersembunyi).
+            grid-scope.focus();
+        }
+    }
+    // Batalkan edit (Esc / klik sel lain pada dropdown & tanggal).
+    public function cancel-edit() {
+        root.dragging = false;
+        root.editing = false;
+        grid-scope.focus();
+    }
+    // Klik sel lain selagi mengedit: teks = terapkan, dropdown/tanggal =
+    // batalkan (C# — nilai dropdown/tanggal hanya berubah saat dipilih).
+    public function cell-clicked(r: int, c: int) {
+        if (root.editing) {
+            if (root.edit-kind() == "text" || root.edit-kind() == "number") {
+                root.commit-edit();
+            } else {
+                root.cancel-edit();
+            }
+            root.select-cell(r, c);
+            if (root.col-kinds[root.active-col] == "dropdown" || root.col-kinds[root.active-col] == "date") {
+                root.begin-edit();
+            }
+        }
+    }
+    public function cell-double-clicked(r: int, c: int) {
+        if (root.editing) {
+            if (r != root.active-row || c != root.active-col) {
+                root.begin-edit();
+            }
+        } else {
+            root.select-cell(r, c);
+            root.begin-edit();
+        }
+    }
+
+    // Pilih nilai dropdown (klik opsi / Enter saat sorotan keyboard).
+    public function pick-dropdown(val: string) {
+        root.apply-cell-edit(val);
+        root.dragging = false;
+        root.editing = false;
+        grid-scope.focus();
+    }
+    // Pilih tanggal dari kalender (format yyyy-MM-dd, seperti C#).
+    public function pick-date(day: int) {
+        if (day >= 1 && day <= root.cal-days-in-month) {
+            root.apply-cell-edit("" + root.cal-year + "-" + (root.cal-month < 10 ? "0" + root.cal-month : root.cal-month) + "-" + (day < 10 ? "0" + day : day));
+            root.dragging = false;
+            root.editing = false;
+            grid-scope.focus();
+        }
+    }
+    // Tombol TODAY: tulis tanggal hari ini (cal-today-iso dari Rust) —
+    // BUKAN hari yang sama di bulan yang sedang ditampilkan.
+    public function pick-today() {
+        root.apply-cell-edit(root.cal-today-iso);
+        root.dragging = false;
+        root.editing = false;
+        grid-scope.focus();
+    }
+    // Geser hari terpilih di kalender (panah keyboard).
+    public function cal-move(dx: int) {
+        root.cal-selected-day = min(max(root.cal-selected-day + dx, 1), root.cal-days-in-month);
     }
 
     // Tulis nilai baru dari formula bar / input ke sel aktif.
     // Nilai asli diambil dari kolom *-orig (nilai saat dimuat) — itu yang
     // dicatat draft + dipakai jangkar guard (bukan nilai hasil edit
-    // sebelumnya).
+    // sebelumnya). Tanpa perubahan nilai: bukan draft (mencegah
+    // draft-count ganda saat commit dua kali — Enter lalu kehilangan fokus).
     public function apply-cell-edit(val: string) {
         let r: int = root.active-row;
         let c: int = root.active-col;
-        let orig: string = c == 0 ? root.col-a-orig[r] : c == 1 ? root.col-b-orig[r] : c == 2 ? root.col-c-orig[r] : c == 3 ? root.col-d-orig[r] : c == 4 ? root.col-e-orig[r] : root.col-f-orig[r];
-        if (c == 0) { root.col-a[r] = val; }
-        else if (c == 1) { root.col-b[r] = val; }
-        else if (c == 2) { root.col-c[r] = val; }
-        else if (c == 3) { root.col-d[r] = val; }
-        else if (c == 4) { root.col-e[r] = val; }
-        else if (c == 5) { root.col-f[r] = val; }
+        if (val != root.cell-text(r, c)) {
+            let orig: string = c == 0 ? root.col-a-orig[r] : c == 1 ? root.col-b-orig[r] : c == 2 ? root.col-c-orig[r] : c == 3 ? root.col-d-orig[r] : c == 4 ? root.col-e-orig[r] : c == 5 ? root.col-f-orig[r] : root.col-g-orig[r];
+            if (c == 0) { root.col-a[r] = val; }
+            else if (c == 1) { root.col-b[r] = val; }
+            else if (c == 2) { root.col-c[r] = val; }
+            else if (c == 3) { root.col-d[r] = val; }
+            else if (c == 4) { root.col-e[r] = val; }
+            else if (c == 5) { root.col-f[r] = val; }
+            else if (c == 6) { root.col-g[r] = val; }
 
-        root.has-draft = true;
-        root.draft-count += 1;
-        root.status-text = "● Perubahan belum disimpan (" + root.draft-count + " sel)";
-        root.cell-edited(r, c, orig, val);
-    }
-
-    // Fungsi Auto-Sum kolom Poin
-    public function calc-auto-sum() {
-        let total: int = 1280 + 950 + 420 + 1640 + 310 + 880;
-        root.toast("∑ Total Poin (" + root.row-count + " baris): " + total);
-        root.status-text = "∑ Total Poin: " + total + " pts";
-    }
-
-    // Tambah baris baru
-    public function add-new-row() {
-        if (root.row-count < 6) {
-            root.row-count += 1;
-            root.toast("Baris " + root.row-count + " ditambahkan");
-        } else {
-            root.toast("Maksimum 6 baris pada sesi cepat (tersinkron ke sheet)");
+            root.has-draft = true;
+            root.draft-count += 1;
+            root.status-text = "● Perubahan belum disimpan (" + root.draft-count + " sel)";
+            root.cell-edited(r, c, orig, val);
         }
     }
 
-    // Simpan perubahan — guard jalan di Rust selama save-changes():
-    // guard-result "" = lolos (baru bersihkan draft), berisi pesan =
-    // diblokir (draft dipertahankan, pesan guard tampil di status).
+    // Fungsi Auto-Sum kolom Poin — dihitung Rust (bukan hardcode).
+    public function calc-auto-sum() {
+        root.auto-sum();
+    }
+
+    // Tambah baris baru — dikerjakan Rust (append model tidak bisa dari
+    // .slint; Rust membaca grid tampil, menambah baris kosong 7 kolom,
+    // dan mendorong ke kedua tampilan; row-count = panjang model).
+    public function add-new-row() {
+        root.add-row();
+    }
+
+    // Simpan perubahan — terapkan dulu edit yang sedang berjalan (supaya
+    // tidak hilang saat klik Simpan selagi mengetik), lalu guard jalan di
+    // Rust selama save-changes(): guard-result "" = lolos (baru bersihkan
+    // draft), berisi pesan = diblokir (draft dipertahankan, pesan guard
+    // tampil di status).
     public function commit-save() {
+        root.commit-edit();
         root.save-changes();
         if (root.guard-result == "") {
             root.has-draft = false;
@@ -246,7 +563,7 @@ export component SpreadsheetComponent inherits Rectangle {
                 label: "+ Baris";
                 variant: "secondary";
                 small: true;
-                clicked => { root.add-new-row(); }
+                clicked => { root.commit-edit(); root.add-new-row(); }
             }
 
             // Tombol Auto-Sum
@@ -310,6 +627,7 @@ export component SpreadsheetComponent inherits Rectangle {
                 variant: "ghost";
                 small: true;
                 clicked => {
+                    root.commit-edit();
                     root.refresh-data();
                     root.toast("Memuat ulang data dari Google Sheet...");
                 }
@@ -332,7 +650,7 @@ export component SpreadsheetComponent inherits Rectangle {
                 border-width: 1px;
                 pop-touch := TouchArea {
                     mouse-cursor: pointer;
-                    clicked => { root.popout-window(); }
+                    clicked => { root.commit-edit(); root.popout-window(); }
                 }
                 SvgIcon {
                     x: (parent.width - self.width) / 2;
@@ -345,13 +663,56 @@ export component SpreadsheetComponent inherits Rectangle {
         }
 
         // ===== 2. Tabel DataGrid Spreadsheet =====
-        Rectangle {
+        // Hit-test overlay: gutter 42px + padding 1px (x<43 = gutter),
+        // header 28px (y<29 = header), baris 32px (baris r di y 29+32r
+        // .. 61+32r). Lebar kolom B/F stretch — dibaca dari lebar header
+        // hasil layout (hdr-*.width), bukan asumsi (lihat col-from-x /
+        // row-from-y di atas, sebelum VerticalLayout utama).
+        grid-rect := Rectangle {
             vertical-stretch: 1;
             background: Design.card-bg;
             border-color: Design.separator;
             border-width: 1px;
             border-radius: Design.radius-md;
             clip: true;
+
+            grid-scope := FocusScope {
+                width: 100%;
+                height: 100%;
+                focus-on-click: false;
+                // Navigasi + aksi keyboard (aktif juga saat fokus di editor
+                // teks — key event membubbling ke scope ini, pola
+                // main.slint keys-scope). Slint melarang dua KeyBinding
+                // dengan tombol yang sama di satu scope — jadi satu
+                // binding per tombol, mode (tidak edit / dropdown /
+                // tanggal) dipilih di dalam activated. Enter saat mengedit
+                // teks ditelan TextInput (accepted) sehingga binding
+                // Return tidak ikut jalan.
+                KeyBinding { keys: @keys(UpArrow); activated => { if (!root.editing) { root.move-active(-1, 0); } else if (root.col-kinds[root.active-col] == "dropdown") { root.dd-highlight = max(root.dd-highlight - 1, 0); } else if (root.col-kinds[root.active-col] == "date") { root.cal-move(-7); } } }
+                KeyBinding { keys: @keys(DownArrow); activated => { if (!root.editing) { root.move-active(1, 0); } else if (root.col-kinds[root.active-col] == "dropdown") { root.dd-highlight = min(root.dd-highlight + 1, root.dd-items.length - 1); } else if (root.col-kinds[root.active-col] == "date") { root.cal-move(7); } } }
+                KeyBinding { keys: @keys(LeftArrow); activated => { if (!root.editing) { root.move-active(0, -1); } else if (root.col-kinds[root.active-col] == "date") { root.cal-move(-1); } } }
+                KeyBinding { keys: @keys(RightArrow); activated => { if (!root.editing) { root.move-active(0, 1); } else if (root.col-kinds[root.active-col] == "date") { root.cal-move(1); } } }
+                KeyBinding { keys: @keys(Shift + UpArrow); activated => { if (!root.editing) { root.move-active-extend(-1, 0); } } }
+                KeyBinding { keys: @keys(Shift + DownArrow); activated => { if (!root.editing) { root.move-active-extend(1, 0); } } }
+                KeyBinding { keys: @keys(Shift + LeftArrow); activated => { if (!root.editing) { root.move-active-extend(0, -1); } } }
+                KeyBinding { keys: @keys(Shift + RightArrow); activated => { if (!root.editing) { root.move-active-extend(0, 1); } } }
+                KeyBinding { keys: @keys(Return); activated => { if (!root.editing) { root.begin-edit(); } else if (root.col-kinds[root.active-col] == "dropdown") { root.pick-dropdown(root.dd-items[root.dd-highlight]); } else if (root.col-kinds[root.active-col] == "date") { root.pick-date(root.cal-selected-day); } } }
+                KeyBinding { keys: @keys(F2); activated => { if (!root.editing) { root.begin-edit(); } } }
+                KeyBinding { keys: @keys(Control + D); activated => { if (!root.editing) { root.fill-down(); } } }
+                KeyBinding { keys: @keys(Delete); activated => { if (!root.editing) { root.clear-cells(); } } }
+                KeyBinding { keys: @keys(Backspace); activated => { if (!root.editing) { root.clear-cells(); } } }
+                KeyBinding { keys: @keys(Escape); activated => { if (root.editing) { root.cancel-edit(); } } }
+                // Ketik langsung saat sel terpilih (type-to-edit, pola
+                // explorer.slint): satu karakter tercetak, tanpa modifier.
+                // Apakah karakter bisa memulai edit diputuskan Rust
+                // (is-typeahead-char — Slint tidak bisa menulis "\n").
+                key-pressed(event) => {
+                    if (!root.editing && event.text.character-count == 1 && !event.modifiers.control && !event.modifiers.alt && !event.modifiers.meta && root.is-typeahead-char(event.text)) {
+                        root.begin-edit-with-text(event.text);
+                        return accept;
+                    }
+                    reject
+                }
 
             VerticalLayout {
                 padding: 1px;
@@ -371,12 +732,13 @@ export component SpreadsheetComponent inherits Rectangle {
                         Text { text: "#"; font-size: 10px; font-weight: 800; color: Design.text-muted; horizontal-alignment: center; vertical-alignment: center; }
                     }
 
-                    GridCell { width: 110px; text: "A  KODE"; is-header: true; }
-                    GridCell { horizontal-stretch: 2; text: "B  SEKOLAH"; is-header: true; }
-                    GridCell { width: 80px; text: "C  JENJANG"; is-header: true; }
-                    GridCell { width: 100px; text: "D  STATUS"; is-header: true; }
-                    GridCell { width: 90px; text: "E  POIN"; is-header: true; is-numeric: true; }
-                    GridCell { horizontal-stretch: 2; text: "F  CATATAN"; is-header: true; }
+                    hdr-a := GridCell { width: 110px; text: "A  KODE"; is-header: true; }
+                    hdr-b := GridCell { horizontal-stretch: 2; text: "B  SEKOLAH"; is-header: true; }
+                    hdr-c := GridCell { width: 80px; text: "C  JENJANG"; is-header: true; }
+                    hdr-d := GridCell { width: 100px; text: "D  STATUS"; is-header: true; }
+                    hdr-e := GridCell { width: 90px; text: "E  POIN"; is-header: true; is-numeric: true; }
+                    hdr-f := GridCell { horizontal-stretch: 2; text: "F  CATATAN"; is-header: true; }
+                    hdr-g := GridCell { width: 100px; text: "G  TANGGAL"; is-header: true; }
                 }
 
                 // Baris-baris DataGrid (Row 0..5)
@@ -402,14 +764,22 @@ export component SpreadsheetComponent inherits Rectangle {
                         }
                     }
 
-                    // Kolom A: Kode
+                    // Kolom A: Kode (terkunci — kolom ID, tidak bisa diedit)
                     GridCell {
                         width: 110px;
                         text: root.col-a[r];
                         is-numeric: true;
                         is-active: root.active-row == r && root.active-col == 0;
-                        clicked => { root.update-active-cell(r, 0); }
-                        edited(text) => { root.apply-cell-edit(text); }
+                        is-selected: root.sel-rows[r] && root.focus-col == 0;
+                        is-locked: root.col-locked[0];
+                        kind: root.col-kinds[0];
+                        editing: root.editing && root.active-row == r && root.active-col == 0;
+                        edit-initial: root.edit-initial;
+                        edit-select-all: root.edit-select-all;
+                        clicked => { root.cell-clicked(r, 0); }
+                        double-clicked => { root.cell-double-clicked(r, 0); }
+                        edited(text) => { root.apply-cell-edit(text); root.editing = false; }
+                        edit-changed(text) => { root.edit-text = text; }
                     }
 
                     // Kolom B: Sekolah
@@ -417,38 +787,70 @@ export component SpreadsheetComponent inherits Rectangle {
                         horizontal-stretch: 2;
                         text: root.col-b[r];
                         is-active: root.active-row == r && root.active-col == 1;
-                        clicked => { root.update-active-cell(r, 1); }
-                        edited(text) => { root.apply-cell-edit(text); }
+                        is-selected: root.sel-rows[r] && root.focus-col == 1;
+                        is-locked: root.col-locked[1];
+                        kind: root.col-kinds[1];
+                        editing: root.editing && root.active-row == r && root.active-col == 1;
+                        edit-initial: root.edit-initial;
+                        edit-select-all: root.edit-select-all;
+                        clicked => { root.cell-clicked(r, 1); }
+                        double-clicked => { root.cell-double-clicked(r, 1); }
+                        edited(text) => { root.apply-cell-edit(text); root.editing = false; }
+                        edit-changed(text) => { root.edit-text = text; }
                     }
 
-                    // Kolom C: Jenjang
+                    // Kolom C: Jenjang (dropdown)
                     GridCell {
                         width: 80px;
                         text: root.col-c[r];
                         is-active: root.active-row == r && root.active-col == 2;
-                        clicked => { root.update-active-cell(r, 2); }
-                        edited(text) => { root.apply-cell-edit(text); }
+                        is-selected: root.sel-rows[r] && root.focus-col == 2;
+                        is-locked: root.col-locked[2];
+                        kind: root.col-kinds[2];
+                        editing: root.editing && root.active-row == r && root.active-col == 2;
+                        edit-initial: root.edit-initial;
+                        edit-select-all: root.edit-select-all;
+                        clicked => { root.cell-clicked(r, 2); }
+                        double-clicked => { root.cell-double-clicked(r, 2); }
+                        edited(text) => { root.apply-cell-edit(text); root.editing = false; }
+                        edit-changed(text) => { root.edit-text = text; }
                     }
 
-                    // Kolom D: Status
+                    // Kolom D: Status (dropdown)
                     GridCell {
                         width: 100px;
                         text: root.col-d[r];
                         text-color: root.col-d[r] == "SELESAI" ? Design.status-success : (root.col-d[r] == "REVISI" ? Design.status-danger : Design.status-warning);
                         is-active: root.active-row == r && root.active-col == 3;
-                        clicked => { root.update-active-cell(r, 3); }
-                        edited(text) => { root.apply-cell-edit(text); }
+                        is-selected: root.sel-rows[r] && root.focus-col == 3;
+                        is-locked: root.col-locked[3];
+                        kind: root.col-kinds[3];
+                        editing: root.editing && root.active-row == r && root.active-col == 3;
+                        edit-initial: root.edit-initial;
+                        edit-select-all: root.edit-select-all;
+                        clicked => { root.cell-clicked(r, 3); }
+                        double-clicked => { root.cell-double-clicked(r, 3); }
+                        edited(text) => { root.apply-cell-edit(text); root.editing = false; }
+                        edit-changed(text) => { root.edit-text = text; }
                     }
 
-                    // Kolom E: Poin
+                    // Kolom E: Poin (angka)
                     GridCell {
                         width: 90px;
                         text: root.col-e[r];
                         is-numeric: true;
                         text-color: Design.cat-points;
                         is-active: root.active-row == r && root.active-col == 4;
-                        clicked => { root.update-active-cell(r, 4); }
-                        edited(text) => { root.apply-cell-edit(text); }
+                        is-selected: root.sel-rows[r] && root.focus-col == 4;
+                        is-locked: root.col-locked[4];
+                        kind: root.col-kinds[4];
+                        editing: root.editing && root.active-row == r && root.active-col == 4;
+                        edit-initial: root.edit-initial;
+                        edit-select-all: root.edit-select-all;
+                        clicked => { root.cell-clicked(r, 4); }
+                        double-clicked => { root.cell-double-clicked(r, 4); }
+                        edited(text) => { root.apply-cell-edit(text); root.editing = false; }
+                        edit-changed(text) => { root.edit-text = text; }
                     }
 
                     // Kolom F: Catatan
@@ -456,15 +858,81 @@ export component SpreadsheetComponent inherits Rectangle {
                         horizontal-stretch: 2;
                         text: root.col-f[r];
                         is-active: root.active-row == r && root.active-col == 5;
-                        clicked => { root.update-active-cell(r, 5); }
-                        edited(text) => { root.apply-cell-edit(text); }
+                        is-selected: root.sel-rows[r] && root.focus-col == 5;
+                        is-locked: root.col-locked[5];
+                        kind: root.col-kinds[5];
+                        editing: root.editing && root.active-row == r && root.active-col == 5;
+                        edit-initial: root.edit-initial;
+                        edit-select-all: root.edit-select-all;
+                        clicked => { root.cell-clicked(r, 5); }
+                        double-clicked => { root.cell-double-clicked(r, 5); }
+                        edited(text) => { root.apply-cell-edit(text); root.editing = false; }
+                        edit-changed(text) => { root.edit-text = text; }
+                    }
+
+                    // Kolom G: Tanggal (date picker)
+                    GridCell {
+                        width: 100px;
+                        text: root.col-g[r];
+                        is-active: root.active-row == r && root.active-col == 6;
+                        is-selected: root.sel-rows[r] && root.focus-col == 6;
+                        is-locked: root.col-locked[6];
+                        kind: root.col-kinds[6];
+                        editing: root.editing && root.active-row == r && root.active-col == 6;
+                        edit-initial: root.edit-initial;
+                        edit-select-all: root.edit-select-all;
+                        clicked => { root.cell-clicked(r, 6); }
+                        double-clicked => { root.cell-double-clicked(r, 6); }
+                        edited(text) => { root.apply-cell-edit(text); root.editing = false; }
+                        edit-changed(text) => { root.edit-text = text; }
                     }
                 }
 
                 // Ruang kosong pengisi ke bawah
                 Rectangle { vertical-stretch: 1; }
             }
-        }
+
+            // Overlay hit-test: menangkap klik/seret/klik-ganda di seluruh
+            // grid saat TIDAK mengedit. Nonaktif saat mengedit supaya klik
+            // sampai ke TouchArea tiap sel (commit/cancel + pindah sel).
+            // Klik tunggal pada sel dropdown/tanggal langsung buka editornya
+            // (C# — "dulu harus klik ganda, jadi terasa tidak bisa diklik").
+            grid-overlay := TouchArea {
+                x: 0; y: 0; width: 100%; height: 100%;
+                enabled: !root.editing;
+                mouse-cursor: pointer;
+                pointer-event(ev) => {
+                    if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                        grid-scope.focus();
+                        if (ev.modifiers.shift) {
+                            root.extend-selection(root.row-from-y(self.mouse-y), root.col-from-x(self.mouse-x));
+                            root.dragging = true;
+                        } else if (ev.modifiers.control) {
+                            root.toggle-row(root.row-from-y(self.mouse-y), root.col-from-x(self.mouse-x));
+                            root.dragging = true;
+                        } else {
+                            root.select-cell(root.row-from-y(self.mouse-y), root.col-from-x(self.mouse-x));
+                            // Tekan sel dropdown/tanggal langsung buka editor
+                            // (C#) — pointer-up-nya hilang karena overlay
+                            // nonaktif saat mengedit, jadi drag TIDAK boleh
+                            // dimulai di sini (kalau tidak, dragging nyangkut
+                            // true dan gerak mouse tanpa klik ikut seleksi).
+                            if (root.col-kinds[root.active-col] == "dropdown" || root.col-kinds[root.active-col] == "date") {
+                                root.begin-edit();
+                            } else {
+                                root.dragging = true;
+                            }
+                        }
+                    } else if (ev.kind == PointerEventKind.up) {
+                        root.dragging = false;
+                    } else if (ev.kind == PointerEventKind.move && root.dragging) {
+                        root.extend-selection(root.row-from-y(self.mouse-y), root.col-from-x(self.mouse-x));
+                    }
+                }
+                double-clicked => { root.begin-edit(); }
+            }
+            } // tutup grid-scope
+        } // tutup grid-rect
 
         // ===== 3. Footer Status Bar =====
         HorizontalLayout {
@@ -482,11 +950,168 @@ export component SpreadsheetComponent inherits Rectangle {
             }
 
             Text {
-                text: "Baris: " + root.row-count + " · Kolom: 6 (A-F) · Sel Aktif: " + (root.active-col == 0 ? "A" : root.active-col == 1 ? "B" : root.active-col == 2 ? "C" : root.active-col == 3 ? "D" : root.active-col == 4 ? "E" : "F") + (root.active-row + 1);
+                text: "Baris: " + root.row-count + " · Kolom: 7 (A-G) · Sel Aktif: " + (root.active-col == 0 ? "A" : root.active-col == 1 ? "B" : root.active-col == 2 ? "C" : root.active-col == 3 ? "D" : root.active-col == 4 ? "E" : root.active-col == 5 ? "F" : "G") + (root.active-row + 1);
                 font-size: 10px;
                 font-family: "JetBrains Mono";
                 color: Design.text-muted;
                 vertical-alignment: center;
+            }
+        }
+    }
+
+    // ===== Overlay daftar dropdown & kalender (anak root — di luar grid,
+    // jadi tidak terpotong clip grid-rect) =====
+    // Geometri: x = posisi kolom aktif di grid, y = di bawah sel aktif
+    // (atau di atas bila tidak muat sampai bawah komponen).
+    property <length> dd-list-height: (root.active-col == 2 ? root.col-c-items.length : root.col-d-items.length) * 32px + 2px;
+    // Opsi dropdown kolom aktif (properti murni — `for` tidak boleh
+    // memanggil fungsi impure seperti dropdown-items()).
+    property <[string]> dd-items: root.active-col == 2 ? root.col-c-items : root.col-d-items;
+    property <length> dd-cell-top: grid-rect.y + 1px + 28px + root.active-row * 32px;
+    property <length> dd-col-x: grid-rect.x + 1px + (root.active-col == 0 ? hdr-a.x : root.active-col == 1 ? hdr-b.x : root.active-col == 2 ? hdr-c.x : root.active-col == 3 ? hdr-d.x : root.active-col == 4 ? hdr-e.x : root.active-col == 5 ? hdr-f.x : hdr-g.x);
+    property <length> dd-col-width: root.active-col == 0 ? hdr-a.width : root.active-col == 1 ? hdr-b.width : root.active-col == 2 ? hdr-c.width : root.active-col == 3 ? hdr-d.width : root.active-col == 4 ? hdr-e.width : root.active-col == 5 ? hdr-f.width : hdr-g.width;
+    property <bool> dd-below: root.dd-cell-top + 32px + root.dd-list-height <= root.height - 8px;
+    // Tinggi kalender: header 32 + nama hari 20 + 6 baris × 28 +
+    // 7 celah × 2 + padding 4×2 = 242px (228px sebelumnya memotong
+    // setengah baris minggu ke-6, mis. tgl 30 November 2026).
+    property <length> cal-height: 242px;
+    property <bool> cal-below: root.dd-cell-top + 32px + root.cal-height <= root.height - 8px;
+    // Jepit horizontal supaya overlay tidak keluar window (kolom G di
+    // kanan: kalender 240px dari x≈871 akan terpotong di window 1000px
+    // dan tombol TODAY tidak terlihat — dijepit ke tepi kanan - 8px).
+    property <length> dd-x: max(8px, min(root.dd-col-x, root.width - max(root.dd-col-width, 120px) - 8px));
+    property <length> cal-x: max(8px, min(root.dd-col-x, root.width - 240px - 8px));
+
+    // Daftar opsi dropdown (C# ComboBox — langsung terbuka saat edit).
+    if root.editing && root.col-kinds[root.active-col] == "dropdown" : Rectangle {
+        x: root.dd-x;
+        y: root.dd-below ? root.dd-cell-top + 32px : root.dd-cell-top - root.dd-list-height;
+        width: max(root.dd-col-width, 120px);
+        height: root.dd-list-height;
+        background: Design.surface-elevated;
+        border-color: Design.border-default;
+        border-width: 1px;
+        border-radius: Design.radius-sm;
+        clip: true;
+        VerticalLayout {
+            for item[idx] in root.dd-items : Rectangle {
+                height: 32px;
+                background: idx == root.dd-highlight ? Design.accent-subtle : transparent;
+                dd-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.pick-dropdown(item); }
+                }
+                Text {
+                    text: item;
+                    font-size: 12px;
+                    font-weight: item == root.edit-initial ? 700 : 400;
+                    color: item == root.edit-initial ? Design.accent : Design.text-primary;
+                    vertical-alignment: center;
+                    x: 10px;
+                    width: parent.width - 34px;
+                }
+                if item == root.edit-initial : Text {
+                    text: "✓";
+                    font-size: 12px;
+                    font-weight: 700;
+                    color: Design.accent;
+                    x: parent.width - 22px;
+                    y: 0;
+                    height: 100%;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+
+    // Kalender tanggal (C# Calendar SingleDate + tombol TODAY).
+    if root.editing && root.col-kinds[root.active-col] == "date" : Rectangle {
+        x: root.cal-x;
+        y: root.cal-below ? root.dd-cell-top + 32px : root.dd-cell-top - root.cal-height;
+        width: 240px;
+        height: root.cal-height;
+        background: Design.surface-elevated;
+        border-color: Design.border-default;
+        border-width: 1px;
+        border-radius: Design.radius-sm;
+        clip: true;
+        VerticalLayout {
+            padding: 4px;
+            spacing: 2px;
+            // Header: ‹ bulan › + label + TODAY
+            HorizontalLayout {
+                height: 32px;
+                spacing: 2px;
+                Rectangle {
+                    width: 28px; height: 28px;
+                    background: cal-prev-touch.has-hover ? Design.bg-hover : transparent;
+                    border-radius: Design.radius-sm;
+                    cal-prev-touch := TouchArea { mouse-cursor: pointer; clicked => { root.cal-nav(-1); } }
+                    Text { text: "‹"; font-size: 16px; font-weight: 700; color: Design.text-primary; horizontal-alignment: center; vertical-alignment: center; }
+                }
+                Text {
+                    text: root.cal-label;
+                    font-size: 12px;
+                    font-weight: 700;
+                    color: Design.text-primary;
+                    horizontal-stretch: 1;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+                Rectangle {
+                    width: 28px; height: 28px;
+                    background: cal-next-touch.has-hover ? Design.bg-hover : transparent;
+                    border-radius: Design.radius-sm;
+                    cal-next-touch := TouchArea { mouse-cursor: pointer; clicked => { root.cal-nav(1); } }
+                    Text { text: "›"; font-size: 16px; font-weight: 700; color: Design.text-primary; horizontal-alignment: center; vertical-alignment: center; }
+                }
+                Rectangle {
+                    width: 52px; height: 28px;
+                    background: cal-today-touch.has-hover ? Design.accent-subtle : transparent;
+                    border-color: Design.accent;
+                    border-width: 1px;
+                    border-radius: Design.radius-sm;
+                    cal-today-touch := TouchArea { mouse-cursor: pointer; clicked => { root.pick-today(); } }
+                    Text { text: "TODAY"; font-size: 10px; font-weight: 800; color: Design.accent; horizontal-alignment: center; vertical-alignment: center; }
+                }
+            }
+            // Nama hari (Senin dulu, seperti sheet kantor)
+            HorizontalLayout {
+                height: 20px;
+                spacing: 0;
+                for wd in ["S", "S", "R", "K", "J", "S", "M"] : Text {
+                    text: wd;
+                    font-size: 10px;
+                    font-weight: 700;
+                    color: Design.text-muted;
+                    width: 32px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+            // Grid 6×7 hari (cal-cells: 42 angka, 0 = sel kosong)
+            for dw in 6 : HorizontalLayout {
+                height: 28px;
+                spacing: 0;
+                for dc in 7 : Rectangle {
+                    width: 32px;
+                    height: 28px;
+                    visible: root.cal-cells[dw * 7 + dc] != 0;
+                    background: root.cal-cells[dw * 7 + dc] == root.cal-selected-day ? Design.accent : (root.cal-cells[dw * 7 + dc] == root.cal-today ? Design.accent-subtle : transparent);
+                    border-radius: Design.radius-sm;
+                    day-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.pick-date(root.cal-cells[dw * 7 + dc]); }
+                    }
+                    Text {
+                        text: root.cal-cells[dw * 7 + dc];
+                        font-size: 12px;
+                        font-weight: root.cal-cells[dw * 7 + dc] == root.cal-selected-day || root.cal-cells[dw * 7 + dc] == root.cal-today ? 700 : 400;
+                        color: root.cal-cells[dw * 7 + dc] == root.cal-selected-day ? white : Design.text-primary;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
             }
         }
     }

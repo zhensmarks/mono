@@ -9,6 +9,7 @@ mod platform;
 mod process_log;
 mod radial_geom;
 mod sheets_api;
+mod sheet_model;
 mod spreadsheet_guard;
 mod theme;
 mod trello_api;
@@ -711,7 +712,7 @@ fn open_main_category(ui: &AppWindow, cat: &str) {
 /// Nilai default grid spreadsheet — KOSONG (27 Nov 2026, keputusan
 /// abeng: default publish harus bersih, tidak ada data contoh).
 /// Dipakai bila belum ada snapshot di DB.
-const SHEET_DEFAULT_ROWS: [[&str; 6]; 0] = [];
+const SHEET_DEFAULT_ROWS: [[&str; 7]; 0] = [];
 
 fn sheet_model(v: Vec<String>) -> slint::ModelRc<slint::SharedString> {
     slint::ModelRc::new(slint::VecModel::from(
@@ -719,10 +720,154 @@ fn sheet_model(v: Vec<String>) -> slint::ModelRc<slint::SharedString> {
     ))
 }
 
+fn sheet_model_bool(v: Vec<bool>) -> slint::ModelRc<bool> {
+    slint::ModelRc::new(slint::VecModel::from(v))
+}
+
+fn sheet_int_model(v: Vec<i32>) -> slint::ModelRc<i32> {
+    slint::ModelRc::new(slint::VecModel::from(v))
+}
+
+/// Dorong definisi kolom (jenis/kunci/opsi dropdown) dari sheet_model.rs
+/// ke window utama. Definisi statis — bukan dari sheet — jadi cukup
+/// sekali saat start (dan tiap SpreadsheetWindow dibuat).
+fn push_sheet_col_defs_main(ui: &AppWindow) {
+    ui.set_sheet_col_kinds(sheet_model(
+        sheet_model::SHEET_COLUMNS.iter().map(|c| c.kind.as_str().to_string()).collect(),
+    ));
+    ui.set_sheet_col_locked(sheet_model_bool(
+        sheet_model::SHEET_COLUMNS.iter().map(|c| c.locked).collect(),
+    ));
+    ui.set_sheet_col_c_items(sheet_model(
+        sheet_model::SHEET_COLUMNS[2].items.iter().map(|s| s.to_string()).collect(),
+    ));
+    ui.set_sheet_col_d_items(sheet_model(
+        sheet_model::SHEET_COLUMNS[3].items.iter().map(|s| s.to_string()).collect(),
+    ));
+}
+
+/// Sama untuk SpreadsheetWindow.
+fn push_sheet_col_defs_win(w: &SpreadsheetWindow) {
+    w.set_col_kinds(sheet_model(
+        sheet_model::SHEET_COLUMNS.iter().map(|c| c.kind.as_str().to_string()).collect(),
+    ));
+    w.set_col_locked(sheet_model_bool(
+        sheet_model::SHEET_COLUMNS.iter().map(|c| c.locked).collect(),
+    ));
+    w.set_col_c_items(sheet_model(
+        sheet_model::SHEET_COLUMNS[2].items.iter().map(|s| s.to_string()).collect(),
+    ));
+    w.set_col_d_items(sheet_model(
+        sheet_model::SHEET_COLUMNS[3].items.iter().map(|s| s.to_string()).collect(),
+    ));
+}
+
+/// Dorong state kalender (bulan yang ditampilkan + sel hari) ke window
+/// utama. `selected_day`: hari yang disorot — di-clamp ke jumlah hari
+/// bulan itu (mis. pindah dari 31 Jan ke Feb jadi 28).
+fn push_cal_state_main(ui: &AppWindow, year: i32, month: u32, selected_day: u32) {
+    let days = sheet_model::days_in_month(year, month) as u32;
+    let sel = selected_day.clamp(1, days);
+    let (ty, tm, td) = sheet_model::today_ymd();
+    ui.set_sheet_cal_year(year);
+    ui.set_sheet_cal_month(month as i32);
+    ui.set_sheet_cal_label(slint::SharedString::from(sheet_model::month_label(year, month)));
+    ui.set_sheet_cal_cells(sheet_int_model(sheet_model::month_grid(year, month)));
+    ui.set_sheet_cal_today(if year == ty && month == tm { td as i32 } else { 0 });
+    ui.set_sheet_cal_days_in_month(days as i32);
+    ui.set_sheet_cal_today_iso(slint::SharedString::from(sheet_model::today_iso()));
+    ui.set_sheet_cal_selected_day(sel as i32);
+}
+
+/// Sama untuk SpreadsheetWindow.
+fn push_cal_state_win(w: &SpreadsheetWindow, year: i32, month: u32, selected_day: u32) {
+    let days = sheet_model::days_in_month(year, month) as u32;
+    let sel = selected_day.clamp(1, days);
+    let (ty, tm, td) = sheet_model::today_ymd();
+    w.set_cal_year(year);
+    w.set_cal_month(month as i32);
+    w.set_cal_label(slint::SharedString::from(sheet_model::month_label(year, month)));
+    w.set_cal_cells(sheet_int_model(sheet_model::month_grid(year, month)));
+    w.set_cal_today(if year == ty && month == tm { td as i32 } else { 0 });
+    w.set_cal_days_in_month(days as i32);
+    w.set_cal_today_iso(slint::SharedString::from(sheet_model::today_iso()));
+    w.set_cal_selected_day(sel as i32);
+}
+
+/// Tambah baris kosong di akhir grid (maks 6 baris). Baris baru belum
+/// ada di sheet — nilai aslinya "" (jangkar UI saja; `st.loaded` tidak
+/// diubah sampai Simpan, supaya guard tidak menganggap sheet berubah).
+/// Dipakai tombol "+ Baris" di kedua tampilan. Mengembalikan nomor
+/// baris baru (1-based) atau None bila sudah di batas.
+fn add_sheet_row(
+    st: &spreadsheet_guard::SpreadsheetState,
+    ui: &AppWindow,
+    sheet_win: &std::rc::Rc<std::cell::RefCell<Option<SpreadsheetWindow>>>,
+    grid: Vec<Vec<String>>,
+) -> Option<usize> {
+    if grid.len() >= 6 {
+        return None;
+    }
+    let mut display = grid.clone();
+    display.push(vec![String::new(); 7]);
+    // Nilai asli per baris tampil: baris baru + baris-baris baru
+    // sebelumnya yang belum tersimpan semuanya "".
+    let mut orig = st.loaded.clone();
+    while orig.len() < grid.len() {
+        orig.push(vec![String::new(); 7]);
+    }
+    orig.push(vec![String::new(); 7]);
+    push_grid_to_main(ui, &display, &orig);
+    if let Some(w) = sheet_win.borrow().as_ref() {
+        push_grid_to_sheet_win(w, &display, &orig);
+    }
+    Some(display.len())
+}
+
+/// Terapkan daftar edit sel (r, c, nilai baru) ke state bersama: catat
+/// draft (nilai asli = grid saat ini), persist, dorong grid baru ke
+/// kedua tampilan + perbarui status draft. Dipakai fill-down dan
+/// clear-cells — keduanya edit massal dari seleksi. Mengembalikan
+/// jumlah sel yang benar-benar berubah.
+fn apply_sheet_edits_and_refresh(
+    st: &mut spreadsheet_guard::SpreadsheetState,
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+    ui: &AppWindow,
+    sheet_win: &std::rc::Rc<std::cell::RefCell<Option<SpreadsheetWindow>>>,
+    grid: &[Vec<String>],
+    edits: &[(usize, usize, String)],
+) -> usize {
+    let mut changed = 0;
+    for (r, c, val) in edits {
+        let orig = grid
+            .get(*r)
+            .and_then(|row| row.get(*c))
+            .map(|s| s.as_str())
+            .unwrap_or("");
+        if st.record_edit(*r, *c, orig, val) {
+            changed += 1;
+        }
+    }
+    if changed > 0 {
+        persist_sheet_drafts(db, &st.drafts);
+        let display = sheet_display_rows(st);
+        let loaded = st.loaded.clone();
+        push_grid_to_main(ui, &display, &loaded);
+        ui.set_sheet_has_draft(!st.drafts.is_empty());
+        ui.set_sheet_draft_count(st.drafts.len() as i32);
+        if let Some(w) = sheet_win.borrow().as_ref() {
+            push_grid_to_sheet_win(w, &display, &loaded);
+            w.set_sheet_has_draft(!st.drafts.is_empty());
+            w.set_sheet_draft_count(st.drafts.len() as i32);
+        }
+    }
+    changed
+}
+
 fn sheet_rows_to_cols(rows: &[Vec<String>]) -> Vec<Vec<String>> {
-    let mut cols: Vec<Vec<String>> = vec![Vec::new(); 6];
+    let mut cols: Vec<Vec<String>> = vec![Vec::new(); 7];
     for row in rows {
-        for c in 0..6 {
+        for c in 0..7 {
             cols[c].push(row.get(c).cloned().unwrap_or_default());
         }
     }
@@ -734,7 +879,7 @@ fn sheet_cols_to_rows(cols: &[Vec<String>]) -> Vec<Vec<String>> {
     let mut rows = Vec::new();
     for r in 0..n {
         let mut row = Vec::new();
-        for c in 0..6 {
+        for c in 0..7 {
             row.push(cols.get(c).and_then(|col| col.get(r)).cloned().unwrap_or_default());
         }
         rows.push(row);
@@ -742,7 +887,7 @@ fn sheet_cols_to_rows(cols: &[Vec<String>]) -> Vec<Vec<String>> {
     rows
 }
 
-/// Baca grid tampil (6 kolom) dari window utama.
+/// Baca grid tampil (7 kolom) dari window utama.
 fn grid_from_main(ui: &AppWindow) -> Vec<Vec<String>> {
     let cols = vec![
         read_str_model(ui.get_sheet_col_a()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
@@ -751,11 +896,12 @@ fn grid_from_main(ui: &AppWindow) -> Vec<Vec<String>> {
         read_str_model(ui.get_sheet_col_d()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
         read_str_model(ui.get_sheet_col_e()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
         read_str_model(ui.get_sheet_col_f()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+        read_str_model(ui.get_sheet_col_g()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
     ];
     sheet_cols_to_rows(&cols)
 }
 
-/// Baca grid tampil (6 kolom) dari SpreadsheetWindow.
+/// Baca grid tampil (7 kolom) dari SpreadsheetWindow.
 fn grid_from_sheet_win(w: &SpreadsheetWindow) -> Vec<Vec<String>> {
     let cols = vec![
         read_str_model(w.get_col_a()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
@@ -764,6 +910,7 @@ fn grid_from_sheet_win(w: &SpreadsheetWindow) -> Vec<Vec<String>> {
         read_str_model(w.get_col_d()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
         read_str_model(w.get_col_e()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
         read_str_model(w.get_col_f()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+        read_str_model(w.get_col_g()).into_iter().map(|s| s.to_string()).collect::<Vec<_>>(),
     ];
     sheet_cols_to_rows(&cols)
 }
@@ -778,12 +925,14 @@ fn push_grid_to_main(ui: &AppWindow, display: &[Vec<String>], orig: &[Vec<String
     ui.set_sheet_col_d(sheet_model(dc[3].clone()));
     ui.set_sheet_col_e(sheet_model(dc[4].clone()));
     ui.set_sheet_col_f(sheet_model(dc[5].clone()));
+    ui.set_sheet_col_g(sheet_model(dc[6].clone()));
     ui.set_sheet_col_a_orig(sheet_model(oc[0].clone()));
     ui.set_sheet_col_b_orig(sheet_model(oc[1].clone()));
     ui.set_sheet_col_c_orig(sheet_model(oc[2].clone()));
     ui.set_sheet_col_d_orig(sheet_model(oc[3].clone()));
     ui.set_sheet_col_e_orig(sheet_model(oc[4].clone()));
     ui.set_sheet_col_f_orig(sheet_model(oc[5].clone()));
+    ui.set_sheet_col_g_orig(sheet_model(oc[6].clone()));
 }
 
 /// Dorong baris tampil + baris asli ke SpreadsheetWindow.
@@ -796,12 +945,14 @@ fn push_grid_to_sheet_win(w: &SpreadsheetWindow, display: &[Vec<String>], orig: 
     w.set_col_d(sheet_model(dc[3].clone()));
     w.set_col_e(sheet_model(dc[4].clone()));
     w.set_col_f(sheet_model(dc[5].clone()));
+    w.set_col_g(sheet_model(dc[6].clone()));
     w.set_col_a_orig(sheet_model(oc[0].clone()));
     w.set_col_b_orig(sheet_model(oc[1].clone()));
     w.set_col_c_orig(sheet_model(oc[2].clone()));
     w.set_col_d_orig(sheet_model(oc[3].clone()));
     w.set_col_e_orig(sheet_model(oc[4].clone()));
     w.set_col_f_orig(sheet_model(oc[5].clone()));
+    w.set_col_g_orig(sheet_model(oc[6].clone()));
 }
 
 /// Baca snapshot sheet dari DB; bila belum ada, inisialisasi dari data
@@ -2561,7 +2712,7 @@ fn main() -> Result<(), slint::PlatformError> {
             sheet_id,
             sheet_name,
             1,
-            6,
+            7,
             snap.rows.clone(),
         );
         st.drafts = load_sheet_drafts(&db);
@@ -2571,9 +2722,17 @@ fn main() -> Result<(), slint::PlatformError> {
         persist_sheet_drafts(&db, &st.drafts);
         let loaded = st.loaded.clone();
         push_grid_to_main(&ui, &display, &loaded);
-        if applied > 0 {
+        // Definisi kolom (jenis/kunci/opsi dropdown) + kalender bulan ini.
+        push_sheet_col_defs_main(&ui);
+        {
+            let (ty, tm, td) = sheet_model::today_ymd();
+            push_cal_state_main(&ui, ty, tm, td);
+        }
+        // Jumlah draft hidup = diterapkan + sisa (keduanya belum
+        // tersimpan); status "dipulihkan" tetap pakai `applied`.
+        if !st.drafts.is_empty() {
             ui.set_sheet_has_draft(true);
-            ui.set_sheet_draft_count(applied as i32);
+            ui.set_sheet_draft_count(st.drafts.len() as i32);
             let leftover = if !remaining.is_empty() {
                 format!(
                     " {} draft tidak bisa diterapkan karena data sheet sudah berubah.",
@@ -3692,17 +3851,160 @@ fn main() -> Result<(), slint::PlatformError> {
                             let loaded = st.loaded.clone();
                             let status = sheet_restore_status(applied, &remaining);
                             push_grid_to_sheet_win(&w, &display, &loaded);
-                            w.set_sheet_has_draft(applied > 0);
-                            w.set_sheet_draft_count(applied as i32);
+                            let live_drafts = applied + remaining.len();
+                            w.set_sheet_has_draft(live_drafts > 0);
+                            w.set_sheet_draft_count(live_drafts as i32);
                             w.set_sheet_status_text(slint::SharedString::from(status.clone()));
                             // Sinkronkan tampilan embedded.
                             if let Some(ui) = ui_weak_refresh.upgrade() {
                                 push_grid_to_main(&ui, &display, &loaded);
-                                ui.set_sheet_has_draft(applied > 0);
-                                ui.set_sheet_draft_count(applied as i32);
+                                ui.set_sheet_has_draft(live_drafts > 0);
+                                ui.set_sheet_draft_count(live_drafts as i32);
                                 ui.set_sheet_status_text(slint::SharedString::from(status));
                             }
                         }
+                    });
+                    // Toast window -> toast window utama (sebelum ini
+                    // callback toast SpreadsheetWindow tidak di-wire, jadi
+                    // semua toast dari komponen spreadsheet di window ini
+                    // hilang — termasuk "Spreadsheet tersimpan").
+                    let ui_weak_toast = ui_weak.clone();
+                    w.on_toast(move |msg| {
+                        if let Some(ui) = ui_weak_toast.upgrade() {
+                            ui.set_toast(msg);
+                        }
+                    });
+                    // Fill down (Ctrl+D) — baris teratas seleksi -> baris
+                    // lain, kolom fokus saja (C# FillDown row-based).
+                    let state_fd = sheet_state.clone();
+                    let db_fd = db_clone.clone();
+                    let w_weak_fd = w.as_weak();
+                    let ui_weak_fd = ui_weak.clone();
+                    let sheet_fd = sheet_cell.clone();
+                    w.on_sheet_fill_down(move || {
+                        if let Some(w) = w_weak_fd.upgrade() {
+                            let grid = grid_from_sheet_win(&w);
+                            let sel = read_bool_model(w.get_sel_rows());
+                            let focus = w.get_focus_col() as usize;
+                            let edits = sheet_model::fill_down(&grid, focus, &sel);
+                            let mut st = state_fd.borrow_mut();
+                            if let Some(ui) = ui_weak_fd.upgrade() {
+                                let n = apply_sheet_edits_and_refresh(
+                                    &mut st, &db_fd, &ui, &sheet_fd, &grid, &edits,
+                                );
+                                let msg = if n == 0 {
+                                    "Fill down butuh minimal 2 baris terpilih".to_string()
+                                } else {
+                                    format!("✓ Fill down: {} sel disalin ke bawah", n)
+                                };
+                                w.set_sheet_status_text(slint::SharedString::from(msg.clone()));
+                                ui.set_toast(slint::SharedString::from(msg));
+                            }
+                        }
+                    });
+                    // Hapus isi (Delete/Backspace) — sel terpilih di kolom
+                    // fokus saja, sel terkunci dilewati.
+                    let state_cl = sheet_state.clone();
+                    let db_cl = db_clone.clone();
+                    let w_weak_cl = w.as_weak();
+                    let ui_weak_cl = ui_weak.clone();
+                    let sheet_cl = sheet_cell.clone();
+                    w.on_sheet_clear_cells(move || {
+                        if let Some(w) = w_weak_cl.upgrade() {
+                            let grid = grid_from_sheet_win(&w);
+                            let sel = read_bool_model(w.get_sel_rows());
+                            let focus = w.get_focus_col() as usize;
+                            let edits = sheet_model::clear_cells(&grid, focus, &sel);
+                            let mut st = state_cl.borrow_mut();
+                            if let Some(ui) = ui_weak_cl.upgrade() {
+                                let n = apply_sheet_edits_and_refresh(
+                                    &mut st, &db_cl, &ui, &sheet_cl, &grid, &edits,
+                                );
+                                let letter = sheet_model::SHEET_COLUMNS
+                                    .get(focus)
+                                    .map(|c| c.letter)
+                                    .unwrap_or("?");
+                                let msg = if n == 0 {
+                                    format!(
+                                        "Tidak ada sel berisi di kolom {} yang terpilih",
+                                        letter
+                                    )
+                                } else {
+                                    format!("✓ {} sel di kolom {} dikosongkan", n, letter)
+                                };
+                                w.set_sheet_status_text(slint::SharedString::from(msg.clone()));
+                                ui.set_toast(slint::SharedString::from(msg));
+                            }
+                        }
+                    });
+                    // Auto-sum kolom Poin (dihitung dari nilai nyata —
+                    // sebelumnya hardcode di .slint).
+                    let w_weak_sum = w.as_weak();
+                    let ui_weak_sum = ui_weak.clone();
+                    w.on_sheet_auto_sum(move || {
+                        if let Some(w) = w_weak_sum.upgrade() {
+                            let grid = grid_from_sheet_win(&w);
+                            let total = sheet_model::sum_points(&grid);
+                            let msg = format!("∑ Total Poin: {} pts ({} baris)", total, grid.len());
+                            w.set_sheet_status_text(slint::SharedString::from(msg.clone()));
+                            if let Some(ui) = ui_weak_sum.upgrade() {
+                                ui.set_toast(slint::SharedString::from(msg));
+                            }
+                        }
+                    });
+                    // Kalender tanggal: buka di bulan nilai sel (atau
+                    // bulan ini bila kosong/bukan tanggal), geser bulan
+                    // dengan hari terpilih yang sama (di-clamp).
+                    let w_weak_cal = w.as_weak();
+                    w.on_sheet_cal_open(move |val| {
+                        if let Some(w) = w_weak_cal.upgrade() {
+                            let (y, m, d) = sheet_model::parse_iso_date(val.as_str())
+                                .unwrap_or_else(sheet_model::today_ymd);
+                            push_cal_state_win(&w, y, m, d);
+                        }
+                    });
+                    let w_weak_nav = w.as_weak();
+                    w.on_sheet_cal_nav(move |delta| {
+                        if let Some(w) = w_weak_nav.upgrade() {
+                            let (ny, nm) = sheet_model::shift_month(
+                                w.get_cal_year(),
+                                w.get_cal_month() as u32,
+                                delta,
+                            );
+                            let sel = w.get_cal_selected_day() as u32;
+                            push_cal_state_win(&w, ny, nm, sel);
+                        }
+                    });
+                    // Tambah baris kosong (maks 6).
+                    let state_add = sheet_state.clone();
+                    let w_weak_add = w.as_weak();
+                    let ui_weak_add = ui_weak.clone();
+                    let sheet_add = sheet_cell.clone();
+                    w.on_sheet_add_row(move || {
+                        if let Some(w) = w_weak_add.upgrade() {
+                            let grid = grid_from_sheet_win(&w);
+                            let st = state_add.borrow();
+                            if let Some(ui) = ui_weak_add.upgrade() {
+                                match add_sheet_row(&st, &ui, &sheet_add, grid) {
+                                    Some(n) => {
+                                        ui.set_toast(slint::SharedString::from(format!(
+                                            "Baris {} ditambahkan",
+                                            n
+                                        )));
+                                    }
+                                    None => {
+                                        ui.set_toast(slint::SharedString::from(
+                                            "Maksimum 6 baris pada sesi cepat (tersinkron ke sheet)",
+                                        ));
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    // Type-to-edit: satu karakter boleh memulai edit bila
+                    // bukan karakter kontrol (Enter/Tab/Esc dsb).
+                    w.on_sheet_is_typeahead_char(move |text| {
+                        text.chars().next().map(|c| !c.is_control()).unwrap_or(false)
                     });
                     *opt = Some(w);
                 }
@@ -3746,8 +4048,15 @@ fn main() -> Result<(), slint::PlatformError> {
                     let display = sheet_display_rows(&st);
                     let loaded = st.loaded.clone();
                     push_grid_to_sheet_win(w, &display, &loaded);
+                    push_sheet_col_defs_win(w);
                     w.set_sheet_has_draft(!st.drafts.is_empty());
                     w.set_sheet_draft_count(st.drafts.len() as i32);
+                    if !st.drafts.is_empty() {
+                        w.set_sheet_status_text(slint::SharedString::from(format!(
+                            "Perubahan belum disimpan ({} sel)",
+                            st.drafts.len()
+                        )));
+                    }
                     w.set_sheet_guard_result(slint::SharedString::from(""));
                 }
                 // Hide + show = naik ke depan (Slint tidak punya Activate).
@@ -3817,16 +4126,139 @@ fn main() -> Result<(), slint::PlatformError> {
                 let loaded = st.loaded.clone();
                 let status = sheet_restore_status(applied, &remaining);
                 push_grid_to_main(&ui, &display, &loaded);
-                ui.set_sheet_has_draft(applied > 0);
-                ui.set_sheet_draft_count(applied as i32);
+                let live_drafts = applied + remaining.len();
+                ui.set_sheet_has_draft(live_drafts > 0);
+                ui.set_sheet_draft_count(live_drafts as i32);
                 ui.set_sheet_status_text(slint::SharedString::from(status.clone()));
                 if let Some(w) = sheet_cell.borrow().as_ref() {
                     push_grid_to_sheet_win(w, &display, &loaded);
-                    w.set_sheet_has_draft(applied > 0);
-                    w.set_sheet_draft_count(applied as i32);
+                    w.set_sheet_has_draft(live_drafts > 0);
+                    w.set_sheet_draft_count(live_drafts as i32);
                     w.set_sheet_status_text(slint::SharedString::from(status));
                 }
             }
+        });
+    }
+
+    // ---- Spreadsheet beneran: fill-down / hapus / auto-sum / kalender,
+    // handler tampilan embedded (sinkron ke SpreadsheetWindow bila terbuka).
+    {
+        let state = sheet_state.clone();
+        let db_clone = db.clone();
+        let ui_weak = ui.as_weak();
+        let sheet_cell = sheet_win_cell.clone();
+        ui.on_sheet_fill_down(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                let grid = grid_from_main(&ui);
+                let sel = read_bool_model(ui.get_sheet_sel_rows());
+                let focus = ui.get_sheet_focus_col() as usize;
+                let edits = sheet_model::fill_down(&grid, focus, &sel);
+                let mut st = state.borrow_mut();
+                let n = apply_sheet_edits_and_refresh(
+                    &mut st, &db_clone, &ui, &sheet_cell, &grid, &edits,
+                );
+                let msg = if n == 0 {
+                    "Fill down butuh minimal 2 baris terpilih".to_string()
+                } else {
+                    format!("✓ Fill down: {} sel disalin ke bawah", n)
+                };
+                ui.set_sheet_status_text(slint::SharedString::from(msg.clone()));
+                ui.set_toast(slint::SharedString::from(msg));
+            }
+        });
+    }
+    {
+        let state = sheet_state.clone();
+        let db_clone = db.clone();
+        let ui_weak = ui.as_weak();
+        let sheet_cell = sheet_win_cell.clone();
+        ui.on_sheet_clear_cells(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                let grid = grid_from_main(&ui);
+                let sel = read_bool_model(ui.get_sheet_sel_rows());
+                let focus = ui.get_sheet_focus_col() as usize;
+                let edits = sheet_model::clear_cells(&grid, focus, &sel);
+                let mut st = state.borrow_mut();
+                let n = apply_sheet_edits_and_refresh(
+                    &mut st, &db_clone, &ui, &sheet_cell, &grid, &edits,
+                );
+                let letter = sheet_model::SHEET_COLUMNS
+                    .get(focus)
+                    .map(|c| c.letter)
+                    .unwrap_or("?");
+                let msg = if n == 0 {
+                    format!("Tidak ada sel berisi di kolom {} yang terpilih", letter)
+                } else {
+                    format!("✓ {} sel di kolom {} dikosongkan", n, letter)
+                };
+                ui.set_sheet_status_text(slint::SharedString::from(msg.clone()));
+                ui.set_toast(slint::SharedString::from(msg));
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_sheet_auto_sum(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                let grid = grid_from_main(&ui);
+                let total = sheet_model::sum_points(&grid);
+                let msg = format!("∑ Total Poin: {} pts ({} baris)", total, grid.len());
+                ui.set_sheet_status_text(slint::SharedString::from(msg.clone()));
+                ui.set_toast(slint::SharedString::from(msg));
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_sheet_cal_open(move |val| {
+            if let Some(ui) = ui_weak.upgrade() {
+                let (y, m, d) = sheet_model::parse_iso_date(val.as_str())
+                    .unwrap_or_else(sheet_model::today_ymd);
+                push_cal_state_main(&ui, y, m, d);
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_sheet_cal_nav(move |delta| {
+            if let Some(ui) = ui_weak.upgrade() {
+                let (ny, nm) = sheet_model::shift_month(
+                    ui.get_sheet_cal_year(),
+                    ui.get_sheet_cal_month() as u32,
+                    delta,
+                );
+                let sel = ui.get_sheet_cal_selected_day() as u32;
+                push_cal_state_main(&ui, ny, nm, sel);
+            }
+        });
+    }
+    {
+        let state = sheet_state.clone();
+        let ui_weak = ui.as_weak();
+        let sheet_cell = sheet_win_cell.clone();
+        ui.on_sheet_add_row(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                let grid = grid_from_main(&ui);
+                let st = state.borrow();
+                match add_sheet_row(&st, &ui, &sheet_cell, grid) {
+                    Some(n) => {
+                        ui.set_toast(slint::SharedString::from(format!(
+                            "Baris {} ditambahkan",
+                            n
+                        )));
+                    }
+                    None => {
+                        ui.set_toast(slint::SharedString::from(
+                            "Maksimum 6 baris pada sesi cepat (tersinkron ke sheet)",
+                        ));
+                    }
+                }
+            }
+        });
+    }
+    {
+        ui.on_sheet_is_typeahead_char(move |text| {
+            text.chars().next().map(|c| !c.is_control()).unwrap_or(false)
         });
     }
 

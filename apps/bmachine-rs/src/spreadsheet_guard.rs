@@ -180,15 +180,15 @@ pub fn deserialize_drafts(json: &str) -> Vec<DraftEntry> {
 /// Draft hanya diterapkan bila sel masih berisi nilai asli yang sama;
 /// draft yang barisnya tidak ada / nilainya sudah berubah dikembalikan
 /// sebagai sisa (tidak menimpa data orang lain). Mengembalikan
-/// (jumlah_diterapkan, sisa).
+/// (diterapkan, sisa).
 pub fn apply_drafts(
     drafts: &[DraftEntry],
     sheet_id: &str,
     rows: &mut [Vec<String>],
     column_count: usize,
     first_sheet_row: i32,
-) -> (usize, Vec<DraftEntry>) {
-    let mut applied = 0usize;
+) -> (Vec<DraftEntry>, Vec<DraftEntry>) {
+    let mut applied: Vec<DraftEntry> = Vec::new();
     let mut remaining = Vec::new();
     for draft in drafts {
         if draft.sheet_id != sheet_id {
@@ -216,7 +216,7 @@ pub fn apply_drafts(
             continue;
         }
         row[draft.column_index as usize] = draft.value.clone();
-        applied += 1;
+        applied.push(draft.clone());
     }
     (applied, remaining)
 }
@@ -335,7 +335,13 @@ impl SpreadsheetState {
 
     /// Muat ulang dari snapshot baru: bangun ulang jangkar, lalu pulihkan
     /// draft (hanya yang nilai aslinya masih cocok). Mengembalikan
-    /// (baris_tampil, diterapkan, sisa).
+    /// (baris_tampil, diterapkan, sisa). Draft yang berhasil diterapkan
+    /// TETAP jadi edit yang belum tersimpan (bukan "habis dipakai"):
+    /// tampilan dihitung dari loaded + drafts di mana-mana
+    /// (sheet_display_rows), jadi kalau diterapkan lalu dibuang,
+    /// SpreadsheetWindow yang dibuka belakangan menampilkan nilai asli
+    /// dan check_save kehilangan baris yang berubah. Draft yang tidak
+    /// bisa diterapkan tetap tersimpan sebagai sisa (tidak menimpa).
     pub fn reload(
         &mut self,
         fresh_rows: Vec<Vec<String>>,
@@ -350,8 +356,11 @@ impl SpreadsheetState {
             self.column_count,
             self.first_sheet_row,
         );
-        self.drafts = remaining.clone();
-        (display, applied, remaining)
+        let applied_n = applied.len();
+        let mut live = applied;
+        live.extend(remaining.iter().cloned());
+        self.drafts = live;
+        (display, applied_n, remaining)
     }
 }
 
@@ -470,7 +479,12 @@ mod tests {
         assert_eq!(remaining[0].value, "B1 EDIT");
         assert_eq!(display[0][1], "B1 BARU"); // tidak ditimpa
         assert_eq!(display[1][0], "A2 EDIT"); // diterapkan
-        assert_eq!(state.drafts.len(), 1);
+        // Draft yang diterapkan TETAP tersimpan (edit belum tersimpan),
+        // bukan dibuang — kalau tidak, tampilan lain yang dihitung dari
+        // loaded + drafts akan kehilangan nilainya.
+        assert_eq!(state.drafts.len(), 2);
+        assert!(state.drafts.iter().any(|d| d.value == "A2 EDIT"));
+        assert!(state.drafts.iter().any(|d| d.value == "B1 EDIT"));
     }
 
     #[test]

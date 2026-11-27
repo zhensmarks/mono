@@ -398,6 +398,14 @@ export component SpreadsheetWindow inherits Window {
     callback sheet-cell-edited(int, int, string, string);
     callback sheet-save();
     callback sheet-refresh();
+    // Operasi spreadsheet beneran (Rust): teruskan ke SpreadsheetComponent.
+    callback sheet-fill-down();
+    callback sheet-clear-cells();
+    callback sheet-auto-sum();
+    callback sheet-cal-open(string);
+    callback sheet-cal-nav(int);
+    callback sheet-add-row();
+    callback sheet-is-typeahead-char(string) -> bool;
     // Data grid + nilai asli + status guard/draft (diisi Rust saat window dibuat).
     // Default KOSONG (27 Nov 2026, keputusan abeng: default publish harus bersih).
     in-out property <[string]> col-a: [];
@@ -406,16 +414,35 @@ export component SpreadsheetWindow inherits Window {
     in-out property <[string]> col-d: [];
     in-out property <[string]> col-e: [];
     in-out property <[string]> col-f: [];
+    in-out property <[string]> col-g: [];
     in-out property <[string]> col-a-orig: [];
     in-out property <[string]> col-b-orig: [];
     in-out property <[string]> col-c-orig: [];
     in-out property <[string]> col-d-orig: [];
     in-out property <[string]> col-e-orig: [];
     in-out property <[string]> col-f-orig: [];
+    in-out property <[string]> col-g-orig: [];
     in-out property <bool> sheet-has-draft: false;
     in-out property <int> sheet-draft-count: 0;
     in-out property <string> sheet-status-text: "0 baris · Belum terhubung ke Google Sheets";
     in-out property <string> sheet-guard-result: "";
+    // Seleksi multi-baris + kolom fokus (dibaca Rust saat fill-down /
+    // clear-cells — diteruskan dari SpreadsheetComponent).
+    in-out property <[bool]> sel-rows: [true, false, false, false, false, false];
+    in-out property <int> focus-col: 1;
+    // Jenis kolom + kunci + opsi dropdown + state kalender (dari Rust).
+    in-out property <[string]> col-kinds: ["text", "text", "dropdown", "dropdown", "number", "text", "date"];
+    in-out property <[bool]> col-locked: [true, false, false, false, false, false, false];
+    in-out property <[string]> col-c-items: ["TK", "PAUD", "SD", "SMP", "SMA", "SMK"];
+    in-out property <[string]> col-d-items: ["SELESAI", "PROSES", "REVISI", "ANTRIAN"];
+    in-out property <int> cal-year: 2026;
+    in-out property <int> cal-month: 1;
+    in-out property <string> cal-label: "";
+    in-out property <[int]> cal-cells: [];
+    in-out property <int> cal-today: 0;
+    in-out property <int> cal-days-in-month: 31;
+    in-out property <string> cal-today-iso: "";
+    in-out property <int> cal-selected-day: 0;
     // Drag window (C# SpreadsheetWindow.axaml: drag handle 46px di kiri,
     // Margin 0,0,420,0 — kanan 420px bebas untuk toolbar/tombol close).
     callback move-window(length, length);
@@ -553,12 +580,28 @@ export component SpreadsheetWindow inherits Window {
             col-d <=> root.col-d;
             col-e <=> root.col-e;
             col-f <=> root.col-f;
+            col-g <=> root.col-g;
             col-a-orig <=> root.col-a-orig;
             col-b-orig <=> root.col-b-orig;
             col-c-orig <=> root.col-c-orig;
             col-d-orig <=> root.col-d-orig;
             col-e-orig <=> root.col-e-orig;
             col-f-orig <=> root.col-f-orig;
+            col-g-orig <=> root.col-g-orig;
+            col-kinds <=> root.col-kinds;
+            col-locked <=> root.col-locked;
+            col-c-items <=> root.col-c-items;
+            col-d-items <=> root.col-d-items;
+            cal-year <=> root.cal-year;
+            cal-month <=> root.cal-month;
+            cal-label <=> root.cal-label;
+            cal-cells <=> root.cal-cells;
+            cal-today <=> root.cal-today;
+            cal-days-in-month <=> root.cal-days-in-month;
+            cal-today-iso <=> root.cal-today-iso;
+            cal-selected-day <=> root.cal-selected-day;
+            sel-rows <=> root.sel-rows;
+            focus-col <=> root.focus-col;
             has-draft <=> root.sheet-has-draft;
             draft-count <=> root.sheet-draft-count;
             status-text <=> root.sheet-status-text;
@@ -566,6 +609,13 @@ export component SpreadsheetWindow inherits Window {
             cell-edited(r, c, orig, val) => { root.sheet-cell-edited(r, c, orig, val); }
             save-changes() => { root.sheet-save(); }
             refresh-data() => { root.sheet-refresh(); }
+            fill-down() => { root.sheet-fill-down(); }
+            clear-cells() => { root.sheet-clear-cells(); }
+            auto-sum() => { root.sheet-auto-sum(); }
+            cal-open(val) => { root.sheet-cal-open(val); }
+            cal-nav(d) => { root.sheet-cal-nav(d); }
+            add-row() => { root.sheet-add-row(); }
+            is-typeahead-char(t) => { return root.sheet-is-typeahead-char(t); }
             toast(msg) => { root.toast(msg); }
             close-view() => { root.close-window(); }
                 }
