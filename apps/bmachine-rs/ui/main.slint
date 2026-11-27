@@ -676,6 +676,8 @@ export component AppWindow inherits Window {
     callback radial-settings-changed();
     // Toggle on/off: gaya toggle (Settings > Appearance).
     callback toggle-settings-changed();
+    // Paket ikon (Settings > Appearance) — DB Settings.IconPack.
+    callback icon-pack-settings-changed();
     callback pet-active-changed(int);
     callback pet-install-requested(string);
     callback pet-remove-requested(int);
@@ -726,6 +728,10 @@ export component AppWindow inherits Window {
     // Settings.ToggleStyle, berlaku ke semua Toggle app-wide,
     // live tanpa restart (lihat DESIGN_SYSTEM.md §5.2).
     in-out property <string> app-toggle-style: "classic";
+    // Paket ikon ("lucide" | "tabler" | "phosphor" | "heroicons" |
+    // "feather" | "material") — DB Settings.IconPack, berlaku ke
+    // semua SvgIcon app-wide, live tanpa restart.
+    in-out property <string> app-icon-pack: "lucide";
     // Turunan geometri chrome (dipakai titlebar, dashboard, overlay,
     // panel wrapped — supaya satu sumber kebenaran, bukan ternary
     // berulang di tiap elemen):
@@ -2816,6 +2822,8 @@ export component AppWindow inherits Window {
         radial-settings-changed() => { root.radial-settings-changed(); }
         toggle-style <=> root.app-toggle-style;
         toggle-settings-changed() => { root.toggle-settings-changed(); }
+        icon-pack <=> root.app-icon-pack;
+        icon-pack-settings-changed() => { root.icon-pack-settings-changed(); }
         pet-names <=> root.app-pet-names;
         pet-authors <=> root.app-pet-authors;
         pet-slugs <=> root.app-pet-slugs;

@@ -5,6 +5,7 @@ mod batch_exec;
 mod db;
 mod doc_manager;
 mod executor;
+mod icons;
 mod local_update;
 mod petdex;
 mod platform;
@@ -2599,6 +2600,7 @@ fn sync_task_theme(ui: &AppWindow, cell: &std::rc::Rc<std::cell::RefCell<Option<
 /// sekunder ber-chrome. Dipakai saat window dibuat (nilai awal dari
 /// AppWindow) dan saat pengaturan chrome berubah.
 fn push_chrome_to_sheet(w: &SpreadsheetWindow, ui: &AppWindow) {
+    theme::sync_icons(&Design::get(ui), &Design::get(w));
     w.set_chrome_style(slint::SharedString::from(ui.get_app_chrome()));
     w.set_chrome_button_style(slint::SharedString::from(
         ui.get_app_chrome_button_style(),
@@ -2609,6 +2611,7 @@ fn push_chrome_to_sheet(w: &SpreadsheetWindow, ui: &AppWindow) {
 }
 
 fn push_chrome_to_toolbox(w: &ToolboxWindow, ui: &AppWindow) {
+    theme::sync_icons(&Design::get(ui), &Design::get(w));
     w.set_chrome_style(slint::SharedString::from(ui.get_app_chrome()));
     w.set_chrome_button_style(slint::SharedString::from(
         ui.get_app_chrome_button_style(),
@@ -2625,6 +2628,7 @@ fn push_toggle_style_to_toolbox(w: &ToolboxWindow, ui: &AppWindow) {
 }
 
 fn push_chrome_to_cardlist(w: &CardListWindow, ui: &AppWindow) {
+    theme::sync_icons(&Design::get(ui), &Design::get(w));
     w.set_chrome_style(slint::SharedString::from(ui.get_app_chrome()));
     w.set_chrome_button_style(slint::SharedString::from(
         ui.get_app_chrome_button_style(),
@@ -2958,6 +2962,7 @@ fn subtree_keys(key: &str) -> Vec<&str> {
 }
 
 use slint::Model;
+use slint::Global;
 
 // ---- Kartu manual Trello (C# ManualCards.Editing) ----
 // Parse satu link kartu board -> (id, judul, url). Judul diambil dari
@@ -4236,6 +4241,16 @@ fn main() -> Result<(), slint::PlatformError> {
                 toggle_style = theme::valid_toggle_style(&v);
             }
             ui.set_app_toggle_style(slint::SharedString::from(toggle_style.as_str()));
+            // Paket ikon (default "lucide"; nilai tak dikenal →
+            // "lucide" via valid_icon_pack). Path didorong ke Design
+            // window utama di sini — sebelum ui.run() — supaya ikon
+            // splash + dashboard sudah benar sejak frame pertama.
+            let mut icon_pack = "lucide".to_string();
+            if let Some(v) = db_guard.get("Settings.IconPack") {
+                icon_pack = icons::valid_icon_pack(&v);
+            }
+            ui.set_app_icon_pack(slint::SharedString::from(icon_pack.as_str()));
+            theme::push_icons(&Design::get(&ui), &icon_pack);
             let mut vcfg = voice::VoiceConfig::default();
             if let Some(v) = db_guard.get("Settings.Notch.VoiceEnabled") {
                 vcfg.enabled = !(v == "false" || v == "0");
@@ -8077,6 +8092,37 @@ fn main() -> Result<(), slint::PlatformError> {
             if let Some(w) = toolbox_cell.borrow().as_ref() {
                 push_toggle_style_to_toolbox(w, &ui);
             }
+        });
+    }
+
+    // Paket ikon berubah di Settings (Appearance): validasi +
+    // simpan ke DB; dorong path ke Design window utama + semua
+    // window sekunder yang sedang tampil (live tanpa restart).
+    {
+        let bar_cell = bar_win_cell.clone();
+        let radial_cell = radial_win_cell.clone();
+        let task_cell = task_win.clone();
+        let sheet_cell = sheet_win_cell.clone();
+        let toolbox_cell = toolbox_win_cell.clone();
+        let card_cell = card_win_cell.clone();
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
+        ui.on_icon_pack_settings_changed(move || {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let pack = icons::valid_icon_pack(&ui.get_app_icon_pack());
+            ui.set_app_icon_pack(slint::SharedString::from(pack.as_str()));
+            if let Some(ref db_mutex) = db_clone {
+                if let Ok(mut guard) = db_mutex.lock() {
+                    let _ = guard.set("Settings.IconPack", &pack, "String");
+                }
+            }
+            theme::push_icons(&Design::get(&ui), &pack);
+            sync_bar_theme(&ui, &bar_cell);
+            sync_radial_theme(&ui, &radial_cell);
+            sync_task_theme(&ui, &task_cell);
+            sync_chrome_to_windows(&ui, &sheet_cell, &toolbox_cell, &card_cell);
         });
     }
 

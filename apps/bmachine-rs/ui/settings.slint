@@ -501,6 +501,11 @@ export component SettingsView inherits Rectangle {
     // terikat dua arah ke AppWindow; berlaku ke semua Toggle.
     in-out property <string> toggle-style: "classic";
     callback toggle-settings-changed();
+    // Paket ikon ("lucide" | "tabler" | "phosphor" | "heroicons" |
+    // "feather" | "material") — terikat dua arah ke AppWindow;
+    // berlaku ke semua SvgIcon app-wide, live tanpa restart.
+    in-out property <string> icon-pack: "lucide";
+    callback icon-pack-settings-changed();
     in-out property <bool> notch-voice-enabled: true;
     in-out property <string> notch-voice-name: "";
     in-out property <string> notch-voice-volume: "80";
@@ -1399,6 +1404,68 @@ export component SettingsView inherits Rectangle {
                                     toggle-style: root.toggle-style;
                                     checked: false;
                                 }
+                            }
+                        }
+
+
+                        // Paket ikon — berlaku ke SEMUA ikon di
+                        // aplikasi (nav, widget, tombol, flyout),
+                        // langsung tanpa restart. Pratinjau di bawah
+                        // menampilkan 4 ikon dalam paket yang dipilih.
+                        VerticalLayout {
+                            spacing: 6px;
+                            FieldLabel {
+                                title: "Paket ikon";
+                                desc: "Gaya gambar ikon — Lucide (bawaan), Tabler, Phosphor, Heroicons, Feather, atau Material Symbols; semua open-source";
+                            }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OptionChip {
+                                    label: "Lucide";
+                                    horizontal-stretch: 1;
+                                    selected: root.icon-pack == "lucide";
+                                    clicked => { root.icon-pack = "lucide"; root.icon-pack-settings-changed(); root.toast("Paket ikon: Lucide"); }
+                                }
+                                OptionChip {
+                                    label: "Tabler";
+                                    horizontal-stretch: 1;
+                                    selected: root.icon-pack == "tabler";
+                                    clicked => { root.icon-pack = "tabler"; root.icon-pack-settings-changed(); root.toast("Paket ikon: Tabler"); }
+                                }
+                                OptionChip {
+                                    label: "Phosphor";
+                                    horizontal-stretch: 1;
+                                    selected: root.icon-pack == "phosphor";
+                                    clicked => { root.icon-pack = "phosphor"; root.icon-pack-settings-changed(); root.toast("Paket ikon: Phosphor"); }
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OptionChip {
+                                    label: "Heroicons";
+                                    horizontal-stretch: 1;
+                                    selected: root.icon-pack == "heroicons";
+                                    clicked => { root.icon-pack = "heroicons"; root.icon-pack-settings-changed(); root.toast("Paket ikon: Heroicons"); }
+                                }
+                                OptionChip {
+                                    label: "Feather";
+                                    horizontal-stretch: 1;
+                                    selected: root.icon-pack == "feather";
+                                    clicked => { root.icon-pack = "feather"; root.icon-pack-settings-changed(); root.toast("Paket ikon: Feather"); }
+                                }
+                                OptionChip {
+                                    label: "Material";
+                                    horizontal-stretch: 1;
+                                    selected: root.icon-pack == "material";
+                                    clicked => { root.icon-pack = "material"; root.icon-pack-settings-changed(); root.toast("Paket ikon: Material Symbols"); }
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: 24px;
+                                SvgIcon { name: "home"; size: 18px; }
+                                SvgIcon { name: "settings"; size: 18px; }
+                                SvgIcon { name: "search"; size: 18px; }
+                                SvgIcon { name: "bell"; size: 18px; }
                             }
                         }
 

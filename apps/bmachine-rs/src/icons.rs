@@ -12,6 +12,7 @@
 //! that icon (recorded in icons_data.rs header). `path_for` never
 //! returns an empty string for a known icon name.
 
+#[path = "icons_data.rs"]
 mod icons_data;
 
 /// (pack id, display name) — order = order in the Settings picker.
@@ -56,7 +57,7 @@ pub fn path_for(pack: &str, name: &str) -> &'static str {
 }
 
 /// All icon names the app uses (SvgIcon `name:` values across ui/*.slint,
-//! incl. the radial-menu icon arrays). Used by tests to prove every
+// incl. the radial-menu icon arrays). Used by tests to prove every
 /// pack renders every icon.
 pub const ALL_ICON_NAMES: [&str; 45] = [
     "arrow-left", "arrow-right", "bell", "book-open", "calendar", "check",

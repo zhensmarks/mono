@@ -709,6 +709,7 @@ pub fn sync_design_to_bar(ui: &AppWindow, bar: &DynamicBarWindow) {
     dst.set_radius_sm(src.get_radius_sm());
     dst.set_radius_md(src.get_radius_md());
     dst.set_font_family(src.get_font_family());
+    sync_icons(&src, &dst);
 }
 
 /// Sama seperti `sync_design_to_bar`, untuk window radial (OS window
@@ -733,6 +734,7 @@ pub fn sync_design_to_radial(ui: &AppWindow, radial: &RadialMenuWindow) {
     dst.set_radius_sm(src.get_radius_sm());
     dst.set_radius_md(src.get_radius_md());
     dst.set_font_family(src.get_font_family());
+    sync_icons(&src, &dst);
 }
 
 /// Sama seperti `sync_design_to_bar`, untuk TaskManagerWindow (OS window
@@ -776,9 +778,35 @@ pub fn sync_design_to_task(ui: &AppWindow, task: &TaskManagerWindow) {
     dst.set_space_md(src.get_space_md());
     dst.set_font_family(src.get_font_family());
     dst.set_font_button(src.get_font_button());
+    sync_icons(&src, &dst);
 }
 
-/// Terapkan satu preset bawaan: set SEMUA properti tampilan dari
+/// Salin properti paket ikon dari satu Design ke Design lain
+/// (ModelRc icon-paths ikut dibagikan — satu model untuk semua
+/// window, jadi ganti paket di window utama langsung terlihat di
+/// window lain begitu push_icons dipanggil ulang).
+pub fn sync_icons(src: &Design, dst: &Design) {
+    dst.set_icon_pack(src.get_icon_pack());
+    dst.set_icon_paths(src.get_icon_paths());
+    dst.set_icon_fill(src.get_icon_fill());
+}
+
+/// Isi Design window utama dengan path ikon paket aktif: icon-pack
+/// + icon-paths (urutan = icons::ALL_ICON_NAMES) + icon-fill.
+/// Dipanggil saat startup (setelah DB dibaca) + tiap ganti paket di
+/// Settings. Window lain ikut via sync_design_to_* / push_chrome_*.
+pub fn push_icons(design: &Design, pack: &str) {
+    let pack = crate::icons::valid_icon_pack(pack);
+    let paths: Vec<SharedString> = crate::icons::ALL_ICON_NAMES
+        .iter()
+        .map(|n| SharedString::from(crate::icons::path_for(&pack, n)))
+        .collect();
+    design.set_icon_pack(SharedString::from(pack.as_str()));
+    design.set_icon_paths(slint::ModelRc::new(VecModel::from(paths)));
+    design.set_icon_fill(crate::icons::is_fill_pack(&pack));
+}
+
+
 /// palet (mode + aksen + bg + fg + 4 warna widget), lalu turunkan
 /// token Design. Penyimpanan ke DB dilakukan pemanggil (seperti
 /// `on_apply_appearance`). `Err` bila id tidak dikenal.

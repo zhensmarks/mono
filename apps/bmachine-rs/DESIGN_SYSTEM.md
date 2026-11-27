@@ -322,6 +322,19 @@ dengan `VerticalLayout { alignment: center; ... }`. Berlaku di
 semua tampilan (nav, tombol, search field, baris Settings/panel,
 judul window, item radial).
 
+**Paket ikon (28 Nov 2026):** `SvgIcon` tidak lagi menyimpan path
+di `.slint` — path tiap ikon (45 nama, urutan `icons::ALL_ICON_NAMES`)
+diambil dari `Design.icon-paths`, diisi Rust per paket aktif
+(`theme::push_icons`, DB `Settings.IconPack`, default `"lucide"`).
+Paket: Lucide (bawaan) + Tabler, Phosphor, Heroicons, Feather,
+Material Symbols (semua open-source, path dinormalisasi ke viewBox
+24×24; Phosphor + Material fill-based → `Design.icon-fill`, sisanya
+stroke). Paket yang tidak punya padanan satu ikon fallback ke Lucide
+(9 kasus, dicatat di header `src/icons_data.rs`). Pilih di Settings →
+Appearance ("Paket ikon", + pratinjau 4 ikon), berlaku live tanpa
+restart ke SEMUA window (sync Design menyalin ketiga properti ikon;
+window sekunder ikut saat dibuka + saat ganti paket).
+
 **Nav dinamis (abeng 27 Nov 18:46):** tab terpilih tampil ikon +
 teks; tab tidak terpilih hanya ikon saja (lebar label dianimasikan
 200ms, pill mengikuti preferred-width). **Flyout profil (abeng
