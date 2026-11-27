@@ -16,7 +16,6 @@ import { RadialMenuView } from "radial.slint";
 import { SplashView } from "splash.slint";
 import { ExitConfirmDialog, UpdateDialog } from "dialog.slint";
 export { SpreadsheetWindow, CardListWindow, RadialMenuWindow, ToolboxWindow, ReportBugDialog } from "windows.slint";
-export { FloatingWidgetWindow } from "floating.slint";
 
 export component AppWindow inherits Window {
     no-frame: true;
@@ -132,11 +131,6 @@ export component AppWindow inherits Window {
     callback open-new-sheet-window();
     callback open-new-card-window(string);
     callback refresh-leaderboard();
-    callback toggle-floating-widget();
-
-    // Toggle Smart Orb di Settings langsung menampilkan/menyembunyikan
-    // Floating Widget (C# OnIsFloatingWidgetEnabledChanged).
-    changed app-smart-orb => { root.toggle-floating-widget(); }
 
     // ---- Appearance & Customization (persisted in SQLite) ----
     in-out property <string> app-color-mode: "dark";
@@ -162,7 +156,6 @@ export component AppWindow inherits Window {
     in-out property <bool> app-anim-startup: true;
     in-out property <string> app-anim-speed: "Normal";
     in-out property <string> app-trello-interval: "30";
-    in-out property <bool> app-smart-orb: true;
     in-out property <bool> app-trello-connected: false;
     in-out property <string> app-trello-status: "Belum tersambung ke Trello.";
 
@@ -3253,7 +3246,6 @@ export component AppWindow inherits Window {
         anim-startup <=> root.app-anim-startup;
         anim-speed <=> root.app-anim-speed;
         trello-interval <=> root.app-trello-interval;
-        smart-orb <=> root.app-smart-orb;
         batch-file-filter <=> root.batch-file-filter;
         is-batch-visible <=> root.is-batch-visible;
         is-folder-locker-visible <=> root.is-folder-locker-visible;

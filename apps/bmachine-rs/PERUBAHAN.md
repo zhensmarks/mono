@@ -5,6 +5,54 @@ sebelum commit + push (format lengkap di `AGENTS.md`). Entri terbaru di
 paling atas. Dengan log ini, siapa pun yang menerima project — Dex, Hermes,
 atau orang lain — langsung tahu apa saja yang diubah tanpa menebak.
 
+## 2026-11-27 — Dex — Hapus Floating Widget / Smart Orb SEPENUHNYA (koreksi P2)
+
+- Diubah:
+  - DIHAPUS `ui/floating.slint` (file, 315 baris) — window
+    `FloatingWidgetWindow` 100×100 transparan + orb 60px + glow
+    bernapas + menu expand Master/Action + resize handle.
+  - `src/main.rs` (−317 baris): hapus `scan_floating_scripts`,
+    `parse_hex_color` (hanya dipakai orb), `floating_orb_prefs`,
+    `open_floating_widget`, `hide_floating_widget`; hapus baca
+    `Settings.FloatingWidget` saat load, hapus tulis
+    `Settings.FloatingWidget` di save-general-settings, hapus
+    deklarasi cell `floating_win_cell`/`floating_visible`, hapus
+    handler `on_toggle_floating_widget`, hapus timer startup 300ms
+    yang menampilkan orb. Key DB lama (`Settings.FloatingWidget`,
+    `Settings.Orb.*`, `Configs.Widget.Position`,
+    `Settings.Color.Orb`) TIDAK dihapus dari database — hanya
+    berhenti dibaca/ditulis.
+  - `ui/main.slint`: hapus export `FloatingWidgetWindow`, callback
+    `toggle-floating-widget` + handler `changed app-smart-orb`,
+    property `app-smart-orb`, binding `smart-orb`.
+  - `ui/settings.slint`: hapus property `smart-orb` + baris toggle
+    "Smart Orb / Floating Widget" di grup General.
+  - `DESIGN_SYSTEM.md` §17.3: grup General tidak lagi mencantumkan
+    Smart Orb; dicatat orb dihapus 27 Nov, diganti radial menu.
+- Alasan: koreksi abeng 27 Nov malam — orb yang dibangun di P2
+  (dari file C# `FloatingWidgetView.axaml.cs` yang masih ada di
+  source tree) ternyata sudah DIHAPUS PENUH dari C# dan diganti
+  radial menu. Port ikut menghapus, bukan memperbaiki orb.
+- TIDAK disentuh: radial menu (P0) tetap ada — window radial
+  320×320 di kursor, dwell 300ms, release-to-execute, hotkey
+  global Shift+klik tengah; label widget "POINTS"; spreadsheet
+  fingerprint guard + splash (P2 item 2–3).
+- Terverifikasi: `cargo build --offline` exit 0 (hanya warning lama
+  `sha2`); `cargo test --offline` 18 passed, 0 failed; klik
+  sungguhan di Xvfb :98 (APPDATA tes terisolasi
+  `/tmp/p2orb/appdata`, DB asli abeng tidak disentuh): dashboard
+  tampil bersih tanpa window orb (`xdotool search --onlyvisible
+  --name "Floating"` kosong; screenshot
+  `p2-orb-removed-dashboard.png`); Settings General tidak ada lagi
+  toggle orb (`p2-orb-removed-settings.png`); radial menu tetap
+  jalan — `--radial-test` membuka window "BMachine Radial Menu"
+  320×320 di kursor (480,240) (`p2-orb-removed-radial2.png`;
+  isi radial tidak tertangkap screenshot karena window transparan
+  tanpa compositor di Xvfb — artefak lingkungan, bukan bug).
+- Masih terbuka: verifikasi radial + hilangnya orb di PC Windows
+  abeng (klik panah EDITING yang kadang hilang di Xvfb masih
+  menunggu cek Windows).
+
 ## 2026-11-27 — Dex — P2: Floating Widget / Smart Orb + Spreadsheet fingerprint guard + Splash samakan C#
 
 - Diubah:

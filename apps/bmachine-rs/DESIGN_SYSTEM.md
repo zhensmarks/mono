@@ -1166,7 +1166,12 @@ tetap memakan ruang) — perbaikannya butuh `height: 0` kondisional.
 
 - **General**: Nama user ("abeng"), Bahasa ("Indonesia"),
   Animasi startup, Kecepatan animasi statistik, Interval
-  refresh Trello ("30"), Smart Orb / Floating Widget.
+  refresh Trello ("30"). (Smart Orb / Floating Widget DIHAPUS
+  27 Nov 2026 — abeng: orb sudah dihapus penuh dari C# dan
+  diganti radial menu, bukan orb lagi. Key DB lama
+  `Settings.FloatingWidget` / `Settings.Orb.*` /
+  `Configs.Widget.Position` tidak lagi dibaca/ditulis port,
+  tapi TIDAK dihapus dari database.)
 - **Explorer**: Default Explorer Path (`D:\#GAWENA`), View
   Mode ("Details"), Sort ("Name"), Group ("None"), Show
   hidden files, Show file extensions, Content zoom (75–200%).

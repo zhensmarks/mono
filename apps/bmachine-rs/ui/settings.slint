@@ -390,7 +390,6 @@ export component SettingsView inherits Rectangle {
     in-out property <bool> anim-startup: true;
     in-out property <string> anim-speed: "Normal";
     in-out property <string> trello-interval: "30";
-    in-out property <bool> smart-orb: true;
     // --- General (C# SettingsView.axaml:579-660) ---
     in-out property <string> batch-file-filter: "";
     in-out property <bool> is-batch-visible: true;
@@ -1942,14 +1941,6 @@ export component SettingsView inherits Rectangle {
                                     color: Design.text-primary;
                                     vertical-alignment: center;
                                 }
-                            }
-                        }
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Smart Orb / Floating Widget"; desc: "Widget mini statistik yang mengambang di desktop"; }
-                            Toggle {
-                                checked: root.smart-orb;
-                                toggled(checked) => { root.smart-orb = checked; root.toast(checked ? "Disimpan: Smart Orb nyala" : "Disimpan: Smart Orb mati"); }
                             }
                         }
                         VerticalLayout {

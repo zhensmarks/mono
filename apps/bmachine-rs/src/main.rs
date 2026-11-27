@@ -746,257 +746,6 @@ fn sheet_restore_status(applied: usize, remaining: &[spreadsheet_guard::DraftEnt
     }
 }
 
-/// Pindai daftar script untuk menu Floating Widget (C#
-/// FloatingWidgetViewModel.LoadScripts): Master = .py di Scripts/Master,
-/// Action = .jsx di Scripts/Action + .pyw di Scripts. Nama tampil =
-/// nama file tanpa ekstensi, diurutkan alfabetis (C# memakai urutan
-/// prioritas scripts.json lalu alfabetis — port belum punya metadata
-/// itu, jadi alfabetis).
-fn scan_floating_scripts() -> (Vec<String>, Vec<String>) {
-    let base = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-    let scripts = base.join("Scripts");
-    let mut masters = Vec::new();
-    let mut actions = Vec::new();
-    let mut collect = |dir: &std::path::Path, exts: &[&str], out: &mut Vec<String>| {
-        if let Ok(entries) = std::fs::read_dir(dir) {
-            for e in entries.flatten() {
-                let p = e.path();
-                let is_file = p.is_file();
-                let ext = p
-                    .extension()
-                    .and_then(|x| x.to_str())
-                    .unwrap_or("")
-                    .to_lowercase();
-                if is_file && exts.contains(&ext.as_str()) {
-                    if let Some(stem) = p.file_stem().and_then(|s| s.to_str()) {
-                        out.push(stem.to_string());
-                    }
-                }
-            }
-        }
-    };
-    collect(&scripts.join("Master"), &["py"], &mut masters);
-    collect(&scripts.join("Action"), &["jsx"], &mut actions);
-    collect(&scripts, &["pyw"], &mut actions);
-    masters.sort();
-    actions.sort();
-    (masters, actions)
-}
-
-fn parse_hex_color(hex: &str) -> Option<slint::Color> {
-    let h = hex.trim().trim_start_matches('#');
-    if h.len() != 6 {
-        return None;
-    }
-    let r = u8::from_str_radix(&h[0..2], 16).ok()?;
-    let g = u8::from_str_radix(&h[2..4], 16).ok()?;
-    let b = u8::from_str_radix(&h[4..6], 16).ok()?;
-    Some(slint::Color::from_rgb_u8(r, g, b))
-}
-
-/// Baca preferensi orb dari DB (kunci sama dengan C#).
-fn floating_orb_prefs(
-    db: &Option<Arc<Mutex<DatabaseService>>>,
-) -> (slint::Color, i32, bool, (i32, i32), (i32, i32)) {
-    let mut accent = slint::Color::from_rgb_u8(0x3b, 0x82, 0xf6);
-    let mut speed = 1i32;
-    let mut breathing = true;
-    let mut pos = (100i32, 100i32);
-    let mut size = (440i32, 210i32);
-    if let Some(db_mutex) = db.as_ref() {
-        if let Ok(guard) = db_mutex.lock() {
-            if let Some(v) = guard.get("Settings.Color.Orb") {
-                if let Some(c) = parse_hex_color(&v) {
-                    accent = c;
-                }
-            }
-            if let Some(v) = guard.get("Settings.Orb.Speed") {
-                if let Ok(n) = v.parse::<i32>() {
-                    if (0..=2).contains(&n) {
-                        speed = n;
-                    }
-                }
-            }
-            if let Some(v) = guard.get("Settings.Orb.Breathing") {
-                breathing = !(v == "false" || v == "0");
-            }
-            if let (Some(x), Some(y)) = (
-                guard.get("Configs.Widget.Position.X"),
-                guard.get("Configs.Widget.Position.Y"),
-            ) {
-                if let (Ok(px), Ok(py)) = (x.parse::<i32>(), y.parse::<i32>()) {
-                    pos = (px.max(0), py.max(0));
-                }
-            }
-            if let (Some(w), Some(h)) = (
-                guard.get("Settings.Orb.ExpandedWidth"),
-                guard.get("Settings.Orb.ExpandedHeight"),
-            ) {
-                if let (Ok(ew), Ok(eh)) = (w.parse::<i32>(), h.parse::<i32>()) {
-                    if ew >= 300 && eh >= 150 {
-                        size = (ew, eh);
-                    }
-                }
-            }
-        }
-    }
-    (accent, speed, breathing, pos, size)
-}
-
-/// Buka (atau buka-ulang) FloatingWidgetWindow. Dipakai toggle Settings
-/// + saat startup bila Settings.FloatingWidget true (default C#).
-fn open_floating_widget(
-    cell: &std::rc::Rc<std::cell::RefCell<Option<FloatingWidgetWindow>>>,
-    visible: &std::rc::Rc<std::cell::Cell<bool>>,
-    ui_weak: &slint::Weak<AppWindow>,
-    db: &Option<Arc<Mutex<DatabaseService>>>,
-) {
-    let mut opt = cell.borrow_mut();
-    if !visible.get() {
-        *opt = None;
-    }
-    if opt.is_none() {
-        if let Ok(w) = FloatingWidgetWindow::new() {
-            let (accent, speed, breathing, pos, size) = floating_orb_prefs(db);
-            w.set_accent_color(accent);
-            w.set_speed_index(speed);
-            w.set_breathing(breathing);
-            w.set_expanded_width(size.0);
-            w.set_expanded_height(size.1);
-            let scale = w.window().scale_factor();
-            w.window().set_position(slint::PhysicalPosition::new(
-                (pos.0 as f32 * scale) as i32,
-                (pos.1 as f32 * scale) as i32,
-            ));
-            let w_weak = w.as_weak();
-            w.on_toggle_expand(move || {
-                if let Some(w) = w_weak.upgrade() {
-                    // Ukuran window ikut binding width/height di
-                    // .slint (expanded -> expanded-width/height);
-                    // jangan set_size di sini (properti width Slint
-                    // tidak ikut berubah — menu ter-render 100px).
-                    if w.get_expanded() {
-                        w.set_expanded(false);
-                    } else {
-                        let (masters, actions) = scan_floating_scripts();
-                        w.set_master_items(sheet_model(masters));
-                        w.set_action_items(sheet_model(actions));
-                        w.set_active_menu(slint::SharedString::from("Master"));
-                        w.set_expanded(true);
-                    }
-                }
-            });
-            let w_weak2 = w.as_weak();
-            w.on_collapse(move || {
-                if let Some(w) = w_weak2.upgrade() {
-                    if w.get_expanded() {
-                        w.set_expanded(false);
-                    }
-                }
-            });
-            let w_weak3 = w.as_weak();
-            w.on_move_window(move |dx, dy| {
-                if let Some(w) = w_weak3.upgrade() {
-                    let scale = w.window().scale_factor();
-                    let pos = w.window().position();
-                    let nx = (pos.x + (dx * scale) as i32).max(0);
-                    let ny = (pos.y + (dy * scale) as i32).max(0);
-                    w.window()
-                        .set_position(slint::PhysicalPosition::new(nx, ny));
-                }
-            });
-            let w_weak4 = w.as_weak();
-            w.on_resize_window(move |dx, dy| {
-                if let Some(w) = w_weak4.upgrade() {
-                    // Ukuran window ikut binding width/height di .slint,
-                    // jadi resize = ubah properti expanded-width/height
-                    // (jangan set_size — lihat on_toggle_expand).
-                    // dx/dy sudah logical px (callback length).
-                    let nw = ((w.get_expanded_width() as f32 + dx) as i32).max(300);
-                    let nh = ((w.get_expanded_height() as f32 + dy) as i32).max(150);
-                    w.set_expanded_width(nw);
-                    w.set_expanded_height(nh);
-                }
-            });
-            let w_weak5 = w.as_weak();
-            let db_clone5 = db.clone();
-            w.on_save_position(move || {
-                if let Some(w) = w_weak5.upgrade() {
-                    if let Some(db_mutex) = db_clone5.as_ref() {
-                        if let Ok(mut guard) = db_mutex.lock() {
-                            let scale = w.window().scale_factor();
-                            let pos = w.window().position();
-                            let x = (pos.x as f32 / scale) as i32;
-                            let y = (pos.y as f32 / scale) as i32;
-                            let _ = guard.set("Configs.Widget.Position.X", &x.to_string(), "Int");
-                            let _ = guard.set("Configs.Widget.Position.Y", &y.to_string(), "Int");
-                        }
-                    }
-                }
-            });
-            let w_weak6 = w.as_weak();
-            let db_clone6 = db.clone();
-            w.on_save_expanded_size(move || {
-                if let Some(w) = w_weak6.upgrade() {
-                    if let Some(db_mutex) = db_clone6.as_ref() {
-                        if let Ok(mut guard) = db_mutex.lock() {
-                            let _ = guard.set(
-                                "Settings.Orb.ExpandedWidth",
-                                &w.get_expanded_width().to_string(),
-                                "Int",
-                            );
-                            let _ = guard.set(
-                                "Settings.Orb.ExpandedHeight",
-                                &w.get_expanded_height().to_string(),
-                                "Int",
-                            );
-                        }
-                    }
-                }
-            });
-            let w_weak7 = w.as_weak();
-            let ui_weak7 = ui_weak.clone();
-            w.on_execute_item(move |name| {
-                // Jalur yang sama dengan radial execute-script (saat ini
-                // toast; eksekusi nyata ikut Fase 6 seperti radial).
-                if let Some(ui) = ui_weak7.upgrade() {
-                    ui.set_toast(slint::SharedString::from(format!(
-                        "[Photoshop] Menjalankan: {}",
-                        name
-                    )));
-                }
-                if let Some(w) = w_weak7.upgrade() {
-                    if w.get_expanded() {
-                        w.set_expanded(false);
-                    }
-                }
-            });
-            let ui_weak8 = ui_weak.clone();
-            w.on_toast(move |msg| {
-                if let Some(ui) = ui_weak8.upgrade() {
-                    ui.set_toast(msg);
-                }
-            });
-            *opt = Some(w);
-        }
-    }
-    if let Some(w) = opt.as_ref() {
-        let _ = w.show();
-        visible.set(true);
-    }
-}
-
-/// Sembunyikan FloatingWidgetWindow (toggle Settings mati).
-fn hide_floating_widget(
-    cell: &std::rc::Rc<std::cell::RefCell<Option<FloatingWidgetWindow>>>,
-    visible: &std::rc::Rc<std::cell::Cell<bool>>,
-) {
-    if let Some(w) = cell.borrow().as_ref() {
-        let _ = w.hide();
-    }
-    visible.set(false);
-}
-
 /// Buka (atau buka-ulang) ToolboxWindow di tengah window utama.
 /// Dipakai callback AppWindow open-toolbox-window + radial open-toolbox.
 fn open_toolbox_window(
@@ -1907,10 +1656,6 @@ fn main() -> Result<(), slint::PlatformError> {
             if let Some(v) = db_guard.get("Settings.Dash.Explorer") {
                 ui.set_is_output_explorer_visible(v == "true" || v == "1");
             }
-            if let Some(v) = db_guard.get("Settings.FloatingWidget") {
-                // C# SettingsViewModel: Settings.FloatingWidget, default True.
-                ui.set_app_smart_orb(!(v == "false" || v == "0"));
-            }
             theme::load_theme_from_db(&ui, &db_guard);
         }
     }
@@ -2377,15 +2122,6 @@ fn main() -> Result<(), slint::PlatformError> {
                         let _ = db_guard.set(
                             "Settings.Dash.Explorer",
                             if ui.get_is_output_explorer_visible() {
-                                "true"
-                            } else {
-                                "false"
-                            },
-                            "Bool",
-                        );
-                        let _ = db_guard.set(
-                            "Settings.FloatingWidget",
-                            if ui.get_app_smart_orb() {
                                 "true"
                             } else {
                                 "false"
@@ -2985,10 +2721,6 @@ fn main() -> Result<(), slint::PlatformError> {
     let toolbox_win_cell: std::rc::Rc<std::cell::RefCell<Option<ToolboxWindow>>> =
         std::rc::Rc::new(std::cell::RefCell::new(None));
     let toolbox_visible: std::rc::Rc<std::cell::Cell<bool>> =
-        std::rc::Rc::new(std::cell::Cell::new(false));
-    let floating_win_cell: std::rc::Rc<std::cell::RefCell<Option<FloatingWidgetWindow>>> =
-        std::rc::Rc::new(std::cell::RefCell::new(None));
-    let floating_visible: std::rc::Rc<std::cell::Cell<bool>> =
         std::rc::Rc::new(std::cell::Cell::new(false));
     let bug_win_cell: std::rc::Rc<std::cell::RefCell<Option<ReportBugDialog>>> =
         std::rc::Rc::new(std::cell::RefCell::new(None));
@@ -4005,35 +3737,6 @@ fn main() -> Result<(), slint::PlatformError> {
         },
     );
 
-    // ---- Floating Widget: toggle Settings (C#
-    // OnIsFloatingWidgetEnabledChanged — langsung tampil/sembunyi +
-    // persist Settings.FloatingWidget). ----
-    {
-        let floating_cell = floating_win_cell.clone();
-        let floating_vis = floating_visible.clone();
-        let db_clone = db.clone();
-        let ui_weak = ui.as_weak();
-        ui.on_toggle_floating_widget(move || {
-            if let Some(ui) = ui_weak.upgrade() {
-                let enabled = ui.get_app_smart_orb();
-                if let Some(ref db_mutex) = db_clone {
-                    if let Ok(mut db_guard) = db_mutex.lock() {
-                        let _ = db_guard.set(
-                            "Settings.FloatingWidget",
-                            if enabled { "true" } else { "false" },
-                            "Bool",
-                        );
-                    }
-                }
-                if enabled {
-                    open_floating_widget(&floating_cell, &floating_vis, &ui_weak, &db_clone);
-                } else {
-                    hide_floating_widget(&floating_cell, &floating_vis);
-                }
-            }
-        });
-    }
-
     // QA helpers (SETELAH semua callback Rust terdaftar — watcher
     // radial memanggil callback Rust; dibuka sebelum registrasi =
     // no-op). --radial-test: buka radial di cursor; --toolbox: buka
@@ -4049,26 +3752,6 @@ fn main() -> Result<(), slint::PlatformError> {
             &ui.as_weak(),
             "MantraNama".to_string(),
         );
-    }
-
-    // Floating Widget tampil saat startup bila diaktifkan (C# default
-    // True — Settings.FloatingWidget). Ditunda 300ms lewat Timer agar
-    // dibuka SETELAH window utama tampil: di X tanpa window manager
-    // (dan umumnya di Linux) window yang show() belakangan menumpuk di
-    // atas, jadi buka langsung di sini akan tertutup window utama
-    // meski always-on-top. Di Windows WS_EX_TOPMOST tetap dijaga OS.
-    if ui.get_app_smart_orb() {
-        let floating_cell = floating_win_cell.clone();
-        let floating_vis = floating_visible.clone();
-        let db_clone = db.clone();
-        let ui_weak = ui.as_weak();
-        slint::Timer::single_shot(std::time::Duration::from_millis(300), move || {
-            if let Some(ui) = ui_weak.upgrade() {
-                if ui.get_app_smart_orb() {
-                    open_floating_widget(&floating_cell, &floating_vis, &ui_weak, &db_clone);
-                }
-            }
-        });
     }
 
     // ui.run() mengambil alih event loop; show() sudah dipanggil di atas.
