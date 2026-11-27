@@ -1,5 +1,5 @@
 use crate::db::DatabaseService;
-use crate::{AppWindow, Design, DynamicBarWindow};
+use crate::{AppWindow, Design, DynamicBarWindow, RadialMenuWindow};
 use serde::{Deserialize, Serialize};
 use slint::{Color, Global, SharedString, VecModel};
 
@@ -666,6 +666,30 @@ pub fn sync_design_to_bar(ui: &AppWindow, bar: &DynamicBarWindow) {
     dst.set_font_family(src.get_font_family());
 }
 
+/// Sama seperti `sync_design_to_bar`, untuk window radial (OS window
+/// 320×320): salin SEMUA token yang dipakai `ui/radial.slint`
+/// (aksen, permukaan, teks, overlay) supaya segmen radial mengikuti
+/// preset tema aktif. Dipanggil saat radial dibuka + tiap handler tema.
+pub fn sync_design_to_radial(ui: &AppWindow, radial: &RadialMenuWindow) {
+    let src = Design::get(ui);
+    let dst = Design::get(radial);
+    dst.set_app_bg(src.get_app_bg());
+    dst.set_card_bg(src.get_card_bg());
+    dst.set_surface_elevated(src.get_surface_elevated());
+    dst.set_separator(src.get_separator());
+    dst.set_text_primary(src.get_text_primary());
+    dst.set_text_secondary(src.get_text_secondary());
+    dst.set_text_muted(src.get_text_muted());
+    dst.set_accent(src.get_accent());
+    dst.set_accent_subtle(src.get_accent_subtle());
+    dst.set_bg_hover(src.get_bg_hover());
+    dst.set_overlay_solid(src.get_overlay_solid());
+    dst.set_status_danger(src.get_status_danger());
+    dst.set_radius_sm(src.get_radius_sm());
+    dst.set_radius_md(src.get_radius_md());
+    dst.set_font_family(src.get_font_family());
+}
+
 /// Terapkan satu preset bawaan: set SEMUA properti tampilan dari
 /// palet (mode + aksen + bg + fg + 4 warna widget), lalu turunkan
 /// token Design. Penyimpanan ke DB dilakukan pemanggil (seperti
@@ -821,8 +845,25 @@ pub fn load_theme_from_db(ui: &AppWindow, db: &DatabaseService) {
     let preset_raw = db
         .get("Appearance.Palette")
         .or_else(|| db.get("Settings.ThemePreset"));
-    if let Some(v) = preset_raw {
-        ui.set_app_theme_preset(SharedString::from(legacy_preset_id(&v)));
+    // Terapkan warna preset ke prop — tanpa ini apply_appearance di
+    // akhir memakai hex default biru meski preset sudah dimuat
+    // (ditemukan saat verifikasi radial Spider: aksen tetap #3B82F6
+    // padahal Appearance.Palette = "spider"). Override eksplisit di
+    // bawah (Settings.Accent, Appearance.Background.*,
+    // Settings.Color.*) tetap menang karena ditulis setelah preset.
+    if let Some(v) = preset_raw.as_ref() {
+        let id = legacy_preset_id(v);
+        ui.set_app_theme_preset(SharedString::from(id.clone()));
+        if let Some(p) = palette_for(&id) {
+            set_hex_pair(ui, "accent", &p.accent);
+            set_hex_pair(ui, "bg", &p.bg);
+            set_hex_pair(ui, "fg", &p.fg);
+            set_hex_pair(ui, "editing", &p.editing);
+            set_hex_pair(ui, "revision", &p.revision);
+            set_hex_pair(ui, "late", &p.late);
+            set_hex_pair(ui, "points", &p.points);
+            ui.set_widget_style(SharedString::from(p.widget_style.clone()));
+        }
     }
     if let Some(v) = db.get("Settings.Accent") {
         if let Some(norm) = normalize_hex(&v) {

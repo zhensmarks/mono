@@ -27,10 +27,26 @@ export component RadialMenuWindow inherits Window {
     callback release-execute();
     callback open-toolbox(string);
     in-out property <int> doc-tab-count: 1;
+    // Gaya + geometri ring radial (lihat ui/radial.slint) — didorong
+    // Rust saat radial dibuka / pengaturan berubah.
+    in-out property <string> radial-style: "glass";
+    in-out property <int> sector-count: 8;
+    in-out property <[string]> wedge-cmds;
+    in-out property <[string]> arc-cmds;
+    in-out property <string> divider-cmds;
+    in-out property <[length]> btn-x;
+    in-out property <[length]> btn-y;
 
     wheel := RadialMenuView {
         x: 0; y: 0; width: 320px; height: 320px;
         doc-tab-count: root.doc-tab-count;
+        radial-style: root.radial-style;
+        sector-count: root.sector-count;
+        wedge-cmds: root.wedge-cmds;
+        arc-cmds: root.arc-cmds;
+        divider-cmds: root.divider-cmds;
+        btn-x: root.btn-x;
+        btn-y: root.btn-y;
         back() => { root.close-window(); }
         toast(message) => { root.toast(message); }
         execute-script(name) => { root.execute-script(name); }

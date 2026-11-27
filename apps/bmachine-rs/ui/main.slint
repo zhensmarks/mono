@@ -146,6 +146,8 @@ export component AppWindow inherits Window {
     // Notch hidup: pengaturan mode + voice (Settings > Notch).
     callback notch-settings-changed();
     callback test-notch-voice();
+    // Radial: gaya ring + jumlah segmen (Settings > Script Manager).
+    callback radial-settings-changed();
     callback pet-active-changed(int);
     callback pet-install-requested(string);
     callback pet-remove-requested(int);
@@ -198,6 +200,11 @@ export component AppWindow inherits Window {
     // Gaya mata maskot ("nusa" | "baymax" | "bulat") — DB
     // Settings.Notch.EyeStyle, berlaku live tanpa restart.
     in-out property <string> app-notch-eye-style: "nusa";
+    // Radial: gaya ring ("glass" | "hud" | "flat", DB
+    // Settings.Radial.Style) + jumlah segmen ring (2–8, DB
+    // Settings.Radial.Segments) — berlaku live tanpa restart.
+    in-out property <string> app-radial-style: "glass";
+    in-out property <int> app-radial-segments: 8;
     in-out property <bool> app-notch-voice-enabled: true;
     in-out property <string> app-notch-voice-name: "";
     in-out property <string> app-notch-voice-volume: "80";
@@ -3348,6 +3355,9 @@ export component AppWindow inherits Window {
         notch-voice-index <=> root.app-notch-voice-index;
         notch-settings-changed() => { root.notch-settings-changed(); }
         test-notch-voice() => { root.test-notch-voice(); }
+        radial-style <=> root.app-radial-style;
+        radial-segments <=> root.app-radial-segments;
+        radial-settings-changed() => { root.radial-settings-changed(); }
         pet-names <=> root.app-pet-names;
         pet-authors <=> root.app-pet-authors;
         pet-slugs <=> root.app-pet-slugs;

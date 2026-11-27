@@ -468,6 +468,7 @@ export component SettingsView inherits Rectangle {
     callback test-trello();
     callback notch-settings-changed();
     callback test-notch-voice();
+    callback radial-settings-changed();
     // Pet PetDex (install/hapus dari galeri petdex.dev — model
     // skill Hermes). pet-names[0] = "Blob bawaan"; pet-slugs[0]
     // kosong. Daftar ter-install (tanpa blob) di pet-installed-*,
@@ -492,6 +493,10 @@ export component SettingsView inherits Rectangle {
     // Gaya mata maskot ("nusa" | "baymax" | "bulat") — berlaku ke
     // mata notch + blob pet bawaan (bukan sprite PetDex).
     in-out property <string> notch-eye-style: "nusa";
+    // Gaya ring radial ("glass" | "hud" | "flat") + jumlah segmen
+    // ring (2–8) — terikat dua arah ke AppWindow.
+    in-out property <string> radial-style: "glass";
+    in-out property <int> radial-segments: 8;
     in-out property <bool> notch-voice-enabled: true;
     in-out property <string> notch-voice-name: "";
     in-out property <string> notch-voice-volume: "80";
@@ -2391,6 +2396,110 @@ export component SettingsView inherits Rectangle {
                                             spacing: 6px;
                                             Rectangle { width: 140px; height: 28px; background: Design.bg-hover; border-radius: 4px; Text { text: "270° (Barat): AUTO-SAVE"; font-size: 10px; color: Design.text-primary; vertical-alignment: center; horizontal-alignment: center; } }
                                             Rectangle { width: 140px; height: 28px; background: Design.bg-hover; border-radius: 4px; Text { text: "315° (NW): EXPORT-JPG"; font-size: 10px; color: Design.text-primary; vertical-alignment: center; horizontal-alignment: center; } }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Card {
+                            VerticalLayout {
+                                padding: Design.space-lg;
+                                spacing: Design.space-md;
+                                Text {
+                                    text: "GAYA & SEGMEN RADIAL";
+                                    font-size: Design.font-h3;
+                                    font-weight: 700;
+                                    letter-spacing: 1px;
+                                    color: Design.text-primary;
+                                }
+                                Text {
+                                    text: "Segmen radial mengikuti warna aksen tema aktif (Spider = merah, Gwen = pink) — berlaku langsung tanpa restart";
+                                    font-size: Design.font-caption;
+                                    color: Design.text-muted;
+                                }
+
+                                // Gaya ring radial: Kaca = ring kaca
+                                // gelap transparan; HUD = outline tipis
+                                // + glow aksen di segmen aktif; Flat =
+                                // datar tanpa kaca/glow.
+                                VerticalLayout {
+                                    spacing: 6px;
+                                    FieldLabel {
+                                        title: "Gaya radial";
+                                        desc: "Kaca = ring kaca gelap; HUD = outline tipis + glow aksen; Flat = datar tanpa glow";
+                                    }
+                                    HorizontalLayout {
+                                        spacing: 6px;
+                                        OptionChip {
+                                            label: "Kaca";
+                                            horizontal-stretch: 1;
+                                            selected: root.radial-style == "glass";
+                                            clicked => { root.radial-style = "glass"; root.radial-settings-changed(); root.toast("Gaya radial: Kaca"); }
+                                        }
+                                        OptionChip {
+                                            label: "HUD";
+                                            horizontal-stretch: 1;
+                                            selected: root.radial-style == "hud";
+                                            clicked => { root.radial-style = "hud"; root.radial-settings-changed(); root.toast("Gaya radial: HUD"); }
+                                        }
+                                        OptionChip {
+                                            label: "Flat";
+                                            horizontal-stretch: 1;
+                                            selected: root.radial-style == "flat";
+                                            clicked => { root.radial-style = "flat"; root.radial-settings-changed(); root.toast("Gaya radial: Flat"); }
+                                        }
+                                    }
+                                }
+
+                                // Jumlah segmen ring (split rule): ring
+                                // dibagi N segmen sama rata; segmen
+                                // terakhir selalu navigasi (More/Back).
+                                // 9–12 baru terbuka bila slot radial
+                                // bisa diedit user.
+                                VerticalLayout {
+                                    spacing: 6px;
+                                    FieldLabel {
+                                        title: "Jumlah segmen";
+                                        desc: "Ring dibagi sama rata sesuai jumlah segmen — segmen terakhir selalu More/Back";
+                                    }
+                                    HorizontalLayout {
+                                        spacing: 6px;
+                                        OptionChip {
+                                            label: "2";
+                                            horizontal-stretch: 1;
+                                            selected: root.radial-segments == 2;
+                                            clicked => { root.radial-segments = 2; root.radial-settings-changed(); root.toast("Segmen radial: 2"); }
+                                        }
+                                        OptionChip {
+                                            label: "3";
+                                            horizontal-stretch: 1;
+                                            selected: root.radial-segments == 3;
+                                            clicked => { root.radial-segments = 3; root.radial-settings-changed(); root.toast("Segmen radial: 3"); }
+                                        }
+                                        OptionChip {
+                                            label: "4";
+                                            horizontal-stretch: 1;
+                                            selected: root.radial-segments == 4;
+                                            clicked => { root.radial-segments = 4; root.radial-settings-changed(); root.toast("Segmen radial: 4"); }
+                                        }
+                                        OptionChip {
+                                            label: "5";
+                                            horizontal-stretch: 1;
+                                            selected: root.radial-segments == 5;
+                                            clicked => { root.radial-segments = 5; root.radial-settings-changed(); root.toast("Segmen radial: 5"); }
+                                        }
+                                        OptionChip {
+                                            label: "6";
+                                            horizontal-stretch: 1;
+                                            selected: root.radial-segments == 6;
+                                            clicked => { root.radial-segments = 6; root.radial-settings-changed(); root.toast("Segmen radial: 6"); }
+                                        }
+                                        OptionChip {
+                                            label: "8";
+                                            horizontal-stretch: 1;
+                                            selected: root.radial-segments == 8;
+                                            clicked => { root.radial-segments = 8; root.radial-settings-changed(); root.toast("Segmen radial: 8"); }
                                         }
                                     }
                                 }

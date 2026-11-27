@@ -1523,6 +1523,96 @@ accent-subtle + border aksen; label horizontal, bukan
 tangensial; tipografi §1.1; tidak ada slot yang membuka
 Spreadsheet/Leaderboard.
 
+### 19.7a Radial Menu — tema + aturan pintah (27 Nov 2026)
+
+Menggantikan sebagian §19.7 (roda overlay 400×400 + orb sudah
+tidak berlaku sejak P0: radial kini OS window 320×320 di posisi
+kursor, `RadialMenuWindow` di `ui/windows.slint`, pemicu SATU —
+hotkey global Shift+klik tengah).
+
+**Tema (abeng 27 Nov 20:03, ref `~/workspace/radial-refs/`).**
+Segmen radial mengikuti warna aksen preset aktif — Spider =
+merah `#D9272E`, Gwen = pink, dst. — live tanpa restart.
+Mekanisme: tiap OS window punya instance `Design` sendiri, jadi
+aksen disalin ke window radial lewat `theme::sync_design_to_radial`
+(`src/theme.rs`) — dipanggil saat radial dibuka, tiap handler
+tema (preset / reset / tema user), dan tiap perubahan pengaturan
+radial. Gaya radial dipilih di Settings → Script Manager →
+"GAYA & SEGMEN RADIAL" (DB `Settings.Radial.Style`, default
+`"glass"`; nilai tak dikenal → `"glass"`):
+- **Kaca** (default): pelat kaca gelap (`surface-elevated`
+  alpha 0.88), segmen hover = aksen 0.35 + busur glow aksen
+  2.5px di tepi luar, divider putih 0.18.
+- **HUD**: pelat transparan, outline aksen 0.45, segmen hover
+  = aksen 0.15 + busur glow, divider aksen 0.3, border hub
+  aksen (ala ref 3a/2).
+- **Flat**: pelat `card-bg` datar, segmen hover =
+  `accent-subtle` penuh, tanpa busur glow, border hub
+  `separator`.
+Label tengah = nama item yang di-hover/dwell.
+
+**Aturan pintah / split rule (ref 8-layout.jpg).** Ring dibagi
+N segmen SAMA RATA sesuai jumlah item (2–12); sudut tiap segmen
+= 360/N dari Utara searah jarum jam, bukan hardcode 8. Mesin
+geometri murni di `src/radial_geom.rs` (`sector_angle_deg`,
+`sector_index`, `wedge_path`, `wedge_arc_path`,
+`divider_commands`, `button_top_left`, `radial_geometry`) —
+didorong Rust ke Slint saat radial dibuka / pengaturan berubah
+(`push_radial_geometry` di `src/main.rs`): `sector-count`,
+`wedge-cmds`, `arc-cmds`, `divider-cmds`, `btn-x`, `btn-y`.
+Unit test: N ∈ {2,3,4,5,6,8,9,10,12}; regresi N=8 sama persis
+dengan layout hardcode lama (tombol (142,70)…(91,91), 8 wedge,
+divider); posisi tombol dibulatkan ke piksel utuh (konvensi
+hardcode lama: 72·sin45° = 50,91 → 51).
+**Batas roda: 2–8.** Mesin mendukung 2–12, tapi satu halaman
+roda hanya memuat 8 slot (paritas C#) — Settings menawarkan
+2/3/4/5/6/8 (DB `Settings.Radial.Segments`, default 8; di luar
+2–8 dijepit). 9–12 baru terbuka bila slot radial bisa diedit
+user. Bila segmen < 8, segmen terakhir SELALU navigasi
+More/Back (slot 4) — `vis-idx(i)` di `ui/radial.slint` memetakan
+segmen ke slot halaman (N=4: Utara/Timur/Selatan = slot 0/1/2,
+Barat = More); pointer (`update-pointer`) dan klik tombol
+memakai `resolve-sector` yang sama. Submenu luar (TOOLBOX 5
+skrip, SEND 2 tab DOC) tetap busur sama rata seperti sebelumnya.
+
+**Perbaikan startup terkait (27 Nov 2026).** `load_theme_from_db`
+dulu hanya mengisi prop `app-theme-preset` — warna preset (aksen
+dst.) tidak pernah masuk ke prop hex, jadi `apply_appearance`
+di akhir memakai aksen default biru `#3B82F6` meski DB berisi
+`Appearance.Palette = "spider"` (ditemukan saat verifikasi
+radial Spider). Sekarang warna preset disalin ke prop dulu
+(`set_hex_pair`); override eksplisit (`Settings.Accent`,
+`Appearance.Background.*`, `Settings.Color.*`) tetap menang
+karena ditulis setelahnya. DB asli abeng: aksen tetap
+`#10B981` (override `Settings.Accent` menang atas merah Spider).
+
+**Terverifikasi 27 Nov 2026 (Xvfb :98, APPDATA terisolasi).**
+Build exit 0, 64 test lolos (8 baru: 6 geometri + 2 validasi
+pengaturan). Piksel: N=8 divider di 22,0/67,4/112,2/157,8/
+202,6/248,0/292,6/337,4°; N=4 di 44,5/135,0/225,5/315,0°;
+wedge N=8 membentang ±22,5°. Spider: wedge HUD (32,5,6) =
+0,15×`#D9272E`, busur Kaca tepat `#D9272E` (217,39,46);
+pelat Kaca (32,32,32), HUD (0,0,0) transparan, Flat
+`card-bg` (31,31,31). Kartu Settings tampil + chip
+Kaca/HUD/Flat & 2/3/4/5/6/8; klik Kaca + 8 tersimpan di DB
+(`Settings.Radial.Style=glass`, `Segments=8`) dan radial
+yang dibuka ulang menampilkan Kaca + 8 segmen. **Hotkey
+global TERBUKTI bisa dites di Xvfb** (membatalkan catatan
+lama "tidak bisa dipicu via xdotool"): Shift+klik tengah
+via xdotool (`keydown shift` + `mousedown 2`) membuka radial
+di kursor, lepas menutupnya (release-to-execute).
+**Masih terbuka:** (1) hover saat tombol tengah DITAHAN tidak
+ter-update di X11 (implicit grab X11: move pergi ke window
+tempat press terjadi; di Windows tanpa implicit capture
+seharusnya jalan — belum terverifikasi di PC abeng); (2)
+klik/eksekusi item radial via release-to-execute belum dites
+langsung (hanya buka + hover + tutup); (3) radial sekali
+ditemukan unmapped di tengah sesi uji Settings — pemicu
+hide-nya tidak terekan ulang; buka-ulang via hotkey jalan,
+kemungkinan artefak operasi X eksternal (windowraise/
+windowmove xdotool), bukan alur user normal; (4) 9–12
+segmen menunggu slot radial bisa diedit user.
+
 ### 19.8 Pelajaran teknis Fase 4 (26 Nov 2026)
 
 - **Rantai persentase jatuh ke preferred-height.** `height:

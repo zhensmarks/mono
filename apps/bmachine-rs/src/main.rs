@@ -7,6 +7,7 @@ mod local_update;
 mod petdex;
 mod platform;
 mod process_log;
+mod radial_geom;
 mod sheets_api;
 mod spreadsheet_guard;
 mod theme;
@@ -1143,6 +1144,51 @@ fn valid_eye_style(raw: &str) -> String {
     }
 }
 
+/// Gaya radial ("glass" | "hud" | "flat") — nilai tak dikenal → "glass".
+fn valid_radial_style(raw: &str) -> String {
+    match theme::unquote(raw).as_str() {
+        "hud" => "hud".to_string(),
+        "flat" => "flat".to_string(),
+        _ => "glass".to_string(),
+    }
+}
+
+/// Jumlah segmen ring radial (2–8). Mesin geometri
+/// (`src/radial_geom.rs`) mendukung 2–12 (ref 8-layout.jpg), tapi satu
+/// halaman roda hanya memuat 8 slot (paritas C#) — 9–12 baru terbuka
+/// bila slot radial bisa diedit user. Di luar 2–8 → dijepit.
+fn valid_radial_segments(raw: i32) -> usize {
+    raw.clamp(2, 8) as usize
+}
+
+#[cfg(test)]
+mod radial_settings_tests {
+    use super::*;
+
+    #[test]
+    fn valid_radial_style_accepts_known_styles_and_defaults_unknown() {
+        assert_eq!(valid_radial_style("glass"), "glass");
+        assert_eq!(valid_radial_style("hud"), "hud");
+        assert_eq!(valid_radial_style("flat"), "flat");
+        assert_eq!(valid_radial_style(""), "glass");
+        assert_eq!(valid_radial_style("kaca"), "glass");
+        assert_eq!(valid_radial_style("\"hud\""), "hud");
+    }
+
+    #[test]
+    fn valid_radial_segments_clamps_to_wheel_range() {
+        assert_eq!(valid_radial_segments(8), 8);
+        assert_eq!(valid_radial_segments(4), 4);
+        assert_eq!(valid_radial_segments(2), 2);
+        assert_eq!(valid_radial_segments(1), 2);
+        assert_eq!(valid_radial_segments(0), 2);
+        assert_eq!(valid_radial_segments(-3), 2);
+        // 9–12 didukung mesin geometri, tapi roda dijepit ke 8 slot.
+        assert_eq!(valid_radial_segments(12), 8);
+        assert_eq!(valid_radial_segments(99), 8);
+    }
+}
+
 #[cfg(test)]
 mod eye_style_tests {
     use super::*;
@@ -1533,6 +1579,51 @@ fn sync_bar_theme(ui: &AppWindow, cell: &std::rc::Rc<std::cell::RefCell<Option<D
     if let Some(w) = cell.borrow().as_ref() {
         theme::sync_design_to_bar(ui, w);
     }
+}
+
+/// Sinkronkan token Design ke window radial bila sudah dibuat
+/// (dipakai handler tema — radial punya instance Design sendiri,
+/// seperti bar; tanpa ini aksen radial ketinggalan preset).
+fn sync_radial_theme(ui: &AppWindow, cell: &std::rc::Rc<std::cell::RefCell<Option<RadialMenuWindow>>>) {
+    if let Some(w) = cell.borrow().as_ref() {
+        theme::sync_design_to_radial(ui, w);
+    }
+}
+
+/// Dorong gaya + geometri ring ke window radial: gaya ("glass" |
+/// "hud" | "flat"), jumlah segmen, dan semua perintah Path / posisi
+/// tombol yang dihitung mesin geometri dari N (split rule).
+/// Dipakai saat radial dibuka dan saat pengaturan radial berubah
+/// (live tanpa restart).
+fn push_radial_geometry(w: &RadialMenuWindow, style: &str, n: usize) {
+    let g = radial_geom::radial_geometry(n);
+    w.set_radial_style(slint::SharedString::from(style));
+    w.set_sector_count(n as i32);
+    w.set_wedge_cmds(slint::ModelRc::new(slint::VecModel::from(
+        g.wedge_cmds
+            .into_iter()
+            .map(slint::SharedString::from)
+            .collect::<Vec<_>>(),
+    )));
+    w.set_arc_cmds(slint::ModelRc::new(slint::VecModel::from(
+        g.arc_cmds
+            .into_iter()
+            .map(slint::SharedString::from)
+            .collect::<Vec<_>>(),
+    )));
+    w.set_divider_cmds(slint::SharedString::from(g.divider_cmds));
+    w.set_btn_x(slint::ModelRc::new(slint::VecModel::from(
+        g.btn_x
+            .into_iter()
+            .map(|v| v as f32)
+            .collect::<Vec<_>>(),
+    )));
+    w.set_btn_y(slint::ModelRc::new(slint::VecModel::from(
+        g.btn_y
+            .into_iter()
+            .map(|v| v as f32)
+            .collect::<Vec<_>>(),
+    )));
 }
 
 /// Buka ReportBugDialog di tengah window utama. Kirim laporan =
@@ -1947,6 +2038,11 @@ fn main() -> Result<(), slint::PlatformError> {
     // tema berubah.
     let bar_win_cell: std::rc::Rc<std::cell::RefCell<Option<DynamicBarWindow>>> =
         std::rc::Rc::new(std::cell::RefCell::new(None));
+    // Window radial — dibuat awal juga (alasan sama seperti bar:
+    // handler tema harus bisa menyinkronkan aksen ke radial yang
+    // sedang tampil; window-nya sendiri baru dibuat saat dibuka).
+    let radial_win_cell: std::rc::Rc<std::cell::RefCell<Option<RadialMenuWindow>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(None));
     // Waktu drag terakhir mode pet (wander tidak jalan 5 detik
     // setelah user selesai men-drag avatar).
     let pet_last_drag: Arc<Mutex<Instant>> =
@@ -2104,6 +2200,20 @@ fn main() -> Result<(), slint::PlatformError> {
                 eye_style = valid_eye_style(&v);
             }
             ui.set_app_notch_eye_style(slint::SharedString::from(eye_style.as_str()));
+            // Gaya radial (default "glass") + jumlah segmen ring
+            // (default 8; nilai tak dikenal / di luar 2–8 dijepit).
+            let mut radial_style = "glass".to_string();
+            if let Some(v) = db_guard.get("Settings.Radial.Style") {
+                radial_style = valid_radial_style(&v);
+            }
+            ui.set_app_radial_style(slint::SharedString::from(radial_style.as_str()));
+            let mut radial_segments = 8usize;
+            if let Some(v) = db_guard.get("Settings.Radial.Segments") {
+                if let Ok(n) = v.trim().trim_matches('"').parse::<i32>() {
+                    radial_segments = valid_radial_segments(n);
+                }
+            }
+            ui.set_app_radial_segments(radial_segments as i32);
             let mut vcfg = voice::VoiceConfig::default();
             if let Some(v) = db_guard.get("Settings.Notch.VoiceEnabled") {
                 vcfg.enabled = !(v == "false" || v == "0");
@@ -2681,6 +2791,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let ui_weak = ui.as_weak();
         let db_clone = db.clone();
         let bar_cell_sync = bar_win_cell.clone();
+        let radial_cell_sync = radial_win_cell.clone();
         ui.on_apply_appearance(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 match theme::apply_appearance(&ui) {
@@ -2691,6 +2802,7 @@ fn main() -> Result<(), slint::PlatformError> {
                             }
                         }
                         sync_bar_theme(&ui, &bar_cell_sync);
+                        sync_radial_theme(&ui, &radial_cell_sync);
                     }
                     Err(msg) => {
                         ui.set_toast(slint::SharedString::from(msg));
@@ -2703,6 +2815,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let ui_weak = ui.as_weak();
         let db_clone = db.clone();
         let bar_cell_sync = bar_win_cell.clone();
+        let radial_cell_sync = radial_win_cell.clone();
         ui.on_reset_appearance(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 ui.set_app_color_mode(slint::SharedString::from("dark"));
@@ -2732,6 +2845,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.set_app_chrome(slint::SharedString::from("custom"));
                 let _ = theme::apply_appearance(&ui);
                 sync_bar_theme(&ui, &bar_cell_sync);
+                sync_radial_theme(&ui, &radial_cell_sync);
                 if let Some(ref db_mutex) = db_clone {
                     if let Ok(mut db_guard) = db_mutex.lock() {
                         theme::save_theme_to_db(&ui, &mut db_guard);
@@ -2748,6 +2862,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let ui_weak = ui.as_weak();
         let db_clone = db.clone();
         let bar_cell_sync = bar_win_cell.clone();
+        let radial_cell_sync = radial_win_cell.clone();
         ui.on_apply_theme_preset(move |id| {
             if let Some(ui) = ui_weak.upgrade() {
                 match theme::apply_preset(&ui, id.as_str()) {
@@ -2758,6 +2873,7 @@ fn main() -> Result<(), slint::PlatformError> {
                             }
                         }
                         sync_bar_theme(&ui, &bar_cell_sync);
+                        sync_radial_theme(&ui, &radial_cell_sync);
                         let name = theme::palette_for(id.as_str())
                             .map(|p| p.name)
                             .unwrap_or_else(|| id.to_string());
@@ -2820,6 +2936,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let ui_weak = ui.as_weak();
         let db_clone = db.clone();
         let bar_cell_sync = bar_win_cell.clone();
+        let radial_cell_sync = radial_win_cell.clone();
         ui.on_apply_user_theme(move |id| {
             if let Some(ui) = ui_weak.upgrade() {
                 let found: Option<theme::ThemePalette> = (|| {
@@ -2840,6 +2957,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                     }
                                 }
                                 sync_bar_theme(&ui, &bar_cell_sync);
+                                sync_radial_theme(&ui, &radial_cell_sync);
                                 ui.set_toast(slint::SharedString::from(format!(
                                     "Tema {} diterapkan",
                                     name
@@ -3853,8 +3971,8 @@ fn main() -> Result<(), slint::PlatformError> {
 
     // ---- Radial / Toolbox / ReportBug — window OS (C#
     // RadialMenuWindow / ToolboxWindow / ReportBugDialog). ----
-    let radial_win_cell: std::rc::Rc<std::cell::RefCell<Option<RadialMenuWindow>>> =
-        std::rc::Rc::new(std::cell::RefCell::new(None));
+    // (radial_win_cell dibuat di atas, dekat bar_win_cell, supaya
+    // handler tema bisa menyinkronkan aksen ke radial.)
     let toolbox_win_cell: std::rc::Rc<std::cell::RefCell<Option<ToolboxWindow>>> =
         std::rc::Rc::new(std::cell::RefCell::new(None));
     let toolbox_visible: std::rc::Rc<std::cell::Cell<bool>> =
@@ -3930,6 +4048,14 @@ fn main() -> Result<(), slint::PlatformError> {
             if let Some(w) = opt.as_ref() {
                 if let Some(ui) = ui_weak.upgrade() {
                     w.set_doc_tab_count(ui.get_radial_doc_tab_count());
+                    // Tema + geometri ring (split rule): aksen mengikuti
+                    // preset aktif, segmen dihitung dari jumlah item.
+                    theme::sync_design_to_radial(&ui, w);
+                    push_radial_geometry(
+                        w,
+                        &valid_radial_style(&ui.get_app_radial_style()),
+                        valid_radial_segments(ui.get_app_radial_segments()),
+                    );
                     w.invoke_reset_wheel();
                     if let Some(cursor) = cursor_screen_position() {
                         let scale = ui.window().scale_factor();
@@ -3955,6 +4081,32 @@ fn main() -> Result<(), slint::PlatformError> {
                     w.invoke_release_execute();
                     let _ = w.hide();
                 }
+            }
+        });
+    }
+
+    // Pengaturan radial berubah di Settings (gaya + jumlah segmen):
+    // simpan ke DB; bila window radial sedang tampil, dorong langsung
+    // (live tanpa restart).
+    {
+        let radial_cell = radial_win_cell.clone();
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
+        ui.on_radial_settings_changed(move || {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let style = valid_radial_style(&ui.get_app_radial_style());
+            let n = valid_radial_segments(ui.get_app_radial_segments());
+            if let Some(ref db_mutex) = db_clone {
+                if let Ok(mut guard) = db_mutex.lock() {
+                    let _ = guard.set("Settings.Radial.Style", &style, "String");
+                    let _ = guard.set("Settings.Radial.Segments", &n.to_string(), "Int");
+                }
+            }
+            if let Some(w) = radial_cell.borrow().as_ref() {
+                theme::sync_design_to_radial(&ui, w);
+                push_radial_geometry(w, &style, n);
             }
         });
     }

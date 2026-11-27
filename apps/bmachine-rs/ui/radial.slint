@@ -124,6 +124,35 @@ export component RadialMenuView inherits Rectangle {
 
     in-out property <int> doc-tab-count: 2;
 
+    // Gaya radial ("glass" | "hud" | "flat") + jumlah segmen ring.
+    // Geometri ring (wedge/divider/posisi tombol) dihitung Rust dari
+    // sector-count (split rule — lihat src/radial_geom.rs) dan
+    // didorong saat radial dibuka / pengaturan berubah. Default =
+    // tata letak 8 segmen C# (nilai di bawah = hasil hitung n=8).
+    in-out property <string> radial-style: "glass";
+    in-out property <int> sector-count: 8;
+    in-out property <[string]> wedge-cmds: [
+        "M 61.73 7.61 A 100 100 0 0 1 138.27 7.61 L 116.84 59.35 A 44 44 0 0 0 83.16 59.35 Z",
+        "M 138.27 7.61 A 100 100 0 0 1 192.39 61.73 L 140.65 83.16 A 44 44 0 0 0 116.84 59.35 Z",
+        "M 192.39 61.73 A 100 100 0 0 1 192.39 138.27 L 140.65 116.84 A 44 44 0 0 0 140.65 83.16 Z",
+        "M 192.39 138.27 A 100 100 0 0 1 138.27 192.39 L 116.84 140.65 A 44 44 0 0 0 140.65 116.84 Z",
+        "M 138.27 192.39 A 100 100 0 0 1 61.73 192.39 L 83.16 140.65 A 44 44 0 0 0 116.84 140.65 Z",
+        "M 61.73 192.39 A 100 100 0 0 1 7.61 138.27 L 59.35 116.84 A 44 44 0 0 0 83.16 140.65 Z",
+        "M 7.61 138.27 A 100 100 0 0 1 7.61 61.73 L 59.35 83.16 A 44 44 0 0 0 59.35 116.84 Z",
+        "M 7.61 61.73 A 100 100 0 0 1 61.73 7.61 L 83.16 59.35 A 44 44 0 0 0 59.35 83.16 Z"
+    ];
+    in-out property <[string]> arc-cmds: [
+        "M 61.73 7.61 A 100 100 0 0 1 138.27 7.61",
+        "M 138.27 7.61 A 100 100 0 0 1 192.39 61.73",
+        "M 192.39 61.73 A 100 100 0 0 1 192.39 138.27",
+        "M 192.39 138.27 A 100 100 0 0 1 138.27 192.39",
+        "M 138.27 192.39 A 100 100 0 0 1 61.73 192.39",
+        "M 61.73 192.39 A 100 100 0 0 1 7.61 138.27",
+        "M 7.61 138.27 A 100 100 0 0 1 7.61 61.73",
+        "M 7.61 61.73 A 100 100 0 0 1 61.73 7.61"
+    ];
+    in-out property <string> divider-cmds: "M 116.84 59.35 L 138.27 7.61 M 140.65 83.16 L 192.39 61.73 M 140.65 116.84 L 192.39 138.27 M 116.84 140.65 L 138.27 192.39 M 83.16 140.65 L 61.73 192.39 M 59.35 116.84 L 7.61 138.27 M 59.35 83.16 L 7.61 61.73 M 83.16 59.35 L 61.73 7.61";
+
     // Halaman menu: 0 = Page 1 (7 skrip + More), 1 = Page 2 (skrip berikutnya + Back)
     in-out property <int> current-page: 0;
 
@@ -162,7 +191,9 @@ export component RadialMenuView inherits Rectangle {
     property <[string]> tb-labels: ["C-Redaksi", "Footnote", "Image Size", "NomorSatset", "Seleksi Alam"];
     property <[string]> tb-icons: ["file-text", "book-open", "maximize", "hash", "crop"];
 
-    // Posisi X/Y 8 Tombol Menu pada R = 72px (diukur relatif dari kanvas 320x320, cx=160, cy=160, btn 36x36 -> -18px)
+    // Posisi X/Y Tombol Menu pada R = 72px — dihitung Rust dari
+    // sector-count (split rule); default di bawah = hasil hitung n=8
+    // (sama persis dengan posisi hardcode sebelumnya).
     // 0 (0°/Utara):    (160 - 18, 160 - 72 - 18) = (142, 70)
     // 1 (45°/NE):      (160 + 51 - 18, 160 - 51 - 18) = (193, 91)
     // 2 (90°/Timur):   (160 + 72 - 18, 160 - 18) = (214, 142)
@@ -171,8 +202,8 @@ export component RadialMenuView inherits Rectangle {
     // 5 (225°/SW):     (160 - 51 - 18, 160 + 51 - 18) = (91, 193)
     // 6 (270°/Barat):  (160 - 72 - 18, 160 - 18) = (70, 142)
     // 7 (315°/NW):     (160 - 51 - 18, 160 - 51 - 18) = (91, 91)
-    property <[length]> btn-x: [142px, 193px, 214px, 193px, 142px, 91px, 70px, 91px];
-    property <[length]> btn-y: [70px, 91px, 142px, 193px, 214px, 193px, 142px, 91px];
+    in-out property <[length]> btn-x: [142px, 193px, 214px, 193px, 142px, 91px, 70px, 91px];
+    in-out property <[length]> btn-y: [70px, 91px, 142px, 193px, 214px, 193px, 142px, 91px];
 
     // Reset state menu
     public function reset() {
@@ -231,7 +262,7 @@ export component RadialMenuView inherits Rectangle {
             // TOOLBOX: klik / release pada sektor membuka ToolboxWindow
             // langsung (port: main.slint "radial membuka TOOLBOX langsung
             // pada tab MantraNama"). C# membuka window lewat eksekusi
-            // psdbucin_v3.pyw — roda port fixed 8 sektor tanpa item
+            // psdbucin_v3.pyw — roda port tanpa item
             // psdbucin, jadi sektor TOOLBOX yang jadi pemicunya. Hover
             // tetap membuka submenu 5 skrip _tb_ (pointer-event di atas),
             // jadi skrip tetap bisa dieksekusi lewat petal.
@@ -261,6 +292,33 @@ export component RadialMenuView inherits Rectangle {
             root.reset();
             root.back();
         }
+    }
+
+    // Indeks item di halaman untuk segmen `i`: halaman punya 8 slot
+    // (paritas C#) dengan navigasi More/Back di slot 4; bila segmen
+    // < 8, segmen terakhir SELALU navigasi, sisanya aksi pertama
+    // (slot 0–3 lalu 5–7, lewati slot 4).
+    function vis-idx(i: int) -> int {
+        if (root.sector-count == 8) { return i; }
+        if (i < root.sector-count - 1) { return i < 4 ? i : i + 1; }
+        return 4;
+    }
+
+    // Set hovered-* + label tengah dari nomor segmen.
+    function resolve-sector(sec: int) {
+        root.hovered-sector = sec;
+        let vi: int = root.vis-idx(sec);
+        if (root.current-page == 0) {
+            root.hovered-id = root.p1-ids[vi];
+            root.hovered-name = root.p1-names[vi];
+            root.hovered-has-sub = root.p1-subs[vi];
+        } else {
+            root.hovered-id = root.p2-ids[vi];
+            root.hovered-name = root.p2-names[vi];
+            root.hovered-has-sub = root.p2-subs[vi];
+        }
+        root.center-title = root.hovered-name;
+        root.center-subtitle = root.hovered-has-sub ? "HOLD FOR SUBMENU" : "SELECT";
     }
 
     // Pelacak pointer polar: mouse-x, mouse-y relatif terhadap kanvas 320x320
@@ -324,26 +382,15 @@ export component RadialMenuView inherits Rectangle {
             return;
         }
 
-        // Band dalam roda utama (44px .. 102px): 8 sektor @ 45°
-        let shifted-raw: float = deg + 22.5;
+        // Band dalam roda utama (44px .. 102px): N segmen sama rata
+        // (split rule — sudut segmen = 360 / sector-count).
+        let step: float = 360.0 / root.sector-count;
+        let shifted-raw: float = deg + step / 2.0;
         let shifted: float = shifted-raw >= 360.0 ? shifted-raw - 360.0 : shifted-raw;
-        let sec: int = min(7, max(0, floor(shifted / 45.0)));
+        let sec: int = min(root.sector-count - 1, max(0, floor(shifted / step)));
 
-        root.hovered-sector = sec;
+        root.resolve-sector(sec);
         root.hovered-outer-idx = -1;
-
-        if (root.current-page == 0) {
-            root.hovered-id = root.p1-ids[sec];
-            root.hovered-name = root.p1-names[sec];
-            root.hovered-has-sub = root.p1-subs[sec];
-        } else {
-            root.hovered-id = root.p2-ids[sec];
-            root.hovered-name = root.p2-names[sec];
-            root.hovered-has-sub = root.p2-subs[sec];
-        }
-
-        root.center-title = root.hovered-name;
-        root.center-subtitle = root.hovered-has-sub ? "HOLD FOR SUBMENU" : "SELECT";
 
         // Buka submenu otomatis jika dwell pada item ber-submenu
         if (root.hovered-has-sub) {
@@ -433,83 +480,52 @@ export component RadialMenuView inherits Rectangle {
             }
         }
 
-        // 2. Pelat Lingkaran Utama 200px (radius 100px)
+        // 2. Pelat Lingkaran Utama 200px (radius 100px) — gaya
+        //    radial: Kaca = kaca gelap transparan; HUD = transparan
+        //    dengan outline aksen; Flat = datar warna kartu.
         main-plate := Rectangle {
             x: 60px; y: 60px;
             width: 200px; height: 200px;
             border-radius: 100px;
-            background: Design.surface-elevated;
-            border-color: Design.separator;
+            background: root.radial-style == "hud" ? transparent : (root.radial-style == "flat" ? Design.card-bg : Design.surface-elevated.with-alpha(0.88));
+            border-color: root.radial-style == "hud" ? Design.accent.with-alpha(0.45) : Design.separator;
             border-width: 1px;
             clip: true;
 
-            // 3. Hover PieWedge Glow (8 Sektor Anular R44..R100)
-            // Sektor 0 (Utara)
-            if root.hovered-sector == 0 : Path {
+            // 3. Hover PieWedge Glow — satu Path per segmen, perintah
+            //    busur dihitung Rust dari sector-count (split rule).
+            //    Hanya segmen yang di-hover yang terlihat (opacity 0
+            //    untuk sisanya). Kaca: aksen 0.35; HUD: aksen 0.15 +
+            //    busur glow; Flat: aksen-subtle datar, tanpa glow.
+            for i in root.sector-count : Path {
                 width: 100%; height: 100%;
                 viewbox-x: 0; viewbox-y: 0; viewbox-width: 200; viewbox-height: 200;
-                fill: Design.accent; opacity: 0.35;
-                commands: "M 61.73 7.61 A 100 100 0 0 1 138.27 7.61 L 116.84 59.35 A 44 44 0 0 0 83.16 59.35 Z";
+                fill: root.radial-style == "flat" ? Design.accent-subtle : Design.accent;
+                opacity: root.hovered-sector == i ? (root.radial-style == "flat" ? 1.0 : (root.radial-style == "hud" ? 0.15 : 0.35)) : 0.0;
+                commands: root.wedge-cmds[i];
             }
-            // Sektor 1 (NE)
-            if root.hovered-sector == 1 : Path {
+            // 3b. Busur glow di tepi luar segmen aktif (Kaca/HUD —
+            //     ala ref 3a/2; Flat tanpa glow).
+            for i in root.sector-count : Path {
                 width: 100%; height: 100%;
                 viewbox-x: 0; viewbox-y: 0; viewbox-width: 200; viewbox-height: 200;
-                fill: Design.accent; opacity: 0.35;
-                commands: "M 138.27 7.61 A 100 100 0 0 1 192.39 61.73 L 140.65 83.16 A 44 44 0 0 0 116.84 59.35 Z";
-            }
-            // Sektor 2 (Timur)
-            if root.hovered-sector == 2 : Path {
-                width: 100%; height: 100%;
-                viewbox-x: 0; viewbox-y: 0; viewbox-width: 200; viewbox-height: 200;
-                fill: Design.accent; opacity: 0.35;
-                commands: "M 192.39 61.73 A 100 100 0 0 1 192.39 138.27 L 140.65 116.84 A 44 44 0 0 0 140.65 83.16 Z";
-            }
-            // Sektor 3 (SE)
-            if root.hovered-sector == 3 : Path {
-                width: 100%; height: 100%;
-                viewbox-x: 0; viewbox-y: 0; viewbox-width: 200; viewbox-height: 200;
-                fill: Design.accent; opacity: 0.35;
-                commands: "M 192.39 138.27 A 100 100 0 0 1 138.27 192.39 L 116.84 140.65 A 44 44 0 0 0 140.65 116.84 Z";
-            }
-            // Sektor 4 (Selatan)
-            if root.hovered-sector == 4 : Path {
-                width: 100%; height: 100%;
-                viewbox-x: 0; viewbox-y: 0; viewbox-width: 200; viewbox-height: 200;
-                fill: Design.accent; opacity: 0.35;
-                commands: "M 138.27 192.39 A 100 100 0 0 1 61.73 192.39 L 83.16 140.65 A 44 44 0 0 0 116.84 140.65 Z";
-            }
-            // Sektor 5 (SW)
-            if root.hovered-sector == 5 : Path {
-                width: 100%; height: 100%;
-                viewbox-x: 0; viewbox-y: 0; viewbox-width: 200; viewbox-height: 200;
-                fill: Design.accent; opacity: 0.35;
-                commands: "M 61.73 192.39 A 100 100 0 0 1 7.61 138.27 L 59.35 116.84 A 44 44 0 0 0 83.16 140.65 Z";
-            }
-            // Sektor 6 (Barat)
-            if root.hovered-sector == 6 : Path {
-                width: 100%; height: 100%;
-                viewbox-x: 0; viewbox-y: 0; viewbox-width: 200; viewbox-height: 200;
-                fill: Design.accent; opacity: 0.35;
-                commands: "M 7.61 138.27 A 100 100 0 0 1 7.61 61.73 L 59.35 83.16 A 44 44 0 0 0 59.35 116.84 Z";
-            }
-            // Sektor 7 (NW)
-            if root.hovered-sector == 7 : Path {
-                width: 100%; height: 100%;
-                viewbox-x: 0; viewbox-y: 0; viewbox-width: 200; viewbox-height: 200;
-                fill: Design.accent; opacity: 0.35;
-                commands: "M 7.61 61.73 A 100 100 0 0 1 61.73 7.61 L 83.16 59.35 A 44 44 0 0 0 59.35 83.16 Z";
+                fill: transparent;
+                stroke: Design.accent;
+                stroke-width: 2.5px;
+                opacity: root.hovered-sector == i && root.radial-style != "flat" ? 1.0 : 0.0;
+                commands: root.arc-cmds[i];
             }
 
-            // 4. Garis Pembatas 8 Sektor (Persis RadialMenuWindow.axaml C#)
+            // 4. Garis Pembatas Sektor (Persis RadialMenuWindow.axaml C#
+            //    untuk n=8) — perintah dihitung Rust dari sector-count.
             Path {
                 width: 100%; height: 100%;
                 viewbox-x: 0; viewbox-y: 0; viewbox-width: 200; viewbox-height: 200;
                 fill: transparent;
-                stroke: Design.text-primary;
+                stroke: root.radial-style == "hud" ? Design.accent : Design.text-primary;
                 stroke-width: 1px;
-                opacity: 0.18;
-                commands: "M 116.84 59.35 L 138.27 7.61 M 140.65 83.16 L 192.39 61.73 M 140.65 116.84 L 192.39 138.27 M 116.84 140.65 L 138.27 192.39 M 83.16 140.65 L 61.73 192.39 M 59.35 116.84 L 7.61 138.27 M 59.35 83.16 L 7.61 61.73 M 83.16 59.35 L 61.73 7.61";
+                opacity: root.radial-style == "hud" ? 0.3 : 0.18;
+                commands: root.divider-cmds;
             }
         }
 
@@ -529,17 +545,19 @@ export component RadialMenuView inherits Rectangle {
             opacity: 0.18;
         }
 
-        // 6. 8 Tombol Menu Bundar 36x36 pada R = 72px
-        for i in 8 : RadialMenuButton {
+        // 6. Tombol Menu Bundar 36x36 pada R = 72px — satu per
+        //    segmen; bila segmen < 8, segmen terakhir SELALU navigasi
+        //    (More/Back, slot 4) via vis-idx.
+        for i in root.sector-count : RadialMenuButton {
             x: root.btn-x[i];
             y: root.btn-y[i];
-            icon-name: root.current-page == 0 ? root.p1-icons[i] : root.p2-icons[i];
-            short-name: root.current-page == 0 ? root.p1-shorts[i] : root.p2-shorts[i];
+            icon-name: root.current-page == 0 ? root.p1-icons[root.vis-idx(i)] : root.p2-icons[root.vis-idx(i)];
+            short-name: root.current-page == 0 ? root.p1-shorts[root.vis-idx(i)] : root.p2-shorts[root.vis-idx(i)];
             hovered: root.hovered-sector == i;
-            has-sub: root.current-page == 0 ? root.p1-subs[i] : root.p2-subs[i];
-            is-nav: i == 4;
+            has-sub: root.current-page == 0 ? root.p1-subs[root.vis-idx(i)] : root.p2-subs[root.vis-idx(i)];
+            is-nav: root.vis-idx(i) == 4;
             clicked => {
-                root.hovered-sector = i;
+                root.resolve-sector(i);
                 root.execute-current();
             }
         }
@@ -550,7 +568,7 @@ export component RadialMenuView inherits Rectangle {
             width: 88px; height: 88px;
             border-radius: 44px;
             background: Design.card-bg;
-            border-color: Design.separator;
+            border-color: root.radial-style == "hud" ? Design.accent : Design.separator;
             border-width: 1.5px;
             clip: true;
 
