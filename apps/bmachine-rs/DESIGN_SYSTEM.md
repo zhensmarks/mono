@@ -1426,6 +1426,21 @@ Definisi kolom di `src/sheet_model.rs` (`SHEET_COLUMNS`); jenis
 kolom tetap per kolom, BUKAN ditebak dari header/isi (C# menebak
 dari kata kunci header — lihat §19.3a).
 
+**Alignment — rata tengah SEMUA sel (28 Nov 2026, keputusan abeng:
+"harus mengikuti sheet, jangan egois"):** aturan alignment grid
+mengikuti format sheet kantor per kolom — dan karena sheet kantor
+("ORDER PT DMA - NSJ 26-27", tab ALL DATA REGULER) menengahkan
+SEMUA sel (header + isi, termasuk teks ALAMAT yang panjang dan
+angka QTY), grid port pun rata tengah semua: header + semua sel
+data, semua jenis kolom (teks, angka, tanggal, dropdown), baik
+tampilan (`GridCell` Text) maupun editor (`TextInput` saat mengetik).
+Aturan lama (teks kiri / angka kanan / tanggal tengah) sudah dihapus.
+Ikon sel (▾ dropdown, gembok KODE, kalender tanggal) digambar DI ATAS
+teks, jadi teks dipusatkan di lebar sel penuh. Daftar opsi dropdown
+(popup pemilih, bukan sel) tetap rata kiri seperti ComboBox C#.
+Saat kolom dinamis dari Sheets API dibangun, alignment tetap mengikuti
+format per kolom dari sheet — bukan aturan keras port.
+
 **Seleksi (model C#):** klik = satu sel; Shift+klik / seret =
 rentang dari anchor; Ctrl+klik = tambah/hapus baris dari seleksi.
 Sorotan = baris terpilih × kolom fokus saja (bukan seluruh blok);

@@ -62,17 +62,22 @@ component GridCell inherits Rectangle {
         // editor hanya muncul saat editing, seperti C#: klik = pilih saja).
         // Saat mengedit dropdown/tanggal, nilai tetap tampil (editornya
         // daftar/kalender, bukan TextInput — seperti ComboBox C#).
+        // Rata tengah SEMUA sel (28 Nov 2026, abeng: ikuti sheet kantor
+        // "ORDER PT DMA - NSJ 26-27" — semua sel center, "jangan egois").
+        // Dulu: teks kiri / angka kanan / tanggal tengah. Ikon (▾ /
+        // gembok / kalender) digambar DI ATAS teks, jadi teks dipusatkan
+        // di lebar sel penuh, bukan di sisa lebar setelah ikon.
         visible: !root.editing || root.kind == "dropdown" || root.kind == "date";
-        x: 6px;
+        x: 0;
         y: 0;
-        width: parent.width - (root.kind == "dropdown" ? 20px : (root.is-locked ? 20px : 12px));
+        width: parent.width;
         height: 100%;
         text: root.text;
         font-size: root.is-header ? Design.font-caption : 12px;
         font-weight: root.is-header ? 800 : (root.is-active ? 700 : 400);
         font-family: root.is-numeric ? "JetBrains Mono" : Design.font-family;
         color: root.is-active ? Design.accent : root.text-color;
-        horizontal-alignment: root.is-numeric ? right : (root.kind == "date" ? center : left);
+        horizontal-alignment: center;
         vertical-alignment: center;
         overflow: elide;
     }
@@ -127,11 +132,15 @@ component GridCell inherits Rectangle {
         y: 0;
         width: parent.width - 12px;
         height: 100%;
+        // Editor ikut rata tengah seperti selnya (28 Nov 2026 — ikuti
+        // sheet kantor; dulu teks kiri / angka kanan). Editor hanya
+        // untuk teks & angka, tanpa ikon, jadi x 6px + lebar -12px
+        // sudah simetris (pusatnya = pusat sel).
         text: root.text;
         font-size: 12px;
         font-family: root.is-numeric ? "JetBrains Mono" : Design.font-family;
         color: Design.text-primary;
-        horizontal-alignment: root.is-numeric ? right : (root.kind == "date" ? center : left);
+        horizontal-alignment: center;
         vertical-alignment: center;
         accepted => { root.edited(self.text); }
         edited => { root.edit-changed(self.text); }
