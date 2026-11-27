@@ -1,5 +1,6 @@
 slint::include_modules!();
 
+mod batch;
 mod db;
 mod doc_manager;
 mod executor;
@@ -42,6 +43,18 @@ const APP_VERSION_FULL: &str = "15.15.3";
 // Posisi cursor terakhir (physical px) — dilacak hook rdev (MouseMove).
 // Dipakai cursor_screen_position() di Linux (GetCursorPos hanya Windows).
 static LAST_MOUSE_POS: Mutex<(i32, i32)> = Mutex::new((640, 400));
+
+// Modifier keyboard saat ini (Shift/Ctrl) — dilacak hook rdev
+// (KeyPress/KeyRelease). Dipakai BATCH: Slint TouchArea tidak
+// mengekspos modifier key, jadi klik baris tree membaca state ini
+// dari Rust (LANJUTKAN §10: Shift range + Ctrl toggle).
+static BATCH_SHIFT_HELD: AtomicBool = AtomicBool::new(false);
+static BATCH_CTRL_HELD: AtomicBool = AtomicBool::new(false);
+/// Klik terakhir BATCH untuk deteksi klik ganda (panel, id, waktu) —
+/// Slint `TouchArea.double-clicked` tidak bisa diandalkan di sini (lihat
+/// `batch_handle_double_click`).
+static BATCH_LAST_CLICK: Mutex<Option<(String, String, std::time::Instant)>> =
+    Mutex::new(None);
 
 // TABEL GLOBAL EXPLORER — digenerate tools/gen_explorer_data.py.
 // (folder-key, path, name, kind, ext, base, size, date, preview, loc)
@@ -2985,6 +2998,304 @@ fn read_bool_model(m: slint::ModelRc<bool>) -> Vec<bool> {
         .collect()
 }
 
+// ================= BATCH (Batch Master) =================
+
+/// Target menu konteks BATCH yang sedang terbuka (dipegang Rust supaya
+/// aksi menu tidak bergantung pada binding Slint yang bisa usang).
+#[derive(Default, Clone)]
+struct BatchCtxTarget {
+    panel: Option<batch::BatchPanel>,
+    id: String,
+    name: String,
+    is_dir: bool,
+    is_root: bool,
+    /// Parent (full path) untuk input inline subfolder baru.
+    newfolder_parent: String,
+}
+
+fn batch_rows_model(rows: &[batch::FlatRow]) -> slint::ModelRc<BatchRow> {
+    slint::ModelRc::new(slint::VecModel::from(
+        rows.iter()
+            .map(|r| BatchRow {
+                id: slint::SharedString::from(r.id.as_str()),
+                name: slint::SharedString::from(r.name.as_str()),
+                path: slint::SharedString::from(r.path.as_str()),
+                depth: r.depth,
+                is_dir: r.is_dir,
+                expanded: r.expanded,
+                has_kids: r.has_kids,
+                selected: r.selected,
+                is_root: r.is_root,
+            })
+            .collect::<Vec<_>>(),
+    ))
+}
+
+/// Dorong seluruh state BATCH ke Slint (dipanggil setelah tiap perubahan).
+fn push_batch_to_ui(ui: &AppWindow, st: &batch::BatchState) {
+    ui.set_src_rows(batch_rows_model(&st.src_rows()));
+    ui.set_out_rows(batch_rows_model(&st.out_rows()));
+    ui.set_src_name(slint::SharedString::from(st.header_source_name()));
+    let out_name = st
+        .roots
+        .first()
+        .and_then(|r| r.output_path.file_name().map(|n| n.to_string_lossy().into_owned()))
+        .unwrap_or_default();
+    ui.set_selected_output(slint::SharedString::from(out_name));
+    ui.set_batch_out_pending(st.any_output_pending());
+    ui.set_batch_sel_count(st.selection.ids.len() as i32);
+    ui.set_has_manifest(st.has_manifest);
+    ui.set_batch_reguler_names(sheet_model(st.reguler_dirs.clone()));
+    let idx = if st.reguler_active.is_empty() {
+        -1
+    } else {
+        st.reguler_dirs
+            .iter()
+            .position(|d| d == &st.reguler_active)
+            .map(|i| i as i32)
+            .unwrap_or(-1)
+    };
+    ui.set_batch_reguler_idx(idx);
+}
+
+/// Baca satu key DB (port dulu, lalu key C# sebagai fallback — DB asli
+/// abeng memakai key C# `Configs.Master.*`).
+fn batch_db_get(db: &Option<Arc<Mutex<DatabaseService>>>, port_key: &str, csharp_key: &str) -> String {
+    let Some(dbm) = db else { return String::new() };
+    let Ok(g) = dbm.lock() else { return String::new() };
+    g.get(port_key)
+        .or_else(|| g.get(csharp_key))
+        .unwrap_or_default()
+}
+
+/// Folder `Scripts/` (batch_wrapper.py + Master/*.py + Action/*.jsx):
+/// 1. override Settings `Configs.System.ScriptsPath`,
+/// 2. `<exe dir>/Scripts`, 3. `<cwd>/Scripts` (dev).
+fn batch_scripts_dir(db: &Option<Arc<Mutex<DatabaseService>>>) -> std::path::PathBuf {
+    let override_path = batch_db_get(db, "Configs.System.ScriptsPath", "Configs.System.ScriptsPath");
+    if !override_path.trim().is_empty() {
+        return std::path::PathBuf::from(override_path.trim());
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            let cand = dir.join("Scripts");
+            if cand.is_dir() {
+                return cand;
+            }
+        }
+    }
+    std::env::current_dir()
+        .unwrap_or_else(|_| std::path::PathBuf::from("."))
+        .join("Scripts")
+}
+
+/// Tulis wrapper `bmachine_replace_auto_<unik>.jsx` (C#
+/// LaunchReplaceScriptAsync): konteks JSON + evalFile replace.jsx.
+/// Mengembalikan path wrapper.
+fn batch_write_replace_wrapper(
+    pairs: &[(std::path::PathBuf, std::path::PathBuf)],
+    scripts_dir: &std::path::Path,
+) -> Result<std::path::PathBuf, String> {
+    let replace_jsx = scripts_dir.join("Action").join("replace.jsx");
+    if !replace_jsx.is_file() {
+        return Err(format!("replace.jsx tidak ditemukan di {}", replace_jsx.display()));
+    }
+    let folders: Vec<serde_json::Value> = pairs
+        .iter()
+        .map(|(o, s)| {
+            serde_json::json!({"SourcePath": s.to_string_lossy(), "OutputPath": o.to_string_lossy()})
+        })
+        .collect();
+    let first_out = &pairs[0].0;
+    let ctx = serde_json::json!({
+        "SourceFolders": folders,
+        "OutputBasePath": first_out.parent().map(|p| p.to_string_lossy().into_owned()).unwrap_or_else(|| first_out.to_string_lossy().into_owned()),
+        "UseInput": true,
+        "UseOutput": true,
+        "MasterTemplatePath": first_out.to_string_lossy(),
+        "BatchAutoReplace": true,
+    });
+    let wrapper = format!(
+        "$.global.BMachineBatchContext = {};\n$.evalFile(new File({}));\ndelete $.global.BMachineBatchContext;\n",
+        serde_json::to_string(&ctx).map_err(|e| e.to_string())?,
+        serde_json::to_string(&replace_jsx.to_string_lossy()).map_err(|e| e.to_string())?
+    );
+    let uniq = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let path = std::env::temp_dir().join(format!("bmachine_replace_auto_{:x}.jsx", uniq));
+    std::fs::write(&path, wrapper).map_err(|e| format!("Gagal menulis wrapper: {}", e))?;
+    Ok(path)
+}
+
+/// Jalankan Replace (Auto) untuk pasangan-pasangan (output, source):
+/// validasi (kedua folder harus ada — pasangan tidak valid di-skip +
+/// dicatat, seperti C#), tulis wrapper, jalankan di Photoshop.
+/// Di Linux tidak ada Photoshop: wrapper tetap ditulis (bukti pasangan
+/// benar) + toast jujur; eksekusi Photoshop hanya di Windows.
+fn batch_launch_replace(
+    pairs_in: Vec<(std::path::PathBuf, std::path::PathBuf)>,
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+    proc_log: &Arc<Mutex<ProcessLogService>>,
+) -> String {
+    let mut pairs: Vec<(std::path::PathBuf, std::path::PathBuf)> = Vec::new();
+    let mut skipped = 0;
+    for (o, s) in pairs_in {
+        if !o.is_dir() || !s.is_dir() {
+            skipped += 1;
+            proc_log.lock().unwrap().add_log(format!(
+                "[WARN] Replace: lewati pasangan (folder tidak ada): {} | {}",
+                o.display(),
+                s.display()
+            ));
+            continue;
+        }
+        pairs.push((o, s));
+    }
+    if pairs.is_empty() {
+        return "Replace: tidak ada pasangan folder yang valid.".to_string();
+    }
+    let scripts_dir = batch_scripts_dir(db);
+    let wrapper = match batch_write_replace_wrapper(&pairs, &scripts_dir) {
+        Ok(p) => p,
+        Err(e) => return format!("Replace gagal: {}", e),
+    };
+    let ps_path = batch_db_get(db, "Paths.Photoshop", "Configs.Master.PhotoshopPath");
+    #[cfg(target_os = "windows")]
+    {
+        if ps_path.trim().is_empty() || !std::path::Path::new(ps_path.trim()).is_file() {
+            return format!(
+                "Replace: {} pasangan siap, wrapper ditulis di {} — atur dulu executable Photoshop di Settings → Paths.",
+                pairs.len(),
+                wrapper.display()
+            );
+        }
+        match std::process::Command::new(ps_path.trim()).arg(&wrapper).spawn() {
+            Ok(_) => {
+                let msg = format!("Replace diluncurkan ({} pasangan) ke Photoshop.", pairs.len());
+                proc_log.lock().unwrap().add_log(format!("[INFO] {}", msg));
+                for (o, s) in &pairs {
+                    proc_log.lock().unwrap().add_log(format!(
+                        "[INFO]   Master: {} | Input: {}",
+                        o.display(),
+                        s.display()
+                    ));
+                }
+                proc_log.lock().unwrap().add_log(format!("[INFO] Replace wrapper: {}", wrapper.display()));
+                if skipped > 0 {
+                    format!("{} ({} pasangan dilewati: folder tidak ada)", msg, skipped)
+                } else {
+                    msg
+                }
+            }
+            Err(e) => format!("Replace gagal diluncurkan ke Photoshop: {}", e),
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = ps_path;
+        let msg = format!(
+            "Replace: {} pasangan siap, wrapper ditulis di {} — Photoshop hanya ada di Windows, jalankan wrapper ini di Photoshop PC.{}",
+            pairs.len(),
+            wrapper.display(),
+            if skipped > 0 {
+                format!(" ({} pasangan dilewati: folder tidak ada)", skipped)
+            } else {
+                String::new()
+            }
+        );
+        proc_log.lock().unwrap().add_log(format!("[INFO] {}", msg));
+        for (o, s) in &pairs {
+            proc_log.lock().unwrap().add_log(format!(
+                "[INFO]   Master: {} | Input: {}",
+                o.display(),
+                s.display()
+            ));
+        }
+        msg
+    }
+}
+
+/// Dorong 12 baris log terakhir ke panel log. Dipakai aksi BATCH yang
+/// menulis ke ProcessLogService di luar watcher proses — watcher hanya
+/// jalan saat ada proses aktif, jadi tanpa dorongan ini baris baru
+/// tidak tampil sampai proses berikutnya jalan (ketemu saat verifikasi
+/// GUI 28 Nov 2026: isi file teks tidak muncul di Log Panel).
+fn push_log_lines(ui: &AppWindow, pl: &Arc<Mutex<ProcessLogService>>) {
+    let lines: Vec<slint::SharedString> = pl
+        .lock()
+        .unwrap()
+        .get_display_lines(12)
+        .into_iter()
+        .map(slint::SharedString::from)
+        .collect();
+    ui.set_log_lines(slint::ModelRc::new(slint::VecModel::from(lines)));
+}
+
+/// Aksi klik ganda BATCH (folder = expand/collapse, file teks = buka
+/// di Log Panel). Dipanggil dari deteksi klik-ganda di Rust — Slint
+/// `TouchArea.double-clicked` tidak bisa diandalkan di sini karena
+/// tiap klik tunggal mengganti model `src-rows`/`out-rows` wholesale,
+/// sehingga elemen baris dibuat ulang dan deteksi double-click winit
+/// kehilangan jejak klik pertama (ketemu saat verifikasi GUI 28 Nov
+/// 2026: double-click file teks tidak pernah membuka Log Panel).
+fn batch_handle_double_click(
+    ui_weak: &slint::Weak<AppWindow>,
+    st: &Arc<Mutex<batch::BatchState>>,
+    pl: &Arc<Mutex<ProcessLogService>>,
+    panel: batch::BatchPanel,
+    id: &str,
+) {
+    let (is_dir, path, name) = {
+        let s = st.lock().unwrap();
+        match batch::find_node(&s.roots, panel, id) {
+            Some(n) => (n.is_dir, n.path.clone(), n.name.clone()),
+            None => (false, std::path::PathBuf::new(), String::new()),
+        }
+    };
+    if is_dir {
+        {
+            let mut s = st.lock().unwrap();
+            batch::toggle_expand(&mut s.roots, panel, id);
+        }
+        if let Some(ui) = ui_weak.upgrade() {
+            push_batch_to_ui(&ui, &st.lock().unwrap());
+        }
+        return;
+    }
+    if path.as_os_str().is_empty() {
+        return;
+    }
+    let text_ext = ["txt", "md", "log", "json", "xml", "csv", "ini", "cfg"];
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if text_ext.contains(&ext.as_str()) {
+        let content = std::fs::read_to_string(&path).unwrap_or_default();
+        {
+            let mut lg = pl.lock().unwrap();
+            lg.add_log(format!("── {} ──", name));
+            for line in content.lines().take(200) {
+                lg.add_log(line.to_string());
+            }
+        }
+        if let Some(ui) = ui_weak.upgrade() {
+            push_log_lines(&ui, pl);
+            ui.set_show_logpanel(true);
+            ui.set_logpanel_tab(slint::SharedString::from("LOG"));
+            ui.set_toast(slint::SharedString::from(format!(
+                "Dibuka di Log Panel: {}",
+                name
+            )));
+        }
+    } else {
+        let _ = platform::open_url(&path.to_string_lossy());
+    }
+}
+
 fn main() -> Result<(), slint::PlatformError> {
     let ui = AppWindow::new()?;
 
@@ -3129,6 +3440,31 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let doc_mgr = Arc::new(Mutex::new(DocManager::default()));
     let proc_log = Arc::new(Mutex::new(ProcessLogService::default()));
+
+    // BATCH state (Batch Master): roots + seleksi + Folder Reguler.
+    // LocalOutput/OkeBase dibaca dari DB (key port dulu, lalu key C#).
+    let batch_state = Arc::new(Mutex::new(batch::BatchState::default()));
+    let batch_ctx = Arc::new(Mutex::new(BatchCtxTarget::default()));
+    {
+        let mut st = batch_state.lock().unwrap();
+        st.local_output = batch_db_get(&db, "Paths.LocalOutput", "Configs.Master.LocalOutput");
+        st.oke_base = batch_db_get(&db, "Paths.OkeBase", "Configs.Master.OkeBase");
+        if let Some(ref dbm) = db {
+            if let Ok(g) = dbm.lock() {
+                if let Some(v) = g.get("Batch.FolderReguler") {
+                    if let Ok(list) = serde_json::from_str::<Vec<String>>(v.as_str()) {
+                        st.reguler_dirs = list.into_iter().filter(|p| !p.trim().is_empty()).collect();
+                    }
+                }
+                if let Some(v) = g.get("Batch.FolderReguler.Active") {
+                    st.reguler_active = v.clone();
+                }
+            }
+        }
+    }
+    // Dorong state BATCH awal ke UI (drop zone kosong sampai folder dipilih).
+    push_batch_to_ui(&ui, &batch_state.lock().unwrap());
+
     {
         // Benih log startup nyata (mencerminkan langkah bootstrapper C#).
         proc_log.lock().unwrap().seed_boot();
@@ -4367,6 +4703,735 @@ fn main() -> Result<(), slint::PlatformError> {
         let ui_weak = ui.as_weak();
         let db_clone = db.clone();
         let bar_store_test = bar_store.clone();
+    // ================= BATCH callbacks (Stage 2 + stub tahap 3/4/5) =================
+    {
+        // -- Tambah folder: dialog folder (thread, blocking) --
+        let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        ui.on_batch_pick_folder(move || {
+            let ui_w = ui_weak.clone();
+            let st_c = st.clone();
+            std::thread::spawn(move || {
+                match platform::pick_folder("Pilih Folder Sumber") {
+                    platform::PickResult::Picked(path) => {
+                        let p = std::path::PathBuf::from(&path);
+                        let msg = {
+                            let mut s = st_c.lock().unwrap();
+                            if !p.is_dir() {
+                                format!("Bukan folder: {}", path)
+                            } else {
+                                s.add_folder(&p);
+                                let out = s
+                                    .roots
+                                    .first()
+                                    .map(|r| r.output_path.display().to_string())
+                                    .unwrap_or_default();
+                                format!(
+                                    "SOURCE: {}  →  Output: {}",
+                                    p.file_name()
+                                        .map(|n| n.to_string_lossy().into_owned())
+                                        .unwrap_or(path.clone()),
+                                    out
+                                )
+                            }
+                        };
+                        let _ = ui_w.upgrade_in_event_loop(move |ui| {
+                            {
+                                let s = st_c.lock().unwrap();
+                                push_batch_to_ui(&ui, &s);
+                            }
+                            ui.set_toast(slint::SharedString::from(msg));
+                        });
+                    }
+                    platform::PickResult::Cancelled => {}
+                    platform::PickResult::Unavailable(e) => {
+                        let _ = ui_w.upgrade_in_event_loop(move |ui| {
+                            ui.set_toast(slint::SharedString::from(format!(
+                                "Pemilih folder tidak tersedia: {}",
+                                e
+                            )));
+                        });
+                    }
+                }
+            });
+        });
+    }
+    {
+        // -- Dari Explorer: kirim folder ke BATCH (satu argumen = full path) --
+        let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        ui.on_batch_add_folder(move |path| {
+            let p = std::path::PathBuf::from(path.to_string());
+            let msg = {
+                let mut s = st.lock().unwrap();
+                if !p.is_dir() {
+                    format!("Folder tidak ditemukan: {}", p.display())
+                } else {
+                    s.add_folder(&p);
+                    format!(
+                        "Dikirim ke BATCH: {}",
+                        p.file_name()
+                            .map(|n| n.to_string_lossy().into_owned())
+                            .unwrap_or_else(|| p.display().to_string())
+                    )
+                }
+            };
+            if let Some(ui) = ui_weak.upgrade() {
+                push_batch_to_ui(&ui, &st.lock().unwrap());
+                ui.set_toast(slint::SharedString::from(msg));
+            }
+        });
+    }
+    {
+        // -- Klik nama: seleksi + salin path (LANJUTKAN §10). --
+        // Klik ganda dideteksi di sini (bukan lewat Slint
+        // `double-clicked` — lihat batch_handle_double_click).
+        let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        let pl = proc_log.clone();
+        ui.on_batch_row_clicked(move |panel_s, id| {
+            let panel = if panel_s == "OUTPUT" {
+                batch::BatchPanel::Output
+            } else {
+                batch::BatchPanel::Source
+            };
+            let is_dbl = batch::is_double_click(
+                &mut BATCH_LAST_CLICK.lock().unwrap(),
+                panel_s.as_str(),
+                id.as_str(),
+                std::time::Instant::now(),
+            );
+            if is_dbl {
+                batch_handle_double_click(&ui_weak, &st, &pl, panel, &id);
+                return;
+            }
+            let shift = BATCH_SHIFT_HELD.load(Ordering::SeqCst);
+            let ctrl = BATCH_CTRL_HELD.load(Ordering::SeqCst);
+            let (toast, master_name) = {
+                let mut s = st.lock().unwrap();
+                let visible = match panel {
+                    batch::BatchPanel::Source => s.src_rows(),
+                    batch::BatchPanel::Output => s.out_rows(),
+                };
+                let plain = !shift && !ctrl;
+                s.selection.click(panel, &visible, &id, shift, ctrl);
+                let mut toast = String::new();
+                let mut master = String::new();
+                if plain {
+                    if let Some(n) = batch::find_node(&s.roots, panel, &id) {
+                        master = n.name.clone();
+                        let path = n.path.to_string_lossy().into_owned();
+                        match platform::copy_to_clipboard(&path) {
+                            Ok(_) => toast = format!("Path disalin: {}", path),
+                            Err(e) => toast = format!("Gagal menyalin path: {}", e),
+                        }
+                    }
+                }
+                (toast, master)
+            };
+            if let Some(ui) = ui_weak.upgrade() {
+                if !master_name.is_empty() {
+                    ui.set_selected_master(slint::SharedString::from(master_name));
+                }
+                push_batch_to_ui(&ui, &st.lock().unwrap());
+                if !toast.is_empty() {
+                    ui.set_toast(slint::SharedString::from(toast));
+                }
+            }
+        });
+    }
+    {
+        // -- Klik kanan DOWN pada nama: simpan seleksi, lalu expand/collapse. --
+        let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        ui.on_batch_row_right_down(move |panel_s, id| {
+            let panel = if panel_s == "OUTPUT" {
+                batch::BatchPanel::Output
+            } else {
+                batch::BatchPanel::Source
+            };
+            {
+                let mut s = st.lock().unwrap();
+                s.selection.save();
+                if let Some(n) = batch::find_node(&s.roots, panel, &id) {
+                    if n.is_dir {
+                        batch::toggle_expand(&mut s.roots, panel, &id);
+                    }
+                }
+            }
+            if let Some(ui) = ui_weak.upgrade() {
+                push_batch_to_ui(&ui, &st.lock().unwrap());
+            }
+        });
+    }
+    {
+        // -- Klik kanan UP: snapshot seleksi, siapkan target menu konteks. --
+        let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        let ctx = batch_ctx.clone();
+        ui.on_batch_row_right_up(move |panel_s, id| {
+            let panel = if panel_s == "OUTPUT" {
+                batch::BatchPanel::Output
+            } else {
+                batch::BatchPanel::Source
+            };
+            let (name, is_dir, is_root) = {
+                let mut s = st.lock().unwrap();
+                s.selection.snapshot();
+                if s.selection.ids.is_empty() {
+                    let visible = match panel {
+                        batch::BatchPanel::Source => s.src_rows(),
+                        batch::BatchPanel::Output => s.out_rows(),
+                    };
+                    s.selection.click(panel, &visible, &id, false, false);
+                }
+                match batch::find_node(&s.roots, panel, &id) {
+                    Some(n) => {
+                        let is_root = s
+                            .roots
+                            .iter()
+                            .any(|r| r.source_path == n.path || r.output_path == n.path);
+                        (n.name.clone(), n.is_dir, is_root)
+                    }
+                    None => (id.to_string(), true, false),
+                }
+            };
+            *ctx.lock().unwrap() = BatchCtxTarget {
+                panel: Some(panel),
+                id: id.to_string(),
+                name: name.clone(),
+                is_dir,
+                is_root,
+                newfolder_parent: String::new(),
+            };
+            if let Some(ui) = ui_weak.upgrade() {
+                push_batch_to_ui(&ui, &st.lock().unwrap());
+                ui.set_ctx_node(slint::SharedString::from(name));
+                ui.set_ctx_node_id(slint::SharedString::from(id.to_string()));
+                ui.set_ctx_panel(slint::SharedString::from(panel_s.to_string()));
+                ui.set_ctx_is_dir(is_dir);
+                ui.set_ctx_is_root(is_root);
+            }
+        });
+    }
+    {
+        // -- Menu konteks dibuka dari tombol ⋯ (tidak mengganggu seleksi). --
+        let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        let ctx = batch_ctx.clone();
+        ui.on_batch_open_ctx(move |panel_s, id| {
+            let panel = if panel_s == "OUTPUT" {
+                batch::BatchPanel::Output
+            } else {
+                batch::BatchPanel::Source
+            };
+            let (name, is_dir, is_root) = {
+                let s = st.lock().unwrap();
+                match batch::find_node(&s.roots, panel, &id) {
+                    Some(n) => {
+                        let is_root = s
+                            .roots
+                            .iter()
+                            .any(|r| r.source_path == n.path || r.output_path == n.path);
+                        (n.name.clone(), n.is_dir, is_root)
+                    }
+                    None => (id.to_string(), true, false),
+                }
+            };
+            *ctx.lock().unwrap() = BatchCtxTarget {
+                panel: Some(panel),
+                id: id.to_string(),
+                name: name.clone(),
+                is_dir,
+                is_root,
+                newfolder_parent: String::new(),
+            };
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_ctx_node(slint::SharedString::from(name));
+                ui.set_ctx_node_id(slint::SharedString::from(id.to_string()));
+                ui.set_ctx_panel(slint::SharedString::from(panel_s.to_string()));
+                ui.set_ctx_is_dir(is_dir);
+                ui.set_ctx_is_root(is_root);
+            }
+        });
+    }
+    {
+        // -- Tutup menu konteks (klik di luar / Esc / klik kanan). --
+        let ui_weak = ui.as_weak();
+        let ctx = batch_ctx.clone();
+        ui.on_batch_close_ctx(move || {
+            *ctx.lock().unwrap() = BatchCtxTarget::default();
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_ctx_node(slint::SharedString::from(""));
+                ui.set_ctx_node_id(slint::SharedString::from(""));
+            }
+        });
+    }
+    {
+        // -- Expand/collapse via chevron. --
+        let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        ui.on_batch_toggle_expand(move |panel_s, id| {
+            let panel = if panel_s == "OUTPUT" {
+                batch::BatchPanel::Output
+            } else {
+                batch::BatchPanel::Source
+            };
+            {
+                let mut s = st.lock().unwrap();
+                batch::toggle_expand(&mut s.roots, panel, &id);
+            }
+            if let Some(ui) = ui_weak.upgrade() {
+                push_batch_to_ui(&ui, &st.lock().unwrap());
+            }
+        });
+    }
+    {
+        // -- Menu konteks: Subfolder baru (buka input inline). --
+        let ui_weak = ui.as_weak();
+        let ctx = batch_ctx.clone();
+        let st = batch_state.clone();
+        ui.on_batch_ctx_new_subfolder(move || {
+            let t = ctx.lock().unwrap().clone();
+            let panel = t.panel.unwrap_or(batch::BatchPanel::Source);
+            let parent_path = {
+                let s = st.lock().unwrap();
+                match batch::find_node(&s.roots, panel, &t.id) {
+                    Some(n) if n.is_dir => n.path.clone(),
+                    Some(n) => n
+                        .path
+                        .parent()
+                        .map(|p| p.to_path_buf())
+                        .unwrap_or_else(|| n.path.clone()),
+                    None => return,
+                }
+            };
+            ctx.lock().unwrap().newfolder_parent = parent_path.display().to_string();
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_newfolder_open(true);
+                ui.set_newfolder_panel(slint::SharedString::from(
+                    if panel == batch::BatchPanel::Output {
+                        "OUTPUT"
+                    } else {
+                        "SOURCE"
+                    },
+                ));
+                ui.set_newfolder_parent(slint::SharedString::from(parent_path.display().to_string()));
+                ui.set_newfolder_name(slint::SharedString::from(""));
+                ui.set_ctx_node(slint::SharedString::from(""));
+            }
+        });
+    }
+    {
+        // -- Konfirmasi subfolder baru (Enter / tombol Buat). --
+        let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        let ctx = batch_ctx.clone();
+        ui.on_batch_confirm_new_folder(move || {
+            let (name, panel_s, parent) = {
+                let Some(ui) = ui_weak.upgrade() else {
+                    return;
+                };
+                (
+                    ui.get_newfolder_name().to_string(),
+                    ui.get_newfolder_panel().to_string(),
+                    ctx.lock().unwrap().newfolder_parent.clone(),
+                )
+            };
+            let name = name.trim().to_string();
+            let toast: String = if name.is_empty() {
+                "Nama folder tidak boleh kosong.".to_string()
+            } else if name.contains(['/', '\\', ':', '*', '?', '"', '<', '>', '|']) {
+                "Nama folder tidak boleh mengandung / \\ : * ? \" < > |".to_string()
+            } else {
+                let panel = if panel_s == "OUTPUT" {
+                    batch::BatchPanel::Output
+                } else {
+                    batch::BatchPanel::Source
+                };
+                let new_path = std::path::PathBuf::from(&parent).join(&name);
+                match std::fs::create_dir(&new_path) {
+                    Ok(_) => {
+                        let mut s = st.lock().unwrap();
+                        batch::rescan_node(&mut s.roots, panel, &parent);
+                        format!("Subfolder '{}' dibuat di {}", name, parent)
+                    }
+                    Err(e) => format!("Gagal membuat subfolder: {}", e),
+                }
+            };
+            if let Some(ui) = ui_weak.upgrade() {
+                if toast.starts_with("Subfolder") {
+                    ui.set_newfolder_open(false);
+                    ui.set_newfolder_name(slint::SharedString::from(""));
+                }
+                push_batch_to_ui(&ui, &st.lock().unwrap());
+                ui.set_toast(slint::SharedString::from(toast));
+            }
+        });
+    }
+    {
+        // -- Batal subfolder baru (Esc / tombol Batal). --
+        let ui_weak = ui.as_weak();
+        ui.on_batch_cancel_new_folder(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_newfolder_open(false);
+                ui.set_newfolder_name(slint::SharedString::from(""));
+            }
+        });
+    }
+    {
+        // -- Menu konteks: Salin path (folder terpilih). --
+        let ui_weak = ui.as_weak();
+        let ctx = batch_ctx.clone();
+        ui.on_batch_ctx_copy_path(move || {
+            let t = ctx.lock().unwrap().clone();
+            let msg = match platform::copy_to_clipboard(&t.id) {
+                Ok(_) => format!("Path disalin: {}", t.id),
+                Err(e) => format!("Gagal menyalin path: {}", e),
+            };
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_ctx_node(slint::SharedString::from(""));
+                ui.set_toast(slint::SharedString::from(msg));
+            }
+        });
+    }
+    {
+        // -- Menu konteks: Salin path OUTPUT pasangan folder terpilih. --
+        let ui_weak = ui.as_weak();
+        let ctx = batch_ctx.clone();
+        let st = batch_state.clone();
+        ui.on_batch_ctx_copy_output_path(move || {
+            let t = ctx.lock().unwrap().clone();
+            let panel = t.panel.unwrap_or(batch::BatchPanel::Source);
+            let out_path = {
+                let s = st.lock().unwrap();
+                match batch::resolve_replace_pair(&s.roots, panel, &t.id) {
+                    Some((o, _)) => o.to_string_lossy().into_owned(),
+                    None => t.id.clone(),
+                }
+            };
+            let msg = match platform::copy_to_clipboard(&out_path) {
+                Ok(_) => format!("Output path disalin: {}", out_path),
+                Err(e) => format!("Gagal menyalin path: {}", e),
+            };
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_ctx_node(slint::SharedString::from(""));
+                ui.set_toast(slint::SharedString::from(msg));
+            }
+        });
+    }
+    {
+        // -- Menu konteks: Hapus dari disk + dari tree. --
+        let ui_weak = ui.as_weak();
+        let ctx = batch_ctx.clone();
+        let st = batch_state.clone();
+        ui.on_batch_ctx_delete(move || {
+            let t = ctx.lock().unwrap().clone();
+            let panel = t.panel.unwrap_or(batch::BatchPanel::Source);
+            let path = std::path::PathBuf::from(&t.id);
+            let msg = if !path.exists() {
+                format!("Sudah tidak ada: {}", t.name)
+            } else {
+                let r = if path.is_dir() {
+                    std::fs::remove_dir_all(&path)
+                } else {
+                    std::fs::remove_file(&path)
+                };
+                match r {
+                    Ok(_) => {
+                        let mut s = st.lock().unwrap();
+                        s.selection.ids.retain(|x| x != &t.id);
+                        batch::remove_from_tree(&mut s.roots, panel, &path);
+                        format!("Dihapus dari disk: {}", t.name)
+                    }
+                    Err(e) => format!("Gagal menghapus {}: {}", t.name, e),
+                }
+            };
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_ctx_node(slint::SharedString::from(""));
+                push_batch_to_ui(&ui, &st.lock().unwrap());
+                ui.set_toast(slint::SharedString::from(msg));
+            }
+        });
+    }
+    {
+        // -- Menu konteks: Replace (Auto) — semua yang terseleksi sekaligus. --
+        let ui_weak = ui.as_weak();
+        let ctx = batch_ctx.clone();
+        let st = batch_state.clone();
+        let db_c = db.clone();
+        let pl = proc_log.clone();
+        ui.on_batch_ctx_replace_auto(move || {
+            let t = ctx.lock().unwrap().clone();
+            let panel = t.panel.unwrap_or(batch::BatchPanel::Source);
+            let ids: Vec<String> = {
+                let s = st.lock().unwrap();
+                if s.selection.ids.len() > 1 {
+                    s.selection.ids.clone()
+                } else {
+                    vec![t.id.clone()]
+                }
+            };
+            let pairs = {
+                let s = st.lock().unwrap();
+                batch::resolve_replace_pairs(&s.roots, panel, &ids)
+            };
+            let msg = if pairs.is_empty() {
+                "Replace: folder yang dipilih bukan direktori / bukan bagian dari pasangan BATCH."
+                    .to_string()
+            } else {
+                batch_launch_replace(pairs, &db_c, &pl)
+            };
+            if let Some(ui) = ui_weak.upgrade() {
+                push_log_lines(&ui, &pl);
+                ui.set_ctx_node(slint::SharedString::from(""));
+                ui.set_toast(slint::SharedString::from(msg));
+            }
+        });
+    }
+    {
+        // -- Menu konteks: Replace (Manual) — tanya folder pasangan via picker. --
+        let ui_weak = ui.as_weak();
+        let ctx = batch_ctx.clone();
+        let st = batch_state.clone();
+        let db_c = db.clone();
+        let pl = proc_log.clone();
+        ui.on_batch_ctx_replace_manual(move || {
+            let t = ctx.lock().unwrap().clone();
+            let panel = t.panel.unwrap_or(batch::BatchPanel::Source);
+            let title = if panel == batch::BatchPanel::Output {
+                "Pilih Folder Source (Input) yang cocok"
+            } else {
+                "Pilih Folder Output (Master) yang cocok"
+            };
+            let ui_w = ui_weak.clone();
+            let st_c = st.clone();
+            let db_cc = db_c.clone();
+            let pl_c = pl.clone();
+            std::thread::spawn(move || {
+                let msg = match platform::pick_folder(title) {
+                    platform::PickResult::Picked(p) => {
+                        let picked_path = std::path::PathBuf::from(&p);
+                        let base_pair = {
+                            let s = st_c.lock().unwrap();
+                            batch::resolve_replace_pair(&s.roots, panel, &t.id)
+                        };
+                        match base_pair {
+                            Some((mut o, mut s2)) => {
+                                match panel {
+                                    batch::BatchPanel::Source => o = picked_path,
+                                    batch::BatchPanel::Output => s2 = picked_path,
+                                }
+                                batch_launch_replace(vec![(o, s2)], &db_cc, &pl_c)
+                            }
+                            None => "Replace: folder yang dipilih bukan direktori / bukan bagian dari pasangan BATCH.".to_string(),
+                        }
+                    }
+                    platform::PickResult::Cancelled => return,
+                    platform::PickResult::Unavailable(e) => {
+                        format!("Pemilih folder tidak tersedia: {}", e)
+                    }
+                };
+                let pl_ui = pl_c.clone();
+                let _ = ui_w.upgrade_in_event_loop(move |ui| {
+                    push_log_lines(&ui, &pl_ui);
+                    ui.set_ctx_node(slint::SharedString::from(""));
+                    ui.set_toast(slint::SharedString::from(msg));
+                });
+            });
+        });
+    }
+    {
+        // -- Replace (Auto) dari tombol aksi baris A — seleksi saja, tanpa fallback ctx. --
+        let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        let db_c = db.clone();
+        let pl = proc_log.clone();
+        ui.on_batch_replace_auto(move || {
+            let (panel, ids) = {
+                let s = st.lock().unwrap();
+                (
+                    s.selection.panel.unwrap_or(batch::BatchPanel::Source),
+                    s.selection.ids.clone(),
+                )
+            };
+            if ids.is_empty() {
+                if let Some(ui) = ui_weak.upgrade() {
+                    ui.set_toast(slint::SharedString::from(
+                        "Pilih folder dulu (klik nama folder).",
+                    ));
+                }
+                return;
+            }
+            let pairs = {
+                let s = st.lock().unwrap();
+                batch::resolve_replace_pairs(&s.roots, panel, &ids)
+            };
+            let msg = if pairs.is_empty() {
+                "Replace: folder yang dipilih bukan direktori / bukan bagian dari pasangan BATCH."
+                    .to_string()
+            } else {
+                batch_launch_replace(pairs, &db_c, &pl)
+            };
+            if let Some(ui) = ui_weak.upgrade() {
+                push_log_lines(&ui, &pl);
+                ui.set_toast(slint::SharedString::from(msg));
+            }
+        });
+    }
+    {
+        // -- Refresh: muat ulang SOURCE & OUTPUT dari disk. --
+        let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        ui.on_batch_refresh(move || {
+            {
+                let mut s = st.lock().unwrap();
+                batch::rescan_all(&mut s.roots);
+            }
+            if let Some(ui) = ui_weak.upgrade() {
+                push_batch_to_ui(&ui, &st.lock().unwrap());
+                ui.set_toast(slint::SharedString::from("Memuat ulang SOURCE & OUTPUT…"));
+            }
+        });
+    }
+    {
+        // -- Bersihkan SOURCE (file tetap ada di disk). --
+        let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        ui.on_batch_clear(move || {
+            {
+                let mut s = st.lock().unwrap();
+                s.clear();
+            }
+            if let Some(ui) = ui_weak.upgrade() {
+                push_batch_to_ui(&ui, &st.lock().unwrap());
+                ui.set_toast(slint::SharedString::from(
+                    "SOURCE dibersihkan (file tetap ada di disk).",
+                ));
+            }
+        });
+    }
+    {
+        // -- Folder Reguler: pilih dari dropdown → jadi SOURCE aktif. --
+        let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        let db_c = db.clone();
+        ui.on_batch_reguler_picked(move |idx| {
+            let path = {
+                let s = st.lock().unwrap();
+                s.reguler_dirs.get(idx as usize).cloned()
+            };
+            let Some(path) = path else {
+                return;
+            };
+            let p = std::path::PathBuf::from(&path);
+            let msg = {
+                let mut s = st.lock().unwrap();
+                if !p.is_dir() {
+                    format!("Folder Reguler tidak ditemukan: {}", path)
+                } else {
+                    s.reguler_active = path.clone();
+                    s.add_folder(&p);
+                    format!(
+                        "Folder Reguler: {}",
+                        p.file_name()
+                            .map(|n| n.to_string_lossy().into_owned())
+                            .unwrap_or(path.clone())
+                    )
+                }
+            };
+            if let Some(ref dbm) = db_c {
+                if let Ok(mut g) = dbm.lock() {
+                    let _ = g.set("Batch.FolderReguler.Active", &path, "String");
+                }
+            }
+            if let Some(ui) = ui_weak.upgrade() {
+                push_batch_to_ui(&ui, &st.lock().unwrap());
+                ui.set_toast(slint::SharedString::from(msg));
+            }
+        });
+    }
+    {
+        // -- Folder Reguler: kelola (tahap 4, lengkap: tambah/hapus/scan). --
+        let ui_weak = ui.as_weak();
+        ui.on_batch_reguler_manage(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_toast(slint::SharedString::from(
+                    "Kelola Folder Reguler menyusul (tahap 4: daftar + scan latar).",
+                ));
+            }
+        });
+    }
+    {
+        // -- Jalankan script (tahap 3: spawn Python + Task Manager). --
+        let ui_weak = ui.as_weak();
+        ui.on_batch_run_script(move |name| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_toast(slint::SharedString::from(format!(
+                    "Eksekusi script '{}' menyusul (tahap 3: spawn + Task Manager).",
+                    name
+                )));
+            }
+        });
+    }
+    {
+        // -- Fase 1 (tahap 3: bagian dari eksekusi script). --
+        let ui_weak = ui.as_weak();
+        ui.on_batch_phase1(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_toast(slint::SharedString::from(
+                    "Fase 1 menyusul (tahap 3: eksekusi script).",
+                ));
+            }
+        });
+    }
+    {
+        // -- Salin master yang dikonfigurasi ke folder terpilih (MASTER target). --
+        let ui_weak = ui.as_weak();
+        let st = batch_state.clone();
+        let db_c = db.clone();
+        ui.on_batch_copy_master(move || {
+            let msg = {
+                let s = st.lock().unwrap();
+                let target = s.selection.ids.first().cloned().unwrap_or_default();
+                let master = batch_db_get(&db_c, "Paths.PasFoto", "Configs.Master.PasFoto");
+                if target.is_empty() {
+                    "Pilih folder dulu (klik nama folder).".to_string()
+                } else if master.trim().is_empty() {
+                    "Path master belum diatur (Settings → Paths).".to_string()
+                } else {
+                    let mp = std::path::PathBuf::from(master.trim());
+                    if mp.is_file() {
+                        let dest =
+                            std::path::PathBuf::from(&target).join(mp.file_name().unwrap_or_default());
+                        match std::fs::copy(&mp, &dest) {
+                            Ok(_) => format!("Master disalin ke {}", dest.display()),
+                            Err(e) => format!("Gagal menyalin master: {}", e),
+                        }
+                    } else if mp.is_dir() {
+                        "Path master adalah folder — pakai Master Browser (bertahap).".to_string()
+                    } else {
+                        format!("File master tidak ditemukan: {}", mp.display())
+                    }
+                }
+            };
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_toast(slint::SharedString::from(msg));
+            }
+        });
+    }
+    {
+        // -- Task Manager (tahap 5: panel progres terpisah). --
+        let ui_weak = ui.as_weak();
+        ui.on_batch_open_task_manager(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_toast(slint::SharedString::from(
+                    "Task Manager menyusul (tahap 5: panel progres terpisah).",
+                ));
+            }
+        });
+    }
+
         ui.on_test_trello(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 let k = ui.get_trello_api_key().to_string();
@@ -6710,6 +7775,8 @@ fn main() -> Result<(), slint::PlatformError> {
                 EventType::KeyPress(key) => {
                     mods |= modifier_mask_for_key(key);
                     modifiers.set(mods);
+                    BATCH_SHIFT_HELD.store(mods & 4 != 0, Ordering::SeqCst);
+                    BATCH_CTRL_HELD.store(mods & 2 != 0, Ordering::SeqCst);
                     if hook_recording.load(Ordering::SeqCst) && !is_modifier_key(key) {
                         if let Some(vk) = rdev_key_to_vk(key) {
                             let cfg = RadialShortcutConfig {
@@ -6737,6 +7804,8 @@ fn main() -> Result<(), slint::PlatformError> {
                     }
                     mods &= !modifier_mask_for_key(key);
                     modifiers.set(mods);
+                    BATCH_SHIFT_HELD.store(mods & 4 != 0, Ordering::SeqCst);
+                    BATCH_CTRL_HELD.store(mods & 2 != 0, Ordering::SeqCst);
                 }
                 EventType::ButtonPress(button) => {
                     if hook_recording.load(Ordering::SeqCst) {

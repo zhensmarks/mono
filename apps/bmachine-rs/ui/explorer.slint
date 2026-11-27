@@ -483,8 +483,8 @@ component TaskCard inherits Rectangle {
 export component ExplorerView inherits Rectangle {
     callback toast(string);
     callback close();
-    callback send-to-batch(string, string, string, string, string);
-    callback buat-master(string, string, string, string, string);
+    callback send-to-batch(string);
+    callback buat-master(string);
     callback open-settings-explorer();
     callback search-request(string, string);
     callback typeahead-request(string, string);
@@ -1664,7 +1664,7 @@ export component ExplorerView inherits Rectangle {
         } else if (!root.single-is-folder) {
             root.toast("Yang dipilih bukan folder.");
         } else {
-            root.send-folder(root.single-name);
+            root.send-folder(root.single-path);
         }
     }
     callback send-folder(string);
@@ -1672,12 +1672,12 @@ export component ExplorerView inherits Rectangle {
         // Pemetaan folder contoh DIHAPUS 27 Nov 2026 (keputusan abeng:
         // default publish harus bersih). Isi subfolder dibaca dari disk
         // saat folder nyata sudah bisa dibuka (menyusul Fase 6).
-        root.send-to-batch(folder, "", "", "", "");
+        root.send-to-batch(folder);
     }
     callback buat-master-ctx();
     buat-master-ctx() => {
         // Pemetaan folder contoh DIHAPUS 27 Nov 2026 (lihat send-folder).
-        root.buat-master(root.ctx-name, "", "", "", "");
+        root.buat-master(root.ctx-path);
         root.ctx-open = false;
     }
     callback typeahead-char(string);

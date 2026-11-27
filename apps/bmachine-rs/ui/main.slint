@@ -4,7 +4,7 @@
 // window lewat ui-scale. Tab HOME/BATCH benar-benar berpindah.
 // Klik StatWidget menampilkan toast. Tombol profil membuka flyout.
 
-import { Design, Card, HSeparator, NavTab, StatWidget, Btn, IconBtn, Toggle, TextField, SvgIcon, FlyoutItem, WindowControls } from "design.slint";
+import { Design, Card, HSeparator, NavTab, StatWidget, Btn, IconBtn, Toggle, TextField, SvgIcon, FlyoutItem, WindowControls, ComboBox } from "design.slint";
 export { Design }
 import { SettingsView } from "settings.slint";
 import { ExplorerSettingsView } from "explorer-settings.slint";
@@ -16,6 +16,272 @@ import { RadialMenuView } from "radial.slint";
 import { SplashView } from "splash.slint";
 import { ExitConfirmDialog, UpdateDialog } from "dialog.slint";
 export { SpreadsheetWindow, CardListWindow, RadialMenuWindow, ToolboxWindow, ReportBugDialog, DynamicBarWindow } from "windows.slint";
+
+// ===== BATCH — baris tree + menu konteks (model beneran, Rust) =====
+// Satu baris tree BATCH (flat row dari src/batch.rs): indentasi dari
+// depth, chevron ▸/▾ untuk folder, ikon ▤ untuk file, nama tebal
+// untuk folder. Klik kiri = pilih + salin path (Rust); klik kanan =
+// expand/collapse + buka menu konteks (Rust, LANJUTKAN §10).
+struct BatchRow {
+    id: string,
+    name: string,
+    path: string,
+    depth: int,
+    is-dir: bool,
+    expanded: bool,
+    has-kids: bool,
+    selected: bool,
+    is-root: bool,
+}
+
+component BatchTreeRow inherits Rectangle {
+    in property <string> row-id: "";
+    in property <string> row-name: "";
+    in property <int> row-depth: 0;
+    in property <bool> row-is-dir: true;
+    in property <bool> row-expanded: false;
+    in property <bool> row-has-kids: false;
+    in property <bool> row-selected: false;
+    in property <string> panel: "SOURCE";
+    callback row-clicked(string, string);
+    callback row-right-down(string, string);
+    callback row-right-up(string, string);
+    callback row-toggle-expand(string, string);
+    callback row-more(string, string);
+
+    // Baris folder 36px, baris anak (file) 26px — tree padat C#,
+    // tidak ikut ui-scale.
+    height: row-is-dir ? 36px : 26px;
+    background: row-selected ? Design.accent-subtle : (row-touch.has-hover ? Design.bg-hover : transparent);
+    border-radius: Design.radius-sm;
+
+    row-touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.row-clicked(panel, row-id); }
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                root.row-right-down(panel, row-id);
+            } else if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.right) {
+                root.row-right-up(panel, row-id);
+            }
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: 10px + row-depth * 16px;
+        padding-right: 10px;
+        spacing: 8px;
+
+        // Chevron (folder beranak) / ikon file ▤ / spasi kosong.
+        Rectangle {
+            width: 20px;
+            height: 100%;
+            chev-touch := TouchArea {
+                mouse-cursor: pointer;
+                enabled: row-is-dir && row-has-kids;
+                clicked => { root.row-toggle-expand(panel, row-id); }
+            }
+            Text {
+                text: row-is-dir ? (row-has-kids ? (row-expanded ? "▾" : "▸") : "") : "▤";
+                font-size: 12px;
+                font-weight: 700;
+                color: row-is-dir ? Design.text-secondary : Design.text-muted;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                width: 100%;
+                height: 100%;
+            }
+        }
+
+        Text {
+            text: row-name;
+            font-size: 12px;
+            font-weight: row-is-dir ? 700 : 400;
+            color: row-selected ? Design.accent : (row-is-dir ? Design.text-primary : Design.text-secondary);
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+
+        IconBtn {
+            glyph: "⋯";
+            variant: "ghost";
+            scale: 1;
+            size: 24px;
+            clicked => { root.row-more(panel, row-id); }
+        }
+    }
+}
+
+// Menu konteks BATCH — satu komponen dipakai panel SOURCE + OUTPUT.
+// Isi menyesuaikan panel + jenis node (C# DashboardView.axaml):
+// root + item = New Subfolder… / Replace (Auto) / Copy Path / Delete;
+// child direktori = Replace (Auto) / Copy Path; OUTPUT tanpa Replace.
+// Replace (Manual) hanya SOURCE + direktori.
+component BatchCtxMenu inherits Card {
+    in property <string> menu-title: "";
+    in property <bool> show-replace: false;
+    in property <bool> show-copy-output: false;
+    callback new-subfolder();
+    callback replace-auto();
+    callback replace-manual();
+    callback copy-path();
+    callback copy-output-path();
+    callback delete();
+    callback close-menu();
+
+    background: Design.surface-elevated;
+    border-color: Design.border-hover;
+    border-width: 1px;
+    border-radius: Design.radius-md;
+
+    ctx-layout := VerticalLayout {
+        padding: Design.space-sm;
+        spacing: 2px;
+
+        Text {
+            text: "⋯ " + root.menu-title;
+            font-size: 12px;
+            font-weight: 700;
+            color: Design.text-primary;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+        HSeparator { }
+
+        Rectangle {
+            height: 32px;
+            background: ctx-new.has-hover ? Design.bg-hover : transparent;
+            border-radius: Design.radius-sm;
+            ctx-new := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.new-subfolder(); }
+            }
+            Text {
+                text: "New Subfolder…";
+                font-size: 12px;
+                color: Design.text-primary;
+                vertical-alignment: center;
+                x: 10px;
+                height: 100%;
+            }
+        }
+
+        Rectangle {
+            height: root.show-replace ? 32px : 0px;
+            visible: root.show-replace;
+            background: ctx-rep.has-hover ? Design.bg-hover : transparent;
+            border-radius: Design.radius-sm;
+            ctx-rep := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.replace-auto(); }
+            }
+            Text {
+                text: "Replace (Auto)";
+                font-size: 12px;
+                color: Design.text-primary;
+                vertical-alignment: center;
+                x: 10px;
+                height: 100%;
+            }
+        }
+
+        Rectangle {
+            height: root.show-replace ? 32px : 0px;
+            visible: root.show-replace;
+            background: ctx-repm.has-hover ? Design.bg-hover : transparent;
+            border-radius: Design.radius-sm;
+            ctx-repm := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.replace-manual(); }
+            }
+            Text {
+                text: "Replace (Manual)";
+                font-size: 12px;
+                color: Design.text-primary;
+                vertical-alignment: center;
+                x: 10px;
+                height: 100%;
+            }
+        }
+
+        Rectangle {
+            height: 32px;
+            background: ctx-copy.has-hover ? Design.bg-hover : transparent;
+            border-radius: Design.radius-sm;
+            ctx-copy := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.copy-path(); }
+            }
+            Text {
+                text: "Copy Path";
+                font-size: 12px;
+                color: Design.text-primary;
+                vertical-alignment: center;
+                x: 10px;
+                height: 100%;
+            }
+        }
+
+        Rectangle {
+            height: root.show-copy-output ? 32px : 0px;
+            visible: root.show-copy-output;
+            background: ctx-copyout.has-hover ? Design.bg-hover : transparent;
+            border-radius: Design.radius-sm;
+            ctx-copyout := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.copy-output-path(); }
+            }
+            Text {
+                text: "Copy Output Path";
+                font-size: 12px;
+                color: Design.text-primary;
+                vertical-alignment: center;
+                x: 10px;
+                height: 100%;
+            }
+        }
+
+        Rectangle {
+            height: 32px;
+            background: ctx-del.has-hover ? Design.bg-hover : transparent;
+            border-radius: Design.radius-sm;
+            ctx-del := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.delete(); }
+            }
+            Text {
+                text: "Delete";
+                font-size: 12px;
+                font-weight: 700;
+                color: Design.status-danger;
+                vertical-alignment: center;
+                x: 10px;
+                height: 100%;
+            }
+        }
+
+        HSeparator { }
+
+        Rectangle {
+            height: 28px;
+            background: ctx-close.has-hover ? Design.bg-hover : transparent;
+            border-radius: Design.radius-sm;
+            ctx-close := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.close-menu(); }
+            }
+            Text {
+                text: "✕ Tutup";
+                font-size: 11px;
+                color: Design.text-muted;
+                vertical-alignment: center;
+                x: 10px;
+                height: 100%;
+            }
+        }
+    }
+}
 
 export component AppWindow inherits Window {
     // Chrome window mengikuti Settings (app-chrome): "native" =
@@ -367,34 +633,9 @@ export component AppWindow inherits Window {
         if (!root.is-batch-visible && root.current-tab == "BATCH") { root.current-tab = "HOME"; }
     }
 
-    // Pulihkan dataset contoh A ke SOURCE (dipakai tombol "+ Tambah
-    // Folder" dan drop zone BATCH saat SOURCE kosong — mockup: Slint
-    // belum mendukung drag-drop OS, jadi klik = simulasi drop).
-    // DIKOSONGKAN 27 Nov 2026 (keputusan abeng: default publish harus
-    // bersih) — tidak ada lagi dataset contoh; user pilih folder
-    // sendiri (alur folder nyata menyusul dari studi master_creator).
-    public function restore-batch-source() {
-        root.use-folder-b = false;
-        root.src-name = "";
-        root.selected-source = "";
-        root.selected-output = "";
-        root.src-folders = ["", "", "", ""];
-        root.kids-0 = ["", "", ""];
-        root.kids-1 = ["", "", ""];
-        root.kids-2 = ["", "", ""];
-        root.kids-3 = ["", "", ""];
-        root.expanded-node = "";
-        root.selected-nodes = [];
-        root.ctx-node = "";
-        root.has-manifest = false;
-        root.out-folders = ["", "", "", ""];
-        root.out-kids-0 = ["", "", ""];
-        root.out-kids-1 = ["", "", ""];
-        root.out-kids-2 = ["", "", ""];
-        root.out-kids-3 = ["", "", ""];
-        root.expanded-out = "";
-        root.toast = "Pilih folder sumber terlebih dahulu.";
-    }
+    // (restore-batch-source DIHAPUS 28 Nov 2026 — dataset contoh
+    // sudah dikosongkan; pilih folder kini lewat batch-pick-folder()
+    // → dialog folder beneran + scan disk di Rust.)
 
     // Overlay layar penuh (Settings/Toolbox/Sheets/Leaderboard/
     // Explorer/Trello-Window): "" = dashboard tampil (pill nav
@@ -589,148 +830,74 @@ export component AppWindow inherits Window {
     // kecil sementara kartunya tinggi — teks harus mengisi kartu.
     property <float> card-scale: max(root.ui-scale, ((root.height - 68px * root.ui-scale - 42px) / 1px) / 400);
 
-    // Data BATCH v2 (proper, sesuai ANALISIS_BMACHINE.md §3).
-    // SOURCE = ISI filesystem folder sekolah yang dipilih.
-    // Level-1 = subfolder di dalam folder sekolah; tiap subfolder
-    // punya 3 file contoh (children). Dua dataset contoh — tombol
-    // "+ Tambah Folder" MENGGANTI seluruh koleksi (AddFolders),
-    // bukan append. children 3 slot ("" = kosong/dihapus) + slot
-    // ke-4 (index 3) yang hanya terisi bila subfolder baru dibuat
-    // via input inline (K1 REA, 26 Nov) — dibaca dengan guard
-    // .length supaya array 3 elemen tetap aman.
+    // Data BATCH beneran (Rust, src/batch.rs) — model flat rows.
+    // SOURCE/OUTPUT dirender sebagai DAFTAR DATAR (parallel arrays):
+    // Rust meratakan tree terlihat (hormat expand) ke FlatRow; Slint
+    // hanya menampilkan baris + indentasi dari depth. Menggantikan
+    // array mock 4x4 (src-folders/kids-*) 28 Nov 2026.
+    in-out property <[BatchRow]> src-rows: [];
+    in-out property <[BatchRow]> out-rows: [];
     in-out property <string> src-name: "";
-    in-out property <bool> use-folder-b: false;
-    in-out property <[string]> src-folders: ["", "", "", ""];
-    property <[string]> src-folders-b: [];
-    in-out property <[string]> kids-0: ["", "", ""];
-    in-out property <[string]> kids-1: ["", "", ""];
-    in-out property <[string]> kids-2: ["", "", ""];
-    in-out property <[string]> kids-3: ["", "", ""];
-    property <[string]> kids-b-0: ["", "", ""];
-    property <[string]> kids-b-1: ["", "", ""];
-    property <[string]> kids-b-2: ["", "", ""];
-    property <[string]> kids-b-3: ["", "", ""];
-
-    // State tree: folder yang di-expand ("" = tidak ada),
-    // node terpilih (multi-select, maks 3), node yang menu
-    // konteksnya terbuka + posisi node itu (untuk Delete).
-    in-out property <string> expanded-node: "";
-    in-out property <[string]> selected-nodes: [];
-    in-out property <string> ctx-node: "";
-    in-out property <int> ctx-folder-idx: -1;
-    in-out property <int> ctx-child-idx: -1;
-    in-out property <bool> ctx-is-child: false;
-    // Panel asal context menu (K1 REA): "SOURCE" | "OUTPUT".
-    // Menu OUTPUT = New Subfolder… / Delete / Copy Path /
-    // Copy Output Path (tanpa Replace); menu SOURCE = New
-    // Subfolder… / Replace (Auto) / Copy Path / Delete.
-    in-out property <string> ctx-panel: "SOURCE";
-    // Input inline nama subfolder baru (K1 REA — CancelNewFolderInput
-    // / CancelOutputNewFolderInput di BatchFolderRoot): panel + nama
-    // induk + indeks folder + nama yang diketik. newfolder-panel ""
-    // = tidak ada input terbuka. Slot anak ke-4 (index 3) hanya
-    // terisi bila subfolder baru dibuat (kids 3 slot + slot 4
-    // dibaca dengan guard .length — array 3 elemen aman).
-    in-out property <string> newfolder-panel: "";
-    in-out property <string> newfolder-parent: "";
-    in-out property <int> newfolder-idx: -1;
-    in-out property <string> newfolder-name: "";
-    property <bool> newfolder-done: false;
-    // Konfirmasi input inline subfolder baru — dipanggil dari
-    // TextField (Enter) dan tombol ✓ di baris input, di kedua panel.
-    // Sisip ke slot kosong pertama kids/out-kids target.
-    callback confirm-new-folder();
-    confirm-new-folder => {
-        root.newfolder-done = false;
-        if (root.newfolder-name == "") {
-            root.toast = "Nama folder tidak boleh kosong.";
-        } else if (root.newfolder-panel == "SOURCE") {
-            if (root.newfolder-idx == 0) {
-                if (root.kids-0[0] == "") { root.kids-0 = [root.newfolder-name, root.kids-0[1], root.kids-0[2], root.kids-0.length > 3 ? root.kids-0[3] : ""]; root.newfolder-done = true; }
-                else if (root.kids-0[1] == "") { root.kids-0 = [root.kids-0[0], root.newfolder-name, root.kids-0[2], root.kids-0.length > 3 ? root.kids-0[3] : ""]; root.newfolder-done = true; }
-                else if (root.kids-0[2] == "") { root.kids-0 = [root.kids-0[0], root.kids-0[1], root.newfolder-name, root.kids-0.length > 3 ? root.kids-0[3] : ""]; root.newfolder-done = true; }
-                else if (root.kids-0.length <= 3 || root.kids-0[3] == "") { root.kids-0 = [root.kids-0[0], root.kids-0[1], root.kids-0[2], root.newfolder-name]; root.newfolder-done = true; }
-                else { root.toast = "Sudah 4 item di " + root.newfolder-parent + " — hapus dulu satu file (contoh)."; }
-            } else if (root.newfolder-idx == 1) {
-                if (root.kids-1[0] == "") { root.kids-1 = [root.newfolder-name, root.kids-1[1], root.kids-1[2], root.kids-1.length > 3 ? root.kids-1[3] : ""]; root.newfolder-done = true; }
-                else if (root.kids-1[1] == "") { root.kids-1 = [root.kids-1[0], root.newfolder-name, root.kids-1[2], root.kids-1.length > 3 ? root.kids-1[3] : ""]; root.newfolder-done = true; }
-                else if (root.kids-1[2] == "") { root.kids-1 = [root.kids-1[0], root.kids-1[1], root.newfolder-name, root.kids-1.length > 3 ? root.kids-1[3] : ""]; root.newfolder-done = true; }
-                else if (root.kids-1.length <= 3 || root.kids-1[3] == "") { root.kids-1 = [root.kids-1[0], root.kids-1[1], root.kids-1[2], root.newfolder-name]; root.newfolder-done = true; }
-                else { root.toast = "Sudah 4 item di " + root.newfolder-parent + " — hapus dulu satu file (contoh)."; }
-            } else if (root.newfolder-idx == 2) {
-                if (root.kids-2[0] == "") { root.kids-2 = [root.newfolder-name, root.kids-2[1], root.kids-2[2], root.kids-2.length > 3 ? root.kids-2[3] : ""]; root.newfolder-done = true; }
-                else if (root.kids-2[1] == "") { root.kids-2 = [root.kids-2[0], root.newfolder-name, root.kids-2[2], root.kids-2.length > 3 ? root.kids-2[3] : ""]; root.newfolder-done = true; }
-                else if (root.kids-2[2] == "") { root.kids-2 = [root.kids-2[0], root.kids-2[1], root.newfolder-name, root.kids-2.length > 3 ? root.kids-2[3] : ""]; root.newfolder-done = true; }
-                else if (root.kids-2.length <= 3 || root.kids-2[3] == "") { root.kids-2 = [root.kids-2[0], root.kids-2[1], root.kids-2[2], root.newfolder-name]; root.newfolder-done = true; }
-                else { root.toast = "Sudah 4 item di " + root.newfolder-parent + " — hapus dulu satu file (contoh)."; }
-            } else {
-                if (root.kids-3[0] == "") { root.kids-3 = [root.newfolder-name, root.kids-3[1], root.kids-3[2], root.kids-3.length > 3 ? root.kids-3[3] : ""]; root.newfolder-done = true; }
-                else if (root.kids-3[1] == "") { root.kids-3 = [root.kids-3[0], root.newfolder-name, root.kids-3[2], root.kids-3.length > 3 ? root.kids-3[3] : ""]; root.newfolder-done = true; }
-                else if (root.kids-3[2] == "") { root.kids-3 = [root.kids-3[0], root.kids-3[1], root.newfolder-name, root.kids-3.length > 3 ? root.kids-3[3] : ""]; root.newfolder-done = true; }
-                else if (root.kids-3.length <= 3 || root.kids-3[3] == "") { root.kids-3 = [root.kids-3[0], root.kids-3[1], root.kids-3[2], root.newfolder-name]; root.newfolder-done = true; }
-                else { root.toast = "Sudah 4 item di " + root.newfolder-parent + " — hapus dulu satu file (contoh)."; }
-            }
-        } else if (root.newfolder-panel == "OUTPUT") {
-            if (root.newfolder-idx == 0) {
-                if (root.out-kids-0[0] == "") { root.out-kids-0 = [root.newfolder-name, root.out-kids-0[1], root.out-kids-0[2], root.out-kids-0.length > 3 ? root.out-kids-0[3] : ""]; root.newfolder-done = true; }
-                else if (root.out-kids-0[1] == "") { root.out-kids-0 = [root.out-kids-0[0], root.newfolder-name, root.out-kids-0[2], root.out-kids-0.length > 3 ? root.out-kids-0[3] : ""]; root.newfolder-done = true; }
-                else if (root.out-kids-0[2] == "") { root.out-kids-0 = [root.out-kids-0[0], root.out-kids-0[1], root.newfolder-name, root.out-kids-0.length > 3 ? root.out-kids-0[3] : ""]; root.newfolder-done = true; }
-                else if (root.out-kids-0.length <= 3 || root.out-kids-0[3] == "") { root.out-kids-0 = [root.out-kids-0[0], root.out-kids-0[1], root.out-kids-0[2], root.newfolder-name]; root.newfolder-done = true; }
-                else { root.toast = "Sudah 4 item di " + root.newfolder-parent + " — hapus dulu satu file (contoh)."; }
-            } else if (root.newfolder-idx == 1) {
-                if (root.out-kids-1[0] == "") { root.out-kids-1 = [root.newfolder-name, root.out-kids-1[1], root.out-kids-1[2], root.out-kids-1.length > 3 ? root.out-kids-1[3] : ""]; root.newfolder-done = true; }
-                else if (root.out-kids-1[1] == "") { root.out-kids-1 = [root.out-kids-1[0], root.newfolder-name, root.out-kids-1[2], root.out-kids-1.length > 3 ? root.out-kids-1[3] : ""]; root.newfolder-done = true; }
-                else if (root.out-kids-1[2] == "") { root.out-kids-1 = [root.out-kids-1[0], root.out-kids-1[1], root.newfolder-name, root.out-kids-1.length > 3 ? root.out-kids-1[3] : ""]; root.newfolder-done = true; }
-                else if (root.out-kids-1.length <= 3 || root.out-kids-1[3] == "") { root.out-kids-1 = [root.out-kids-1[0], root.out-kids-1[1], root.out-kids-1[2], root.newfolder-name]; root.newfolder-done = true; }
-                else { root.toast = "Sudah 4 item di " + root.newfolder-parent + " — hapus dulu satu file (contoh)."; }
-            } else if (root.newfolder-idx == 2) {
-                if (root.out-kids-2[0] == "") { root.out-kids-2 = [root.newfolder-name, root.out-kids-2[1], root.out-kids-2[2], root.out-kids-2.length > 3 ? root.out-kids-2[3] : ""]; root.newfolder-done = true; }
-                else if (root.out-kids-2[1] == "") { root.out-kids-2 = [root.out-kids-2[0], root.newfolder-name, root.out-kids-2[2], root.out-kids-2.length > 3 ? root.out-kids-2[3] : ""]; root.newfolder-done = true; }
-                else if (root.out-kids-2[2] == "") { root.out-kids-2 = [root.out-kids-2[0], root.out-kids-2[1], root.newfolder-name, root.out-kids-2.length > 3 ? root.out-kids-2[3] : ""]; root.newfolder-done = true; }
-                else if (root.out-kids-2.length <= 3 || root.out-kids-2[3] == "") { root.out-kids-2 = [root.out-kids-2[0], root.out-kids-2[1], root.out-kids-2[2], root.newfolder-name]; root.newfolder-done = true; }
-                else { root.toast = "Sudah 4 item di " + root.newfolder-parent + " — hapus dulu satu file (contoh)."; }
-            } else {
-                if (root.out-kids-3[0] == "") { root.out-kids-3 = [root.newfolder-name, root.out-kids-3[1], root.out-kids-3[2], root.out-kids-3.length > 3 ? root.out-kids-3[3] : ""]; root.newfolder-done = true; }
-                else if (root.out-kids-3[1] == "") { root.out-kids-3 = [root.out-kids-3[0], root.newfolder-name, root.out-kids-3[2], root.out-kids-3.length > 3 ? root.out-kids-3[3] : ""]; root.newfolder-done = true; }
-                else if (root.out-kids-3[2] == "") { root.out-kids-3 = [root.out-kids-3[0], root.out-kids-3[1], root.newfolder-name, root.out-kids-3.length > 3 ? root.out-kids-3[3] : ""]; root.newfolder-done = true; }
-                else if (root.out-kids-3.length <= 3 || root.out-kids-3[3] == "") { root.out-kids-3 = [root.out-kids-3[0], root.out-kids-3[1], root.out-kids-3[2], root.newfolder-name]; root.newfolder-done = true; }
-                else { root.toast = "Sudah 4 item di " + root.newfolder-parent + " — hapus dulu satu file (contoh)."; }
-            }
-        }
-        if (root.newfolder-done) {
-            root.toast = "Subfolder '" + root.newfolder-name + "' dibuat di " + root.newfolder-parent;
-            root.newfolder-panel = "";
-            root.newfolder-name = "";
-        }
-    }
-
-    // Dua fase master: Fase 1 (buat_master.py) membuat manifest;
-    // Fase 2 (tombol BUAT MASTER = buat_master_duplikat.py)
-    // BUTUH manifest — tanpa manifest, error.
-    in-out property <bool> has-manifest: false;
-    // OUTPUT = tree SENDIRI dari folder output di disk (terpisah
-    // dari SOURCE — BUKAN cermin live). Diisi saat BUAT MASTER /
-    // script footer berhasil (salin struktur SOURCE saat itu);
-    // dikosongkan saat Clear / ganti SOURCE. Expand OUTPUT pakai
-    // state sendiri (expanded-out). Sesuai BATCH_DASHBOARD.md §3.3.
-    in-out property <[string]> out-folders: ["", "", "", ""];
-    in-out property <[string]> out-kids-0: ["", "", ""];
-    in-out property <[string]> out-kids-1: ["", "", ""];
-    in-out property <[string]> out-kids-2: ["", "", ""];
-    in-out property <[string]> out-kids-3: ["", "", ""];
-    in-out property <string> expanded-out: "";
-
-    in-out property <string> selected-source: "";
     in-out property <string> selected-output: "";
     in-out property <string> selected-master: "PAS FOTO";
-
-    // SOURCE kosong = keempat slot "" (Bersihkan / hapus semua).
-    // src-folders selalu 4 entri (tidak pernah []) supaya indeks
-    // [0..3] aman dibaca binding.
-    property <bool> src-empty: root.src-folders[0] == "" && root.src-folders[1] == "" && root.src-folders[2] == "" && root.src-folders[3] == "";
-    // OUTPUT kosong = keempat slot "" (folder output belum ada di
-    // disk → chip "(pending)" tampil). Sama seperti src-empty.
-    property <bool> out-empty: root.out-folders[0] == "" && root.out-folders[1] == "" && root.out-folders[2] == "" && root.out-folders[3] == "";
+    // Folder output belum ada di disk → chip "(pending)" oranye.
+    in-out property <bool> batch-out-pending: true;
+    // Dua fase master: Fase 1 (buat_master.py) membuat manifest;
+    // Fase 2 (BUAT MASTER = buat_master_duplikat.py) BUTUH manifest.
+    in-out property <bool> has-manifest: false;
+    // Jumlah node terpilih (tampil di header SOURCE: "N dipilih").
+    in-out property <int> batch-sel-count: 0;
+    // Context menu BATCH (dibuka dari ⋯ / klik kanan; ditutup setelah
+    // satu aksi dipilih atau klik di luar menu).
+    in-out property <string> ctx-node: "";
+    in-out property <string> ctx-node-id: "";
+    in-out property <string> ctx-panel: "SOURCE";
+    in-out property <bool> ctx-is-dir: false;
+    in-out property <bool> ctx-is-root: false;
+    // Input inline subfolder baru (C# CancelNewFolderInput di
+    // BatchFolderRoot): newfolder-open false = tidak ada input.
+    in-out property <bool> newfolder-open: false;
+    in-out property <string> newfolder-panel: "";
+    in-out property <string> newfolder-parent: "";
+    in-out property <string> newfolder-name: "";
+    // Folder Reguler (ala master_creator): dropdown direktori kerja
+    // tersimpan + popup kelola (tabel bulan/marketing/sekolah).
+    in-out property <[string]> batch-reguler-names: [];
+    in-out property <int> batch-reguler-idx: -1;
+    // Footer: tombol script dari scripts.json (atau default 5).
+    in-out property <[string]> batch-scripts: ["buat_master", "manasik", "wisuda", "pasfoto", "profesi"];
+    in-out property <bool> batch-running: false;
+    // SOURCE kosong = belum ada folder (drop zone tampil);
+    // OUTPUT kosong = tree output belum ada (teks "Output akan
+    // muncul di sini." tampil).
+    property <bool> src-empty: root.src-rows.length == 0;
+    property <bool> out-empty: root.out-rows.length == 0;
+    // Callbacks BATCH → Rust (src/batch.rs + src/batch_exec.rs).
+    callback batch-pick-folder();
+    callback batch-add-folder(string);
+    callback batch-row-clicked(string, string);
+    callback batch-row-right-down(string, string);
+    callback batch-row-right-up(string, string);
+    callback batch-toggle-expand(string, string);
+    callback batch-open-ctx(string, string);
+    callback batch-close-ctx();
+    callback batch-ctx-new-subfolder();
+    callback batch-ctx-replace-auto();
+    callback batch-ctx-replace-manual();
+    callback batch-ctx-copy-path();
+    callback batch-ctx-copy-output-path();
+    callback batch-ctx-delete();
+    callback batch-confirm-new-folder();
+    callback batch-cancel-new-folder();
+    callback batch-run-script(string);
+    callback batch-phase1();
+    callback batch-copy-master();
+    callback batch-replace-auto();
+    callback batch-refresh();
+    callback batch-clear();
+    callback batch-reguler-picked(int);
+    callback batch-reguler-manage();
+    callback batch-open-task-manager();
 
     // Skala fluid: font & padding widget mengikuti ukuran window.
     // 1 = ukuran desain (grid 600x400); naik saat window membesar
@@ -1688,11 +1855,12 @@ export component AppWindow inherits Window {
             }
             }
 
-            // ----- BATCH v2: tree filesystem + dua fase master +
-            // Replace (proper, sesuai ANALISIS_BMACHINE.md §3).
-            // SOURCE = ISI folder sekolah (tree, expand lazy);
-            // BUAT MASTER = fase 2 (butuh manifest fase 1);
-            // Replace single + multiple; toolbar = launcher skrip.
+            // ----- BATCH: tree filesystem beneran (Rust, src/batch.rs)
+            // + dua fase master + Replace. SOURCE = ISI folder sekolah
+            // (tree, expand lazy, scan disk); BUAT MASTER = fase 2
+            // (butuh manifest fase 1); Replace single + multiple;
+            // toolbar = launcher skrip. Tampilan awal HANYA drop zone;
+            // tree muncul setelah folder dipilih (abeng 28 Nov 00:42).
             VerticalLayout {
                 x: 0; y: 0;
                 width: 100%; height: 100%;
@@ -1703,7 +1871,7 @@ export component AppWindow inherits Window {
                 padding-bottom: Design.space-xl;
                 spacing: Design.space-md;
 
-                // Header: judul + deskripsi + tambah folder.
+                // Header: judul + deskripsi + Folder Reguler + tambah.
                 HorizontalLayout {
                     height: 36px * root.ui-scale;
                     spacing: 8px * root.ui-scale;
@@ -1722,35 +1890,46 @@ export component AppWindow inherits Window {
                         vertical-alignment: center;
                     }
                     Rectangle { horizontal-stretch: 1; }
+                    // Folder Reguler (ala master_creator): dropdown
+                    // direktori kerja tersimpan — pindah folder tanpa
+                    // drag lagi. Kosong = belum ada yang disimpan.
+                    ComboBox {
+                        width: 200px;
+                        model: root.batch-reguler-names;
+                        current-index: root.batch-reguler-idx;
+                        selected(index) => { root.batch-reguler-picked(index); }
+                    }
+                    Btn {
+                        label: "Folder Reguler…";
+                        variant: "ghost";
+                        scale: root.ui-scale;
+                        clicked => { root.batch-reguler-manage(); }
+                    }
+                    Btn {
+                        label: "☰ Tugas";
+                        variant: "ghost";
+                        scale: root.ui-scale;
+                        clicked => { root.batch-open-task-manager(); }
+                    }
                     Btn {
                         label: "+ Tambah Folder";
                         variant: "secondary";
                         scale: root.ui-scale;
-                        clicked => {
-                            // AddFolders() MENGGANTI seluruh koleksi
-                            // (bukan append). Dataset contoh DIKOSONGKAN
-                            // 27 Nov 2026 (keputusan abeng) — tambah
-                            // folder nyata menyusul (studi master_creator).
-                            root.toast = "Pilih folder sumber terlebih dahulu.";
-                        }
+                        clicked => { root.batch-pick-folder(); }
                     }
                 }
 
                 // Dua panel explorer (SOURCE kiri, OUTPUT kanan).
                 // Tinggi eksplisit: window − nav (68*scale) − header
                 // (36) − baris aksi A (36) − toolbar (56) −
-                // 3 celah (36px) − padding (32px). Baris B sudah
-                // dihapus (BUAT MASTER pindah ke dalam panel OUTPUT).
+                // 3 celah (36px) − padding (32px).
                 HorizontalLayout {
                     height: root.height - 68px * root.ui-scale - 128px * root.ui-scale - 68px;
                     spacing: Design.space-md;
 
-                    // Panel SOURCE — TREE isi folder sekolah.
-                    // Level-1 = subfolder (bernomo, expand via chevron
-                    // ▸/▾); anak = file di dalamnya (indent, ikon ▤).
-                    // Klik nama = pilih (multi-select) + copy path.
-                    // Klik chevron = expand/collapse. ⋯ = context menu.
-                    Card {
+                    // Panel SOURCE — TREE isi folder sekolah (flat rows
+                    // dari Rust; klik nama = pilih + salin path).
+                    src-card := Card {
                         width: (root.content-width - 52px) / 2;
                         VerticalLayout {
                             padding: Design.space-md;
@@ -1768,7 +1947,7 @@ export component AppWindow inherits Window {
                                     vertical-alignment: center;
                                 }
                                 Text {
-                                    text: root.selected-source;
+                                    text: root.src-name;
                                     font-size: 12px * root.ui-scale;
                                     font-weight: 700;
                                     color: Design.text-primary;
@@ -1776,18 +1955,15 @@ export component AppWindow inherits Window {
                                     horizontal-stretch: 1;
                                     overflow: elide;
                                 }
-                                // Chip "(pending)" — tampil kalau belum
-                                // ada output yang cocok (dokumen §3.2).
-                                // Hilang setelah BUAT MASTER berhasil.
                                 Text {
-                                    text: !root.src-empty && root.out-empty ? "(pending)" : "";
+                                    text: root.batch-out-pending ? "(pending)" : "";
                                     font-size: 11px * root.ui-scale;
                                     font-weight: 700;
                                     color: Design.cat-revision;
                                     vertical-alignment: center;
                                 }
                                 Text {
-                                    text: root.selected-nodes.length > 0 ? root.selected-nodes.length + " dipilih" : "";
+                                    text: root.batch-sel-count > 0 ? root.batch-sel-count + " dipilih" : "";
                                     font-size: 11px * root.ui-scale;
                                     font-weight: 700;
                                     color: Design.accent;
@@ -1796,629 +1972,107 @@ export component AppWindow inherits Window {
                             }
                             HSeparator { }
 
-                            // Isi panel: tree (bila ada isi) atau drop
-                            // zone (bila SOURCE kosong). Dua wadah
-                            // menumpuk posisi absolut + visible.
+                            // Input inline subfolder baru (C#
+                            // CancelNewFolderInput di BatchFolderRoot).
+                            Rectangle {
+                                height: (root.newfolder-open && root.newfolder-panel == "SOURCE") ? 36px : 0px;
+                                visible: root.newfolder-open && root.newfolder-panel == "SOURCE";
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    Text {
+                                        text: root.newfolder-parent;
+                                        font-size: 11px;
+                                        color: Design.text-muted;
+                                        vertical-alignment: center;
+                                        overflow: elide;
+                                        horizontal-stretch: 1;
+                                    }
+                                    TextField {
+                                        placeholder: "Nama subfolder baru…";
+                                        text: root.newfolder-name;
+                                        edited(name) => { root.newfolder-name = name; }
+                                        accepted(name) => { root.newfolder-name = name; root.batch-confirm-new-folder(); }
+                                        min-width: 180px;
+                                        horizontal-stretch: 1;
+                                    }
+                                    IconBtn {
+                                        glyph: "✓";
+                                        variant: "secondary";
+                                        scale: 1;
+                                        size: 36px;
+                                        clicked => { root.batch-confirm-new-folder(); }
+                                    }
+                                    IconBtn {
+                                        glyph: "×";
+                                        variant: "ghost";
+                                        scale: 1;
+                                        size: 36px;
+                                        clicked => { root.batch-cancel-new-folder(); }
+                                    }
+                                }
+                            }
+
                             Rectangle {
                                 vertical-stretch: 1;
-
-                                // --- Tree ---
-                                VerticalLayout {
+                                clip: true;
+                                Flickable {
                                     x: 0; y: 0; width: 100%; height: 100%;
-                                    visible: !root.src-empty;
-                                    spacing: 2px;
-
-                                    for f[index] in root.src-folders:
-                                        VerticalLayout {
-                                            spacing: 0;
-
-                                            // Baris folder (36px tetap — seperti
-                                            // tree C# yang padat; tidak ikut
-                                            // ui-scale supaya tree muat di panel).
-                                            Rectangle {
-                                                height: f == "" ? 0px : 36px;
-                                                visible: f != "";
-                                                background: (root.selected-nodes.length > 0 && root.selected-nodes[0] == f) || (root.selected-nodes.length > 1 && root.selected-nodes[1] == f) || (root.selected-nodes.length > 2 && root.selected-nodes[2] == f) ? Design.accent-subtle : (row-touch.has-hover || chev-touch.has-hover ? Design.bg-hover : transparent);
-                                                border-radius: Design.radius-sm;
-                                                row-touch := TouchArea {
-                                                    mouse-cursor: pointer;
-                                                    clicked => {
-                                                        // Toggle f di selected-nodes
-                                                        // (multi-select, maks 3) + copy path.
-                                                        if (root.selected-nodes.length > 0 && root.selected-nodes[0] == f) {
-                                                            if (root.selected-nodes.length == 1) { root.selected-nodes = []; }
-                                                            else if (root.selected-nodes.length == 2) { root.selected-nodes = [root.selected-nodes[1]]; }
-                                                            else { root.selected-nodes = [root.selected-nodes[1], root.selected-nodes[2]]; }
-                                                        } else if (root.selected-nodes.length > 1 && root.selected-nodes[1] == f) {
-                                                            if (root.selected-nodes.length == 2) { root.selected-nodes = [root.selected-nodes[0]]; }
-                                                            else { root.selected-nodes = [root.selected-nodes[0], root.selected-nodes[2]]; }
-                                                        } else if (root.selected-nodes.length > 2 && root.selected-nodes[2] == f) {
-                                                            root.selected-nodes = [root.selected-nodes[0], root.selected-nodes[1]];
-                                                        } else if (root.selected-nodes.length == 0) {
-                                                            root.selected-nodes = [f];
-                                                        } else if (root.selected-nodes.length == 1) {
-                                                            root.selected-nodes = [root.selected-nodes[0], f];
-                                                        } else if (root.selected-nodes.length == 2) {
-                                                            root.selected-nodes = [root.selected-nodes[0], root.selected-nodes[1], f];
-                                                        } else {
-                                                            root.toast = "Maksimal 3 folder dipilih.";
-                                                        }
-                                                        root.selected-master = f;
-                                                        root.toast = "Path disalin: " + f;
-                                                    }
-                                                }
-                                                HorizontalLayout {
-                                                    padding-left: 10px;
-                                                    padding-right: 10px;
-                                                    spacing: 8px;
-
-                                                    // Chevron expand/collapse.
-                                                    Rectangle {
-                                                        width: 20px;
-                                                        height: 100%;
-                                                        chev-touch := TouchArea {
-                                                            mouse-cursor: pointer;
-                                                            clicked => {
-                                                                if (root.expanded-node == f) { root.expanded-node = ""; }
-                                                                else { root.expanded-node = f; }
-                                                            }
-                                                        }
-                                                        Text {
-                                                            text: root.expanded-node == f ? "▾" : "▸";
-                                                            font-size: 12px;
-                                                            font-weight: 700;
-                                                            color: Design.text-secondary;
-                                                            horizontal-alignment: center;
-                                                            vertical-alignment: center;
-                                                            width: 100%;
-                                                            height: 100%;
-                                                        }
-                                                    }
-
-                                                    // Nama folder bernomor.
-                                                    Text {
-                                                        text: (index + 1) + ". " + f;
-                                                        font-size: 12px;
-                                                        font-weight: 700;
-                                                        color: (root.selected-nodes.length > 0 && root.selected-nodes[0] == f) || (root.selected-nodes.length > 1 && root.selected-nodes[1] == f) || (root.selected-nodes.length > 2 && root.selected-nodes[2] == f) ? Design.accent : Design.text-primary;
-                                                        vertical-alignment: center;
-                                                        horizontal-stretch: 1;
-                                                        overflow: elide;
-                                                    }
-
-                                                    // Tombol ⋯ (context menu).
-                                                    IconBtn {
-                                                        glyph: "⋯";
-                                                        variant: "ghost";
-                                                        scale: 1;
-                                                        size: 28px;
-                                                        clicked => {
-                                                            root.ctx-node = f;
-                                                            root.ctx-folder-idx = index;
-                                                            root.ctx-child-idx = -1;
-                                                            root.ctx-is-child = false;
-                                                            root.ctx-panel = "SOURCE";
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            // Anak 0 (file di dalam folder).
-                                            Rectangle {
-                                                property <string> cname: index == 0 ? root.kids-0[0] : index == 1 ? root.kids-1[0] : index == 2 ? root.kids-2[0] : root.kids-3[0];
-                                                height: (root.expanded-node == f && f != "" && cname != "") ? 26px : 0px;
-                                                visible: root.expanded-node == f && f != "" && cname != "";
-                                                background: kid0-touch.has-hover ? Design.bg-hover : transparent;
-                                                border-radius: Design.radius-sm;
-                                                kid0-touch := TouchArea {
-                                                    mouse-cursor: pointer;
-                                                    clicked => { root.toast = "Path disalin: " + cname; }
-                                                }
-                                                HorizontalLayout {
-                                                    padding-left: 34px;
-                                                    padding-right: 10px;
-                                                    spacing: 8px;
-                                                    Text {
-                                                        text: "▤";
-                                                        font-size: 12px;
-                                                        color: Design.text-muted;
-                                                        vertical-alignment: center;
-                                                    }
-                                                    Text {
-                                                        text: cname;
-                                                        font-size: 12px;
-                                                        color: Design.text-secondary;
-                                                        vertical-alignment: center;
-                                                        horizontal-stretch: 1;
-                                                        overflow: elide;
-                                                    }
-                                                    IconBtn {
-                                                        glyph: "⋯";
-                                                        variant: "ghost";
-                                                        scale: 1;
-                                                        size: 24px;
-                                                        clicked => {
-                                                            root.ctx-node = cname;
-                                                            root.ctx-folder-idx = index;
-                                                            root.ctx-child-idx = 0;
-                                                            root.ctx-is-child = true;
-                                                            root.ctx-panel = "SOURCE";
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            // Anak 1.
-                                            Rectangle {
-                                                property <string> cname: index == 0 ? root.kids-0[1] : index == 1 ? root.kids-1[1] : index == 2 ? root.kids-2[1] : root.kids-3[1];
-                                                height: (root.expanded-node == f && f != "" && cname != "") ? 26px : 0px;
-                                                visible: root.expanded-node == f && f != "" && cname != "";
-                                                background: kid1-touch.has-hover ? Design.bg-hover : transparent;
-                                                border-radius: Design.radius-sm;
-                                                kid1-touch := TouchArea {
-                                                    mouse-cursor: pointer;
-                                                    clicked => { root.toast = "Path disalin: " + cname; }
-                                                }
-                                                HorizontalLayout {
-                                                    padding-left: 34px;
-                                                    padding-right: 10px;
-                                                    spacing: 8px;
-                                                    Text {
-                                                        text: "▤";
-                                                        font-size: 12px;
-                                                        color: Design.text-muted;
-                                                        vertical-alignment: center;
-                                                    }
-                                                    Text {
-                                                        text: cname;
-                                                        font-size: 12px;
-                                                        color: Design.text-secondary;
-                                                        vertical-alignment: center;
-                                                        horizontal-stretch: 1;
-                                                        overflow: elide;
-                                                    }
-                                                    IconBtn {
-                                                        glyph: "⋯";
-                                                        variant: "ghost";
-                                                        scale: 1;
-                                                        size: 24px;
-                                                        clicked => {
-                                                            root.ctx-node = cname;
-                                                            root.ctx-folder-idx = index;
-                                                            root.ctx-child-idx = 1;
-                                                            root.ctx-is-child = true;
-                                                            root.ctx-panel = "SOURCE";
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            // Anak 2.
-                                            Rectangle {
-                                                property <string> cname: index == 0 ? root.kids-0[2] : index == 1 ? root.kids-1[2] : index == 2 ? root.kids-2[2] : root.kids-3[2];
-                                                height: (root.expanded-node == f && f != "" && cname != "") ? 26px : 0px;
-                                                visible: root.expanded-node == f && f != "" && cname != "";
-                                                background: kid2-touch.has-hover ? Design.bg-hover : transparent;
-                                                border-radius: Design.radius-sm;
-                                                kid2-touch := TouchArea {
-                                                    mouse-cursor: pointer;
-                                                    clicked => { root.toast = "Path disalin: " + cname; }
-                                                }
-                                                HorizontalLayout {
-                                                    padding-left: 34px;
-                                                    padding-right: 10px;
-                                                    spacing: 8px;
-                                                    Text {
-                                                        text: "▤";
-                                                        font-size: 12px;
-                                                        color: Design.text-muted;
-                                                        vertical-alignment: center;
-                                                    }
-                                                    Text {
-                                                        text: cname;
-                                                        font-size: 12px;
-                                                        color: Design.text-secondary;
-                                                        vertical-alignment: center;
-                                                        horizontal-stretch: 1;
-                                                        overflow: elide;
-                                                    }
-                                                    IconBtn {
-                                                        glyph: "⋯";
-                                                        variant: "ghost";
-                                                        scale: 1;
-                                                        size: 24px;
-                                                        clicked => {
-                                                            root.ctx-node = cname;
-                                                            root.ctx-folder-idx = index;
-                                                            root.ctx-child-idx = 2;
-                                                            root.ctx-is-child = true;
-                                                            root.ctx-panel = "SOURCE";
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            // Anak 3 (slot ke-4 — hanya terisi
-                                            // bila subfolder baru dibuat via
-                                            // input inline, K1 REA).
-                                            Rectangle {
-                                                property <string> cname: (index == 0 ? root.kids-0.length : index == 1 ? root.kids-1.length : index == 2 ? root.kids-2.length : root.kids-3.length) > 3 ? (index == 0 ? root.kids-0[3] : index == 1 ? root.kids-1[3] : index == 2 ? root.kids-2[3] : root.kids-3[3]) : "";
-                                                height: (root.expanded-node == f && f != "" && cname != "") ? 26px : 0px;
-                                                visible: root.expanded-node == f && f != "" && cname != "";
-                                                background: kid3-touch.has-hover ? Design.bg-hover : transparent;
-                                                border-radius: Design.radius-sm;
-                                                kid3-touch := TouchArea {
-                                                    mouse-cursor: pointer;
-                                                    clicked => { root.toast = "Path disalin: " + cname; }
-                                                }
-                                                HorizontalLayout {
-                                                    padding-left: 34px;
-                                                    padding-right: 10px;
-                                                    spacing: 8px;
-                                                    Text {
-                                                        text: "▤";
-                                                        font-size: 12px;
-                                                        color: Design.text-muted;
-                                                        vertical-alignment: center;
-                                                    }
-                                                    Text {
-                                                        text: cname;
-                                                        font-size: 12px;
-                                                        color: Design.text-secondary;
-                                                        vertical-alignment: center;
-                                                        horizontal-stretch: 1;
-                                                        overflow: elide;
-                                                    }
-                                                    IconBtn {
-                                                        glyph: "⋯";
-                                                        variant: "ghost";
-                                                        scale: 1;
-                                                        size: 24px;
-                                                        clicked => {
-                                                            root.ctx-node = cname;
-                                                            root.ctx-folder-idx = index;
-                                                            root.ctx-child-idx = 3;
-                                                            root.ctx-is-child = true;
-                                                            root.ctx-panel = "SOURCE";
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            // Input inline subfolder baru (K1 REA —
-                                            // CancelNewFolderInput di BatchFolderRoot).
-                                            // Enter/✓ = buat, × = batal.
-                                            Rectangle {
-                                                height: (root.newfolder-panel == "SOURCE" && root.newfolder-idx == index) ? 36px : 0px;
-                                                visible: root.newfolder-panel == "SOURCE" && root.newfolder-idx == index;
-                                                HorizontalLayout {
-                                                    padding-left: 34px;
-                                                    padding-right: 10px;
-                                                    spacing: 6px;
-                                                    TextField {
-                                                        placeholder: "Nama subfolder baru…";
-                                                        text: root.newfolder-name;
-                                                        edited(name) => { root.newfolder-name = name; }
-                                                        accepted(name) => { root.newfolder-name = name; root.confirm-new-folder(); }
-                                                        horizontal-stretch: 1;
-                                                    }
-                                                    IconBtn {
-                                                        glyph: "✓";
-                                                        variant: "secondary";
-                                                        scale: 1;
-                                                        size: 36px;
-                                                        clicked => { root.confirm-new-folder(); }
-                                                    }
-                                                    IconBtn {
-                                                        glyph: "×";
-                                                        variant: "ghost";
-                                                        scale: 1;
-                                                        size: 36px;
-                                                        clicked => { root.newfolder-panel = ""; root.newfolder-name = ""; root.toast = "Dibatalkan."; }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                }
-
-                                // Drop zone (tampil kalau SOURCE kosong).
-                                Rectangle {
-                                    x: 0; y: 0; width: 100%; height: 100%;
-                                    visible: root.src-empty;
-                                    border-color: Design.border-hover;
-                                    border-width: 2px;
-                                    border-radius: Design.radius-md;
                                     VerticalLayout {
-                                        x: 0; y: 0; width: 100%; height: 100%;
-                                        alignment: center;
-                                        spacing: 12px * root.ui-scale;
-                                        HorizontalLayout {
-                                            alignment: center;
-                                            Rectangle {
-                                                width: 64px * root.ui-scale;
-                                                height: 64px * root.ui-scale;
-                                                border-color: Design.text-muted;
-                                                border-width: 2px;
-                                                border-radius: 32px * root.ui-scale;
-                                                opacity: 0.5;
-                                                Text {
-                                                    text: "+";
-                                                    font-size: 36px * root.ui-scale;
-                                                    font-weight: 300;
-                                                    color: Design.text-muted;
-                                                    horizontal-alignment: center;
-                                                    vertical-alignment: center;
-                                                    width: 100%;
-                                                    height: 100%;
-                                                }
+                                        x: 0;
+                                        width: src-card.width - 2 * Design.space-md;
+                                        spacing: 2px;
+                                        for row in root.src-rows:
+                                            BatchTreeRow {
+                                                row-id: row.id;
+                                                row-name: row.name;
+                                                row-depth: row.depth;
+                                                row-is-dir: row.is-dir;
+                                                row-expanded: row.expanded;
+                                                row-has-kids: row.has-kids;
+                                                row-selected: row.selected;
+                                                panel: "SOURCE";
+                                                row-clicked(panel, id) => { root.batch-row-clicked(panel, id); }
+                                                row-right-down(panel, id) => { root.batch-row-right-down(panel, id); }
+                                                row-right-up(panel, id) => { root.batch-row-right-up(panel, id); }
+                                                row-toggle-expand(panel, id) => { root.batch-toggle-expand(panel, id); }
+                                                row-more(panel, id) => { root.batch-open-ctx(panel, id); }
                                             }
-                                        }
-                                        Text {
-                                            text: "DRAG FOLDERS HERE";
-                                            font-size: 16px * root.ui-scale;
-                                            font-weight: 800;
-                                            color: Design.text-primary;
-                                            horizontal-alignment: center;
-                                        }
-                                        Text {
-                                            text: "Drop source folders to begin batch processing";
-                                            font-size: 12px * root.ui-scale;
-                                            color: Design.text-secondary;
-                                            horizontal-alignment: center;
-                                        }
                                     }
                                 }
 
-                                // Context menu (popup di bawah panel).
-                                Card {
-                                    x: 8px;
-                                    y: parent.height - ctx-menu-layout.preferred-height - 8px;
-                                    width: 230px;
-                                    height: ctx-menu-layout.preferred-height;
+                                // Lapisan penutup menu: klik di luar menu
+                                // = tutup menu (C# menutup otomatis).
+                                ctx-dismiss-src := TouchArea {
+                                    x: 0; y: 0; width: 100%; height: 100%;
                                     visible: root.ctx-node != "" && root.ctx-panel == "SOURCE";
-                                    background: Design.surface-elevated;
-                                    border-color: Design.border-hover;
-                                    border-width: 1px;
-                                    border-radius: Design.radius-md;
-                                    ctx-menu-layout := VerticalLayout {
-                                        padding: Design.space-sm;
-                                        spacing: 2px;
+                                    clicked => { root.batch-close-ctx(); }
+                                }
 
-                                        Text {
-                                            text: "⋯ " + root.ctx-node;
-                                            font-size: 12px;
-                                            font-weight: 700;
-                                            color: Design.text-primary;
-                                            horizontal-stretch: 1;
-                                            overflow: elide;
-                                        }
-                                        HSeparator { }
-
-                                        // New Subfolder… (K1 REA) — buka input
-                                        // inline nama folder di bawah induknya
-                                        // (bukan dialog); × = batal. Untuk node
-                                        // anak, induknya = folder pemiliknya.
-                                        Rectangle {
-                                            height: 32px;
-                                            background: ctx-new.has-hover ? Design.bg-hover : transparent;
-                                            border-radius: Design.radius-sm;
-                                            ctx-new := TouchArea {
-                                                mouse-cursor: pointer;
-                                                clicked => {
-                                                    root.newfolder-panel = root.ctx-panel;
-                                                    root.newfolder-idx = root.ctx-folder-idx;
-                                                    root.newfolder-name = "";
-                                                    if (root.ctx-is-child) {
-                                                        if (root.ctx-panel == "OUTPUT") { root.newfolder-parent = root.out-folders[root.ctx-folder-idx]; root.expanded-out = root.out-folders[root.ctx-folder-idx]; }
-                                                        else { root.newfolder-parent = root.src-folders[root.ctx-folder-idx]; root.expanded-node = root.src-folders[root.ctx-folder-idx]; }
-                                                    } else {
-                                                        root.newfolder-parent = root.ctx-node;
-                                                        if (root.ctx-panel == "OUTPUT") { root.expanded-out = root.ctx-node; }
-                                                        else { root.expanded-node = root.ctx-node; }
-                                                    }
-                                                    root.ctx-node = "";
-                                                }
-                                            }
-                                            HorizontalLayout {
-                                                width: 100%;
-                                                height: 100%;
-                                                padding-left: 10px;
-                                                Text {
-                                                    text: "New Subfolder…";
-                                                    font-size: 12px;
-                                                    color: Design.text-primary;
-                                                    vertical-alignment: center;
-                                                }
-                                            }
-                                        }
-
-                                        // Replace (Auto) — hanya SOURCE (K1 REA:
-                                        // menu OUTPUT tidak punya Replace).
-                                        Rectangle {
-                                            height: root.ctx-panel == "SOURCE" ? 32px : 0px;
-                                            visible: root.ctx-panel == "SOURCE";
-                                            background: ctx-rep.has-hover ? Design.bg-hover : transparent;
-                                            border-radius: Design.radius-sm;
-                                            ctx-rep := TouchArea {
-                                                mouse-cursor: pointer;
-                                                clicked => {
-                                                    root.toast = "Replace (replace.jsx): " + root.ctx-node + " → Photoshop (Smart Object diganti, PSD tetap terbuka)";
-                                                    root.ctx-node = "";
-                                                }
-                                            }
-                                            HorizontalLayout {
-                                                width: 100%;
-                                                height: 100%;
-                                                padding-left: 10px;
-                                                Text {
-                                                    text: "Replace (Auto)";
-                                                    font-size: 12px;
-                                                    color: Design.text-primary;
-                                                    vertical-alignment: center;
-                                                }
-                                            }
-                                        }
-
-                                        // Copy Path
-                                        Rectangle {
-                                            height: 32px;
-                                            background: ctx-copy.has-hover ? Design.bg-hover : transparent;
-                                            border-radius: Design.radius-sm;
-                                            ctx-copy := TouchArea {
-                                                mouse-cursor: pointer;
-                                                clicked => {
-                                                    root.toast = "Path disalin: " + root.ctx-node;
-                                                    root.ctx-node = "";
-                                                }
-                                            }
-                                            HorizontalLayout {
-                                                width: 100%;
-                                                height: 100%;
-                                                padding-left: 10px;
-                                                Text {
-                                                    text: "Copy Path";
-                                                    font-size: 12px;
-                                                    color: Design.text-primary;
-                                                    vertical-alignment: center;
-                                                }
-                                            }
-                                        }
-
-                                        // Copy Output Path (K1 REA — hanya OUTPUT).
-                                        Rectangle {
-                                            height: root.ctx-panel == "OUTPUT" ? 32px : 0px;
-                                            visible: root.ctx-panel == "OUTPUT";
-                                            background: ctx-copyout.has-hover ? Design.bg-hover : transparent;
-                                            border-radius: Design.radius-sm;
-                                            ctx-copyout := TouchArea {
-                                                mouse-cursor: pointer;
-                                                clicked => {
-                                                    root.toast = "Output path disalin: " + (root.app-path-local == "" ? root.selected-output : root.app-path-local + "\\" + root.selected-output) + "\\" + (root.ctx-is-child ? (root.ctx-folder-idx == 0 ? root.out-folders[0] : root.ctx-folder-idx == 1 ? root.out-folders[1] : root.ctx-folder-idx == 2 ? root.out-folders[2] : root.out-folders[3]) + "\\" + root.ctx-node : root.ctx-node);
-                                                    root.ctx-node = "";
-                                                }
-                                            }
-                                            HorizontalLayout {
-                                                width: 100%;
-                                                height: 100%;
-                                                padding-left: 10px;
-                                                Text {
-                                                    text: "Copy Output Path";
-                                                    font-size: 12px;
-                                                    color: Design.text-primary;
-                                                    vertical-alignment: center;
-                                                }
-                                            }
-                                        }
-
-                                        // Delete (hapus dari DISK — dokumen
-                                        // §3.6; beda dengan Clear yang hanya
-                                        // mengosongkan daftar).
-                                        Rectangle {
-                                            height: 32px;
-                                            background: ctx-del.has-hover ? Design.bg-hover : transparent;
-                                            border-radius: Design.radius-sm;
-                                            ctx-del := TouchArea {
-                                                mouse-cursor: pointer;
-                                                clicked => {
-                                                    if (root.ctx-panel == "OUTPUT") {
-                                                        // K1 REA — Delete dari OUTPUT.
-                                                        if (root.ctx-is-child) {
-                                                            // Hapus file dari out-kids[folder] (slot jadi "").
-                                                            if (root.ctx-folder-idx == 0) { root.out-kids-0 = [root.ctx-child-idx == 0 ? "" : root.out-kids-0[0], root.ctx-child-idx == 1 ? "" : root.out-kids-0[1], root.ctx-child-idx == 2 ? "" : root.out-kids-0[2], root.ctx-child-idx == 3 ? "" : (root.out-kids-0.length > 3 ? root.out-kids-0[3] : "")]; }
-                                                            else if (root.ctx-folder-idx == 1) { root.out-kids-1 = [root.ctx-child-idx == 0 ? "" : root.out-kids-1[0], root.ctx-child-idx == 1 ? "" : root.out-kids-1[1], root.ctx-child-idx == 2 ? "" : root.out-kids-1[2], root.ctx-child-idx == 3 ? "" : (root.out-kids-1.length > 3 ? root.out-kids-1[3] : "")]; }
-                                                            else if (root.ctx-folder-idx == 2) { root.out-kids-2 = [root.ctx-child-idx == 0 ? "" : root.out-kids-2[0], root.ctx-child-idx == 1 ? "" : root.out-kids-2[1], root.ctx-child-idx == 2 ? "" : root.out-kids-2[2], root.ctx-child-idx == 3 ? "" : (root.out-kids-2.length > 3 ? root.out-kids-2[3] : "")]; }
-                                                            else { root.out-kids-3 = [root.ctx-child-idx == 0 ? "" : root.out-kids-3[0], root.ctx-child-idx == 1 ? "" : root.out-kids-3[1], root.ctx-child-idx == 2 ? "" : root.out-kids-3[2], root.ctx-child-idx == 3 ? "" : (root.out-kids-3.length > 3 ? root.out-kids-3[3] : "")]; }
-                                                        } else {
-                                                            // Hapus folder OUTPUT: geser out-folders
-                                                            // + out-kids ke kiri (seperti SOURCE).
-                                                            if (root.ctx-folder-idx == 0) {
-                                                                root.out-folders = [root.out-folders[1], root.out-folders[2], root.out-folders[3], ""];
-                                                                root.out-kids-0 = root.out-kids-1;
-                                                                root.out-kids-1 = root.out-kids-2;
-                                                                root.out-kids-2 = root.out-kids-3;
-                                                                root.out-kids-3 = ["", "", ""];
-                                                            } else if (root.ctx-folder-idx == 1) {
-                                                                root.out-folders = [root.out-folders[0], root.out-folders[2], root.out-folders[3], ""];
-                                                                root.out-kids-1 = root.out-kids-2;
-                                                                root.out-kids-2 = root.out-kids-3;
-                                                                root.out-kids-3 = ["", "", ""];
-                                                            } else if (root.ctx-folder-idx == 2) {
-                                                                root.out-folders = [root.out-folders[0], root.out-folders[1], root.out-folders[3], ""];
-                                                                root.out-kids-2 = root.out-kids-3;
-                                                                root.out-kids-3 = ["", "", ""];
-                                                            } else {
-                                                                root.out-folders = [root.out-folders[0], root.out-folders[1], root.out-folders[2], ""];
-                                                                root.out-kids-3 = ["", "", ""];
-                                                            }
-                                                            if (root.expanded-out == root.ctx-node) { root.expanded-out = ""; }
-                                                        }
-                                                    } else if (root.ctx-is-child) {
-                                                        // Hapus file dari kids[folder] (slot jadi "").
-                                                        if (root.ctx-folder-idx == 0) { root.kids-0 = [root.ctx-child-idx == 0 ? "" : root.kids-0[0], root.ctx-child-idx == 1 ? "" : root.kids-0[1], root.ctx-child-idx == 2 ? "" : root.kids-0[2], root.ctx-child-idx == 3 ? "" : (root.kids-0.length > 3 ? root.kids-0[3] : "")]; }
-                                                        else if (root.ctx-folder-idx == 1) { root.kids-1 = [root.ctx-child-idx == 0 ? "" : root.kids-1[0], root.ctx-child-idx == 1 ? "" : root.kids-1[1], root.ctx-child-idx == 2 ? "" : root.kids-1[2], root.ctx-child-idx == 3 ? "" : (root.kids-1.length > 3 ? root.kids-1[3] : "")]; }
-                                                        else if (root.ctx-folder-idx == 2) { root.kids-2 = [root.ctx-child-idx == 0 ? "" : root.kids-2[0], root.ctx-child-idx == 1 ? "" : root.kids-2[1], root.ctx-child-idx == 2 ? "" : root.kids-2[2], root.ctx-child-idx == 3 ? "" : (root.kids-2.length > 3 ? root.kids-2[3] : "")]; }
-                                                        else { root.kids-3 = [root.ctx-child-idx == 0 ? "" : root.kids-3[0], root.ctx-child-idx == 1 ? "" : root.kids-3[1], root.ctx-child-idx == 2 ? "" : root.kids-3[2], root.ctx-child-idx == 3 ? "" : (root.kids-3.length > 3 ? root.kids-3[3] : "")]; }
-                                                    } else {
-                                                        // Hapus folder: geser src-folders + kids
-                                                        // ke kiri supaya penomoran tetap benar.
-                                                        if (root.ctx-folder-idx == 0) {
-                                                            root.src-folders = [root.src-folders[1], root.src-folders[2], root.src-folders[3], ""];
-                                                            root.kids-0 = root.kids-1;
-                                                            root.kids-1 = root.kids-2;
-                                                            root.kids-2 = root.kids-3;
-                                                            root.kids-3 = ["", "", ""];
-                                                        } else if (root.ctx-folder-idx == 1) {
-                                                            root.src-folders = [root.src-folders[0], root.src-folders[2], root.src-folders[3], ""];
-                                                            root.kids-1 = root.kids-2;
-                                                            root.kids-2 = root.kids-3;
-                                                            root.kids-3 = ["", "", ""];
-                                                        } else if (root.ctx-folder-idx == 2) {
-                                                            root.src-folders = [root.src-folders[0], root.src-folders[1], root.src-folders[3], ""];
-                                                            root.kids-2 = root.kids-3;
-                                                            root.kids-3 = ["", "", ""];
-                                                        } else {
-                                                            root.src-folders = [root.src-folders[0], root.src-folders[1], root.src-folders[2], ""];
-                                                            root.kids-3 = ["", "", ""];
-                                                        }
-                                                        if (root.expanded-node == root.ctx-node) { root.expanded-node = ""; }
-                                                        // Hapus dari selected-nodes bila ada.
-                                                        if (root.selected-nodes.length == 1 && root.selected-nodes[0] == root.ctx-node) {
-                                                            root.selected-nodes = [];
-                                                        } else if (root.selected-nodes.length == 2) {
-                                                            if (root.selected-nodes[0] == root.ctx-node) { root.selected-nodes = [root.selected-nodes[1]]; }
-                                                            else if (root.selected-nodes[1] == root.ctx-node) { root.selected-nodes = [root.selected-nodes[0]]; }
-                                                        } else if (root.selected-nodes.length == 3) {
-                                                            if (root.selected-nodes[0] == root.ctx-node) { root.selected-nodes = [root.selected-nodes[1], root.selected-nodes[2]]; }
-                                                            else if (root.selected-nodes[1] == root.ctx-node) { root.selected-nodes = [root.selected-nodes[0], root.selected-nodes[2]]; }
-                                                            else if (root.selected-nodes[2] == root.ctx-node) { root.selected-nodes = [root.selected-nodes[0], root.selected-nodes[1]]; }
-                                                        }
-                                                    }
-                                                    root.toast = "Dihapus dari disk: " + root.ctx-node;
-                                                    root.ctx-node = "";
-                                                }
-                                            }
-                                            HorizontalLayout {
-                                                width: 100%;
-                                                height: 100%;
-                                                padding-left: 10px;
-                                                Text {
-                                                    text: "Delete";
-                                                    font-size: 12px;
-                                                    font-weight: 700;
-                                                    color: Design.status-danger;
-                                                    vertical-alignment: center;
-                                                }
-                                            }
-                                        }
-                                    }
+                                // Context menu SOURCE (popup di bawah panel).
+                                BatchCtxMenu {
+                                    x: 8px;
+                                    y: parent.height - self.height - 8px;
+                                    width: 230px;
+                                    visible: root.ctx-node != "" && root.ctx-panel == "SOURCE";
+                                    menu-title: root.ctx-node;
+                                    show-replace: root.ctx-is-dir;
+                                    show-copy-output: false;
+                                    new-subfolder => { root.batch-ctx-new-subfolder(); }
+                                    replace-auto => { root.batch-ctx-replace-auto(); }
+                                    replace-manual => { root.batch-ctx-replace-manual(); }
+                                    copy-path => { root.batch-ctx-copy-path(); }
+                                    copy-output-path => { root.batch-ctx-copy-output-path(); }
+                                    delete => { root.batch-ctx-delete(); }
+                                    close-menu => { root.batch-close-ctx(); }
                                 }
                             }
                         }
                     }
 
-                    // Panel OUTPUT: kosong ("Output akan muncul di
-                    // sini.") sampai BUAT MASTER berhasil — lalu tampil
-                    // baris hasil. Klik area = pilih folder output.
-                    Card {
+                    // Panel OUTPUT: tree SENDIRI dari folder output di
+                    // disk (bukan cermin live SOURCE). "(pending)" bila
+                    // folder belum ada; terisi setelah script jalan.
+                    out-card := Card {
                         width: (root.content-width - 52px) / 2;
                         VerticalLayout {
                             padding: Design.space-md;
@@ -2444,11 +2098,8 @@ export component AppWindow inherits Window {
                                     horizontal-stretch: 1;
                                     overflow: elide;
                                 }
-                                // Chip "(pending)" — tampil kalau folder
-                                // output belum ada di disk (dokumen §3.3).
-                                // Hilang setelah BUAT MASTER berhasil.
                                 Text {
-                                    text: root.out-empty ? "(pending)" : "";
+                                    text: root.batch-out-pending ? "(pending)" : "";
                                     font-size: 11px * root.ui-scale;
                                     font-weight: 700;
                                     color: Design.cat-revision;
@@ -2457,15 +2108,48 @@ export component AppWindow inherits Window {
                             }
                             HSeparator { }
 
+                            // Input inline subfolder baru (OUTPUT).
                             Rectangle {
-                                vertical-stretch: 1;
-                                out-touch := TouchArea {
-                                    mouse-cursor: pointer;
-                                    clicked => {
-                                        root.selected-output = root.src-name;
-                                        root.toast = "Folder output dipilih: " + root.src-name;
+                                height: (root.newfolder-open && root.newfolder-panel == "OUTPUT") ? 36px : 0px;
+                                visible: root.newfolder-open && root.newfolder-panel == "OUTPUT";
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    Text {
+                                        text: root.newfolder-parent;
+                                        font-size: 11px;
+                                        color: Design.text-muted;
+                                        vertical-alignment: center;
+                                        overflow: elide;
+                                        horizontal-stretch: 1;
+                                    }
+                                    TextField {
+                                        placeholder: "Nama subfolder baru…";
+                                        text: root.newfolder-name;
+                                        edited(name) => { root.newfolder-name = name; }
+                                        accepted(name) => { root.newfolder-name = name; root.batch-confirm-new-folder(); }
+                                        min-width: 180px;
+                                        horizontal-stretch: 1;
+                                    }
+                                    IconBtn {
+                                        glyph: "✓";
+                                        variant: "secondary";
+                                        scale: 1;
+                                        size: 36px;
+                                        clicked => { root.batch-confirm-new-folder(); }
+                                    }
+                                    IconBtn {
+                                        glyph: "×";
+                                        variant: "ghost";
+                                        scale: 1;
+                                        size: 36px;
+                                        clicked => { root.batch-cancel-new-folder(); }
                                     }
                                 }
+                            }
+
+                            Rectangle {
+                                vertical-stretch: 1;
+                                clip: true;
                                 // Teks kosong (tengah).
                                 Text {
                                     x: 0; y: 0; width: 100%; height: 100%;
@@ -2476,549 +2160,61 @@ export component AppWindow inherits Window {
                                     horizontal-alignment: center;
                                     vertical-alignment: center;
                                 }
-                                // Tree OUTPUT — tree SENDIRI dari folder
-                                // output di disk (dokumen §3.3), BUKAN
-                                // cermin live SOURCE. Datanya terpisah
-                                // (out-folders / out-kids), diisi saat
-                                // BUAT MASTER berhasil, dan ter-refresh
-                                // otomatis. Expand pakai state sendiri
-                                // (expanded-out) supaya tidak terikat
-                                // ke SOURCE. Tampil setelah output ada.
-                                VerticalLayout {
+                                Flickable {
                                     x: 0; y: 0; width: 100%; height: 100%;
                                     visible: !root.out-empty;
-                                    spacing: 2px;
-                                    for f[index] in root.out-folders:
-                                        VerticalLayout {
-                                            spacing: 0;
-
-                                            // Baris folder (cermin SOURCE).
-                                            Rectangle {
-                                                height: f == "" ? 0px : 36px;
-                                                visible: f != "";
-                                                background: out-chev-touch.has-hover ? Design.bg-hover : transparent;
-                                                border-radius: Design.radius-sm;
-                                                HorizontalLayout {
-                                                    padding-left: 10px;
-                                                    padding-right: 10px;
-                                                    spacing: 8px;
-
-                                                    // Chevron expand/collapse (state sendiri).
-                                                    Rectangle {
-                                                        width: 20px;
-                                                        height: 100%;
-                                                        out-chev-touch := TouchArea {
-                                                            mouse-cursor: pointer;
-                                                            clicked => {
-                                                                if (root.expanded-out == f) { root.expanded-out = ""; }
-                                                                else { root.expanded-out = f; }
-                                                            }
-                                                        }
-                                                        Text {
-                                                            text: root.expanded-out == f ? "▾" : "▸";
-                                                            font-size: 12px;
-                                                            font-weight: 700;
-                                                            color: Design.text-secondary;
-                                                            horizontal-alignment: center;
-                                                            vertical-alignment: center;
-                                                            width: 100%;
-                                                            height: 100%;
-                                                        }
-                                                    }
-
-                                                    // Nama folder bernomor (sama seperti SOURCE).
-                                                    Text {
-                                                        text: (index + 1) + ". " + f;
-                                                        font-size: 12px;
-                                                        font-weight: 700;
-                                                        color: Design.text-primary;
-                                                        vertical-alignment: center;
-                                                        horizontal-stretch: 1;
-                                                        overflow: elide;
-                                                    }
-                                                    // Tombol ⋯ (context menu OUTPUT, K1 REA).
-                                                    IconBtn {
-                                                        glyph: "⋯";
-                                                        variant: "ghost";
-                                                        scale: 1;
-                                                        size: 28px;
-                                                        clicked => {
-                                                            root.ctx-node = f;
-                                                            root.ctx-folder-idx = index;
-                                                            root.ctx-child-idx = -1;
-                                                            root.ctx-is-child = false;
-                                                            root.ctx-panel = "OUTPUT";
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            // Anak 0 (file di dalam folder).
-                                            Rectangle {
-                                                property <string> cname: index == 0 ? root.out-kids-0[0] : index == 1 ? root.out-kids-1[0] : index == 2 ? root.out-kids-2[0] : root.out-kids-3[0];
-                                                height: (root.expanded-out == f && f != "" && cname != "") ? 26px : 0px;
-                                                visible: root.expanded-out == f && f != "" && cname != "";
-                                                background: out-kid0-touch.has-hover ? Design.bg-hover : transparent;
-                                                border-radius: Design.radius-sm;
-                                                out-kid0-touch := TouchArea {
-                                                    mouse-cursor: pointer;
-                                                    clicked => { root.toast = "Path disalin: " + cname; }
-                                                }
-                                                HorizontalLayout {
-                                                    padding-left: 34px;
-                                                    padding-right: 10px;
-                                                    spacing: 8px;
-                                                    Text {
-                                                        text: "▤";
-                                                        font-size: 12px;
-                                                        color: Design.text-muted;
-                                                        vertical-alignment: center;
-                                                    }
-                                                    Text {
-                                                        text: cname;
-                                                        font-size: 12px;
-                                                        color: Design.text-secondary;
-                                                        vertical-alignment: center;
-                                                        horizontal-stretch: 1;
-                                                        overflow: elide;
-                                                    }
-                                                    IconBtn {
-                                                        glyph: "⋯";
-                                                        variant: "ghost";
-                                                        scale: 1;
-                                                        size: 24px;
-                                                        clicked => {
-                                                            root.ctx-node = cname;
-                                                            root.ctx-folder-idx = index;
-                                                            root.ctx-child-idx = 0;
-                                                            root.ctx-is-child = true;
-                                                            root.ctx-panel = "OUTPUT";
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            // Anak 1.
-                                            Rectangle {
-                                                property <string> cname: index == 0 ? root.out-kids-0[1] : index == 1 ? root.out-kids-1[1] : index == 2 ? root.out-kids-2[1] : root.out-kids-3[1];
-                                                height: (root.expanded-out == f && f != "" && cname != "") ? 26px : 0px;
-                                                visible: root.expanded-out == f && f != "" && cname != "";
-                                                background: out-kid1-touch.has-hover ? Design.bg-hover : transparent;
-                                                border-radius: Design.radius-sm;
-                                                out-kid1-touch := TouchArea {
-                                                    mouse-cursor: pointer;
-                                                    clicked => { root.toast = "Path disalin: " + cname; }
-                                                }
-                                                HorizontalLayout {
-                                                    padding-left: 34px;
-                                                    padding-right: 10px;
-                                                    spacing: 8px;
-                                                    Text {
-                                                        text: "▤";
-                                                        font-size: 12px;
-                                                        color: Design.text-muted;
-                                                        vertical-alignment: center;
-                                                    }
-                                                    Text {
-                                                        text: cname;
-                                                        font-size: 12px;
-                                                        color: Design.text-secondary;
-                                                        vertical-alignment: center;
-                                                        horizontal-stretch: 1;
-                                                        overflow: elide;
-                                                    }
-                                                    IconBtn {
-                                                        glyph: "⋯";
-                                                        variant: "ghost";
-                                                        scale: 1;
-                                                        size: 24px;
-                                                        clicked => {
-                                                            root.ctx-node = cname;
-                                                            root.ctx-folder-idx = index;
-                                                            root.ctx-child-idx = 1;
-                                                            root.ctx-is-child = true;
-                                                            root.ctx-panel = "OUTPUT";
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            // Anak 2.
-                                            Rectangle {
-                                                property <string> cname: index == 0 ? root.out-kids-0[2] : index == 1 ? root.out-kids-1[2] : index == 2 ? root.out-kids-2[2] : root.out-kids-3[2];
-                                                height: (root.expanded-out == f && f != "" && cname != "") ? 26px : 0px;
-                                                visible: root.expanded-out == f && f != "" && cname != "";
-                                                background: out-kid2-touch.has-hover ? Design.bg-hover : transparent;
-                                                border-radius: Design.radius-sm;
-                                                out-kid2-touch := TouchArea {
-                                                    mouse-cursor: pointer;
-                                                    clicked => { root.toast = "Path disalin: " + cname; }
-                                                }
-                                                HorizontalLayout {
-                                                    padding-left: 34px;
-                                                    padding-right: 10px;
-                                                    spacing: 8px;
-                                                    Text {
-                                                        text: "▤";
-                                                        font-size: 12px;
-                                                        color: Design.text-muted;
-                                                        vertical-alignment: center;
-                                                    }
-                                                    Text {
-                                                        text: cname;
-                                                        font-size: 12px;
-                                                        color: Design.text-secondary;
-                                                        vertical-alignment: center;
-                                                        horizontal-stretch: 1;
-                                                        overflow: elide;
-                                                    }
-                                                    IconBtn {
-                                                        glyph: "⋯";
-                                                        variant: "ghost";
-                                                        scale: 1;
-                                                        size: 24px;
-                                                        clicked => {
-                                                            root.ctx-node = cname;
-                                                            root.ctx-folder-idx = index;
-                                                            root.ctx-child-idx = 2;
-                                                            root.ctx-is-child = true;
-                                                            root.ctx-panel = "OUTPUT";
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            // Anak 3 (slot ke-4 — hanya terisi
-                                            // bila subfolder baru dibuat via
-                                            // input inline, K1 REA).
-                                            Rectangle {
-                                                property <string> cname: (index == 0 ? root.out-kids-0.length : index == 1 ? root.out-kids-1.length : index == 2 ? root.out-kids-2.length : root.out-kids-3.length) > 3 ? (index == 0 ? root.out-kids-0[3] : index == 1 ? root.out-kids-1[3] : index == 2 ? root.out-kids-2[3] : root.out-kids-3[3]) : "";
-                                                height: (root.expanded-out == f && f != "" && cname != "") ? 26px : 0px;
-                                                visible: root.expanded-out == f && f != "" && cname != "";
-                                                background: out-kid3-touch.has-hover ? Design.bg-hover : transparent;
-                                                border-radius: Design.radius-sm;
-                                                out-kid3-touch := TouchArea {
-                                                    mouse-cursor: pointer;
-                                                    clicked => { root.toast = "Path disalin: " + cname; }
-                                                }
-                                                HorizontalLayout {
-                                                    padding-left: 34px;
-                                                    padding-right: 10px;
-                                                    spacing: 8px;
-                                                    Text {
-                                                        text: "▤";
-                                                        font-size: 12px;
-                                                        color: Design.text-muted;
-                                                        vertical-alignment: center;
-                                                    }
-                                                    Text {
-                                                        text: cname;
-                                                        font-size: 12px;
-                                                        color: Design.text-secondary;
-                                                        vertical-alignment: center;
-                                                        horizontal-stretch: 1;
-                                                        overflow: elide;
-                                                    }
-                                                    IconBtn {
-                                                        glyph: "⋯";
-                                                        variant: "ghost";
-                                                        scale: 1;
-                                                        size: 24px;
-                                                        clicked => {
-                                                            root.ctx-node = cname;
-                                                            root.ctx-folder-idx = index;
-                                                            root.ctx-child-idx = 3;
-                                                            root.ctx-is-child = true;
-                                                            root.ctx-panel = "OUTPUT";
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            // Input inline subfolder baru (K1 REA —
-                                            // CancelOutputNewFolderInput).
-                                            // Enter/✓ = buat, × = batal.
-                                            Rectangle {
-                                                height: (root.newfolder-panel == "OUTPUT" && root.newfolder-idx == index) ? 36px : 0px;
-                                                visible: root.newfolder-panel == "OUTPUT" && root.newfolder-idx == index;
-                                                HorizontalLayout {
-                                                    padding-left: 34px;
-                                                    padding-right: 10px;
-                                                    spacing: 6px;
-                                                    TextField {
-                                                        placeholder: "Nama subfolder baru…";
-                                                        text: root.newfolder-name;
-                                                        edited(name) => { root.newfolder-name = name; }
-                                                        accepted(name) => { root.newfolder-name = name; root.confirm-new-folder(); }
-                                                        horizontal-stretch: 1;
-                                                    }
-                                                    IconBtn {
-                                                        glyph: "✓";
-                                                        variant: "secondary";
-                                                        scale: 1;
-                                                        size: 36px;
-                                                        clicked => { root.confirm-new-folder(); }
-                                                    }
-                                                    IconBtn {
-                                                        glyph: "×";
-                                                        variant: "ghost";
-                                                        scale: 1;
-                                                        size: 36px;
-                                                        clicked => { root.newfolder-panel = ""; root.newfolder-name = ""; root.toast = "Dibatalkan."; }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                }
-// Context menu OUTPUT (popup di bawah panel — K1 REA, salinan menu SOURCE).
-                                Card {
-                                    x: 8px;
-                                    y: parent.height - ctx-menu-layout-o.preferred-height - 8px;
-                                    width: 230px;
-                                    height: ctx-menu-layout-o.preferred-height;
-                                    visible: root.ctx-node != "" && root.ctx-panel == "OUTPUT";
-                                    background: Design.surface-elevated;
-                                    border-color: Design.border-hover;
-                                    border-width: 1px;
-                                    border-radius: Design.radius-md;
-                                    ctx-menu-layout-o := VerticalLayout {
-                                        padding: Design.space-sm;
+                                    VerticalLayout {
+                                        x: 0;
+                                        width: out-card.width - 2 * Design.space-md;
                                         spacing: 2px;
-
-                                        Text {
-                                            text: "⋯ " + root.ctx-node;
-                                            font-size: 12px;
-                                            font-weight: 700;
-                                            color: Design.text-primary;
-                                            horizontal-stretch: 1;
-                                            overflow: elide;
-                                        }
-                                        HSeparator { }
-
-                                        // New Subfolder… (K1 REA) — buka input
-                                        // inline nama folder di bawah induknya
-                                        // (bukan dialog); × = batal. Untuk node
-                                        // anak, induknya = folder pemiliknya.
-                                        Rectangle {
-                                            height: 32px;
-                                            background: ctx-new-o.has-hover ? Design.bg-hover : transparent;
-                                            border-radius: Design.radius-sm;
-                                            ctx-new-o := TouchArea {
-                                                mouse-cursor: pointer;
-                                                clicked => {
-                                                    root.newfolder-panel = root.ctx-panel;
-                                                    root.newfolder-idx = root.ctx-folder-idx;
-                                                    root.newfolder-name = "";
-                                                    if (root.ctx-is-child) {
-                                                        if (root.ctx-panel == "OUTPUT") { root.newfolder-parent = root.out-folders[root.ctx-folder-idx]; root.expanded-out = root.out-folders[root.ctx-folder-idx]; }
-                                                        else { root.newfolder-parent = root.src-folders[root.ctx-folder-idx]; root.expanded-node = root.src-folders[root.ctx-folder-idx]; }
-                                                    } else {
-                                                        root.newfolder-parent = root.ctx-node;
-                                                        if (root.ctx-panel == "OUTPUT") { root.expanded-out = root.ctx-node; }
-                                                        else { root.expanded-node = root.ctx-node; }
-                                                    }
-                                                    root.ctx-node = "";
-                                                }
+                                        for row in root.out-rows:
+                                            BatchTreeRow {
+                                                row-id: row.id;
+                                                row-name: row.name;
+                                                row-depth: row.depth;
+                                                row-is-dir: row.is-dir;
+                                                row-expanded: row.expanded;
+                                                row-has-kids: row.has-kids;
+                                                row-selected: row.selected;
+                                                panel: "OUTPUT";
+                                                row-clicked(panel, id) => { root.batch-row-clicked(panel, id); }
+                                                row-right-down(panel, id) => { root.batch-row-right-down(panel, id); }
+                                                row-right-up(panel, id) => { root.batch-row-right-up(panel, id); }
+                                                row-toggle-expand(panel, id) => { root.batch-toggle-expand(panel, id); }
+                                                row-more(panel, id) => { root.batch-open-ctx(panel, id); }
                                             }
-                                            HorizontalLayout {
-                                                width: 100%;
-                                                height: 100%;
-                                                padding-left: 10px;
-                                                Text {
-                                                    text: "New Subfolder…";
-                                                    font-size: 12px;
-                                                    color: Design.text-primary;
-                                                    vertical-alignment: center;
-                                                }
-                                            }
-                                        }
-
-                                        // Replace (Auto) — hanya SOURCE (K1 REA:
-                                        // menu OUTPUT tidak punya Replace).
-                                        Rectangle {
-                                            height: root.ctx-panel == "SOURCE" ? 32px : 0px;
-                                            visible: root.ctx-panel == "SOURCE";
-                                            background: ctx-rep-o.has-hover ? Design.bg-hover : transparent;
-                                            border-radius: Design.radius-sm;
-                                            ctx-rep-o := TouchArea {
-                                                mouse-cursor: pointer;
-                                                clicked => {
-                                                    root.toast = "Replace (replace.jsx): " + root.ctx-node + " → Photoshop (Smart Object diganti, PSD tetap terbuka)";
-                                                    root.ctx-node = "";
-                                                }
-                                            }
-                                            HorizontalLayout {
-                                                width: 100%;
-                                                height: 100%;
-                                                padding-left: 10px;
-                                                Text {
-                                                    text: "Replace (Auto)";
-                                                    font-size: 12px;
-                                                    color: Design.text-primary;
-                                                    vertical-alignment: center;
-                                                }
-                                            }
-                                        }
-
-                                        // Copy Path
-                                        Rectangle {
-                                            height: 32px;
-                                            background: ctx-copy-o.has-hover ? Design.bg-hover : transparent;
-                                            border-radius: Design.radius-sm;
-                                            ctx-copy-o := TouchArea {
-                                                mouse-cursor: pointer;
-                                                clicked => {
-                                                    root.toast = "Path disalin: " + root.ctx-node;
-                                                    root.ctx-node = "";
-                                                }
-                                            }
-                                            HorizontalLayout {
-                                                width: 100%;
-                                                height: 100%;
-                                                padding-left: 10px;
-                                                Text {
-                                                    text: "Copy Path";
-                                                    font-size: 12px;
-                                                    color: Design.text-primary;
-                                                    vertical-alignment: center;
-                                                }
-                                            }
-                                        }
-
-                                        // Copy Output Path (K1 REA — hanya OUTPUT).
-                                        Rectangle {
-                                            height: root.ctx-panel == "OUTPUT" ? 32px : 0px;
-                                            visible: root.ctx-panel == "OUTPUT";
-                                            background: ctx-copyout-o.has-hover ? Design.bg-hover : transparent;
-                                            border-radius: Design.radius-sm;
-                                            ctx-copyout-o := TouchArea {
-                                                mouse-cursor: pointer;
-                                                clicked => {
-                                                    root.toast = "Output path disalin: " + (root.app-path-local == "" ? root.selected-output : root.app-path-local + "\\" + root.selected-output) + "\\" + (root.ctx-is-child ? (root.ctx-folder-idx == 0 ? root.out-folders[0] : root.ctx-folder-idx == 1 ? root.out-folders[1] : root.ctx-folder-idx == 2 ? root.out-folders[2] : root.out-folders[3]) + "\\" + root.ctx-node : root.ctx-node);
-                                                    root.ctx-node = "";
-                                                }
-                                            }
-                                            HorizontalLayout {
-                                                width: 100%;
-                                                height: 100%;
-                                                padding-left: 10px;
-                                                Text {
-                                                    text: "Copy Output Path";
-                                                    font-size: 12px;
-                                                    color: Design.text-primary;
-                                                    vertical-alignment: center;
-                                                }
-                                            }
-                                        }
-
-                                        // Delete (hapus dari DISK — dokumen
-                                        // §3.6; beda dengan Clear yang hanya
-                                        // mengosongkan daftar).
-                                        Rectangle {
-                                            height: 32px;
-                                            background: ctx-del-o.has-hover ? Design.bg-hover : transparent;
-                                            border-radius: Design.radius-sm;
-                                            ctx-del-o := TouchArea {
-                                                mouse-cursor: pointer;
-                                                clicked => {
-                                                    if (root.ctx-panel == "OUTPUT") {
-                                                        // K1 REA — Delete dari OUTPUT.
-                                                        if (root.ctx-is-child) {
-                                                            // Hapus file dari out-kids[folder] (slot jadi "").
-                                                            if (root.ctx-folder-idx == 0) { root.out-kids-0 = [root.ctx-child-idx == 0 ? "" : root.out-kids-0[0], root.ctx-child-idx == 1 ? "" : root.out-kids-0[1], root.ctx-child-idx == 2 ? "" : root.out-kids-0[2], root.ctx-child-idx == 3 ? "" : (root.out-kids-0.length > 3 ? root.out-kids-0[3] : "")]; }
-                                                            else if (root.ctx-folder-idx == 1) { root.out-kids-1 = [root.ctx-child-idx == 0 ? "" : root.out-kids-1[0], root.ctx-child-idx == 1 ? "" : root.out-kids-1[1], root.ctx-child-idx == 2 ? "" : root.out-kids-1[2], root.ctx-child-idx == 3 ? "" : (root.out-kids-1.length > 3 ? root.out-kids-1[3] : "")]; }
-                                                            else if (root.ctx-folder-idx == 2) { root.out-kids-2 = [root.ctx-child-idx == 0 ? "" : root.out-kids-2[0], root.ctx-child-idx == 1 ? "" : root.out-kids-2[1], root.ctx-child-idx == 2 ? "" : root.out-kids-2[2], root.ctx-child-idx == 3 ? "" : (root.out-kids-2.length > 3 ? root.out-kids-2[3] : "")]; }
-                                                            else { root.out-kids-3 = [root.ctx-child-idx == 0 ? "" : root.out-kids-3[0], root.ctx-child-idx == 1 ? "" : root.out-kids-3[1], root.ctx-child-idx == 2 ? "" : root.out-kids-3[2], root.ctx-child-idx == 3 ? "" : (root.out-kids-3.length > 3 ? root.out-kids-3[3] : "")]; }
-                                                        } else {
-                                                            // Hapus folder OUTPUT: geser out-folders
-                                                            // + out-kids ke kiri (seperti SOURCE).
-                                                            if (root.ctx-folder-idx == 0) {
-                                                                root.out-folders = [root.out-folders[1], root.out-folders[2], root.out-folders[3], ""];
-                                                                root.out-kids-0 = root.out-kids-1;
-                                                                root.out-kids-1 = root.out-kids-2;
-                                                                root.out-kids-2 = root.out-kids-3;
-                                                                root.out-kids-3 = ["", "", ""];
-                                                            } else if (root.ctx-folder-idx == 1) {
-                                                                root.out-folders = [root.out-folders[0], root.out-folders[2], root.out-folders[3], ""];
-                                                                root.out-kids-1 = root.out-kids-2;
-                                                                root.out-kids-2 = root.out-kids-3;
-                                                                root.out-kids-3 = ["", "", ""];
-                                                            } else if (root.ctx-folder-idx == 2) {
-                                                                root.out-folders = [root.out-folders[0], root.out-folders[1], root.out-folders[3], ""];
-                                                                root.out-kids-2 = root.out-kids-3;
-                                                                root.out-kids-3 = ["", "", ""];
-                                                            } else {
-                                                                root.out-folders = [root.out-folders[0], root.out-folders[1], root.out-folders[2], ""];
-                                                                root.out-kids-3 = ["", "", ""];
-                                                            }
-                                                            if (root.expanded-out == root.ctx-node) { root.expanded-out = ""; }
-                                                        }
-                                                    } else if (root.ctx-is-child) {
-                                                        // Hapus file dari kids[folder] (slot jadi "").
-                                                        if (root.ctx-folder-idx == 0) { root.kids-0 = [root.ctx-child-idx == 0 ? "" : root.kids-0[0], root.ctx-child-idx == 1 ? "" : root.kids-0[1], root.ctx-child-idx == 2 ? "" : root.kids-0[2], root.ctx-child-idx == 3 ? "" : (root.kids-0.length > 3 ? root.kids-0[3] : "")]; }
-                                                        else if (root.ctx-folder-idx == 1) { root.kids-1 = [root.ctx-child-idx == 0 ? "" : root.kids-1[0], root.ctx-child-idx == 1 ? "" : root.kids-1[1], root.ctx-child-idx == 2 ? "" : root.kids-1[2], root.ctx-child-idx == 3 ? "" : (root.kids-1.length > 3 ? root.kids-1[3] : "")]; }
-                                                        else if (root.ctx-folder-idx == 2) { root.kids-2 = [root.ctx-child-idx == 0 ? "" : root.kids-2[0], root.ctx-child-idx == 1 ? "" : root.kids-2[1], root.ctx-child-idx == 2 ? "" : root.kids-2[2], root.ctx-child-idx == 3 ? "" : (root.kids-2.length > 3 ? root.kids-2[3] : "")]; }
-                                                        else { root.kids-3 = [root.ctx-child-idx == 0 ? "" : root.kids-3[0], root.ctx-child-idx == 1 ? "" : root.kids-3[1], root.ctx-child-idx == 2 ? "" : root.kids-3[2], root.ctx-child-idx == 3 ? "" : (root.kids-3.length > 3 ? root.kids-3[3] : "")]; }
-                                                    } else {
-                                                        // Hapus folder: geser src-folders + kids
-                                                        // ke kiri supaya penomoran tetap benar.
-                                                        if (root.ctx-folder-idx == 0) {
-                                                            root.src-folders = [root.src-folders[1], root.src-folders[2], root.src-folders[3], ""];
-                                                            root.kids-0 = root.kids-1;
-                                                            root.kids-1 = root.kids-2;
-                                                            root.kids-2 = root.kids-3;
-                                                            root.kids-3 = ["", "", ""];
-                                                        } else if (root.ctx-folder-idx == 1) {
-                                                            root.src-folders = [root.src-folders[0], root.src-folders[2], root.src-folders[3], ""];
-                                                            root.kids-1 = root.kids-2;
-                                                            root.kids-2 = root.kids-3;
-                                                            root.kids-3 = ["", "", ""];
-                                                        } else if (root.ctx-folder-idx == 2) {
-                                                            root.src-folders = [root.src-folders[0], root.src-folders[1], root.src-folders[3], ""];
-                                                            root.kids-2 = root.kids-3;
-                                                            root.kids-3 = ["", "", ""];
-                                                        } else {
-                                                            root.src-folders = [root.src-folders[0], root.src-folders[1], root.src-folders[2], ""];
-                                                            root.kids-3 = ["", "", ""];
-                                                        }
-                                                        if (root.expanded-node == root.ctx-node) { root.expanded-node = ""; }
-                                                        // Hapus dari selected-nodes bila ada.
-                                                        if (root.selected-nodes.length == 1 && root.selected-nodes[0] == root.ctx-node) {
-                                                            root.selected-nodes = [];
-                                                        } else if (root.selected-nodes.length == 2) {
-                                                            if (root.selected-nodes[0] == root.ctx-node) { root.selected-nodes = [root.selected-nodes[1]]; }
-                                                            else if (root.selected-nodes[1] == root.ctx-node) { root.selected-nodes = [root.selected-nodes[0]]; }
-                                                        } else if (root.selected-nodes.length == 3) {
-                                                            if (root.selected-nodes[0] == root.ctx-node) { root.selected-nodes = [root.selected-nodes[1], root.selected-nodes[2]]; }
-                                                            else if (root.selected-nodes[1] == root.ctx-node) { root.selected-nodes = [root.selected-nodes[0], root.selected-nodes[2]]; }
-                                                            else if (root.selected-nodes[2] == root.ctx-node) { root.selected-nodes = [root.selected-nodes[0], root.selected-nodes[1]]; }
-                                                        }
-                                                    }
-                                                    root.toast = "Dihapus dari disk: " + root.ctx-node;
-                                                    root.ctx-node = "";
-                                                }
-                                            }
-                                            HorizontalLayout {
-                                                width: 100%;
-                                                height: 100%;
-                                                padding-left: 10px;
-                                                Text {
-                                                    text: "Delete";
-                                                    font-size: 12px;
-                                                    font-weight: 700;
-                                                    color: Design.status-danger;
-                                                    vertical-alignment: center;
-                                                }
-                                            }
-                                        }
                                     }
+                                }
+
+                                ctx-dismiss-out := TouchArea {
+                                    x: 0; y: 0; width: 100%; height: 100%;
+                                    visible: root.ctx-node != "" && root.ctx-panel == "OUTPUT";
+                                    clicked => { root.batch-close-ctx(); }
+                                }
+
+                                // Context menu OUTPUT (tanpa Replace).
+                                BatchCtxMenu {
+                                    x: 8px;
+                                    y: parent.height - self.height - 8px;
+                                    width: 230px;
+                                    visible: root.ctx-node != "" && root.ctx-panel == "OUTPUT";
+                                    menu-title: root.ctx-node;
+                                    show-replace: false;
+                                    show-copy-output: true;
+                                    new-subfolder => { root.batch-ctx-new-subfolder(); }
+                                    replace-auto => { root.batch-ctx-replace-auto(); }
+                                    replace-manual => { root.batch-ctx-replace-manual(); }
+                                    copy-path => { root.batch-ctx-copy-path(); }
+                                    copy-output-path => { root.batch-ctx-copy-output-path(); }
+                                    delete => { root.batch-ctx-delete(); }
+                                    close-menu => { root.batch-close-ctx(); }
                                 }
                             }
                             // Baris aksi OUTPUT: BUAT MASTER (fase 2) +
                             // tombol dokumen (▤, placeholder — Master
                             // File Browser DITUNDA, bertahap, lokasinya
                             // di side panel / log panel navigasi button).
-                            // Di DALAM panel OUTPUT (dokumen §3.5/§9) —
-                            // bukan di bawah panel seperti v2.
+                            // Di DALAM panel OUTPUT (dokumen §3.5/§9).
                             HorizontalLayout {
                                 height: 36px * root.ui-scale;
                                 spacing: 8px * root.ui-scale;
@@ -3027,19 +2223,7 @@ export component AppWindow inherits Window {
                                     label: "⧉ BUAT MASTER";
                                     variant: "secondary";
                                     scale: root.ui-scale;
-                                    clicked => {
-                                        if (!root.has-manifest) {
-                                            root.toast = "Manifest belum ada — jalankan Fase 1 (buat_master.py) dulu.";
-                                        } else {
-                                            root.out-folders = root.src-folders;
-                                            root.out-kids-0 = root.kids-0;
-                                            root.out-kids-1 = root.kids-1;
-                                            root.out-kids-2 = root.kids-2;
-                                            root.out-kids-3 = root.kids-3;
-                                            root.expanded-out = root.out-folders[0];
-                                            root.toast = "Menjalankan buat_master_duplikat.py… (menggandakan template ke semua tujuan)";
-                                        }
-                                    }
+                                    clicked => { root.batch-run-script("buat_master_duplikat"); }
                                 }
                                 IconBtn {
                                     glyph: "▤";
@@ -3064,7 +2248,7 @@ export component AppWindow inherits Window {
                         variant: "secondary";
                         scale: root.ui-scale;
                         size: 36px;
-                        clicked => { root.toast = "Menyalin master: " + root.selected-master; }
+                        clicked => { root.batch-copy-master(); }
                     }
                     HorizontalLayout {
                         spacing: 6px * root.ui-scale;
@@ -3086,29 +2270,15 @@ export component AppWindow inherits Window {
                         label: "▶ Fase 1";
                         variant: "ghost";
                         scale: root.ui-scale;
-                        clicked => {
-                            root.has-manifest = true;
-                            root.toast = "Fase 1 selesai — manifest dibuat, template dibuka di Photoshop (edit + SAVE)";
-                        }
+                        clicked => { root.batch-phase1(); }
                     }
                     Btn {
                         label: "Replace";
                         variant: "secondary";
                         scale: root.ui-scale;
-                        clicked => {
-                            if (root.selected-nodes.length == 0) {
-                                root.toast = "Pilih folder dulu (klik nama folder).";
-                            } else if (root.selected-nodes.length == 1) {
-                                root.toast = "Replace (replace.jsx): " + root.selected-nodes[0] + " → Photoshop (Smart Object diganti, PSD tetap terbuka)";
-                            } else {
-                                root.toast = "Multiple Replace: " + root.selected-nodes.length + " folder dipasangkan & dikirim sekaligus ke Photoshop";
-                            }
-                        }
+                        clicked => { root.batch-replace-auto(); }
                     }
                 }
-
-                // (Baris B lama — BUAT MASTER di bawah panel — SUDAH
-                // DIPINDAH ke dalam panel OUTPUT, sesuai dokumen §3.5/§9.)
 
                 // Footer (dokumen §3.5): TOMBOL SCRIPT MASTER BERNAMA
                 // — satu tombol per file .py di Scripts/Master/
@@ -3117,7 +2287,6 @@ export component AppWindow inherits Window {
                 // proses SEMUA folder SOURCE, OUTPUT terisi, log
                 // "[SUCCESS] Batch Selesai.". Kanan: refresh (re-scan
                 // SOURCE & OUTPUT) + clear merah (kosongkan daftar).
-                // Tombol kecil (small) supaya 5 tombol muat di 520px.
                 Card {
                     height: 56px * root.ui-scale;
                     HorizontalLayout {
@@ -3128,115 +2297,28 @@ export component AppWindow inherits Window {
                         padding-left: Design.space-sm * root.ui-scale;
                         padding-right: Design.space-sm * root.ui-scale;
                         spacing: 6px * root.ui-scale;
-                        Btn {
-                            label: "buat_master";
-                            variant: "secondary";
-                            scale: root.ui-scale;
-                            small: true;
-                            clicked => {
-                                root.out-folders = root.src-folders;
-                                root.out-kids-0 = root.kids-0;
-                                root.out-kids-1 = root.kids-1;
-                                root.out-kids-2 = root.kids-2;
-                                root.out-kids-3 = root.kids-3;
-                                root.expanded-out = root.out-folders[0];
-                                root.toast = "buat_master.py — SEMUA folder SOURCE… [SUCCESS] Batch Selesai.";
+                        for s in root.batch-scripts:
+                            Btn {
+                                label: s;
+                                variant: "secondary";
+                                scale: root.ui-scale;
+                                small: true;
+                                clicked => { root.batch-run-script(s); }
                             }
-                        }
-                        Btn {
-                            label: "manasik";
-                            variant: "secondary";
-                            scale: root.ui-scale;
-                            small: true;
-                            clicked => {
-                                root.out-folders = root.src-folders;
-                                root.out-kids-0 = root.kids-0;
-                                root.out-kids-1 = root.kids-1;
-                                root.out-kids-2 = root.kids-2;
-                                root.out-kids-3 = root.kids-3;
-                                root.expanded-out = root.out-folders[0];
-                                root.toast = "manasik.py — SEMUA folder SOURCE… [SUCCESS] Batch Selesai.";
-                            }
-                        }
-                        Btn {
-                            label: "wisuda";
-                            variant: "secondary";
-                            scale: root.ui-scale;
-                            small: true;
-                            clicked => {
-                                root.out-folders = root.src-folders;
-                                root.out-kids-0 = root.kids-0;
-                                root.out-kids-1 = root.kids-1;
-                                root.out-kids-2 = root.kids-2;
-                                root.out-kids-3 = root.kids-3;
-                                root.expanded-out = root.out-folders[0];
-                                root.toast = "wisuda.py — SEMUA folder SOURCE… [SUCCESS] Batch Selesai.";
-                            }
-                        }
-                        Btn {
-                            label: "pasfoto";
-                            variant: "secondary";
-                            scale: root.ui-scale;
-                            small: true;
-                            clicked => {
-                                root.out-folders = root.src-folders;
-                                root.out-kids-0 = root.kids-0;
-                                root.out-kids-1 = root.kids-1;
-                                root.out-kids-2 = root.kids-2;
-                                root.out-kids-3 = root.kids-3;
-                                root.expanded-out = root.out-folders[0];
-                                root.toast = "pasfoto.py — SEMUA folder SOURCE… [SUCCESS] Batch Selesai.";
-                            }
-                        }
-                        Btn {
-                            label: "profesi";
-                            variant: "secondary";
-                            scale: root.ui-scale;
-                            small: true;
-                            clicked => {
-                                root.out-folders = root.src-folders;
-                                root.out-kids-0 = root.kids-0;
-                                root.out-kids-1 = root.kids-1;
-                                root.out-kids-2 = root.kids-2;
-                                root.out-kids-3 = root.kids-3;
-                                root.expanded-out = root.out-folders[0];
-                                root.toast = "profesi.py — SEMUA folder SOURCE… [SUCCESS] Batch Selesai.";
-                            }
-                        }
                         Rectangle { horizontal-stretch: 1; }
                         IconBtn {
                             glyph: "↻";
                             variant: "ghost";
                             scale: root.ui-scale;
                             size: 36px;
-                            clicked => { root.toast = "Memuat ulang SOURCE & OUTPUT…"; }
+                            clicked => { root.batch-refresh(); }
                         }
                         IconBtn {
                             glyph: "×";
                             variant: "danger";
                             scale: root.ui-scale;
                             size: 36px;
-                            clicked => {
-                                // Bersihkan: kosongkan SEMUA folder →
-                                // kembali ke drop zone. File tetap ada
-                                // di disk (beda dengan Delete).
-                                root.src-folders = ["", "", "", ""];
-                                root.kids-0 = ["", "", ""];
-                                root.kids-1 = ["", "", ""];
-                                root.kids-2 = ["", "", ""];
-                                root.kids-3 = ["", "", ""];
-                                root.out-folders = ["", "", "", ""];
-                                root.out-kids-0 = ["", "", ""];
-                                root.out-kids-1 = ["", "", ""];
-                                root.out-kids-2 = ["", "", ""];
-                                root.out-kids-3 = ["", "", ""];
-                                root.expanded-node = "";
-                                root.expanded-out = "";
-                                root.selected-nodes = [];
-                                root.ctx-node = "";
-                                root.has-manifest = false;
-                                root.toast = "SOURCE dibersihkan (file tetap ada di disk).";
-                            }
+                            clicked => { root.batch-clear(); }
                         }
                     }
                 }
@@ -3245,7 +2327,8 @@ export component AppWindow inherits Window {
             // ----- BATCH kosong: SELURUH tab = satu drop zone (C#
             // DashboardView.axaml:345-361, tampil bila ShowDropZone).
             // Slint belum mendukung drag-drop OS — klik "Pilih Folder"
-            // = simulasi drop (pulihkan dataset contoh A).
+            // = pilih folder lewat dialog (Windows) / zenity (Linux);
+            // Folder Reguler di bawahnya = jalan pintas tanpa drag.
             Rectangle {
                 x: 0; y: 0;
                 width: 100%; height: 100%;
@@ -3298,12 +2381,34 @@ export component AppWindow inherits Window {
                             label: "Pilih Folder";
                             variant: "secondary";
                             scale: root.ui-scale;
-                            clicked => { root.restore-batch-source(); }
+                            clicked => { root.batch-pick-folder(); }
+                        }
+                    }
+                    HorizontalLayout {
+                        alignment: center;
+                        spacing: 8px * root.ui-scale;
+                        padding-top: 8px * root.ui-scale;
+                        Text {
+                            text: "Folder Reguler:";
+                            font-size: 12px * root.ui-scale;
+                            color: Design.text-muted;
+                            vertical-alignment: center;
+                        }
+                        ComboBox {
+                            width: 220px;
+                            model: root.batch-reguler-names;
+                            current-index: root.batch-reguler-idx;
+                            selected(index) => { root.batch-reguler-picked(index); }
+                        }
+                        Btn {
+                            label: "Kelola…";
+                            variant: "ghost";
+                            scale: root.ui-scale;
+                            clicked => { root.batch-reguler-manage(); }
                         }
                     }
                 }
             }
-
             }
 
             // ----- RESIZE HANDLE Log Panel (C# DashboardView.axaml:
@@ -3884,55 +2989,21 @@ export component AppWindow inherits Window {
         // Kirim folder ke BATCH (toolbar "Kirim ke BATCH"): SOURCE
         // diganti (seperti AddFolders), manifest fase 1 dianggap ada,
         // OUTPUT lama dikosongkan (stale), pindah ke tab BATCH.
-        send-to-batch(folder, k0, k1, k2, k3) => {
-            root.src-name = folder;
-            root.selected-source = folder;
-            root.selected-output = folder;
-            root.src-folders = [k0, k1, k2, k3];
-            root.use-folder-b = false;
-            root.kids-0 = ["", "", ""];
-            root.kids-1 = ["", "", ""];
-            root.kids-2 = ["", "", ""];
-            root.kids-3 = ["", "", ""];
-            root.expanded-node = "";
-            root.selected-nodes = [];
-            root.ctx-node = "";
-            root.has-manifest = true;
-            root.out-folders = ["", "", "", ""];
-            root.out-kids-0 = ["", "", ""];
-            root.out-kids-1 = ["", "", ""];
-            root.out-kids-2 = ["", "", ""];
-            root.out-kids-3 = ["", "", ""];
-            root.expanded-out = "";
+        send-to-batch(folder) => {
+            // Folder NYATA (full path) — Rust scan disk + prediksi
+            // output (BATCH_DASHBOARD §4.3), ganti seluruh SOURCE.
+            root.batch-add-folder(folder);
             root.current-tab = "BATCH";
             root.overlay-view = "";
-            root.toast = "Dikirim ke BATCH: " + folder;
         }
         // "BUAT MASTER" dari menu konteks item: sama seperti di atas,
         // toast fase 1 (manifest dibuat, template dibuka di Photoshop).
-        buat-master(folder, k0, k1, k2, k3) => {
-            root.src-name = folder;
-            root.selected-source = folder;
-            root.selected-output = folder;
-            root.src-folders = [k0, k1, k2, k3];
-            root.use-folder-b = false;
-            root.kids-0 = ["", "", ""];
-            root.kids-1 = ["", "", ""];
-            root.kids-2 = ["", "", ""];
-            root.kids-3 = ["", "", ""];
-            root.expanded-node = "";
-            root.selected-nodes = [];
-            root.ctx-node = "";
-            root.has-manifest = true;
-            root.out-folders = ["", "", "", ""];
-            root.out-kids-0 = ["", "", ""];
-            root.out-kids-1 = ["", "", ""];
-            root.out-kids-2 = ["", "", ""];
-            root.out-kids-3 = ["", "", ""];
-            root.expanded-out = "";
+        buat-master(folder) => {
+            // Seperti send-to-batch, lalu langsung Fase 1 (manifest).
+            root.batch-add-folder(folder);
             root.current-tab = "BATCH";
             root.overlay-view = "";
-            root.toast = "BUAT MASTER: " + folder + " → Batch (fase 1: manifest dibuat, template dibuka di Photoshop)";
+            root.batch-phase1();
         }
         open-settings-explorer() => {
             // Pengaturan Explorer kini tampilan tersendiri (C#
