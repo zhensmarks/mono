@@ -409,36 +409,37 @@ export component SpreadsheetWindow inherits Window {
     callback sheet-cal-open(string);
     callback sheet-cal-nav(int);
     callback sheet-add-row();
+    callback sheet-prev-page();
+    callback sheet-next-page();
+    callback sheet-hit-col(length) -> int;
+    callback sheet-select-rows(int, int, int, int) -> [bool];
     callback sheet-is-typeahead-char(string) -> bool;
-    // Data grid + nilai asli + status guard/draft (diisi Rust saat window dibuat).
+    // Data grid DINAMIS (28 Nov 2026 — nested model, kolom dari
+    // header sheet) + nilai asli + status guard/draft (diisi Rust saat window dibuat).
     // Default KOSONG (27 Nov 2026, keputusan abeng: default publish harus bersih).
-    in-out property <[string]> col-a: [];
-    in-out property <[string]> col-b: [];
-    in-out property <[string]> col-c: [];
-    in-out property <[string]> col-d: [];
-    in-out property <[string]> col-e: [];
-    in-out property <[string]> col-f: [];
-    in-out property <[string]> col-g: [];
-    in-out property <[string]> col-a-orig: [];
-    in-out property <[string]> col-b-orig: [];
-    in-out property <[string]> col-c-orig: [];
-    in-out property <[string]> col-d-orig: [];
-    in-out property <[string]> col-e-orig: [];
-    in-out property <[string]> col-f-orig: [];
-    in-out property <[string]> col-g-orig: [];
+    in-out property <[[string]]> grid: [];
+    in-out property <[[string]]> grid-orig: [];
+    in-out property <[string]> col-headers: ["KODE", "SEKOLAH", "JENJANG", "STATUS", "POIN", "CATATAN", "TANGGAL"];
+    in-out property <[string]> col-letters: ["A", "B", "C", "D", "E", "F", "G"];
+    in-out property <[string]> col-kinds: ["text", "text", "dropdown", "dropdown", "number", "text", "date"];
+    in-out property <[bool]> col-locked: [true, false, false, false, false, false, false];
+    in-out property <[float]> col-widths: [110, 200, 80, 100, 90, 200, 100];
+    in-out property <[float]> col-x-offsets: [0, 110, 310, 390, 490, 580, 780];
+    in-out property <[[string]]> col-items: [[], [], ["TK", "PAUD", "SD", "SMP", "SMA", "SMK"], ["SELESAI", "PROSES", "REVISI", "ANTRIAN"], [], [], []];
+    in-out property <int> key-col: 0;
+    in-out property <int> page-start: 0;
+    in-out property <int> page-size: 100;
+    in-out property <int> total-rows: 0;
+    in-out property <int> row-num-base: 1;
+    in-out property <string> page-label: "";
     in-out property <bool> sheet-has-draft: false;
     in-out property <int> sheet-draft-count: 0;
     in-out property <string> sheet-status-text: "0 baris · Belum terhubung ke Google Sheets";
     in-out property <string> sheet-guard-result: "";
     // Seleksi multi-baris + kolom fokus (dibaca Rust saat fill-down /
     // clear-cells — diteruskan dari SpreadsheetComponent).
-    in-out property <[bool]> sel-rows: [true, false, false, false, false, false];
+    in-out property <[bool]> sel-rows: [];
     in-out property <int> focus-col: 1;
-    // Jenis kolom + kunci + opsi dropdown + state kalender (dari Rust).
-    in-out property <[string]> col-kinds: ["text", "text", "dropdown", "dropdown", "number", "text", "date"];
-    in-out property <[bool]> col-locked: [true, false, false, false, false, false, false];
-    in-out property <[string]> col-c-items: ["TK", "PAUD", "SD", "SMP", "SMA", "SMK"];
-    in-out property <[string]> col-d-items: ["SELESAI", "PROSES", "REVISI", "ANTRIAN"];
     in-out property <int> cal-year: 2026;
     in-out property <int> cal-month: 1;
     in-out property <string> cal-label: "";
@@ -578,24 +579,21 @@ export component SpreadsheetWindow inherits Window {
                     width: parent.width - (root.chrome-style == "wrapped" ? 16px : 0px);
                     height: parent.height - (root.chrome-style == "wrapped" ? 16px : 0px);
                     is-standalone: true;
-            col-a <=> root.col-a;
-            col-b <=> root.col-b;
-            col-c <=> root.col-c;
-            col-d <=> root.col-d;
-            col-e <=> root.col-e;
-            col-f <=> root.col-f;
-            col-g <=> root.col-g;
-            col-a-orig <=> root.col-a-orig;
-            col-b-orig <=> root.col-b-orig;
-            col-c-orig <=> root.col-c-orig;
-            col-d-orig <=> root.col-d-orig;
-            col-e-orig <=> root.col-e-orig;
-            col-f-orig <=> root.col-f-orig;
-            col-g-orig <=> root.col-g-orig;
+            grid <=> root.grid;
+            grid-orig <=> root.grid-orig;
+            col-headers <=> root.col-headers;
+            col-letters <=> root.col-letters;
             col-kinds <=> root.col-kinds;
             col-locked <=> root.col-locked;
-            col-c-items <=> root.col-c-items;
-            col-d-items <=> root.col-d-items;
+            col-widths <=> root.col-widths;
+            col-x-offsets <=> root.col-x-offsets;
+            col-items <=> root.col-items;
+            key-col <=> root.key-col;
+            page-start <=> root.page-start;
+            page-size <=> root.page-size;
+            total-rows <=> root.total-rows;
+            row-num-base <=> root.row-num-base;
+            page-label <=> root.page-label;
             cal-year <=> root.cal-year;
             cal-month <=> root.cal-month;
             cal-label <=> root.cal-label;
@@ -619,6 +617,10 @@ export component SpreadsheetWindow inherits Window {
             cal-open(val) => { root.sheet-cal-open(val); }
             cal-nav(d) => { root.sheet-cal-nav(d); }
             add-row() => { root.sheet-add-row(); }
+            prev-page() => { root.sheet-prev-page(); }
+            next-page() => { root.sheet-next-page(); }
+            hit-col(x) => { return root.sheet-hit-col(x); }
+            select-rows(r, c, m, a) => { return root.sheet-select-rows(r, c, m, a); }
             is-typeahead-char(t) => { return root.sheet-is-typeahead-char(t); }
             toast(msg) => { root.toast(msg); }
             close-view() => { root.close-window(); }

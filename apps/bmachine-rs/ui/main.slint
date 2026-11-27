@@ -96,36 +96,33 @@ export component AppWindow inherits Window {
     in-out property <string> google-sheet-row: "12";
     in-out property <string> spreadsheet-sheet-name: "ALL DATA REGULER";
     in-out property <string> spreadsheet-range: "A1:Z";
-    // Data grid spreadsheet + nilai asli + status guard/draft (Rust).
+    // Data grid spreadsheet DINAMIS (28 Nov 2026 — nested model,
+    // kolom dari header sheet) + nilai asli + status guard/draft (Rust).
     // Default KOSONG (27 Nov 2026, keputusan abeng: default publish
     // harus bersih, tidak ada data contoh).
-    in-out property <[string]> sheet-col-a: [];
-    in-out property <[string]> sheet-col-b: [];
-    in-out property <[string]> sheet-col-c: [];
-    in-out property <[string]> sheet-col-d: [];
-    in-out property <[string]> sheet-col-e: [];
-    in-out property <[string]> sheet-col-f: [];
-    in-out property <[string]> sheet-col-g: [];
-    in-out property <[string]> sheet-col-a-orig: [];
-    in-out property <[string]> sheet-col-b-orig: [];
-    in-out property <[string]> sheet-col-c-orig: [];
-    in-out property <[string]> sheet-col-d-orig: [];
-    in-out property <[string]> sheet-col-e-orig: [];
-    in-out property <[string]> sheet-col-f-orig: [];
-    in-out property <[string]> sheet-col-g-orig: [];
+    in-out property <[[string]]> sheet-grid: [];
+    in-out property <[[string]]> sheet-grid-orig: [];
+    in-out property <[string]> sheet-col-headers: ["KODE", "SEKOLAH", "JENJANG", "STATUS", "POIN", "CATATAN", "TANGGAL"];
+    in-out property <[string]> sheet-col-letters: ["A", "B", "C", "D", "E", "F", "G"];
+    in-out property <[string]> sheet-col-kinds: ["text", "text", "dropdown", "dropdown", "number", "text", "date"];
+    in-out property <[bool]> sheet-col-locked: [true, false, false, false, false, false, false];
+    in-out property <[float]> sheet-col-widths: [110, 200, 80, 100, 90, 200, 100];
+    in-out property <[float]> sheet-col-x-offsets: [0, 110, 310, 390, 490, 580, 780];
+    in-out property <[[string]]> sheet-col-items: [[], [], ["TK", "PAUD", "SD", "SMP", "SMA", "SMK"], ["SELESAI", "PROSES", "REVISI", "ANTRIAN"], [], [], []];
+    in-out property <int> sheet-key-col: 0;
+    in-out property <int> sheet-page-start: 0;
+    in-out property <int> sheet-page-size: 100;
+    in-out property <int> sheet-total-rows: 0;
+    in-out property <int> sheet-row-num-base: 1;
+    in-out property <string> sheet-page-label: "";
     in-out property <bool> sheet-has-draft: false;
     in-out property <int> sheet-draft-count: 0;
     in-out property <string> sheet-status-text: "0 baris · Belum terhubung ke Google Sheets";
     in-out property <string> sheet-guard-result: "";
     // Seleksi multi-baris + kolom fokus (dibaca Rust saat fill-down /
     // clear-cells — diteruskan dari SheetsView).
-    in-out property <[bool]> sheet-sel-rows: [true, false, false, false, false, false];
+    in-out property <[bool]> sheet-sel-rows: [];
     in-out property <int> sheet-focus-col: 1;
-    // Jenis kolom + kunci + opsi dropdown + state kalender (dari Rust).
-    in-out property <[string]> sheet-col-kinds: ["text", "text", "dropdown", "dropdown", "number", "text", "date"];
-    in-out property <[bool]> sheet-col-locked: [true, false, false, false, false, false, false];
-    in-out property <[string]> sheet-col-c-items: ["TK", "PAUD", "SD", "SMP", "SMA", "SMK"];
-    in-out property <[string]> sheet-col-d-items: ["SELESAI", "PROSES", "REVISI", "ANTRIAN"];
     in-out property <int> sheet-cal-year: 2026;
     in-out property <int> sheet-cal-month: 1;
     in-out property <string> sheet-cal-label: "";
@@ -146,6 +143,10 @@ export component AppWindow inherits Window {
     callback sheet-cal-open(string);
     callback sheet-cal-nav(int);
     callback sheet-add-row();
+    callback sheet-prev-page();
+    callback sheet-next-page();
+    callback sheet-hit-col(length) -> int;
+    callback sheet-select-rows(int, int, int, int) -> [bool];
     callback sheet-is-typeahead-char(string) -> bool;
 
     callback save-account-settings();
@@ -3529,24 +3530,21 @@ export component AppWindow inherits Window {
         sheet-col0 <=> root.sheet-col0;
         sheet-col1 <=> root.sheet-col1;
         sheet-col2 <=> root.sheet-col2;
-        col-a <=> root.sheet-col-a;
-        col-b <=> root.sheet-col-b;
-        col-c <=> root.sheet-col-c;
-        col-d <=> root.sheet-col-d;
-        col-e <=> root.sheet-col-e;
-        col-f <=> root.sheet-col-f;
-        col-g <=> root.sheet-col-g;
-        col-a-orig <=> root.sheet-col-a-orig;
-        col-b-orig <=> root.sheet-col-b-orig;
-        col-c-orig <=> root.sheet-col-c-orig;
-        col-d-orig <=> root.sheet-col-d-orig;
-        col-e-orig <=> root.sheet-col-e-orig;
-        col-f-orig <=> root.sheet-col-f-orig;
-        col-g-orig <=> root.sheet-col-g-orig;
+        grid <=> root.sheet-grid;
+        grid-orig <=> root.sheet-grid-orig;
+        col-headers <=> root.sheet-col-headers;
+        col-letters <=> root.sheet-col-letters;
         col-kinds <=> root.sheet-col-kinds;
         col-locked <=> root.sheet-col-locked;
-        col-c-items <=> root.sheet-col-c-items;
-        col-d-items <=> root.sheet-col-d-items;
+        col-widths <=> root.sheet-col-widths;
+        col-x-offsets <=> root.sheet-col-x-offsets;
+        col-items <=> root.sheet-col-items;
+        key-col <=> root.sheet-key-col;
+        page-start <=> root.sheet-page-start;
+        page-size <=> root.sheet-page-size;
+        total-rows <=> root.sheet-total-rows;
+        row-num-base <=> root.sheet-row-num-base;
+        page-label <=> root.sheet-page-label;
         cal-year <=> root.sheet-cal-year;
         cal-month <=> root.sheet-cal-month;
         cal-label <=> root.sheet-cal-label;
@@ -3570,6 +3568,10 @@ export component AppWindow inherits Window {
         sheet-cal-open(val) => { root.sheet-cal-open(val); }
         sheet-cal-nav(d) => { root.sheet-cal-nav(d); }
         sheet-add-row() => { root.sheet-add-row(); }
+        sheet-prev-page() => { root.sheet-prev-page(); }
+        sheet-next-page() => { root.sheet-next-page(); }
+        sheet-hit-col(x) => { return root.sheet-hit-col(x); }
+        sheet-select-rows(r, c, m, a) => { return root.sheet-select-rows(r, c, m, a); }
         sheet-is-typeahead-char(t) => { return root.sheet-is-typeahead-char(t); }
         back() => { root.overlay-view = ""; }
         toast(text) => { root.toast = text; }

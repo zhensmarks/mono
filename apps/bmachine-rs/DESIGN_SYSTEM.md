@@ -1409,8 +1409,21 @@ saat ini toast mockup; eksekusi nyata Fase 6.
 ### 19.3 Spreadsheet — spreadsheet beneran (27 Nov 2026)
 
 `SpreadsheetComponent` (`ui/spreadsheet.slint`, dipakai `SheetsView`
-embedded + `SpreadsheetWindow` 1000×600): grid SATU Google Sheet,
-7 kolom tetap A–G, maks 6 baris:
+embedded + `SpreadsheetWindow` 1000×600): grid SATU Google Sheet.
+**Sejak 28 Nov 2026 kolom DINAMIS dari sheet live** (bukan 7 kolom
+tetap): header terdeteksi dari isi (baris pertama dalam 10 baris
+pertama yang punya ≥2 sel tak-kosong dan ≥1 huruf — ALL DATA REGULER
+= baris 3, EDITOR HARIAN = baris 1; jangan hardcode baris 3), data
+mulai baris setelahnya. ALL DATA REGULER tampil apa adanya: 20
+kolom A–T (NO FAKTUR | ORDER TIME | PIC | MARKETING | ID PELANGGAN
+/ ID TRELLO | CUSTOMER NAME | ALAMAT | ITEM NAME | QTY | H+1 ADMIN
+| ADM OPS | SELEKTOR | TGL DONE | EDITOR | TGL DONE | CETAK PACKING
+SLIP | PRINTING | QC AKHIR | NAMA DRIVER | TGL PENGIRIMAN).
+Bila tidak terhubung (tanpa JSON/ID), grid memakai model lokal
+7 kolom di bawah + status bar jujur ("Belum terhubung ke Google
+Sheets" / "Data lokal (N baris) · Belum terhubung…").
+
+Model lokal (offline) — 7 kolom tetap A–G:
 
 | Kolom | Header | Jenis | Kunci? | Opsi |
 |---|---|---|---|---|
@@ -1422,11 +1435,56 @@ embedded + `SpreadsheetWindow` 1000×600): grid SATU Google Sheet,
 | F | CATATAN | teks | tidak | – |
 | G | TANGGAL | tanggal | tidak | – |
 
-Definisi kolom di `src/sheet_model.rs` (`SHEET_COLUMNS`); jenis
-kolom tetap per kolom, BUKAN ditebak dari header/isi (C# menebak
-dari kata kunci header — lihat §19.3a).
+Definisi kolom lokal di `src/sheet_model.rs` (`SHEET_COLUMNS`);
+kolom live di `src/sheets_api.rs` (`LiveSheet` + `to_dyn_columns`):
+jenis ditebak dari kata kunci header seperti C# (TGL/DATE/TIME/
+DEADLINE → tanggal; EDITOR/STATUS/SELEKSI/HKS/NR → dropdown,
+opsi = nilai unik kolom maks 30; QTY/POIN/JUMLAH → angka; sisanya
+teks). Kolom NO FAKTUR terkunci (kecuali sel kosong baris baru —
+order baru harus bisa diisi NO FAKTUR-nya); ORDER TIME terkunci
+sebagai teks (jangan timpa timestamp order). Header duplikat
+(dua "TGL DONE") diberi sufiks supaya unik. Lebar kolom dari
+`Configs.Spreadsheet.ColumnWidths` bila ada, kalau tidak heuristik
+dari isi (70–260px). Paging 100 baris/halaman; gutter menampilkan
+nomor baris sheet asli; footer "Menampilkan X–Y dari Z · Kolom:
+N (A–T) · Sel Aktif: <huruf><baris>".
 
-**Alignment — rata tengah SEMUA sel (28 Nov 2026, keputusan abeng:
+**Koneksi live — Google Sheets API (28 Nov 2026, "jantung
+kerjaan"):** `src/sheets_api.rs` — baca JSON service account
+(`client_email` + `private_key` PEM), JWT RS256 (ring 0.17, tanpa
+crate baru di luar yang sudah ada) → tukar ke access token
+(`Google.TokenUrl`, default oauth2.googleapis.com) → `GET
+spreadsheets.values.get` (`Google.ApiBase`, default
+sheets.googleapis.com) untuk `{tab}!{range}`. Kredensial dari
+Settings (`Google.CredsPath`, `Google.SheetId`,
+`Spreadsheet.SheetName`, `Spreadsheet.Range` default "A1:Z") —
+dibaca SEGAR dari DB tiap sync, jadi perubahan Settings berlaku
+tanpa restart. Fetch jalan di thread latar (tidak memblokir splash)
++ hasil diterapkan timer inbox 250 ms di thread UI; timeout operasi
+45 detik (draft dipertahankan). **POINTS widget live dari sheet**
+seperti C#: baca sel `{Google.SheetName}!{Google.SheetColumn}
+{Google.SheetRow}` (EDITOR HARIAN!J14) tiap fetch, cache ke
+`Stat.Points` + `Cache.GSheet.Points` — sebelumnya `Stat.Points`
+mati (tidak ada yang menulisnya di port).
+
+**Anti-menclok (MENGIKAT — abeng, 28 Nov 2026 00:25):** (a) SELALU
+ambil data live terbaru sebelum Simpan DAN saat buka/Muat Ulang —
+snapshot lokal saja tidak cukup; (b) baris dikenali kunci tetap
+**NO FAKTUR** (kolom A, unik per order), BUKAN nomor baris —
+`DraftEntry.RowKey` + `RowAnchor.row_key`, `apply_drafts` mencari
+baris dari kunci (draft tanpa kunci TIDAK PERNAH diterapkan dari
+posisi); sisipan baris di atas TIDAK memblokir simpan, perubahan isi
+/ penghapusan baris berkunci MEMBLOKIR; (c) bila sheet berubah dari
+luar, Simpan DIBLOKIR + pesan menyebut NO FAKTUR + nama kolom +
+nilai lama vs baru + "klik Muat Ulang" (draft tetap tersimpan dan
+dipulihkan setelah muat ulang). Pesan guard ditulis Rust ke status
+bar JUGA (bukan hanya `guard-result` — `guard-result` hanya dibaca
+`commit-save()` secara sinkron, jadi blokir async tidak terlihat
+tanpa status bar; footer status wrap 2–3 baris, bukan elide).
+Selama simpan live berjalan, Simpan/Muat Ulang ganda diblokir;
+edit tetap bisa masuk dan draft yang tiba selama flight
+dipertahankan. Simpan tanpa perubahan menerapkan data live segar
+yang sudah di tangan (bukan commit grid basi).
 "harus mengikuti sheet, jangan egois"):** aturan alignment grid
 mengikuti format sheet kantor per kolom — dan karena sheet kantor
 ("ORDER PT DMA - NSJ 26-27", tab ALL DATA REGULER) menengahkan
@@ -1477,23 +1535,31 @@ kembali ke grid setelah edit selesai (commit/batal/pilih) —
 sebelumnya fokus hilang bersama editor yang tersembunyi sehingga
 panah/Ctrl+D tidak jalan setelah Enter.
 
-**Toolbar:** Search (belum memfilter — dekoratif), + Baris (maks 6),
-∑ SUM (total POIN kolom E yang sebenarnya, dihitung Rust —
-sebelumnya total hardcode), zoom 0.8–1.4 (belum mengubah skala
-grid — dekoratif), Muat Ulang, Simpan (N) = jumlah draft hidup.
+**Toolbar:** Search (belum memfilter — dekoratif), + Baris (tambah
+baris kosong di akhir data, tanpa batas 6 baris lagi), ∑ SUM (total
+kolom angka pertama — POIN untuk model lokal, QTY untuk sheet
+kantor — dihitung Rust), zoom 0.8–1.4 (belum mengubah skala grid —
+dekoratif), Muat Ulang (ambil ulang data live bila terhubung,
+kalau tidak snapshot lokal), Simpan (N) = jumlah draft hidup.
 
-**Guard + draft (tetap jalan, jalur simpan sama):** fingerprint
-guard memblokir Simpan bila sheet berubah di luar, pesan dinamis
-menyebut barisnya; draft dipersist ke SQLite `Spreadsheet.Draft`
-tiap edit dan dipulihkan saat app dibuka — draft yang berhasil
-diterapkan TETAP jadi edit belum tersimpan sampai Simpan (perbaikan
-27 Nov 2026: sebelumnya draft diterapkan lalu dibuang, sehingga
-SpreadsheetWindow yang dibuka belakangan menampilkan nilai asli
-dan guard kehilangan baris yang berubah). "Muat Ulang" memuat
-ulang snapshot + menerapkan lagi draft yang masih cocok.
+**Guard + draft (jalur simpan sama, kini keyed NO FAKTUR):**
+fingerprint guard + anchor per baris memblokir Simpan bila sheet
+berubah di luar (lihat "Anti-menclok" di atas); draft dipersist ke
+SQLite `Spreadsheet.Draft` tiap edit dan dipulihkan saat app dibuka
+/ Muat Ulang — draft yang berhasil diterapkan TETAP jadi edit belum
+tersimpan sampai Simpan (perbaikan 27 Nov 2026: sebelumnya draft
+diterapkan lalu dibuang, sehingga SpreadsheetWindow yang dibuka
+belakangan menampilkan nilai asli dan guard kehilangan baris yang
+berubah). "Muat Ulang" memuat ulang data live + menerapkan lagi
+draft yang masih cocok (dicocokkan dari NO FAKTUR + nilai asli).
 
-**Yang belum dibangun:** koneksi Google Sheets nyata (Fase 6);
-pencarian & zoom masih dekoratif.
+**Yang belum dibangun:** pencarian & zoom masih dekoratif.
+Koneksi live sudah jalan (terverifikasi melawan mock server lokal
+dengan data sheet kantor asli — lihat PERUBAHAN.md 28 Nov 2026);
+verifikasi dengan JSON service account asli dilakukan nanti di PC
+abeng (JANGAN minta JSON-nya untuk tes di sini). Setelah Simpan
+live berhasil, grid belum me-refresh otomatis untuk menampilkan
+baris yang disisipkan dari luar — tekan Muat Ulang (terbuka).
 
 ### 19.3a Yang sengaja TIDAK ditiru dari C# ("aneh" — abeng, 27 Nov 2026)
 
@@ -1505,7 +1571,11 @@ perilaku di bawah ini TIDAK disalin — port membuat yang benar:
    membuka editor. Port: state `editing` eksplisit.
 2. **Tebak jenis kolom dari header:** C# menebak dropdown/tanggal
    dari kata kunci header (EDITOR/STATUS/TGL/...) atau isi sel.
-   Port: jenis kolom tetap di `SHEET_COLUMNS`.
+   Port (27 Nov 2026): jenis kolom tetap di `SHEET_COLUMNS` untuk
+   model lokal. **Koreksi 28 Nov 2026:** untuk kolom LIVE dari
+   Sheets API, port menebak jenis dari kata kunci header PERSIS
+   seperti C# (itu yang benar — header sheet kantor yang menentukan
+   jenisnya); model lokal 7 kolom tetap fixed.
 3. **Tidak ada lock per-sel:** C# `IsReadOnly = false` di grid;
    proteksi sheet kantor hanya ditegakkan Google Sheets. Port:
    kolom KODE terkunci dan ditolak di aplikasi (toast).
@@ -1520,8 +1590,9 @@ perilaku di bawah ini TIDAK disalin — port membuat yang benar:
    (sel pertama tak-kosong) di kedua sisi pesan — bila hanya kolom
    lain yang berubah, pesannya tampak "berisi 'X', sedangkan yang
    dimuat 'X'" (nilai sama). Perilaku blokirnya benar; wording ini
-   masih terbuka (butuh simpan baris asli di anchor untuk menyebut
-   sel yang berubah).
+   **sudah diperbaiki 28 Nov 2026**: `describe_mismatches` menyebut
+   NO FAKTUR + nama kolom yang berubah + nilai baru vs nilai yang
+   dimuat, tidak pernah pengenal yang sama di kedua sisi.
 
 ### 19.4 Leaderboard
 

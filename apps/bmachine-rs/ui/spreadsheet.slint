@@ -173,12 +173,16 @@ component GridCell inherits Rectangle {
 export component SpreadsheetComponent inherits Rectangle {
     in-out property <bool> is-standalone: false;
     in-out property <string> search-query: "";
-    in-out property <string> status-text: "6 baris siap · Jangkar A1:G6 · Terhubung ke Google Sheets";
+    // Status jujur: default "Belum terhubung" (28 Nov 2026 — default
+    // lama "Terhubung ke Google Sheets" tampil bersamaan dengan data
+    // lokal adalah bug tampilan; Rust menimpa teks ini begitu status
+    // koneksi diketahui).
+    in-out property <string> status-text: "Belum terhubung ke Google Sheets";
     in-out property <bool> has-draft: false;
     in-out property <int> draft-count: 0;
     in-out property <float> zoom-level: 1.0;
 
-    // Sel aktif saat ini: row 0-based, col 0-based (0=A..6=G)
+    // Sel aktif saat ini: row 0-based DALAM JENDELA halaman, col 0-based.
     in-out property <int> active-row: 0;
     in-out property <int> active-col: 1; // Default di kolom 'Sekolah'
 
@@ -192,8 +196,9 @@ export component SpreadsheetComponent inherits Rectangle {
     callback refresh-data();
     callback popout-window();
     callback close-view();
-    // Edit sel -> Rust mencatat draft (baris 0-based, kolom 0-based,
-    // nilai asli saat dimuat, nilai baru) + persist ke SQLite.
+    // Edit sel -> Rust mencatat draft (baris 0-based DALAM JENDELA,
+    // kolom 0-based, nilai asli saat dimuat, nilai baru) + persist ke
+    // SQLite. Rust menambahkan page-start sebelum mencatat.
     callback cell-edited(int, int, string, string);
     // Operasi massal + kalender (dikerjakan Rust dari state sheet bersama):
     // fill-down / clear-cells membaca seleksi + kolom fokus dari properti
@@ -207,43 +212,92 @@ export component SpreadsheetComponent inherits Rectangle {
     callback cal-open(string);
     callback cal-nav(int);
     callback add-row();
+    // Pindah halaman jendela grid (Rust menggeser page-start + mendorong
+    // ulang jendela; no-op bila sudah di ujung).
+    callback prev-page();
+    callback next-page();
     // Type-to-edit: apakah satu karakter boleh memulai edit (diputuskan
     // Rust — karakter kontrol seperti Enter/Tab tidak).
     callback is-typeahead-char(string) -> bool;
+    // Hit-test kolom dari posisi x (dihitung Rust dari lebar kolom —
+    // Slint 1.19 TIDAK punya `for` di dalam fungsi, jadi hit-test
+    // kolom yang butuh loop tinggal di Rust; row-from-y murni
+    // matematika dan tetap di .slint).
+    callback hit-col(length) -> int;
+    // Hitung seleksi baris baru (Rust — alasan sama): (baris, kolom,
+    // mode 0=satu baris / 1=tambah rentang / 2=balik, anchor).
+    // Mengembalikan model sel-rows baru.
+    callback select-rows(int, int, int, int) -> [bool];
 
-    // Data Baris Spreadsheet (7 Kolom x 6 Baris Default yang dapat ditambah/diedit)
-    // Default KOSONG (27 Nov 2026, keputusan abeng: default publish harus bersih).
-    in-out property <[string]> col-a: [];
-    in-out property <[string]> col-b: [];
-    in-out property <[string]> col-c: [];
-    in-out property <[string]> col-d: [];
-    in-out property <[string]> col-e: [];
-    in-out property <[string]> col-f: [];
-    in-out property <[string]> col-g: [];
-    // Nilai asli saat dimuat (jangkar guard + nilai asli draft) — hanya
-    // berubah saat Muat Ulang / Simpan berhasil (Rust yang menulis).
-    in-out property <[string]> col-a-orig: [];
-    in-out property <[string]> col-b-orig: [];
-    in-out property <[string]> col-c-orig: [];
-    in-out property <[string]> col-d-orig: [];
-    in-out property <[string]> col-e-orig: [];
-    in-out property <[string]> col-f-orig: [];
-    in-out property <[string]> col-g-orig: [];
-    // Jumlah baris = panjang model kolom (didorong Rust saat push grid;
-    // "+ Baris" menambah entri "" ke semua model — jangan di-set manual).
-    property <int> row-count: root.col-a.length;
-    // Jenis kolom + kunci + opsi dropdown (didorong Rust dari sheet_model.rs;
-    // nilai default di bawah = fallback bila Rust belum sempat mendorong).
+    // ===== Data grid DINAMIS (28 Nov 2026 — kolom dari header sheet,
+    // bukan fixed 7) =====
+    // grid[r][c] = nilai tampil jendela halaman; grid-orig[r][c] =
+    // nilai asli saat dimuat (jangkar guard + nilai asli draft).
+    // Hanya satu jendela yang dirender (page-start..+page-size);
+    // total-rows = seluruh baris data. Default KOSONG (27 Nov 2026,
+    // keputusan abeng: default publish harus bersih).
+    in-out property <[[string]]> grid: [];
+    in-out property <[[string]]> grid-orig: [];
+    // Definisi kolom (didorong Rust — lokal 7 kolom atau dinamis dari
+    // header sheet live): header tampil, huruf, jenis, kunci, lebar
+    // px, offset-x kumulatif px, opsi dropdown per kolom.
+    in-out property <[string]> col-headers: ["KODE", "SEKOLAH", "JENJANG", "STATUS", "POIN", "CATATAN", "TANGGAL"];
+    in-out property <[string]> col-letters: ["A", "B", "C", "D", "E", "F", "G"];
     in-out property <[string]> col-kinds: ["text", "text", "dropdown", "dropdown", "number", "text", "date"];
     in-out property <[bool]> col-locked: [true, false, false, false, false, false, false];
-    in-out property <[string]> col-c-items: ["TK", "PAUD", "SD", "SMP", "SMA", "SMK"];
-    in-out property <[string]> col-d-items: ["SELESAI", "PROSES", "REVISI", "ANTRIAN"];
+    in-out property <[float]> col-widths: [110, 200, 80, 100, 90, 200, 100];
+    in-out property <[float]> col-x-offsets: [0, 110, 310, 390, 490, 580, 780];
+    in-out property <[[string]]> col-items: [[], [], ["TK", "PAUD", "SD", "SMP", "SMA", "SMK"], ["SELESAI", "PROSES", "REVISI", "ANTRIAN"], [], [], []];
+    // Indeks kolom kunci tetap (NO FAKTUR) — sel kunci HANYA bisa diedit
+    // bila masih kosong (baris baru); -1 = tanpa kunci.
+    in-out property <int> key-col: 0;
+    // Paging jendela grid (Slint tidak memvirtualisasi seperti DataGrid
+    // C# — 16.308 baris × 20 kolom tidak bisa jadi elemen).
+    in-out property <int> page-start: 0;
+    in-out property <int> page-size: 100;
+    in-out property <int> total-rows: 0;
+    // Nomor baris sheet (1-based) baris pertama jendela (gutter) —
+    // live: header_row + view_start (didorong Rust).
+    in-out property <int> row-num-base: 1;
+    // Label halaman ("Hal 1 dari 164") — dihitung Rust (pembagian
+    // bilangan bulat di .slint tidak stabil).
+    in-out property <string> page-label: "";
+    // Jumlah baris jendela = panjang model grid; jumlah kolom = panjang
+    // definisi header (keduanya didorong Rust saat push grid).
+    property <int> row-count: root.grid.length;
+    property <int> col-count: root.col-headers.length;
+    // Lebar isi grid (gutter 42px + seluruh kolom) + tinggi isi
+    // (padding 2px + header 28px + baris 32px).
+    property <float> content-width: 42 + (root.col-count > 0 ? root.col-x-offsets[root.col-count - 1] + root.col-widths[root.col-count - 1] : 0);
+    property <length> content-height: 2px + 28px + root.row-count * 32px;
+
+    // Geometri overlay dropdown & kalender (KOORDINAT ISI Flickable —
+    // overlay kini anak content-rect, jadi ikut scroll + terpotong
+    // viewport; dulu anak root dengan grid-rect.x/y + hdr-*.x).
+    property <length> dd-list-height: root.dd-items.length * 32px + 2px;
+    // Opsi dropdown kolom aktif (properti murni — `for` tidak boleh
+    // memanggil fungsi impure seperti dropdown-items()).
+    property <[string]> dd-items: root.active-col >= 0 && root.active-col < root.col-items.length ? root.col-items[root.active-col] : [];
+    property <length> dd-cell-top: 1px + 28px + root.active-row * 32px;
+    property <length> dd-col-x: 1px + 42px + (root.active-col >= 0 && root.active-col < root.col-count ? root.col-x-offsets[root.active-col] * 1px : 0px);
+    property <length> dd-col-width: root.active-col >= 0 && root.active-col < root.col-count ? root.col-widths[root.active-col] * 1px : 120px;
+    property <bool> dd-below: root.dd-cell-top + 32px + root.dd-list-height <= root.content-height - 8px;
+    // Tinggi kalender: header 32 + nama hari 20 + 6 baris × 28 +
+    // 7 celah × 2 + padding 4×2 = 242px (228px sebelumnya memotong
+    // setengah baris minggu ke-6, mis. tgl 30 November 2026).
+    property <length> cal-height: 242px;
+    property <bool> cal-below: root.dd-cell-top + 32px + root.cal-height <= root.content-height - 8px;
+    // Jepit horizontal supaya overlay tidak keluar isi (kolom paling
+    // kanan: kalender 240px akan terpotong di tepi isi).
+    property <length> dd-x: max(0px, min(root.dd-col-x, root.content-width * 1px - max(root.dd-col-width, 120px)));
+    property <length> cal-x: max(0px, min(root.dd-col-x, root.content-width * 1px - 240px));
 
     // ===== State seleksi multi-baris (ala C# DataGrid Extended) =====
-    // Baris terpilih (satu bool per baris) + kolom fokus. Highlight hanya
-    // di sel (baris terpilih, kolom fokus) — seperti C#
+    // Baris terpilih (satu bool per baris jendela) + kolom fokus.
+    // Highlight hanya di sel (baris terpilih, kolom fokus) — seperti C#
     // UpdateCellSelectionVisuals. Anchor = sel awal rentang Shift/drag.
-    in-out property <[bool]> sel-rows: [true, false, false, false, false, false];
+    // Panjang model didorong Rust tiap push grid (selalu = row-count).
+    in-out property <[bool]> sel-rows: [];
     in-out property <int> focus-col: 1;
     in-out property <int> anchor-row: 0;
     in-out property <int> anchor-col: 1;
@@ -272,40 +326,78 @@ export component SpreadsheetComponent inherits Rectangle {
     public function col-kind(c: int) -> string {
         c >= 0 && c < root.col-kinds.length ? root.col-kinds[c] : "text"
     }
+    // Sel aktif / fokus dijepit saat jendela berubah ukuran (ganti
+    // halaman / ganti kolom): tanpa ini active-row halaman lama bisa
+    // menunjuk baris yang tidak ada di halaman baru.
+    changed row-count => {
+        if (root.active-row >= root.row-count) {
+            root.active-row = max(root.row-count - 1, 0);
+        }
+    }
+    changed col-count => {
+        if (root.active-col >= root.col-count) {
+            root.active-col = max(root.col-count - 1, 0);
+        }
+        if (root.focus-col >= root.col-count) {
+            root.focus-col = max(root.col-count - 1, 0);
+        }
+    }
     public function col-is-locked(c: int) -> bool {
         c >= 0 && c < root.col-locked.length ? root.col-locked[c] : false
     }
     public function col-letter(c: int) -> string {
-        c == 0 ? "A" : c == 1 ? "B" : c == 2 ? "C" : c == 3 ? "D" : c == 4 ? "E" : c == 5 ? "F" : "G"
+        c >= 0 && c < root.col-letters.length ? root.col-letters[c] : ""
+    }
+    // Sel terkunci? Kolom kunci (NO FAKTUR) terkunci bila sel sudah
+    // berisi nilai (order yang sudah ada); sel kosong (baris baru)
+    // boleh diisi NO FAKTUR-nya — kalau tidak, order baru tidak bisa
+    // dibuat dari aplikasi.
+    public function cell-locked(r: int, c: int) -> bool {
+        root.col-is-locked(c) && !(c == root.key-col && root.cell-text(r, c) == "")
     }
     public function edit-kind() -> string {
         root.col-kind(root.active-col)
     }
     public function cell-text(r: int, c: int) -> string {
-        c == 0 ? root.col-a[r] : c == 1 ? root.col-b[r] : c == 2 ? root.col-c[r] : c == 3 ? root.col-d[r] : c == 4 ? root.col-e[r] : c == 5 ? root.col-f[r] : root.col-g[r]
+        r >= 0 && r < root.row-count && c >= 0 && c < root.col-count ? root.grid[r][c] : ""
+    }
+    public function cell-orig(r: int, c: int) -> string {
+        r >= 0 && r < root.row-count && c >= 0 && c < root.col-count ? root.grid-orig[r][c] : ""
     }
     public function dropdown-items(c: int) -> [string] {
-        c == 2 ? root.col-c-items : root.col-d-items
+        c >= 0 && c < root.col-items.length ? root.col-items[c] : []
     }
-    // Hit-test overlay: kolom dari posisi x (gutter 42px + padding 1px,
-    // jadi x<43 = gutter), baris dari posisi y (header 28px, baris 32px).
-    // Lebar kolom B/F stretch — dibaca dari lebar header hasil layout.
-    public function col-from-x(x: length) -> int {
-        x < 43px ? -1
-        : x < 43px + hdr-a.width ? 0
-        : x < 43px + hdr-a.width + hdr-b.width ? 1
-        : x < 43px + hdr-a.width + hdr-b.width + hdr-c.width ? 2
-        : x < 43px + hdr-a.width + hdr-b.width + hdr-c.width + hdr-d.width ? 3
-        : x < 43px + hdr-a.width + hdr-b.width + hdr-c.width + hdr-d.width + hdr-e.width ? 4
-        : x < 43px + hdr-a.width + hdr-b.width + hdr-c.width + hdr-d.width + hdr-e.width + hdr-f.width ? 5
-        : 6
+    // Warna teks sel: kolom STATUS diwarnai menurut nilainya (aturan
+    // lama kolom D lokal, kini berdasarkan nama header supaya berlaku
+    // juga di grid live); kolom POIN memakai warna kategori poin.
+    public function cell-color(r: int, c: int) -> color {
+        if (c >= 0 && c < root.col-count && root.col-headers[c] == "STATUS") {
+            root.cell-text(r, c) == "SELESAI" ? Design.status-success : root.cell-text(r, c) == "REVISI" ? Design.status-danger : Design.status-warning
+        } else if (c >= 0 && c < root.col-count && root.col-headers[c] == "POIN") {
+            Design.cat-points
+        } else {
+            Design.text-primary
+        }
     }
+    // CATATAN Slint: fungsi yang membaca global Design tetap dianggap
+    // impure — jadi logika warna/kunci sel di binding GridCell ditulis
+    // inline (di atas), bukan lewat fungsi. Fungsi cell-color /
+    // cell-locked di atas hanya dipakai dari callback (klik/edit).
+    // Hit-test overlay (koordinat isi Flickable): kolom dari posisi x
+    // via callback Rust hit-col (gutter 42px + padding 1px, jadi x<43
+    // = gutter); baris dari posisi y (header 28px, baris 32px).
     public function row-from-y(y: length) -> int {
-        y < 29px ? -1 : y < 61px ? 0 : y < 93px ? 1 : y < 125px ? 2 : y < 157px ? 3 : y < 189px ? 4 : y < 221px ? 5 : -1
+        if (y < 29px) {
+            return -1;
+        }
+        let idx = floor((y - 29px) / 32px);
+        idx >= root.row-count ? -1 : idx
     }
 
     // Pilih satu sel (klik biasa / panah): seleksi = baris itu saja,
-    // kolom fokus = kolom klik (C# CurrentCell).
+    // kolom fokus = kolom klik (C# CurrentCell). Model sel-rows
+    // dihitung Rust (callback select-rows) karena .slint tidak punya
+    // `for` di dalam fungsi.
     public function select-cell(r: int, c: int) {
         if (r >= 0 && r < root.row-count) {
             // Klik gutter (c = -1): pilih baris, kolom fokus tetap.
@@ -315,16 +407,14 @@ export component SpreadsheetComponent inherits Rectangle {
             root.active-row = r;
             root.active-col = cc;
             root.focus-col = cc;
-            root.sel-rows = [r == 0, r == 1, r == 2, r == 3, r == 4, r == 5];
+            root.sel-rows = root.select-rows(r, cc, 0, 0);
         }
     }
     // Shift+klik / seret: rentang baris anchor..r ditambahkan ke seleksi;
     // kolom fokus TETAP (C# OnDataGridCurrentCellChanged).
     public function extend-selection(r: int, c: int) {
         if (r >= 0 && r < root.row-count) {
-            let lo = min(root.anchor-row, r);
-            let hi = max(root.anchor-row, r);
-            root.sel-rows = [root.sel-rows[0] || (lo <= 0 && 0 <= hi), root.sel-rows[1] || (lo <= 1 && 1 <= hi), root.sel-rows[2] || (lo <= 2 && 2 <= hi), root.sel-rows[3] || (lo <= 3 && 3 <= hi), root.sel-rows[4] || (lo <= 4 && 4 <= hi), root.sel-rows[5] || (lo <= 5 && 5 <= hi)];
+            root.sel-rows = root.select-rows(r, c, 1, root.anchor-row);
             root.active-row = r;
             if (c >= 0) { root.active-col = c; }
         }
@@ -333,7 +423,7 @@ export component SpreadsheetComponent inherits Rectangle {
     public function toggle-row(r: int, c: int) {
         if (r >= 0 && r < root.row-count) {
             let cc = c < 0 ? root.focus-col : c;
-            root.sel-rows = [r == 0 ? !root.sel-rows[0] : root.sel-rows[0], r == 1 ? !root.sel-rows[1] : root.sel-rows[1], r == 2 ? !root.sel-rows[2] : root.sel-rows[2], r == 3 ? !root.sel-rows[3] : root.sel-rows[3], r == 4 ? !root.sel-rows[4] : root.sel-rows[4], r == 5 ? !root.sel-rows[5] : root.sel-rows[5]];
+            root.sel-rows = root.select-rows(r, cc, 2, 0);
             root.active-row = r;
             root.active-col = cc;
             root.focus-col = cc;
@@ -341,13 +431,13 @@ export component SpreadsheetComponent inherits Rectangle {
     }
     // Pindah sel aktif (panah): seleksi jadi satu sel.
     public function move-active(dr: int, dc: int) {
-        root.select-cell(min(max(root.active-row + dr, 0), max(root.row-count - 1, 0)), min(max(root.active-col + dc, 0), 6));
+        root.select-cell(min(max(root.active-row + dr, 0), max(root.row-count - 1, 0)), min(max(root.active-col + dc, 0), max(root.col-count - 1, 0)));
     }
     // Shift+panah: vertikal = perluas rentang baris; horizontal = pindah
     // sel aktif + kolom fokus ikut (seleksi baris tetap).
     public function move-active-extend(dr: int, dc: int) {
         let nr = min(max(root.active-row + dr, 0), max(root.row-count - 1, 0));
-        let nc = min(max(root.active-col + dc, 0), 6);
+        let nc = min(max(root.active-col + dc, 0), max(root.col-count - 1, 0));
         if (dc == 0) {
             root.extend-selection(nr, nc);
         } else {
@@ -361,7 +451,7 @@ export component SpreadsheetComponent inherits Rectangle {
     // dropdown & tanggal). Sel terkunci: toast, tidak jadi edit.
     public function begin-edit() {
         root.dragging = false;
-        if (root.col-is-locked(root.active-col)) {
+        if (root.cell-locked(root.active-row, root.active-col)) {
             root.toast("Sel terkunci — kolom " + root.col-letter(root.active-col) + " (" + root.cell-text(root.active-row, root.active-col) + ") tidak bisa diedit");
         } else {
             root.edit-initial = root.cell-text(root.active-row, root.active-col);
@@ -381,7 +471,7 @@ export component SpreadsheetComponent inherits Rectangle {
     // tanggal beda perlakuannya — teks & angka langsung terisi hurufnya.
     public function begin-edit-with-text(t: string) {
         root.dragging = false;
-        if (!root.col-is-locked(root.active-col)) {
+        if (!root.cell-locked(root.active-row, root.active-col)) {
             if (root.col-kinds[root.active-col] == "dropdown" || root.col-kinds[root.active-col] == "date") {
                 root.begin-edit();
             } else {
@@ -469,7 +559,7 @@ export component SpreadsheetComponent inherits Rectangle {
     }
 
     // Tulis nilai baru dari formula bar / input ke sel aktif.
-    // Nilai asli diambil dari kolom *-orig (nilai saat dimuat) — itu yang
+    // Nilai asli diambil dari grid-orig (nilai saat dimuat) — itu yang
     // dicatat draft + dipakai jangkar guard (bukan nilai hasil edit
     // sebelumnya). Tanpa perubahan nilai: bukan draft (mencegah
     // draft-count ganda saat commit dua kali — Enter lalu kehilangan fokus).
@@ -477,15 +567,8 @@ export component SpreadsheetComponent inherits Rectangle {
         let r: int = root.active-row;
         let c: int = root.active-col;
         if (val != root.cell-text(r, c)) {
-            let orig: string = c == 0 ? root.col-a-orig[r] : c == 1 ? root.col-b-orig[r] : c == 2 ? root.col-c-orig[r] : c == 3 ? root.col-d-orig[r] : c == 4 ? root.col-e-orig[r] : c == 5 ? root.col-f-orig[r] : root.col-g-orig[r];
-            if (c == 0) { root.col-a[r] = val; }
-            else if (c == 1) { root.col-b[r] = val; }
-            else if (c == 2) { root.col-c[r] = val; }
-            else if (c == 3) { root.col-d[r] = val; }
-            else if (c == 4) { root.col-e[r] = val; }
-            else if (c == 5) { root.col-f[r] = val; }
-            else if (c == 6) { root.col-g[r] = val; }
-
+            let orig: string = root.cell-orig(r, c);
+            root.grid[r][c] = val;
             root.has-draft = true;
             root.draft-count += 1;
             root.status-text = "● Perubahan belum disimpan (" + root.draft-count + " sel)";
@@ -499,8 +582,8 @@ export component SpreadsheetComponent inherits Rectangle {
     }
 
     // Tambah baris baru — dikerjakan Rust (append model tidak bisa dari
-    // .slint; Rust membaca grid tampil, menambah baris kosong 7 kolom,
-    // dan mendorong ke kedua tampilan; row-count = panjang model).
+    // .slint; Rust membaca grid tampil, menambah baris kosong, dan
+    // mendorong ke kedua tampilan; row-count = panjang model).
     public function add-new-row() {
         root.add-row();
     }
@@ -509,14 +592,14 @@ export component SpreadsheetComponent inherits Rectangle {
     // tidak hilang saat klik Simpan selagi mengetik), lalu guard jalan di
     // Rust selama save-changes(): guard-result "" = lolos (baru bersihkan
     // draft), berisi pesan = diblokir (draft dipertahankan, pesan guard
-    // tampil di status).
+    // tampil di status). Pesan sukses ditulis Rust (live vs lokal) —
+    // .slint tidak menimpa status-text saat lolos.
     public function commit-save() {
         root.commit-edit();
         root.save-changes();
         if (root.guard-result == "") {
             root.has-draft = false;
             root.draft-count = 0;
-            root.status-text = "✓ Semua perubahan tersimpan ke Google Sheets & SQLite";
             root.toast("Spreadsheet tersimpan");
         } else {
             root.status-text = root.guard-result;
@@ -530,7 +613,7 @@ export component SpreadsheetComponent inherits Rectangle {
         padding: Design.space-md;
         spacing: Design.space-sm;
 
-        // ===== 1. Toolbar Atas (Search, Aksi Baris, Zoom, Simpan, Popout) =====
+        // ===== 1. Toolbar Atas (Search, Aksi Baris, Zoom, Paging, Simpan, Popout) =====
         HorizontalLayout {
             height: 36px;
             spacing: Design.space-sm;
@@ -630,6 +713,53 @@ export component SpreadsheetComponent inherits Rectangle {
                 }
             }
 
+            // Paging jendela grid (100 baris/halaman — Slint tidak
+            // memvirtualisasi; Rust memegang seluruh data).
+            Rectangle {
+                width: 148px;
+                height: 32px;
+                background: Design.surface-elevated;
+                border-color: Design.separator;
+                border-width: 1px;
+                border-radius: Design.radius-sm;
+
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: 2px;
+
+                    Rectangle {
+                        width: 24px; height: 100%;
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.commit-edit(); root.prev-page(); }
+                        }
+                        Text {
+                            text: "‹"; font-size: 16px; font-weight: 800;
+                            color: Design.text-secondary; horizontal-alignment: center; vertical-alignment: center;
+                        }
+                    }
+                    Text {
+                        text: root.page-label;
+                        font-size: 10px;
+                        font-weight: 700;
+                        font-family: "JetBrains Mono";
+                        color: Design.text-primary;
+                        vertical-alignment: center;
+                    }
+                    Rectangle {
+                        width: 24px; height: 100%;
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.commit-edit(); root.next-page(); }
+                        }
+                        Text {
+                            text: "›"; font-size: 16px; font-weight: 800;
+                            color: Design.text-secondary; horizontal-alignment: center; vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+
             // Refresh Data
             Btn {
                 label: "Muat Ulang";
@@ -672,11 +802,11 @@ export component SpreadsheetComponent inherits Rectangle {
         }
 
         // ===== 2. Tabel DataGrid Spreadsheet =====
-        // Hit-test overlay: gutter 42px + padding 1px (x<43 = gutter),
-        // header 28px (y<29 = header), baris 32px (baris r di y 29+32r
-        // .. 61+32r). Lebar kolom B/F stretch — dibaca dari lebar header
-        // hasil layout (hdr-*.width), bukan asumsi (lihat col-from-x /
-        // row-from-y di atas, sebelum VerticalLayout utama).
+        // Flickable dua arah: kolom fixed-px (lebar dari header sheet)
+        // bisa melewati lebar window (20 kolom ALL DATA REGULER ≈ 2,5
+        // ribu px); baris dirender per jendela halaman (100 baris).
+        // Hit-test overlay di dalam isi (koordinat isi, bukan viewport)
+        // — hit-col (Rust) / row-from-y memakai offset Rust.
         grid-rect := Rectangle {
             vertical-stretch: 1;
             background: Design.card-bg;
@@ -723,273 +853,131 @@ export component SpreadsheetComponent inherits Rectangle {
                     reject
                 }
 
-            VerticalLayout {
-                padding: 1px;
-                spacing: 0;
+                flick := Flickable {
+                    width: 100%;
+                    height: 100%;
+                    content-width: root.content-width * 1px;
+                    content-height: root.content-height;
 
-                // Header Kolom A..F
-                HorizontalLayout {
-                    height: 28px;
-                    spacing: 0;
+                    content-rect := Rectangle {
+                        width: flick.content-width;
+                        height: flick.content-height;
 
-                    // Header baris kosong di pojok kiri atas
-                    Rectangle {
-                        width: 42px;
-                        background: Design.surface-elevated;
-                        border-color: Design.separator;
-                        border-width: 0.5px;
-                        Text { text: "#"; font-size: 10px; font-weight: 800; color: Design.text-muted; horizontal-alignment: center; vertical-alignment: center; }
-                    }
+                        VerticalLayout {
+                            padding: 1px;
+                            spacing: 0;
+                            width: 100%;
+                            height: 100%;
 
-                    hdr-a := GridCell { width: 110px; text: "A  KODE"; is-header: true; }
-                    hdr-b := GridCell { horizontal-stretch: 2; text: "B  SEKOLAH"; is-header: true; }
-                    hdr-c := GridCell { width: 80px; text: "C  JENJANG"; is-header: true; }
-                    hdr-d := GridCell { width: 100px; text: "D  STATUS"; is-header: true; }
-                    hdr-e := GridCell { width: 90px; text: "E  POIN"; is-header: true; is-numeric: true; }
-                    hdr-f := GridCell { horizontal-stretch: 2; text: "F  CATATAN"; is-header: true; }
-                    hdr-g := GridCell { width: 100px; text: "G  TANGGAL"; is-header: true; }
-                }
+                            // Header Kolom (huruf + nama, dari Rust)
+                            HorizontalLayout {
+                                height: 28px;
+                                spacing: 0;
 
-                // Baris-baris DataGrid (Row 0..5)
-                for r in 6 : HorizontalLayout {
-                    visible: r < root.row-count;
-                    height: 32px;
-                    spacing: 0;
+                                // Header baris kosong di pojok kiri atas
+                                Rectangle {
+                                    width: 42px;
+                                    background: Design.surface-elevated;
+                                    border-color: Design.separator;
+                                    border-width: 0.5px;
+                                    Text { text: "#"; font-size: 10px; font-weight: 800; color: Design.text-muted; horizontal-alignment: center; vertical-alignment: center; }
+                                }
 
-                    // Nomor Baris 1, 2, 3...
-                    Rectangle {
-                        width: 42px;
-                        background: root.active-row == r ? Design.accent-subtle : Design.surface-elevated;
-                        border-color: Design.separator;
-                        border-width: 0.5px;
-                        Text {
-                            text: r + 1;
-                            font-size: 11px;
-                            font-weight: 700;
-                            font-family: "JetBrains Mono";
-                            color: root.active-row == r ? Design.accent : Design.text-muted;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                        }
-                    }
-
-                    // Kolom A: Kode (terkunci — kolom ID, tidak bisa diedit)
-                    GridCell {
-                        width: 110px;
-                        text: root.col-a[r];
-                        is-numeric: true;
-                        is-active: root.active-row == r && root.active-col == 0;
-                        is-selected: root.sel-rows[r] && root.focus-col == 0;
-                        is-locked: root.col-locked[0];
-                        kind: root.col-kinds[0];
-                        editing: root.editing && root.active-row == r && root.active-col == 0;
-                        edit-initial: root.edit-initial;
-                        edit-select-all: root.edit-select-all;
-                        clicked => { root.cell-clicked(r, 0); }
-                        double-clicked => { root.cell-double-clicked(r, 0); }
-                        edited(text) => { root.apply-cell-edit(text); root.editing = false; }
-                        edit-changed(text) => { root.edit-text = text; }
-                    }
-
-                    // Kolom B: Sekolah
-                    GridCell {
-                        horizontal-stretch: 2;
-                        text: root.col-b[r];
-                        is-active: root.active-row == r && root.active-col == 1;
-                        is-selected: root.sel-rows[r] && root.focus-col == 1;
-                        is-locked: root.col-locked[1];
-                        kind: root.col-kinds[1];
-                        editing: root.editing && root.active-row == r && root.active-col == 1;
-                        edit-initial: root.edit-initial;
-                        edit-select-all: root.edit-select-all;
-                        clicked => { root.cell-clicked(r, 1); }
-                        double-clicked => { root.cell-double-clicked(r, 1); }
-                        edited(text) => { root.apply-cell-edit(text); root.editing = false; }
-                        edit-changed(text) => { root.edit-text = text; }
-                    }
-
-                    // Kolom C: Jenjang (dropdown)
-                    GridCell {
-                        width: 80px;
-                        text: root.col-c[r];
-                        is-active: root.active-row == r && root.active-col == 2;
-                        is-selected: root.sel-rows[r] && root.focus-col == 2;
-                        is-locked: root.col-locked[2];
-                        kind: root.col-kinds[2];
-                        editing: root.editing && root.active-row == r && root.active-col == 2;
-                        edit-initial: root.edit-initial;
-                        edit-select-all: root.edit-select-all;
-                        clicked => { root.cell-clicked(r, 2); }
-                        double-clicked => { root.cell-double-clicked(r, 2); }
-                        edited(text) => { root.apply-cell-edit(text); root.editing = false; }
-                        edit-changed(text) => { root.edit-text = text; }
-                    }
-
-                    // Kolom D: Status (dropdown)
-                    GridCell {
-                        width: 100px;
-                        text: root.col-d[r];
-                        text-color: root.col-d[r] == "SELESAI" ? Design.status-success : (root.col-d[r] == "REVISI" ? Design.status-danger : Design.status-warning);
-                        is-active: root.active-row == r && root.active-col == 3;
-                        is-selected: root.sel-rows[r] && root.focus-col == 3;
-                        is-locked: root.col-locked[3];
-                        kind: root.col-kinds[3];
-                        editing: root.editing && root.active-row == r && root.active-col == 3;
-                        edit-initial: root.edit-initial;
-                        edit-select-all: root.edit-select-all;
-                        clicked => { root.cell-clicked(r, 3); }
-                        double-clicked => { root.cell-double-clicked(r, 3); }
-                        edited(text) => { root.apply-cell-edit(text); root.editing = false; }
-                        edit-changed(text) => { root.edit-text = text; }
-                    }
-
-                    // Kolom E: Poin (angka)
-                    GridCell {
-                        width: 90px;
-                        text: root.col-e[r];
-                        is-numeric: true;
-                        text-color: Design.cat-points;
-                        is-active: root.active-row == r && root.active-col == 4;
-                        is-selected: root.sel-rows[r] && root.focus-col == 4;
-                        is-locked: root.col-locked[4];
-                        kind: root.col-kinds[4];
-                        editing: root.editing && root.active-row == r && root.active-col == 4;
-                        edit-initial: root.edit-initial;
-                        edit-select-all: root.edit-select-all;
-                        clicked => { root.cell-clicked(r, 4); }
-                        double-clicked => { root.cell-double-clicked(r, 4); }
-                        edited(text) => { root.apply-cell-edit(text); root.editing = false; }
-                        edit-changed(text) => { root.edit-text = text; }
-                    }
-
-                    // Kolom F: Catatan
-                    GridCell {
-                        horizontal-stretch: 2;
-                        text: root.col-f[r];
-                        is-active: root.active-row == r && root.active-col == 5;
-                        is-selected: root.sel-rows[r] && root.focus-col == 5;
-                        is-locked: root.col-locked[5];
-                        kind: root.col-kinds[5];
-                        editing: root.editing && root.active-row == r && root.active-col == 5;
-                        edit-initial: root.edit-initial;
-                        edit-select-all: root.edit-select-all;
-                        clicked => { root.cell-clicked(r, 5); }
-                        double-clicked => { root.cell-double-clicked(r, 5); }
-                        edited(text) => { root.apply-cell-edit(text); root.editing = false; }
-                        edit-changed(text) => { root.edit-text = text; }
-                    }
-
-                    // Kolom G: Tanggal (date picker)
-                    GridCell {
-                        width: 100px;
-                        text: root.col-g[r];
-                        is-active: root.active-row == r && root.active-col == 6;
-                        is-selected: root.sel-rows[r] && root.focus-col == 6;
-                        is-locked: root.col-locked[6];
-                        kind: root.col-kinds[6];
-                        editing: root.editing && root.active-row == r && root.active-col == 6;
-                        edit-initial: root.edit-initial;
-                        edit-select-all: root.edit-select-all;
-                        clicked => { root.cell-clicked(r, 6); }
-                        double-clicked => { root.cell-double-clicked(r, 6); }
-                        edited(text) => { root.apply-cell-edit(text); root.editing = false; }
-                        edit-changed(text) => { root.edit-text = text; }
-                    }
-                }
-
-                // Ruang kosong pengisi ke bawah
-                Rectangle { vertical-stretch: 1; }
-            }
-
-            // Overlay hit-test: menangkap klik/seret/klik-ganda di seluruh
-            // grid saat TIDAK mengedit. Nonaktif saat mengedit supaya klik
-            // sampai ke TouchArea tiap sel (commit/cancel + pindah sel).
-            // Klik tunggal pada sel dropdown/tanggal langsung buka editornya
-            // (C# — "dulu harus klik ganda, jadi terasa tidak bisa diklik").
-            grid-overlay := TouchArea {
-                x: 0; y: 0; width: 100%; height: 100%;
-                enabled: !root.editing;
-                mouse-cursor: pointer;
-                pointer-event(ev) => {
-                    if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
-                        grid-scope.focus();
-                        if (ev.modifiers.shift) {
-                            root.extend-selection(root.row-from-y(self.mouse-y), root.col-from-x(self.mouse-x));
-                            root.dragging = true;
-                        } else if (ev.modifiers.control) {
-                            root.toggle-row(root.row-from-y(self.mouse-y), root.col-from-x(self.mouse-x));
-                            root.dragging = true;
-                        } else {
-                            root.select-cell(root.row-from-y(self.mouse-y), root.col-from-x(self.mouse-x));
-                            // Tekan sel dropdown/tanggal langsung buka editor
-                            // (C#) — pointer-up-nya hilang karena overlay
-                            // nonaktif saat mengedit, jadi drag TIDAK boleh
-                            // dimulai di sini (kalau tidak, dragging nyangkut
-                            // true dan gerak mouse tanpa klik ikut seleksi).
-                            if (root.col-kinds[root.active-col] == "dropdown" || root.col-kinds[root.active-col] == "date") {
-                                root.begin-edit();
-                            } else {
-                                root.dragging = true;
+                                for c in root.col-count : GridCell {
+                                    width: root.col-widths[c] * 1px;
+                                    text: root.col-letters[c] + "  " + root.col-headers[c];
+                                    is-header: true;
+                                    is-numeric: root.col-kinds[c] == "number";
+                                }
                             }
+
+                            // Baris-baris DataGrid (jendela halaman)
+                            for r in root.row-count : HorizontalLayout {
+                                height: 32px;
+                                spacing: 0;
+
+                                // Nomor Baris (nomor sheet asli, bukan 1..N
+                                // jendela — live: header_row + view_start).
+                                Rectangle {
+                                    width: 42px;
+                                    background: root.active-row == r ? Design.accent-subtle : Design.surface-elevated;
+                                    border-color: Design.separator;
+                                    border-width: 0.5px;
+                                    Text {
+                                        text: root.row-num-base + r;
+                                        font-size: 11px;
+                                        font-weight: 700;
+                                        font-family: "JetBrains Mono";
+                                        color: root.active-row == r ? Design.accent : Design.text-muted;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+                                }
+
+                                for c in root.col-count : GridCell {
+                                    width: root.col-widths[c] * 1px;
+                                    text: root.grid[r][c];
+                                    is-numeric: root.col-kinds[c] == "number";
+                                    text-color: root.col-headers[c] == "STATUS" ? (root.grid[r][c] == "SELESAI" ? Design.status-success : root.grid[r][c] == "REVISI" ? Design.status-danger : Design.status-warning) : root.col-headers[c] == "POIN" ? Design.cat-points : Design.text-primary;
+                                    is-active: root.active-row == r && root.active-col == c;
+                                    is-selected: r < root.sel-rows.length && root.sel-rows[r] && root.focus-col == c;
+                                    is-locked: root.col-locked[c] && !(c == root.key-col && root.grid[r][c] == "");
+                                    kind: root.col-kinds[c];
+                                    editing: root.editing && root.active-row == r && root.active-col == c;
+                                    edit-initial: root.edit-initial;
+                                    edit-select-all: root.edit-select-all;
+                                    clicked => { root.cell-clicked(r, c); }
+                                    double-clicked => { root.cell-double-clicked(r, c); }
+                                    edited(text) => { root.apply-cell-edit(text); root.editing = false; }
+                                    edit-changed(text) => { root.edit-text = text; }
+                                }
+                            }
+
+                            // Ruang kosong pengisi ke bawah
+                            Rectangle { vertical-stretch: 1; }
                         }
-                    } else if (ev.kind == PointerEventKind.up) {
-                        root.dragging = false;
-                    } else if (ev.kind == PointerEventKind.move && root.dragging) {
-                        root.extend-selection(root.row-from-y(self.mouse-y), root.col-from-x(self.mouse-x));
-                    }
-                }
-                double-clicked => { root.begin-edit(); }
-            }
-            } // tutup grid-scope
-        } // tutup grid-rect
 
-        // ===== 3. Footer Status Bar =====
-        HorizontalLayout {
-            height: 22px;
-            spacing: Design.space-sm;
-
-            Text {
-                text: root.status-text;
-                font-size: Design.font-caption;
-                font-weight: 600;
-                color: root.has-draft ? Design.status-warning : Design.status-success;
-                vertical-alignment: center;
-                horizontal-stretch: 1;
-                overflow: elide;
-            }
-
-            Text {
-                text: "Baris: " + root.row-count + " · Kolom: 7 (A-G) · Sel Aktif: " + (root.active-col == 0 ? "A" : root.active-col == 1 ? "B" : root.active-col == 2 ? "C" : root.active-col == 3 ? "D" : root.active-col == 4 ? "E" : root.active-col == 5 ? "F" : "G") + (root.active-row + 1);
-                font-size: 10px;
-                font-family: "JetBrains Mono";
-                color: Design.text-muted;
-                vertical-alignment: center;
-            }
-        }
-    }
-
-    // ===== Overlay daftar dropdown & kalender (anak root — di luar grid,
-    // jadi tidak terpotong clip grid-rect) =====
-    // Geometri: x = posisi kolom aktif di grid, y = di bawah sel aktif
-    // (atau di atas bila tidak muat sampai bawah komponen).
-    property <length> dd-list-height: (root.active-col == 2 ? root.col-c-items.length : root.col-d-items.length) * 32px + 2px;
-    // Opsi dropdown kolom aktif (properti murni — `for` tidak boleh
-    // memanggil fungsi impure seperti dropdown-items()).
-    property <[string]> dd-items: root.active-col == 2 ? root.col-c-items : root.col-d-items;
-    property <length> dd-cell-top: grid-rect.y + 1px + 28px + root.active-row * 32px;
-    property <length> dd-col-x: grid-rect.x + 1px + (root.active-col == 0 ? hdr-a.x : root.active-col == 1 ? hdr-b.x : root.active-col == 2 ? hdr-c.x : root.active-col == 3 ? hdr-d.x : root.active-col == 4 ? hdr-e.x : root.active-col == 5 ? hdr-f.x : hdr-g.x);
-    property <length> dd-col-width: root.active-col == 0 ? hdr-a.width : root.active-col == 1 ? hdr-b.width : root.active-col == 2 ? hdr-c.width : root.active-col == 3 ? hdr-d.width : root.active-col == 4 ? hdr-e.width : root.active-col == 5 ? hdr-f.width : hdr-g.width;
-    property <bool> dd-below: root.dd-cell-top + 32px + root.dd-list-height <= root.height - 8px;
-    // Tinggi kalender: header 32 + nama hari 20 + 6 baris × 28 +
-    // 7 celah × 2 + padding 4×2 = 242px (228px sebelumnya memotong
-    // setengah baris minggu ke-6, mis. tgl 30 November 2026).
-    property <length> cal-height: 242px;
-    property <bool> cal-below: root.dd-cell-top + 32px + root.cal-height <= root.height - 8px;
-    // Jepit horizontal supaya overlay tidak keluar window (kolom G di
-    // kanan: kalender 240px dari x≈871 akan terpotong di window 1000px
-    // dan tombol TODAY tidak terlihat — dijepit ke tepi kanan - 8px).
-    property <length> dd-x: max(8px, min(root.dd-col-x, root.width - max(root.dd-col-width, 120px) - 8px));
-    property <length> cal-x: max(8px, min(root.dd-col-x, root.width - 240px - 8px));
+                        // Overlay hit-test: menangkap klik/seret/klik-ganda
+                        // di seluruh isi grid saat TIDAK mengedit. Nonaktif
+                        // saat mengedit supaya klik sampai ke TouchArea
+                        // tiap sel (commit/cancel + pindah sel).
+                        // Klik tunggal pada sel dropdown/tanggal langsung
+                        // buka editornya (C# — "dulu harus klik ganda,
+                        // jadi terasa tidak bisa diklik").
+                        grid-overlay := TouchArea {
+                            x: 0; y: 0; width: 100%; height: 100%;
+                            enabled: !root.editing;
+                            mouse-cursor: pointer;
+                            pointer-event(ev) => {
+                                if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                                    grid-scope.focus();
+                                    if (ev.modifiers.shift) {
+                                        root.extend-selection(root.row-from-y(self.mouse-y), root.hit-col(self.mouse-x));
+                                        root.dragging = true;
+                                    } else if (ev.modifiers.control) {
+                                        root.toggle-row(root.row-from-y(self.mouse-y), root.hit-col(self.mouse-x));
+                                        root.dragging = true;
+                                    } else {
+                                        root.select-cell(root.row-from-y(self.mouse-y), root.hit-col(self.mouse-x));
+                                        // Tekan sel dropdown/tanggal langsung buka editor
+                                        // (C#) — pointer-up-nya hilang karena overlay
+                                        // nonaktif saat mengedit, jadi drag TIDAK boleh
+                                        // dimulai di sini (kalau tidak, dragging nyangkut
+                                        // true dan gerak mouse tanpa klik ikut seleksi).
+                                        if (root.col-kinds[root.active-col] == "dropdown" || root.col-kinds[root.active-col] == "date") {
+                                            root.begin-edit();
+                                        } else {
+                                            root.dragging = true;
+                                        }
+                                    }
+                                } else if (ev.kind == PointerEventKind.up) {
+                                    root.dragging = false;
+                                } else if (ev.kind == PointerEventKind.move && root.dragging) {
+                                    root.extend-selection(root.row-from-y(self.mouse-y), root.hit-col(self.mouse-x));
+                                }
+                            }
+                            double-clicked => { root.begin-edit(); }
+                        }
 
     // Daftar opsi dropdown (C# ComboBox — langsung terbuka saat edit).
     if root.editing && root.col-kinds[root.active-col] == "dropdown" : Rectangle {
@@ -1121,6 +1109,39 @@ export component SpreadsheetComponent inherits Rectangle {
                         vertical-alignment: center;
                     }
                 }
+            }
+        }
+    } // tutup blok kalender
+                    } // tutup content-rect
+                } // tutup flick
+            } // tutup grid-scope
+        } // tutup grid-rect
+
+        // ===== 3. Footer Status Bar =====
+        // Pesan guard anti-menclok panjang (menyebut NO FAKTUR + kolom
+        // + nilai lama/baru + "klik Muat Ulang") — status harus wrap ke
+        // 2 baris, bukan elide satu baris (28 Nov 2026: pesan blokir
+        // terpotong "..." sehingga instruksi Muat Ulang tak terbaca).
+        HorizontalLayout {
+            min-height: 22px;
+            spacing: Design.space-sm;
+
+            Text {
+                text: root.status-text;
+                font-size: Design.font-caption;
+                font-weight: 600;
+                color: root.has-draft ? Design.status-warning : Design.status-success;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                wrap: word-wrap;
+            }
+
+            Text {
+                text: root.total-rows == 0 ? "Belum ada baris" : "Menampilkan " + (root.page-start + 1) + "–" + (root.page-start + root.row-count) + " dari " + root.total-rows + " · Kolom: " + root.col-count + " (" + root.col-letters[0] + "–" + root.col-letters[root.col-count - 1] + ") · Sel Aktif: " + root.col-letters[root.active-col] + (root.row-num-base + root.active-row);
+                font-size: 10px;
+                font-family: "JetBrains Mono";
+                color: Design.text-muted;
+                vertical-alignment: center;
             }
         }
     }

@@ -10,6 +10,10 @@ serde_json = "1.0"
 sha2 = "0.10"
 rusqlite = { version = "0.31", features = ["bundled"] }
 reqwest = { version = "0.12", features = ["json", "blocking"] }
+# JWT RS256 service account Google Sheets (Fase 6): ring = tanda tangan
+# RSA PKCS#1 v1.5 + SHA-256, base64 = base64url + decode PEM.
+ring = "0.17"
+base64 = "0.22"
 # Decode spritesheet PetDex (WebP/PNG) — decode_sheet di petdex.rs.
 image = { version = "0.25", default-features = false, features = ["webp", "png"] }
 rdev = "0.5.3"

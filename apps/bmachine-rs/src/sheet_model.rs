@@ -68,6 +68,44 @@ pub struct SheetColumn {
     pub items: &'static [&'static str],
 }
 
+/// Definisi kolom DINAMIS (milik sendiri — bukan `&'static`): dipakai
+/// grid live dari header sheet (20 kolom ALL DATA REGULER, dst.).
+/// Dibangun dari `LiveSheet` oleh `sheets_api::to_dyn_columns`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DynColumn {
+    /// Huruf kolom (A..Z, AA..).
+    pub letter: String,
+    /// Nama header tampil (apa adanya dari sheet).
+    pub header: String,
+    pub kind: SheetColKind,
+    /// Bila true, sel di kolom ini tidak bisa diedit.
+    pub locked: bool,
+    /// Pilihan dropdown (hanya dipakai bila `kind == Dropdown`).
+    pub items: Vec<String>,
+    /// Lebar kolom dalam px (dari `Configs.Spreadsheet.ColumnWidths`
+    /// bila ada, kalau tidak heuristik isi).
+    pub width_px: f32,
+}
+
+impl From<&SheetColumn> for DynColumn {
+    fn from(c: &SheetColumn) -> Self {
+        DynColumn {
+            letter: c.letter.to_string(),
+            header: c.header.to_string(),
+            kind: c.kind,
+            locked: c.locked,
+            items: c.items.iter().map(|s| s.to_string()).collect(),
+            width_px: 0.0,
+        }
+    }
+}
+
+/// Kolom model lokal 7 kolom sebagai `DynColumn` (untuk pemanggil
+/// umum `fill_down`/`clear_cells`).
+pub fn local_columns() -> Vec<DynColumn> {
+    SHEET_COLUMNS.iter().map(DynColumn::from).collect()
+}
+
 /// Jumlah kolom sheet di port (A–G).
 pub const SHEET_COLUMN_COUNT: usize = 7;
 
@@ -129,15 +167,18 @@ pub const SHEET_COLUMNS: [SheetColumn; SHEET_COLUMN_COUNT] = [
 
 /// Isi ke bawah (C# Ctrl+D, "Fill Down - Row based"): salin nilai baris
 /// paling atas dari seleksi ke baris-baris terpilih lainnya, HANYA di
-/// kolom fokus. Mengembalikan daftar (baris 0-based, kolom, nilai baru)
+/// kolom fokus. `cols` = definisi kolom yang sedang tampil (lokal 7
+/// kolom atau dinamis dari sheet live) — kunci diambil dari sana.
+/// Mengembalikan daftar (baris 0-based, kolom, nilai baru)
 /// yang benar-benar berubah — sel terkunci dan sel yang nilainya sudah
 /// sama dilewati (tidak jadi draft).
 pub fn fill_down(
     grid: &[Vec<String>],
     focus_col: usize,
     selected_rows: &[bool],
+    cols: &[DynColumn],
 ) -> Vec<(usize, usize, String)> {
-    if focus_col >= SHEET_COLUMN_COUNT || SHEET_COLUMNS[focus_col].locked {
+    if focus_col >= cols.len() || cols[focus_col].locked {
         return Vec::new();
     }
     let Some(top) = selected_rows.iter().position(|s| *s) else {
@@ -174,8 +215,9 @@ pub fn clear_cells(
     grid: &[Vec<String>],
     focus_col: usize,
     selected_rows: &[bool],
+    cols: &[DynColumn],
 ) -> Vec<(usize, usize, String)> {
-    if focus_col >= SHEET_COLUMN_COUNT || SHEET_COLUMNS[focus_col].locked {
+    if focus_col >= cols.len() || cols[focus_col].locked {
         return Vec::new();
     }
     let mut out = Vec::new();
@@ -198,8 +240,15 @@ pub fn clear_cells(
 /// Jumlahkan kolom Poin (kolom E, indeks 4) — hanya nilai yang bisa
 /// diparse sebagai bilangan yang dihitung; sisanya dilewati.
 pub fn sum_points(grid: &[Vec<String>]) -> i64 {
+    sum_column(grid, 4)
+}
+
+/// Jumlahkan satu kolom (indeks `col`) — hanya nilai yang bisa
+/// diparse sebagai bilangan yang dihitung; sisanya dilewati.
+/// Dipakai total footer grid live (kolom angka apa pun).
+pub fn sum_column(grid: &[Vec<String>], col: usize) -> i64 {
     grid.iter()
-        .filter_map(|row| row.get(4))
+        .filter_map(|row| row.get(col))
         .filter_map(|s| s.trim().parse::<i64>().ok())
         .sum()
 }
@@ -328,13 +377,14 @@ mod tests {
 
     #[test]
     fn fill_down_copies_top_row_in_focus_column_only() {
+        let cols = local_columns();
         let grid = vec![
             row(&["1", "SDN A", "SD", "SELESAI", "10", "", ""]),
             row(&["2", "SDN B", "SD", "PROSES", "20", "", ""]),
             row(&["3", "SDN C", "SD", "REVISI", "30", "", ""]),
         ];
         // Seleksi baris 0..2, kolom fokus B (1): B1..B3 = "SDN A".
-        let edits = fill_down(&grid, 1, &[true, true, true]);
+        let edits = fill_down(&grid, 1, &[true, true, true], &cols);
         assert_eq!(
             edits,
             vec![
@@ -343,36 +393,38 @@ mod tests {
             ]
         );
         // Satu baris terpilih saja: tidak ada yang diisi.
-        assert!(fill_down(&grid, 1, &[true, false, false]).is_empty());
+        assert!(fill_down(&grid, 1, &[true, false, false], &cols).is_empty());
         // Tidak ada seleksi: kosong.
-        assert!(fill_down(&grid, 1, &[false, false, false]).is_empty());
+        assert!(fill_down(&grid, 1, &[false, false, false], &cols).is_empty());
         // Baris tengah sebagai sumber (seleksi 1..2): sumber = baris 1.
-        let edits = fill_down(&grid, 1, &[false, true, true]);
+        let edits = fill_down(&grid, 1, &[false, true, true], &cols);
         assert_eq!(edits, vec![(2, 1, "SDN B".to_string())]);
     }
 
     #[test]
     fn fill_down_skips_locked_and_unchanged() {
+        let cols = local_columns();
         let grid = vec![
             row(&["1", "SDN A", "SD", "SELESAI", "10", "", ""]),
             row(&["1", "SDN A", "SD", "SELESAI", "10", "", ""]),
         ];
         // Kolom A terkunci: tidak ada edit walau seleksi ada.
-        assert!(fill_down(&grid, 0, &[true, true]).is_empty());
+        assert!(fill_down(&grid, 0, &[true, true], &cols).is_empty());
         // Nilai sudah sama: tidak ada edit.
-        assert!(fill_down(&grid, 1, &[true, true]).is_empty());
+        assert!(fill_down(&grid, 1, &[true, true], &cols).is_empty());
     }
 
     #[test]
     fn clear_cells_only_focus_column_and_skips_empty_locked() {
+        let cols = local_columns();
         let grid = vec![
             row(&["1", "SDN A", "SD", "SELESAI", "10", "", ""]),
             row(&["2", "", "SD", "PROSES", "20", "", ""]),
         ];
-        let edits = clear_cells(&grid, 1, &[true, true]);
+        let edits = clear_cells(&grid, 1, &[true, true], &cols);
         assert_eq!(edits, vec![(0, 1, String::new())]);
         // Kolom terkunci: kosong.
-        assert!(clear_cells(&grid, 0, &[true, true]).is_empty());
+        assert!(clear_cells(&grid, 0, &[true, true], &cols).is_empty());
     }
 
     #[test]
@@ -385,6 +437,37 @@ mod tests {
         ];
         assert_eq!(sum_points(&grid), 2230);
         assert_eq!(sum_points(&[]), 0);
+        // sum_column umum: kolom QTY (indeks 8) pada grid live.
+        let live = vec![
+            row(&["F1", "72"]),
+            row(&["F2", "3"]),
+            row(&["F3", "bukan-angka"]),
+        ];
+        assert_eq!(sum_column(&live, 1), 75);
+        assert_eq!(sum_column(&live, 9), 0);
+    }
+
+    #[test]
+    fn dyn_column_from_static() {
+        let cols = local_columns();
+        assert_eq!(cols.len(), SHEET_COLUMN_COUNT);
+        assert_eq!(cols[0].letter, "A");
+        assert_eq!(cols[0].header, "KODE");
+        assert!(cols[0].locked);
+        assert_eq!(cols[2].kind, SheetColKind::Dropdown);
+        assert_eq!(cols[2].items, ["TK", "PAUD", "SD", "SMP", "SMA", "SMK"]);
+        // Kolom dinamis 20 kolom: kunci + lebar ikut definisi.
+        let mut live = DynColumn {
+            letter: "T".to_string(),
+            header: "TGL PENGIRIMAN".to_string(),
+            kind: SheetColKind::Date,
+            locked: false,
+            items: vec![],
+            width_px: 197.0,
+        };
+        assert_eq!(live.kind, SheetColKind::Date);
+        live.locked = true;
+        assert!(fill_down(&[row(&["x"])], 0, &[true], std::slice::from_ref(&live)).is_empty());
     }
 
     #[test]
