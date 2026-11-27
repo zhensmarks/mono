@@ -28,6 +28,14 @@ info baru — mulai dari sini.
 - Jangan tambah tombol "← Kembali" di mana pun. Kembali/tutup hanya lewat
   klik kanan (+ Esc). Satu-satunya pengecualian: tombol "Tutup" di detail
   Trello dan × di title bar window.
+- **Aturan baru abeng (27 Nov 2026, 16:17 WIB):** semua tampilan dan fitur
+  port **disamakan dengan C#** — cara pemanggilannya (klik widget/panah,
+  hotkey, menu, dsb), cara tampilan keluarnya (embedded vs window, posisi,
+  animasi), dan seterusnya. Ini memperluas prinsip di atas: bukan hanya
+  BATCH + Explorer + detail Trello yang harus persis. Kalau aturan ini
+  bertentangan dengan kebebasan "tampilan boleh dirombak" di tempat lain,
+  **tanya abeng dulu, jangan menebak**. Detail hasil test C# v15.15.3 ada
+  di `CATATAN_CSHARP_V15153.md`.
 
 ## 3. Build, jalan, tes
 

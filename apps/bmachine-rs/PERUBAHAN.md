@@ -5,6 +5,19 @@ sebelum commit + push (format lengkap di `AGENTS.md`). Entri terbaru di
 paling atas. Dengan log ini, siapa pun yang menerima project — Dex, Hermes,
 atau orang lain — langsung tahu apa saja yang diubah tanpa menebak.
 
+## 2026-11-27 — Dex (aturan baru abeng) — Samakan semua tampilan & fitur dengan C#
+
+- Diubah: `LANJUTKAN.md` §2 + aturan baru — semua tampilan dan fitur port
+  disamakan dengan C#: cara pemanggilan (klik widget/panah, hotkey, menu)
+  dan cara tampilan keluarnya (embedded vs window, posisi, animasi), dll.
+  Kalau bertentangan dengan kebebasan "tampilan boleh dirombak", tanya
+  abeng dulu, jangan menebak.
+- Alasan: abeng 27 Nov 16:17 WIB — "semua tampilan dan fitur nanti samakan
+  ya cara pemanggilannya, cara tampilan keluarnya dll nya oke".
+- Terverifikasi: perubahan dokumen saja (tidak ada kode yang diubah).
+- Masih terbuka: keputusan abeng soal label SPREADSHEET vs POINTS
+  (lihat CATATAN_CSHARP_V15153.md).
+
 ## 2026-11-27 — Dex (test C# v15.15.3, atas perintah abeng) — Catatan penerapan ke port
 
 - Diubah: baru `CATATAN_CSHARP_V15153.md` — hasil test menyeluruh C#
