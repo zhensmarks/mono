@@ -359,10 +359,13 @@ export component SpreadsheetWindow inherits Window {
                 padding-right: 14px;
                 spacing: 8px;
 
-                SvgIcon {
-                    name: "layers";
-                    size: 16px;
-                    icon-color: Design.cat-points;
+                VerticalLayout {
+                    alignment: center;
+                    SvgIcon {
+                        name: "layers";
+                        size: 16px;
+                        icon-color: Design.cat-points;
+                    }
                 }
 
                 Text {
@@ -572,10 +575,13 @@ export component CardListWindow inherits Window {
                         padding-right: 8px;
                         spacing: 6px;
 
-                        SvgIcon {
-                            name: "search";
-                            size: 13px;
-                            icon-color: Design.text-muted;
+                        VerticalLayout {
+                            alignment: center;
+                            SvgIcon {
+                                name: "search";
+                                size: 13px;
+                                icon-color: Design.text-muted;
+                            }
                         }
                         TextInput {
                             text <=> root.search-query;

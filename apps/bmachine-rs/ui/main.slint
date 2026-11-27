@@ -3739,10 +3739,17 @@ export component AppWindow inherits Window {
     }
 
     // ===== Flyout profil (overlay, di bawah tombol profil) =====
+    // Posisi menempel tombol pemanggil (C#: Button.Flyout di tombol
+    // akun — bawah tombol, rata kiri): x = tepi kiri tombol avatar
+    // (padding-left bar atas 20px*scale); y = bawah tombol avatar
+    // (chrome 28px + padding 12px + tinggi 40px = 52px*scale) + jarak
+    // 8px*scale. DULU: x di tengah layar + y 60px — SALAH (abeng,
+    // 27 Nov 18:48: flyout muncul di tengah, harusnya di posisi
+    // tombol yang memanggilnya).
     Rectangle {
         visible: root.show-flyout && root.overlay-view == "";
-        x: (root.width - 256px) / 2;
-        y: 60px * root.ui-scale;
+        x: 20px * root.ui-scale;
+        y: (root.app-chrome == "custom" ? 28px : 0px) + 60px * root.ui-scale;
         width: 256px;
         height: flyout-layout.preferred-height;
         background: Design.surface-elevated;

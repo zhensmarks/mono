@@ -292,6 +292,22 @@ dengan `ui-scale`. Nav berisi **HOME + BATCH saja** (LOCKER
 dihapus 26 Nov 13:50 atas permintaan abeng; Settings, Explorer,
 dan Modul BUKAN tab nav — lihat §18).
 
+**Aturan ikon+teks (27 Nov 2026, perbaikan keluhan abeng):**
+`HorizontalLayout { alignment: center }` hanya menengahkan sumbu
+horizontal — SvgIcon ber-height eksplisit nempel ke ATAS baris,
+sedangkan Text di-stretch dan menengah sendiri, jadi ikon selalu
+~8px di atas teks. WAJIB: bungkus tiap SvgIcon di baris ikon+teks
+dengan `VerticalLayout { alignment: center; ... }`. Berlaku di
+semua tampilan (nav, tombol, search field, baris Settings/panel,
+judul window, item radial).
+
+**Nav dinamis (abeng 27 Nov 18:46):** tab terpilih tampil ikon +
+teks; tab tidak terpilih hanya ikon saja (lebar label dianimasikan
+200ms, pill mengikuti preferred-width). **Flyout profil (abeng
+27 Nov 18:48):** menempel tombol avatar — `x: 20px*scale`,
+`y: chrome + 60px*scale` (bawah tombol + jarak 8px*scale), bukan
+di tengah layar.
+
 ## 8. StatWidget — Kartu Statistik Dashboard
 
 Komponen `StatWidget` (`ui/design.slint`). Gaya C# (pilihan abeng

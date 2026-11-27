@@ -532,32 +532,53 @@ export component NavTab inherits Rectangle {
 
     animate background { duration: Design.anim-normal; easing: ease-out; }
 
-    // Ikon (Home/layers) + label tetap centered di pill.
+    // ATURAN IKON+TEKS (27 Nov 2026): SvgIcon punya height eksplisit,
+    // jadi di dalam HorizontalLayout ia nempel ke ATAS baris (bukan
+    // tengah) — `alignment: center` hanya menengahkan sumbu horizontal.
+    // Text tanpa height eksplisit di-stretch setinggi baris dan
+    // `vertical-alignment: center` menengahkan glyph-nya. Akibatnya
+    // ikon selalu ~8px di atas teks. Perbaikan: bungkus SvgIcon dengan
+    // VerticalLayout{alignment:center} (di-stretch setinggi baris,
+    // lalu menengahkan ikon) — pola yang sama dipakai GroupRow dan
+    // search field di settings.slint. Berlaku di SEMUA baris ikon+teks.
+    // Label dinamis (abeng 27 Nov 18:46): hanya tampil saat selected;
+    // saat tidak terpilih pill mengecil jadi ikon saja — lebar
+    // label-box dianimasikan (dynamic move), gap 7px ikut di dalam
+    // lebar itu supaya pill yang mengecil tetap simetris.
     HorizontalLayout {
         width: 100%;
         height: 100%;
         padding-left: 14px * scale;
         padding-right: 14px * scale;
-        spacing: 7px * scale;
         alignment: center;
 
-        if icon == "layers" : SvgIcon {
-            name: "layers";
-            size: 16px * scale;
-            icon-color: selected ? Design.nav-selected-fg : Design.nav-unselected-fg;
+        VerticalLayout {
+            alignment: center;
+            if icon == "layers" : SvgIcon {
+                name: "layers";
+                size: 16px * scale;
+                icon-color: selected ? Design.nav-selected-fg : Design.nav-unselected-fg;
+            }
+            if icon == "home" : SvgIcon {
+                name: "home";
+                size: 16px * scale;
+                icon-color: selected ? Design.nav-selected-fg : Design.nav-unselected-fg;
+            }
         }
-        if icon == "home" : SvgIcon {
-            name: "home";
-            size: 16px * scale;
-            icon-color: selected ? Design.nav-selected-fg : Design.nav-unselected-fg;
-        }
-        Text {
-            text: label;
-            font-size: 12px * scale;
-            font-weight: 800;
-            letter-spacing: 0.6px * scale;
-            color: selected ? Design.nav-selected-fg : Design.nav-unselected-fg;
-            vertical-alignment: center;
+        label-box := Rectangle {
+            width: selected ? label-text.preferred-width + 7px * scale : 0px;
+            clip: true;
+            animate width { duration: 200ms; easing: ease-out; }
+            label-text := Text {
+                x: 7px * scale;
+                height: 100%;
+                text: label;
+                font-size: 12px * scale;
+                font-weight: 800;
+                letter-spacing: 0.6px * scale;
+                color: selected ? Design.nav-selected-fg : Design.nav-unselected-fg;
+                vertical-alignment: center;
+            }
         }
     }
 

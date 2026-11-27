@@ -95,10 +95,13 @@ component SubmenuPetal inherits Rectangle {
         padding-right: 8px;
         spacing: 5px;
 
-        if root.icon-name != "" : SvgIcon {
-            name: root.icon-name;
-            size: 13px;
-            icon-color: root.hovered ? Design.app-bg : Design.text-primary;
+        if root.icon-name != "" : VerticalLayout {
+            alignment: center;
+            SvgIcon {
+                name: root.icon-name;
+                size: 13px;
+                icon-color: root.hovered ? Design.app-bg : Design.text-primary;
+            }
         }
 
         Text {

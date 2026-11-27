@@ -25,10 +25,13 @@ component PanelTab inherits Rectangle {
         alignment: center;
         spacing: 4px;
 
-        if root.icon-name != "" : SvgIcon {
-            name: root.icon-name;
-            size: 12px;
-            icon-color: root.selected ? Design.accent : Design.text-muted;
+        if root.icon-name != "" : VerticalLayout {
+            alignment: center;
+            SvgIcon {
+                name: root.icon-name;
+                size: 12px;
+                icon-color: root.selected ? Design.accent : Design.text-muted;
+            }
         }
 
         Text {
@@ -96,10 +99,13 @@ component ExplorerRow inherits Rectangle {
         padding-right: Design.space-sm;
         spacing: Design.space-sm;
 
-        SvgIcon {
-            name: root.is-folder ? "folder" : "file";
-            size: 14px;
-            icon-color: root.is-folder ? Design.accent : Design.text-muted;
+        VerticalLayout {
+            alignment: center;
+            SvgIcon {
+                name: root.is-folder ? "folder" : "file";
+                size: 14px;
+                icon-color: root.is-folder ? Design.accent : Design.text-muted;
+            }
         }
 
         Text {
@@ -133,10 +139,13 @@ component MasterRow inherits Rectangle {
         padding-right: Design.space-sm;
         spacing: Design.space-sm;
 
-        SvgIcon {
-            name: "image";
-            size: 14px;
-            icon-color: Design.accent;
+        VerticalLayout {
+            alignment: center;
+            SvgIcon {
+                name: "image";
+                size: 14px;
+                icon-color: Design.accent;
+            }
         }
 
         Text {
@@ -388,10 +397,13 @@ export component LogPanelView inherits Rectangle {
                         padding-right: 6px;
                         spacing: 6px;
 
-                        SvgIcon {
-                            name: "folder";
-                            size: 13px;
-                            icon-color: Design.text-muted;
+                        VerticalLayout {
+                            alignment: center;
+                            SvgIcon {
+                                name: "folder";
+                                size: 13px;
+                                icon-color: Design.text-muted;
+                            }
                         }
 
                         Text {
@@ -479,10 +491,13 @@ export component LogPanelView inherits Rectangle {
                         padding-right: 8px;
                         spacing: 6px;
 
-                        SvgIcon {
-                            name: "search";
-                            size: 13px;
-                            icon-color: Design.text-muted;
+                        VerticalLayout {
+                            alignment: center;
+                            SvgIcon {
+                                name: "search";
+                                size: 13px;
+                                icon-color: Design.text-muted;
+                            }
                         }
                         TextInput {
                             font-size: Design.font-body;

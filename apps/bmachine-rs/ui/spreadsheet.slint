@@ -222,10 +222,13 @@ export component SpreadsheetComponent inherits Rectangle {
                     padding-right: 10px;
                     spacing: 6px;
 
-                    SvgIcon {
-                        name: "search";
-                        size: 14px;
-                        icon-color: Design.text-muted;
+                    VerticalLayout {
+                        alignment: center;
+                        SvgIcon {
+                            name: "search";
+                            size: 14px;
+                            icon-color: Design.text-muted;
+                        }
                     }
                     TextInput {
                         text <=> root.search-query;
