@@ -9,7 +9,7 @@
 // di layar settings. Koneksi nyata ke tema global = Fase 6.
 // Semua opsi ditumpuk (label di atas, kontrol di bawah) supaya muat di 520px.
 
-import { Design, Card, HSeparator, Btn, TextField, Toggle, StatWidget } from "design.slint";
+import { Design, Card, HSeparator, Btn, TextField, Toggle, StatWidget, SvgIcon } from "design.slint";
 
 // Baris grup di side panel (ikon + label, gaya NavTab list).
 // Pola gambar referensi (26 Nov 16:54): ikon + label, item terpilih
@@ -34,15 +34,14 @@ component GroupRow inherits Rectangle {
         height: 100%;
         padding-left: 12px;
         padding-right: 12px;
-        spacing: 8px;
-        Text {
-            text: icon;
-            font-size: 14px;
-            font-weight: 700;
-            color: selected ? Design.accent : Design.text-secondary;
-            vertical-alignment: center;
-            width: 16px;
-            horizontal-alignment: center;
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            SvgIcon {
+                name: icon;
+                size: 15px;
+                icon-color: selected ? Design.accent : Design.text-secondary;
+            }
         }
         Text {
             text: label;
@@ -493,12 +492,13 @@ export component SettingsView inherits Rectangle {
                             padding-left: 10px;
                             padding-right: 10px;
                             spacing: 8px;
-                            Text {
-                                text: "⌕";
-                                font-size: 14px;
-                                font-weight: 700;
-                                color: Design.text-muted;
-                                vertical-alignment: center;
+                            VerticalLayout {
+                                alignment: center;
+                                SvgIcon {
+                                    name: "search";
+                                    size: 14px;
+                                    icon-color: Design.text-muted;
+                                }
                             }
                             search-input := TextInput {
                                 horizontal-stretch: 1;
@@ -528,35 +528,35 @@ export component SettingsView inherits Rectangle {
                         shown: root.show-general || root.show-appearance;
                     }
                     GroupRow {
-                        icon: "⚙";
+                        icon: "settings";
                         label: "General";
                         selected: root.group == "General";
                         shown: root.show-general;
                         clicked => { root.group = "General"; }
                     }
                     GroupRow {
-                        icon: "☀";
+                        icon: "sun";
                         label: "Appearance";
                         selected: root.group == "Appearance";
                         shown: root.show-appearance;
                         clicked => { root.group = "Appearance"; }
                     }
                     GroupRow {
-                        icon: "👤";
+                        icon: "user";
                         label: "Account";
                         selected: root.group == "Account";
                         shown: root.show-account;
                         clicked => { root.group = "Account"; }
                     }
                     GroupRow {
-                        icon: "🧩";
+                        icon: "puzzle";
                         label: "Extensions";
                         selected: root.group == "Extensions";
                         shown: root.show-extensions;
                         clicked => { root.group = "Extensions"; }
                     }
                     GroupRow {
-                        icon: "⚡";
+                        icon: "zap";
                         label: "Script Manager";
                         selected: root.group == "Script Manager";
                         shown: root.show-scripts;
@@ -568,14 +568,14 @@ export component SettingsView inherits Rectangle {
                         shown: root.show-explorer || root.show-paths;
                     }
                     GroupRow {
-                        icon: "▤";
+                        icon: "folder";
                         label: "Explorer";
                         selected: root.group == "Explorer";
                         shown: root.show-explorer;
                         clicked => { root.group = "Explorer"; }
                     }
                     GroupRow {
-                        icon: "⧉";
+                        icon: "folder-open";
                         label: "Paths";
                         selected: root.group == "Paths";
                         shown: root.show-paths;
@@ -587,7 +587,7 @@ export component SettingsView inherits Rectangle {
                         shown: root.show-about;
                     }
                     GroupRow {
-                        icon: "ⓘ";
+                        icon: "info";
                         label: "About";
                         selected: root.group == "About";
                         shown: root.show-about;
@@ -1227,6 +1227,7 @@ export component SettingsView inherits Rectangle {
                         // 1. Trello Integration
                         Card {
                             VerticalLayout {
+                                padding: Design.space-lg;
                                 spacing: Design.space-md;
                                 Text {
                                     text: "TRELLO INTEGRATION";
@@ -1293,6 +1294,7 @@ export component SettingsView inherits Rectangle {
                         // 2. Google Integration (Spreadsheet)
                         Card {
                             VerticalLayout {
+                                padding: Design.space-lg;
                                 spacing: Design.space-md;
                                 Text {
                                     text: "GOOGLE INTEGRATION (SPREADSHEET)";
@@ -1419,6 +1421,7 @@ export component SettingsView inherits Rectangle {
                         // 3. Board Synchronization (Trello)
                         Card {
                             VerticalLayout {
+                                padding: Design.space-lg;
                                 spacing: Design.space-md;
                                 Text {
                                     text: "BOARD & LIST SYNCHRONIZATION";
@@ -1529,6 +1532,7 @@ export component SettingsView inherits Rectangle {
                         // 4. Refresh Intervals (detik)
                         Card {
                             VerticalLayout {
+                                padding: Design.space-lg;
                                 spacing: Design.space-md;
                                 Text {
                                     text: "REFRESH INTERVALS (DETIK)";
@@ -1610,6 +1614,7 @@ export component SettingsView inherits Rectangle {
 
                         Card {
                             VerticalLayout {
+                                padding: Design.space-lg;
                                 spacing: Design.space-md;
                                 HorizontalLayout {
                                     Text {
@@ -1694,6 +1699,7 @@ export component SettingsView inherits Rectangle {
 
                         Card {
                             VerticalLayout {
+                                padding: Design.space-lg;
                                 spacing: Design.space-md;
                                 Text {
                                     text: "SCRIPT MANAGER & RADIAL WHEEL CONFIGURATION";
@@ -1732,6 +1738,7 @@ export component SettingsView inherits Rectangle {
 
                         Card {
                             VerticalLayout {
+                                padding: Design.space-lg;
                                 spacing: Design.space-md;
                                 Text {
                                     text: "RADIAL WHEEL SLOTS (8 ARAH TRIGONOMETRI)";

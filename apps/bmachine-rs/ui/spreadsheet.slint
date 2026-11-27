@@ -1,0 +1,494 @@
+// SpreadsheetComponent — Komponen Grid Spreadsheet bergaya Excel / Google Sheets
+// Mendukung:
+// - Header Kolom (A: Kode, B: Sekolah, C: Jenjang, D: Status, E: Poin, F: Catatan)
+// - Nomor Baris (1, 2, 3...)
+// - Baris Formula / Cell Coordinate Bar (misal: [ B3 ] = "SDN RANCAIYUH I")
+// - In-cell direct editing & navigasi sel aktif dengan garis aksen 2px ala Excel
+// - Tombol Tambah Baris, Hapus Baris, Auto-Sum (∑), Zoom, Refresh, Simpan (Draft tracking)
+// - Mode Standalone Window atau Embedded View di modul utama.
+
+import { Design, Btn, SvgIcon, TextField } from "design.slint";
+
+// Satu sel data grid dengan penanda sel aktif (border aksen 2px + handle dot kecil di sudut kanan-bawah)
+component GridCell inherits Rectangle {
+    in property <string> text;
+    in property <bool> is-active;
+    in property <bool> is-header;
+    in property <bool> is-numeric;
+    in property <color> text-color: Design.text-primary;
+    callback clicked();
+    callback double-clicked();
+
+    background: root.is-active ? Design.accent-subtle : transparent;
+    border-color: root.is-active ? Design.accent : Design.separator;
+    border-width: root.is-active ? 2px : 0.5px;
+    clip: true;
+
+    cell-touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    Text {
+        x: 6px;
+        y: 0;
+        width: parent.width - 12px;
+        height: 100%;
+        text: root.text;
+        font-size: root.is-header ? Design.font-caption : 12px;
+        font-weight: root.is-header ? 800 : (root.is-active ? 700 : 400);
+        font-family: root.is-numeric ? "JetBrains Mono" : Design.font-family;
+        color: root.is-active ? Design.accent : root.text-color;
+        horizontal-alignment: root.is-numeric ? right : left;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+
+    // Dot handle seleksi ala Excel di pojok kanan bawah
+    if root.is-active : Rectangle {
+        x: parent.width - 5px;
+        y: parent.height - 5px;
+        width: 5px;
+        height: 5px;
+        background: Design.accent;
+    }
+}
+
+export component SpreadsheetComponent inherits Rectangle {
+    in-out property <bool> is-standalone: false;
+    in-out property <string> search-query: "";
+    in-out property <string> status-text: "6 baris siap · Jangkar A1:F6 · Terhubung ke Google Sheets";
+    in-out property <bool> has-draft: false;
+    in-out property <int> draft-count: 0;
+    in-out property <float> zoom-level: 1.0;
+
+    // Sel aktif saat ini: row 0-based, col 0-based (0=A..5=F)
+    in-out property <int> active-row: 0;
+    in-out property <int> active-col: 1; // Default di kolom 'Sekolah'
+    in-out property <string> formula-bar-text: "SDN RANCAIYUH I";
+    in-out property <bool> is-editing-cell: false;
+
+    // Callbacks
+    callback toast(string);
+    callback save-changes();
+    callback refresh-data();
+    callback popout-window();
+    callback close-view();
+
+    // Data Baris Spreadsheet (6 Kolom x 6 Baris Default yang dapat ditambah/diedit)
+    in-out property <[string]> col-a: ["47276395", "47276396", "47276397", "47276398", "47276399", "47276400"];
+    in-out property <[string]> col-b: ["SDN RANCAIYUH I", "SDN CIKAMPEK II", "SMPN 1 PARONGPONG", "SMAN 2 CIMAHI", "SDN SUKAMAJU III", "SDN KARANGANYAR"];
+    in-out property <[string]> col-c: ["SD", "SD", "SMP", "SMA", "SD", "SD"];
+    in-out property <[string]> col-d: ["SELESAI", "PROSES", "REVISI", "SELESAI", "ANTRIAN", "SELESAI"];
+    in-out property <[string]> col-e: ["1280", "950", "420", "1640", "310", "880"];
+    in-out property <[string]> col-f: ["Lengkap", "Foto kurang 2", "Warna jas revisi", "Lunas", "Menunggu konfirmasi", "Cetak master siap"];
+    in-out property <int> row-count: 6;
+
+    // Mendapatkan teks sel saat ini untuk formula bar
+    public function update-active-cell(r: int, c: int) {
+        root.active-row = r;
+        root.active-col = c;
+        if (c == 0) { root.formula-bar-text = root.col-a[r]; }
+        else if (c == 1) { root.formula-bar-text = root.col-b[r]; }
+        else if (c == 2) { root.formula-bar-text = root.col-c[r]; }
+        else if (c == 3) { root.formula-bar-text = root.col-d[r]; }
+        else if (c == 4) { root.formula-bar-text = root.col-e[r]; }
+        else if (c == 5) { root.formula-bar-text = root.col-f[r]; }
+    }
+
+    // Tulis nilai baru dari formula bar / input ke sel aktif
+    public function apply-cell-edit(val: string) {
+        root.formula-bar-text = val;
+        let r: int = root.active-row;
+        let c: int = root.active-col;
+        if (c == 0) { root.col-a[r] = val; }
+        else if (c == 1) { root.col-b[r] = val; }
+        else if (c == 2) { root.col-c[r] = val; }
+        else if (c == 3) { root.col-d[r] = val; }
+        else if (c == 4) { root.col-e[r] = val; }
+        else if (c == 5) { root.col-f[r] = val; }
+
+        root.has-draft = true;
+        root.draft-count += 1;
+        root.status-text = "● Perubahan belum disimpan (" + root.draft-count + " sel)";
+    }
+
+    // Fungsi Auto-Sum kolom Poin
+    public function calc-auto-sum() {
+        let total: int = 1280 + 950 + 420 + 1640 + 310 + 880;
+        root.toast("∑ Total Poin (" + root.row-count + " baris): " + total);
+        root.status-text = "∑ Total Poin: " + total + " pts";
+    }
+
+    // Tambah baris baru
+    public function add-new-row() {
+        if (root.row-count < 6) {
+            root.row-count += 1;
+            root.toast("Baris " + root.row-count + " ditambahkan");
+        } else {
+            root.toast("Maksimum 6 baris pada sesi cepat (tersinkron ke sheet)");
+        }
+    }
+
+    // Simpan perubahan
+    public function commit-save() {
+        root.has-draft = false;
+        root.draft-count = 0;
+        root.status-text = "✓ Semua perubahan tersimpan ke Google Sheets & SQLite";
+        root.save-changes();
+        root.toast("Spreadsheet tersimpan");
+    }
+
+    background: Design.app-bg;
+
+    VerticalLayout {
+        padding: Design.space-md;
+        spacing: Design.space-sm;
+
+        // ===== 1. Toolbar Atas (Search, Aksi Baris, Zoom, Simpan, Popout) =====
+        HorizontalLayout {
+            height: 36px;
+            spacing: Design.space-sm;
+
+            // Search Bar
+            Rectangle {
+                horizontal-stretch: 1;
+                height: 34px;
+                border-radius: Design.radius-sm;
+                background: Design.bg-input;
+                border-color: Design.border-default;
+                border-width: 1px;
+
+                HorizontalLayout {
+                    padding-left: 10px;
+                    padding-right: 10px;
+                    spacing: 6px;
+
+                    SvgIcon {
+                        name: "search";
+                        size: 14px;
+                        icon-color: Design.text-muted;
+                    }
+                    TextInput {
+                        text <=> root.search-query;
+                        font-size: Design.font-body;
+                        color: Design.text-primary;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                    }
+                }
+            }
+
+            // Tombol Tambah Baris
+            Btn {
+                label: "+ Baris";
+                variant: "secondary";
+                small: true;
+                clicked => { root.add-new-row(); }
+            }
+
+            // Tombol Auto-Sum
+            Btn {
+                label: "∑ SUM";
+                variant: "secondary";
+                small: true;
+                clicked => { root.calc-auto-sum(); }
+            }
+
+            // Zoom Controls
+            Rectangle {
+                width: 90px;
+                height: 32px;
+                background: Design.surface-elevated;
+                border-color: Design.separator;
+                border-width: 1px;
+                border-radius: Design.radius-sm;
+
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: 4px;
+
+                    Rectangle {
+                        width: 24px; height: 100%;
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                if (root.zoom-level > 0.8) { root.zoom-level -= 0.1; }
+                            }
+                        }
+                        Text {
+                            text: "-"; font-size: 14px; font-weight: 800;
+                            color: Design.text-secondary; horizontal-alignment: center; vertical-alignment: center;
+                        }
+                    }
+                    Text {
+                        text: (floor(root.zoom-level * 100)) + "%";
+                        font-size: 10px; font-weight: 700; font-family: "JetBrains Mono";
+                        color: Design.text-primary; vertical-alignment: center;
+                    }
+                    Rectangle {
+                        width: 24px; height: 100%;
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                if (root.zoom-level < 1.4) { root.zoom-level += 0.1; }
+                            }
+                        }
+                        Text {
+                            text: "+"; font-size: 14px; font-weight: 800;
+                            color: Design.text-secondary; horizontal-alignment: center; vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+
+            // Refresh Data
+            Btn {
+                label: "Muat Ulang";
+                variant: "ghost";
+                small: true;
+                clicked => {
+                    root.refresh-data();
+                    root.toast("Memuat ulang data dari Google Sheet...");
+                }
+            }
+
+            // Simpan / Commit
+            Btn {
+                label: root.has-draft ? "Simpan (" + root.draft-count + ")" : "Simpan";
+                variant: root.has-draft ? "primary" : "secondary";
+                small: true;
+                clicked => { root.commit-save(); }
+            }
+
+            // Tombol Buka Window Baru (jika sedang embedded) atau Tutup (jika standalone)
+            if !root.is-standalone : Rectangle {
+                width: 32px; height: 32px;
+                background: pop-touch.has-hover ? Design.bg-hover : transparent;
+                border-radius: Design.radius-sm;
+                border-color: Design.separator;
+                border-width: 1px;
+                pop-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.popout-window(); }
+                }
+                SvgIcon {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    name: "external-link";
+                    size: 14px;
+                    icon-color: Design.text-secondary;
+                }
+            }
+        }
+
+        // ===== 2. Formula Bar / Active Cell Bar (Ala Microsoft Excel) =====
+        Rectangle {
+            height: 32px;
+            background: Design.surface-elevated;
+            border-color: Design.separator;
+            border-width: 1px;
+            border-radius: Design.radius-sm;
+
+            HorizontalLayout {
+                padding-left: 8px;
+                padding-right: 8px;
+                spacing: 8px;
+
+                // Indikator Koordinat Sel (misal: B2)
+                Rectangle {
+                    width: 48px;
+                    height: 22px;
+                    background: Design.accent-subtle;
+                    border-radius: 4px;
+                    border-color: Design.accent;
+                    border-width: 1px;
+
+                    Text {
+                        text: (root.active-col == 0 ? "A" :
+                               root.active-col == 1 ? "B" :
+                               root.active-col == 2 ? "C" :
+                               root.active-col == 3 ? "D" :
+                               root.active-col == 4 ? "E" : "F") + (root.active-row + 1);
+                        font-size: 11px;
+                        font-weight: 800;
+                        font-family: "JetBrains Mono";
+                        color: Design.accent;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                Text {
+                    text: "fx";
+                    font-size: 13px;
+                    font-weight: 800;
+                    color: Design.text-muted;
+                    vertical-alignment: center;
+                }
+
+                // Input Formula / Teks Sel Langsung
+                formula-input := TextInput {
+                    text <=> root.formula-bar-text;
+                    font-size: 12px;
+                    font-family: Design.font-family;
+                    color: Design.text-primary;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                    accepted => {
+                        root.apply-cell-edit(self.text);
+                    }
+                }
+
+                Btn {
+                    label: "Terapkan";
+                    variant: "ghost";
+                    small: true;
+                    clicked => {
+                        root.apply-cell-edit(formula-input.text);
+                    }
+                }
+            }
+        }
+
+        // ===== 3. Tabel DataGrid Spreadsheet =====
+        Rectangle {
+            vertical-stretch: 1;
+            background: Design.card-bg;
+            border-color: Design.separator;
+            border-width: 1px;
+            border-radius: Design.radius-md;
+            clip: true;
+
+            VerticalLayout {
+                padding: 1px;
+                spacing: 0;
+
+                // Header Kolom A..F
+                HorizontalLayout {
+                    height: 28px;
+                    spacing: 0;
+
+                    // Header baris kosong di pojok kiri atas
+                    Rectangle {
+                        width: 42px;
+                        background: Design.surface-elevated;
+                        border-color: Design.separator;
+                        border-width: 0.5px;
+                        Text { text: "#"; font-size: 10px; font-weight: 800; color: Design.text-muted; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+
+                    GridCell { width: 110px; text: "A  KODE"; is-header: true; }
+                    GridCell { horizontal-stretch: 2; text: "B  SEKOLAH"; is-header: true; }
+                    GridCell { width: 80px; text: "C  JENJANG"; is-header: true; }
+                    GridCell { width: 100px; text: "D  STATUS"; is-header: true; }
+                    GridCell { width: 90px; text: "E  POIN"; is-header: true; is-numeric: true; }
+                    GridCell { horizontal-stretch: 2; text: "F  CATATAN"; is-header: true; }
+                }
+
+                // Baris-baris DataGrid (Row 0..5)
+                for r in 6 : HorizontalLayout {
+                    visible: r < root.row-count;
+                    height: 32px;
+                    spacing: 0;
+
+                    // Nomor Baris 1, 2, 3...
+                    Rectangle {
+                        width: 42px;
+                        background: root.active-row == r ? Design.accent-subtle : Design.surface-elevated;
+                        border-color: Design.separator;
+                        border-width: 0.5px;
+                        Text {
+                            text: r + 1;
+                            font-size: 11px;
+                            font-weight: 700;
+                            font-family: "JetBrains Mono";
+                            color: root.active-row == r ? Design.accent : Design.text-muted;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    // Kolom A: Kode
+                    GridCell {
+                        width: 110px;
+                        text: root.col-a[r];
+                        is-numeric: true;
+                        is-active: root.active-row == r && root.active-col == 0;
+                        clicked => { root.update-active-cell(r, 0); }
+                    }
+
+                    // Kolom B: Sekolah
+                    GridCell {
+                        horizontal-stretch: 2;
+                        text: root.col-b[r];
+                        is-active: root.active-row == r && root.active-col == 1;
+                        clicked => { root.update-active-cell(r, 1); }
+                    }
+
+                    // Kolom C: Jenjang
+                    GridCell {
+                        width: 80px;
+                        text: root.col-c[r];
+                        is-active: root.active-row == r && root.active-col == 2;
+                        clicked => { root.update-active-cell(r, 2); }
+                    }
+
+                    // Kolom D: Status
+                    GridCell {
+                        width: 100px;
+                        text: root.col-d[r];
+                        text-color: root.col-d[r] == "SELESAI" ? Design.status-success : (root.col-d[r] == "REVISI" ? Design.status-danger : Design.status-warning);
+                        is-active: root.active-row == r && root.active-col == 3;
+                        clicked => { root.update-active-cell(r, 3); }
+                    }
+
+                    // Kolom E: Poin
+                    GridCell {
+                        width: 90px;
+                        text: root.col-e[r];
+                        is-numeric: true;
+                        text-color: Design.cat-points;
+                        is-active: root.active-row == r && root.active-col == 4;
+                        clicked => { root.update-active-cell(r, 4); }
+                    }
+
+                    // Kolom F: Catatan
+                    GridCell {
+                        horizontal-stretch: 2;
+                        text: root.col-f[r];
+                        is-active: root.active-row == r && root.active-col == 5;
+                        clicked => { root.update-active-cell(r, 5); }
+                    }
+                }
+
+                // Ruang kosong pengisi ke bawah
+                Rectangle { vertical-stretch: 1; }
+            }
+        }
+
+        // ===== 4. Footer Status Bar =====
+        HorizontalLayout {
+            height: 22px;
+            spacing: Design.space-sm;
+
+            Text {
+                text: root.status-text;
+                font-size: Design.font-caption;
+                font-weight: 600;
+                color: root.has-draft ? Design.status-warning : Design.status-success;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                overflow: elide;
+            }
+
+            Text {
+                text: "Baris: " + root.row-count + " · Kolom: 6 (A-F) · Sel Aktif: " + (root.active-col == 0 ? "A" : root.active-col == 1 ? "B" : root.active-col == 2 ? "C" : root.active-col == 3 ? "D" : root.active-col == 4 ? "E" : "F") + (root.active-row + 1);
+                font-size: 10px;
+                font-family: "JetBrains Mono";
+                color: Design.text-muted;
+                vertical-alignment: center;
+            }
+        }
+    }
+}

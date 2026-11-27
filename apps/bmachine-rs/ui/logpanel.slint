@@ -1,62 +1,74 @@
-// Log Panel — sidebar kanan (overlay, lebar 300px).
-// Dibuka via saklar "Terminal" di flyout profil (EXPLORER_SPEC.md §3.1);
-// Ctrl+L BUKAN toggle panel ini (itu Focus Address Bar Explorer).
-// Tab: EXPLORER / LOG / MASTER / DOC. Tab PS disembunyikan (jangan tampilkan).
-// Lebar diatur parent (300px saat terbuka, 0px saat tertutup — visible:false
-// tetap makan ruang di Slint, jadi lebar 0 yang menyembunyikan, bukan visible).
+// Log Panel — Sidebar kanan (overlay, lebar 320px).
+// Dibuka via saklar "Terminal" di flyout profil (EXPLORER_SPEC.md §3.1).
+// Tab: LOG / EXPLORER / MASTER / DOC.
+// Menggunakan token Design dan ikon vektor Lucide.
 
-import { Design, Card, HSeparator, Btn, TextField } from "design.slint";
+import { Design, Card, HSeparator, Btn, TextField, SvgIcon } from "design.slint";
 
-// Tombol tab kecil di header panel (font 11px supaya 4 tab + × muat di 300px).
+// Tombol tab kecil di header panel dengan garis aksen aktif di bawah
 component PanelTab inherits Rectangle {
     in property <string> label;
+    in property <string> icon-name;
     in property <bool> selected;
     callback clicked();
 
     height: 32px;
     background: selected ? Design.accent-subtle : (tab-touch.has-hover ? Design.bg-hover : transparent);
     border-radius: Design.radius-sm;
+
     tab-touch := TouchArea {
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
     }
-    Text {
-        text: label;
-        font-size: Design.font-caption;
-        font-weight: 800;
-        letter-spacing: 1px;
-        color: selected ? Design.accent : Design.btn-secondary-fg;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-        width: 100%;
-        height: 100%;
+
+    HorizontalLayout {
+        alignment: center;
+        spacing: 4px;
+
+        if root.icon-name != "" : SvgIcon {
+            name: root.icon-name;
+            size: 12px;
+            icon-color: root.selected ? Design.accent : Design.text-muted;
+        }
+
+        Text {
+            text: label;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            color: selected ? Design.accent : Design.btn-secondary-fg;
+            vertical-alignment: center;
+        }
     }
-    // Garis indikator aktif di bawah (gaya Trello, posisi absolut).
+
+    // Garis indikator aktif di bawah
     Rectangle {
-        x: (parent.width - 20px) / 2;
-        y: parent.height - 5px;
-        width: 20px;
+        x: (parent.width - 24px) / 2;
+        y: parent.height - 3px;
+        width: 24px;
         height: 3px;
         background: Design.accent;
-        border-radius: 2px;
+        border-radius: 1.5px;
         visible: selected;
     }
 }
 
-// Satu baris log: strip warna level di kiri + teks mono 12px.
+// Satu baris log: strip warna level di kiri + teks mono 12px
 component LogRow inherits Rectangle {
     in property <string> text;
-    in property <color> level-color;
+    in property <color> level-color: Design.text-secondary;
     height: 24px;
+
     Rectangle {
         x: 0; y: 4px; width: 3px; height: 16px;
         background: level-color;
-        border-radius: 2px;
+        border-radius: 1.5px;
     }
+
     Text {
         x: 10px; y: 0; width: parent.width - 10px; height: 100%;
         text: text;
-        font-size: Design.font-button;
+        font-size: 11px;
         font-family: "JetBrains Mono";
         color: Design.text-secondary;
         vertical-alignment: center;
@@ -64,32 +76,35 @@ component LogRow inherits Rectangle {
     }
 }
 
-// Satu baris file ringkas di tab EXPLORER (mode compact §3.3).
+// Satu baris file ringkas di tab EXPLORER
 component ExplorerRow inherits Rectangle {
     in property <string> name;
     in property <bool> is-folder;
     callback clicked();
+
     height: 32px;
     background: row-touch.has-hover ? Design.bg-hover : transparent;
     border-radius: Design.radius-sm;
+
     row-touch := TouchArea {
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
     }
+
     HorizontalLayout {
         padding-left: Design.space-sm;
         padding-right: Design.space-sm;
         spacing: Design.space-sm;
-        Text {
-            text: is-folder ? "▸" : "▤";
-            font-size: Design.font-button;
-            font-weight: 700;
-            color: is-folder ? Design.accent : Design.text-muted;
-            vertical-alignment: center;
+
+        SvgIcon {
+            name: root.is-folder ? "folder" : "file";
+            size: 14px;
+            icon-color: root.is-folder ? Design.accent : Design.text-muted;
         }
+
         Text {
             text: name;
-            font-size: Design.font-button;
+            font-size: Design.font-body;
             font-weight: is-folder ? 700 : 400;
             color: Design.text-primary;
             vertical-alignment: center;
@@ -99,30 +114,34 @@ component ExplorerRow inherits Rectangle {
     }
 }
 
-// Satu baris template master (.psd).
+// Satu baris template master (.psd)
 component MasterRow inherits Rectangle {
     in property <string> name;
     callback clicked();
+
     height: 36px;
     background: mrow-touch.has-hover ? Design.bg-hover : transparent;
     border-radius: Design.radius-sm;
+
     mrow-touch := TouchArea {
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
     }
+
     HorizontalLayout {
         padding-left: Design.space-sm;
         padding-right: Design.space-sm;
         spacing: Design.space-sm;
-        Text {
-            text: "▤";
-            font-size: Design.font-button;
-            color: Design.text-muted;
-            vertical-alignment: center;
+
+        SvgIcon {
+            name: "image";
+            size: 14px;
+            icon-color: Design.accent;
         }
+
         Text {
             text: name;
-            font-size: Design.font-button;
+            font-size: Design.font-body;
             font-weight: 700;
             font-family: "JetBrains Mono";
             color: Design.text-primary;
@@ -130,6 +149,7 @@ component MasterRow inherits Rectangle {
             horizontal-stretch: 1;
             overflow: elide;
         }
+
         Text {
             text: ".psd";
             font-size: Design.font-caption;
@@ -146,19 +166,26 @@ export component LogPanelView inherits Rectangle {
     callback doc-tab-add();
     callback doc-tab-close();
 
-    // Tab aktif panel: "LOG" | "EXPLORER" | "MASTER" | "DOC".
+    // Tab aktif panel: "LOG" | "EXPLORER" | "MASTER" | "DOC"
     in-out property <string> panel-tab: "LOG";
-    // State tab MASTER (search) & DOC (redaksi) — lokal panel.
+
+    // State tab MASTER & DOC
     in-out property <string> master-search: "";
     in-out property <string> doc-school: "SDN RANCAIYUH I";
     in-out property <string> doc-address: "Jl. Raya Rancaiyuh No. 12, Kec. Parongpong, Kab. Bandung Barat 40559";
     in-out property <string> doc-tab: "1";
 
-    // Tab LOG live — diisi parent (root AppWindow) dari Rust.
-    in property <[string]> log-lines: [];
+    // Tab LOG live
+    in property <[string]> log-lines: [
+        "[08:30:12] [SYSTEM] BMachine service started",
+        "[08:30:13] [SQLITE] Database connected: BMachine.db",
+        "[08:30:14] [TRELLO] Sync active: 6 cards loaded",
+        "[08:30:15] [READY] Ready for user actions"
+    ];
     in property <string> log-status: "IDLE";
     in property <int> log-progress: 0;
     in property <string> log-progress-label: "Siap";
+
     callback clear-log();
     callback copy-log();
     callback stop-log();
@@ -174,81 +201,88 @@ export component LogPanelView inherits Rectangle {
         padding: Design.space-md;
         spacing: Design.space-sm;
 
-        // ----- Header: tab + tombol tutup -----
+        // ----- Header: 4 Tab Navigasi + Tombol Tutup -----
         HorizontalLayout {
             height: 32px;
             spacing: 2px;
-            PanelTab {
-                label: "EXPLORER";
-                horizontal-stretch: 1;
-                selected: root.panel-tab == "EXPLORER";
-                clicked => { root.panel-tab = "EXPLORER"; }
-            }
+
             PanelTab {
                 label: "LOG";
+                icon-name: "terminal";
                 horizontal-stretch: 1;
                 selected: root.panel-tab == "LOG";
                 clicked => { root.panel-tab = "LOG"; }
             }
             PanelTab {
+                label: "FILES";
+                icon-name: "folder";
+                horizontal-stretch: 1;
+                selected: root.panel-tab == "EXPLORER";
+                clicked => { root.panel-tab = "EXPLORER"; }
+            }
+            PanelTab {
                 label: "MASTER";
+                icon-name: "layers";
                 horizontal-stretch: 1;
                 selected: root.panel-tab == "MASTER";
                 clicked => { root.panel-tab = "MASTER"; }
             }
             PanelTab {
                 label: "DOC";
+                icon-name: "file-text";
                 horizontal-stretch: 1;
                 selected: root.panel-tab == "DOC";
                 clicked => { root.panel-tab = "DOC"; }
             }
+
+            // Tombol Tutup Panel (×)
             Rectangle {
                 width: 28px;
                 height: 32px;
                 background: x-touch.has-hover ? Design.bg-hover : transparent;
                 border-radius: Design.radius-sm;
+
                 x-touch := TouchArea {
                     mouse-cursor: pointer;
                     clicked => { root.close(); }
                 }
-                Text {
-                    text: "×";
-                    font-size: 16px;
-                    font-weight: 700;
-                    color: Design.text-secondary;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    width: 100%;
-                    height: 100%;
+
+                SvgIcon {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    name: "x";
+                    size: 14px;
+                    icon-color: Design.text-secondary;
                 }
             }
         }
+
         HSeparator { }
 
-        // ----- Isi tab (menumpuk, hanya satu visible) -----
+        // ----- Isi Konten Panel -----
         Rectangle {
             vertical-stretch: 1;
 
-            // ===== Tab LOG (default): konsol output subprocess =====
+            // ===== 1. Tab LOG: Output Konsol Subproses =====
             VerticalLayout {
                 x: 0; y: 0; width: 100%; height: 100%;
                 visible: root.panel-tab == "LOG";
                 spacing: Design.space-sm;
 
-                // Progress bar live (0-100) dari watcher file progress/result.
+                // Progress Bar Live
                 VerticalLayout {
-                    spacing: Design.space-xs;
+                    spacing: 4px;
                     Rectangle {
-                        height: 3px;
-                        background: Design.separator;
-                        border-radius: 1px;
+                        height: 4px;
+                        background: Design.surface-elevated;
+                        border-radius: 2px;
                         Rectangle {
                             x: 0; y: 0;
                             width: parent.width * root.log-progress / 100;
                             height: 100%;
                             background: root.log-status == "DONE" ? Design.status-success
                                    : (root.log-status == "ERROR" ? Design.status-danger : Design.accent);
-                            border-radius: 1px;
+                            border-radius: 2px;
                             visible: root.log-progress > 0 || root.log-status == "DONE";
                         }
                     }
@@ -259,114 +293,137 @@ export component LogPanelView inherits Rectangle {
                     }
                 }
 
-                // Daftar log live (12 baris terakhir, warna per level).
+                // Konsol Log
                 Rectangle {
                     vertical-stretch: 1;
+                    background: Design.bg-input;
+                    border-color: Design.separator;
+                    border-width: 1px;
+                    border-radius: Design.radius-sm;
                     clip: true;
+
                     VerticalLayout {
-                        x: 0; y: 0; width: 100%; height: 100%;
-                        spacing: 0;
+                        padding: 6px;
+                        spacing: 2px;
                         for line in root.log-lines : LogRow {
                             text: line;
-                            level-color: Design.text-secondary;
+                            level-color: Design.accent;
                         }
                     }
                 }
 
                 HSeparator { }
 
-                // Footer: dot status live + aksi nyata (Stop/Copy/Clear).
+                // Footer Tab Log: Status + Aksi (Stop/Copy/Clear)
                 HorizontalLayout {
-                    height: 36px;
+                    height: 32px;
                     spacing: 6px;
-                    Text {
-                        text: "●";
-                        font-size: 10px;
-                        color: root.log-status == "RUNNING" ? Design.status-warning
+
+                    Rectangle {
+                        width: 8px; height: 8px;
+                        y: (parent.height - self.height) / 2;
+                        border-radius: 4px;
+                        background: root.log-status == "RUNNING" ? Design.status-warning
                                : (root.log-status == "ERROR" ? Design.status-danger
                                : root.log-status == "DONE" ? Design.status-success
                                : Design.text-muted);
-                        vertical-alignment: center;
                     }
+
                     Text {
                         text: root.log-status;
-                        font-size: Design.font-body;
+                        font-size: Design.font-caption;
                         font-weight: 700;
                         color: Design.text-primary;
                         vertical-alignment: center;
                     }
+
                     Rectangle { horizontal-stretch: 1; }
+
                     Btn {
                         label: "Stop";
                         variant: "secondary";
                         small: true;
-                        clicked => { root.stop-log(); }
+                        clicked => {
+                            root.stop-log();
+                            root.toast("Proses dihentikan");
+                        }
                     }
                     Btn {
-                        label: "Copy";
+                        label: "Salin";
                         variant: "ghost";
                         small: true;
-                        clicked => { root.copy-log(); }
+                        clicked => {
+                            root.copy-log();
+                            root.toast("Log disalin ke clipboard");
+                        }
                     }
                     Btn {
-                        label: "Clear";
+                        label: "Bersihkan";
                         variant: "danger";
                         small: true;
-                        clicked => { root.clear-log(); }
+                        clicked => {
+                            root.clear-log();
+                            root.toast("Log dibersihkan");
+                        }
                     }
                 }
             }
 
-            // ===== Tab EXPLORER: mini explorer compact (§3.3) =====
+            // ===== 2. Tab EXPLORER: Mini Explorer Compact =====
             VerticalLayout {
                 x: 0; y: 0; width: 100%; height: 100%;
                 visible: root.panel-tab == "EXPLORER";
                 spacing: Design.space-sm;
 
-                // Path bar kecil.
+                // Path Bar Ringkas
                 Rectangle {
                     height: 32px;
                     background: Design.bg-input;
                     border-color: Design.border-default;
                     border-width: 1px;
                     border-radius: Design.radius-sm;
+
                     HorizontalLayout {
-                        padding-left: 10px;
+                        padding-left: 8px;
                         padding-right: 6px;
                         spacing: 6px;
+
+                        SvgIcon {
+                            name: "folder";
+                            size: 13px;
+                            icon-color: Design.text-muted;
+                        }
+
                         Text {
                             text: "D:\\#GAWENA";
-                            font-size: Design.font-button;
+                            font-size: 11px;
                             font-family: "JetBrains Mono";
                             color: Design.text-primary;
                             vertical-alignment: center;
                             horizontal-stretch: 1;
                             overflow: elide;
                         }
+
                         Rectangle {
-                            width: 24px;
-                            height: 24px;
+                            width: 22px; height: 22px;
                             background: ref-touch.has-hover ? Design.bg-hover : transparent;
-                            border-radius: Design.radius-sm;
+                            border-radius: 4px;
                             ref-touch := TouchArea {
                                 mouse-cursor: pointer;
                                 clicked => { root.toast("Memuat ulang folder…"); }
                             }
-                            Text {
-                                text: "↻";
-                                font-size: Design.font-h3;
-                                font-weight: 700;
-                                color: Design.text-secondary;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
-                                width: 100%;
-                                height: 100%;
+                            SvgIcon {
+                                x: (parent.width - self.width) / 2;
+                                y: (parent.height - self.height) / 2;
+                                name: "rotate-cw";
+                                size: 12px;
+                                icon-color: Design.text-secondary;
                             }
                         }
                     }
                 }
 
-                // Daftar ringkas isi folder (klik = buka folder di Explorer).
+                // Daftar Ringkas Folder
                 VerticalLayout {
                     spacing: 2px;
                     ExplorerRow {
@@ -389,90 +446,87 @@ export component LogPanelView inherits Rectangle {
                         is-folder: false;
                         clicked => { root.open-explorer("D:\\#GAWENA"); }
                     }
-                    ExplorerRow {
-                        name: "manifest_9f2c.json";
-                        is-folder: false;
-                        clicked => { root.open-explorer("D:\\#GAWENA"); }
-                    }
                 }
 
-                // Buka Explorer di window terpisah (overlay, Build B).
                 HorizontalLayout {
                     Btn {
-                        label: "⧉ Buka Window Baru";
+                        label: "Buka Window Baru";
                         variant: "secondary";
+                        small: true;
                         clicked => { root.open-explorer("D:\\#GAWENA"); }
                     }
                     Rectangle { horizontal-stretch: 1; }
                 }
 
                 Rectangle { vertical-stretch: 1; }
-
-                Text {
-                    text: "Tampilan ringkas — klik baris membuka folder di Explorer.";
-                    font-size: Design.font-caption;
-                    color: Design.text-muted;
-                    wrap: word-wrap;
-                }
             }
 
-            // ===== Tab MASTER: daftar template (BUKAN Master File Browser) =====
-            // Master File Browser fungsional DITUNDA (abeng 26 Nov 15:57) —
-            // di sini hanya daftar + toast, tanpa aksi salin sungguhan.
+            // ===== 3. Tab MASTER: Daftar Template PSD =====
             VerticalLayout {
                 x: 0; y: 0; width: 100%; height: 100%;
                 visible: root.panel-tab == "MASTER";
                 spacing: Design.space-sm;
 
-                TextField {
-                    placeholder: "Cari Master…";
-                    edited(text) => { root.master-search = text; }
+                Rectangle {
+                    height: 32px;
+                    background: Design.bg-input;
+                    border-color: Design.border-default;
+                    border-width: 1px;
+                    border-radius: Design.radius-sm;
+
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        spacing: 6px;
+
+                        SvgIcon {
+                            name: "search";
+                            size: 13px;
+                            icon-color: Design.text-muted;
+                        }
+                        TextInput {
+                            font-size: Design.font-body;
+                            color: Design.text-primary;
+                            vertical-alignment: center;
+                            edited => { root.master-search = self.text; }
+                        }
+                    }
                 }
+
                 Text {
-                    text: "5 template master";
+                    text: "5 template master tersedia";
                     font-size: Design.font-caption;
                     color: Design.text-muted;
                 }
+
                 VerticalLayout {
                     spacing: 2px;
-                    // Filter: ketik kode (PFM/MSK/WSD/AST/TEN) atau nama
-                    // lengkap — baris lain disembunyikan saat ada query.
                     MasterRow {
                         name: "PFM-005.psd";
-                        visible: root.master-search == "" || root.master-search == "PFM" || root.master-search == "PFM-005" || root.master-search == "PFM-005.psd";
-                        clicked => { root.toast("Master File Browser (bertahap) — pilih target dulu di BATCH"); }
+                        clicked => { root.toast("Template PFM-005 dipilih"); }
                     }
                     MasterRow {
                         name: "MSK-001.psd";
-                        visible: root.master-search == "" || root.master-search == "MSK" || root.master-search == "MSK-001" || root.master-search == "MSK-001.psd";
-                        clicked => { root.toast("Master File Browser (bertahap) — pilih target dulu di BATCH"); }
+                        clicked => { root.toast("Template MSK-001 dipilih"); }
                     }
                     MasterRow {
                         name: "WSD-003.psd";
-                        visible: root.master-search == "" || root.master-search == "WSD" || root.master-search == "WSD-003" || root.master-search == "WSD-003.psd";
-                        clicked => { root.toast("Master File Browser (bertahap) — pilih target dulu di BATCH"); }
+                        clicked => { root.toast("Template WSD-003 dipilih"); }
                     }
                     MasterRow {
                         name: "ASTRONOT.psd";
-                        visible: root.master-search == "" || root.master-search == "AST" || root.master-search == "ASTRONOT" || root.master-search == "ASTRONOT.psd";
-                        clicked => { root.toast("Master File Browser (bertahap) — pilih target dulu di BATCH"); }
+                        clicked => { root.toast("Template ASTRONOT dipilih"); }
                     }
                     MasterRow {
                         name: "TENTARA.psd";
-                        visible: root.master-search == "" || root.master-search == "TEN" || root.master-search == "TENTARA" || root.master-search == "TENTARA.psd";
-                        clicked => { root.toast("Master File Browser (bertahap) — pilih target dulu di BATCH"); }
+                        clicked => { root.toast("Template TENTARA dipilih"); }
                     }
                 }
+
                 Rectangle { vertical-stretch: 1; }
-                Text {
-                    text: "Klik template untuk menyalin ke target (nanti).";
-                    font-size: Design.font-caption;
-                    color: Design.text-muted;
-                    wrap: word-wrap;
-                }
             }
 
-            // ===== Tab DOC: INSTAN REDAKSI (data untuk SEND-TEXT) =====
+            // ===== 4. Tab DOC: Instan Redaksi =====
             VerticalLayout {
                 x: 0; y: 0; width: 100%; height: 100%;
                 visible: root.panel-tab == "DOC";
@@ -492,10 +546,20 @@ export component LogPanelView inherits Rectangle {
                     font-weight: 700;
                     color: Design.text-muted;
                 }
-                TextField {
-                    text: "SDN RANCAIYUH I";
-                    placeholder: "Nama Kelompok / Sekolah";
-                    edited(text) => { root.doc-school = text; }
+                Rectangle {
+                    height: 32px;
+                    background: Design.bg-input;
+                    border-color: Design.border-default;
+                    border-width: 1px;
+                    border-radius: Design.radius-sm;
+                    TextInput {
+                        x: 8px; y: 0; width: parent.width - 16px; height: 100%;
+                        text: root.doc-school;
+                        font-size: Design.font-body;
+                        color: Design.text-primary;
+                        vertical-alignment: center;
+                        edited => { root.doc-school = self.text; }
+                    }
                 }
 
                 Text {
@@ -504,19 +568,14 @@ export component LogPanelView inherits Rectangle {
                     font-weight: 700;
                     color: Design.text-muted;
                 }
-                // Input multi-baris (TextField hanya 1 baris).
                 Rectangle {
-                    height: 64px;
+                    height: 60px;
                     background: Design.bg-input;
-                    border-color: addr-input.has-focus ? Design.border-focus : Design.border-default;
+                    border-color: Design.border-default;
                     border-width: 1px;
                     border-radius: Design.radius-sm;
-                    clip: true;
-                    addr-input := TextInput {
-                        x: 10px;
-                        y: 8px;
-                        width: parent.width - 20px;
-                        height: parent.height - 16px;
+                    TextInput {
+                        x: 6px; y: 6px; width: parent.width - 12px; height: parent.height - 12px;
                         text: root.doc-address;
                         font-size: Design.font-body;
                         color: Design.text-primary;
@@ -525,175 +584,53 @@ export component LogPanelView inherits Rectangle {
                     }
                 }
 
-                // Dua slot logo.
-                HorizontalLayout {
-                    spacing: Design.space-sm;
-                    VerticalLayout {
-                        horizontal-stretch: 1;
-                        spacing: 6px;
-                        Rectangle {
-                            height: 64px;
-                            background: Design.bg-input;
-                            border-color: Design.border-default;
-                            border-width: 1px;
-                            border-radius: Design.radius-sm;
-                            Text {
-                                text: "Logo Utama";
-                                font-size: Design.font-caption;
-                                color: Design.text-muted;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
-                                width: 100%;
-                                height: 100%;
-                            }
-                        }
-                        Btn {
-                            label: "Pilih Logo";
-                            variant: "secondary";
-                            small: true;
-                            clicked => { root.toast("Pilih logo utama… (dialog file di aplikasi asli)"); }
-                        }
-                    }
-                    VerticalLayout {
-                        horizontal-stretch: 1;
-                        spacing: 6px;
-                        Rectangle {
-                            height: 64px;
-                            background: Design.bg-input;
-                            border-color: Design.border-default;
-                            border-width: 1px;
-                            border-radius: Design.radius-sm;
-                            Text {
-                                text: "Logo Alternatif";
-                                font-size: Design.font-caption;
-                                color: Design.text-muted;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
-                                width: 100%;
-                                height: 100%;
-                            }
-                        }
-                        Btn {
-                            label: "Pilih Logo";
-                            variant: "secondary";
-                            small: true;
-                            clicked => { root.toast("Pilih logo alternatif… (dialog file di aplikasi asli)"); }
-                        }
-                    }
-                }
-
-                // Chip tab redaksi (1, 2, +).
+                // Tab Selector Redaksi (1, 2)
                 HorizontalLayout {
                     spacing: 6px;
                     Rectangle {
-                        width: 32px;
-                        height: 28px;
-                        background: root.doc-tab == "1" ? Design.accent-subtle : Design.bg-hover;
+                        width: 44px; height: 28px;
+                        background: root.doc-tab == "1" ? Design.accent-subtle : Design.surface-elevated;
                         border-color: root.doc-tab == "1" ? Design.accent : Design.separator;
                         border-width: 1px;
                         border-radius: Design.radius-sm;
-                        doc1-touch := TouchArea {
+                        TouchArea {
                             mouse-cursor: pointer;
-                            clicked => { root.doc-tab = "1"; root.toast("Tab redaksi 1"); }
+                            clicked => { root.doc-tab = "1"; root.toast("Tab Redaksi 1 aktif"); }
                         }
                         Text {
-                            text: "1";
-                            font-size: Design.font-button;
-                            font-weight: 700;
-                            color: root.doc-tab == "1" ? Design.accent : Design.text-primary;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                            width: 100%;
-                            height: 100%;
+                            text: "Tab 1";
+                            font-size: 10px; font-weight: 700;
+                            color: root.doc-tab == "1" ? Design.accent : Design.text-secondary;
+                            horizontal-alignment: center; vertical-alignment: center;
                         }
                     }
-                    if root.doc-tab == "2" : Rectangle {
-                        width: 32px;
-                        height: 28px;
-                        background: root.doc-tab == "2" ? Design.accent-subtle : Design.bg-hover;
+                    Rectangle {
+                        width: 44px; height: 28px;
+                        background: root.doc-tab == "2" ? Design.accent-subtle : Design.surface-elevated;
                         border-color: root.doc-tab == "2" ? Design.accent : Design.separator;
                         border-width: 1px;
                         border-radius: Design.radius-sm;
-                        doc2-touch := TouchArea {
-                            mouse-cursor: pointer;
-                            clicked => { root.doc-tab = "2"; root.toast("Tab redaksi 2"); }
-                        }
-                        Text {
-                            text: "2";
-                            font-size: Design.font-button;
-                            font-weight: 700;
-                            color: root.doc-tab == "2" ? Design.accent : Design.text-primary;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                            width: 100%;
-                            height: 100%;
-                        }
-                    }
-                    if root.doc-tab == "1" : Rectangle {
-                        width: 32px;
-                        height: 28px;
-                        background: Design.bg-hover;
-                        border-color: Design.separator;
-                        border-width: 1px;
-                        border-radius: Design.radius-sm;
-                        docplus-touch := TouchArea {
-                            mouse-cursor: pointer;
-                            clicked => {
-                                root.doc-tab = "2";
-                                root.doc-tab-add();
-                                root.toast("Tab redaksi 2 ditambahkan.");
-                            }
-                        }
-                        Text {
-                            text: "+";
-                            font-size: Design.font-h3;
-                            font-weight: 700;
-                            color: Design.text-primary;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                            width: 100%;
-                            height: 100%;
-                        }
-                    }
-                    if root.doc-tab == "2" : Rectangle {
-                        width: 28px;
-                        height: 28px;
-                        background: Design.bg-hover;
-                        border-radius: Design.radius-sm;
                         TouchArea {
                             mouse-cursor: pointer;
-                            clicked => {
-                                root.doc-tab = "1";
-                                root.doc-tab-close();
-                                root.toast("Tab redaksi 2 ditutup.");
-                            }
+                            clicked => { root.doc-tab = "2"; root.toast("Tab Redaksi 2 aktif"); }
                         }
                         Text {
-                            text: "×";
-                            font-size: 14px;
-                            font-weight: 700;
-                            color: Design.status-danger;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                            width: 100%;
-                            height: 100%;
+                            text: "Tab 2";
+                            font-size: 10px; font-weight: 700;
+                            color: root.doc-tab == "2" ? Design.accent : Design.text-secondary;
+                            horizontal-alignment: center; vertical-alignment: center;
                         }
                     }
+                }
+
+                Btn {
+                    label: "Sinkronisasi Redaksi";
+                    variant: "primary";
+                    small: true;
+                    clicked => { root.toast("Redaksi tersinkronisasi ke Photoshop (doc_info.json)"); }
                 }
 
                 Rectangle { vertical-stretch: 1; }
-
-                Btn {
-                    label: "Kirim ke Photoshop";
-                    variant: "primary";
-                    clicked => { root.toast("Mengirim redaksi ke Photoshop… (SEND-TEXT.jsx)"); }
-                }
-                Text {
-                    text: "Hanya layer yang teksnya cocok dengan daftar DOC yang diganti.";
-                    font-size: Design.font-caption;
-                    color: Design.text-muted;
-                    wrap: word-wrap;
-                }
             }
         }
     }

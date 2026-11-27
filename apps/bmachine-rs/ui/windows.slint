@@ -1,0 +1,348 @@
+// Windows — Komponen Window Sekunder Mandiri (OS Window Baru)
+// Sesuai arsitektur C# (SpreadsheetWindow.axaml & CardListWindow.axaml)
+// Dibuka saat pengguna mengklik tanda panah widget atau tombol "Buka Window Baru".
+
+import { Design, Btn, SvgIcon, TextField } from "design.slint";
+import { SpreadsheetComponent } from "spreadsheet.slint";
+import { TrelloDetailPanel } from "trello-detail.slint";
+
+// ============================================================
+// 1. SPREADSHEET WINDOW — Window Mandiri Editor Spreadsheet
+// ============================================================
+export component SpreadsheetWindow inherits Window {
+    title: "BMachine — Spreadsheet Editor";
+    width: 980px;
+    height: 620px;
+    background: Design.app-bg;
+    default-font-family: Design.font-family;
+
+    callback close-window();
+    callback toast(string);
+
+    VerticalLayout {
+        padding: 0;
+        spacing: 0;
+
+        // Custom Titlebar Spreadsheet Window
+        Rectangle {
+            height: 38px;
+            background: Design.surface-elevated;
+            border-color: Design.separator;
+            border-width: 0.5px;
+
+            HorizontalLayout {
+                padding-left: 14px;
+                padding-right: 14px;
+                spacing: 8px;
+
+                SvgIcon {
+                    name: "layers";
+                    size: 16px;
+                    icon-color: Design.cat-points;
+                }
+
+                Text {
+                    text: "BMachine — Spreadsheet Editor";
+                    font-size: Design.font-body;
+                    font-weight: 800;
+                    color: Design.text-primary;
+                    vertical-alignment: center;
+                }
+
+                Rectangle { horizontal-stretch: 1; }
+
+                // Tombol Tutup Window
+                Rectangle {
+                    width: 28px;
+                    height: 28px;
+                    y: (parent.height - self.height) / 2;
+                    background: close-touch.has-hover ? Design.status-danger : transparent;
+                    border-radius: Design.radius-sm;
+
+                    close-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.close-window(); }
+                    }
+
+                    Text {
+                        text: "×";
+                        font-size: 18px;
+                        font-weight: 700;
+                        color: close-touch.has-hover ? #ffffff : Design.text-secondary;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        width: 100%;
+                        height: 100%;
+                    }
+                }
+            }
+        }
+
+        // Isi Spreadsheet
+        SpreadsheetComponent {
+            is-standalone: true;
+            toast(msg) => { root.toast(msg); }
+            close-view() => { root.close-window(); }
+        }
+    }
+}
+
+// ============================================================
+// 2. CARD LIST WINDOW — Window Mandiri Daftar Kartu Trello
+// ============================================================
+export component CardListWindow inherits Window {
+    title: "BMachine — Trello Cards";
+    width: 860px;
+    height: 580px;
+    background: Design.app-bg;
+    default-font-family: Design.font-family;
+
+    in-out property <string> category: "EDITING";
+    in-out property <color> category-accent: Design.cat-editing;
+    in-out property <string> search-query: "";
+    in-out property <int> selected-idx: 0;
+
+    // Data Kartu Trello
+    in-out property <[string]> card-titles: [
+        "SDN RANCAIYUH 1 - Foto Pas Ijazah",
+        "SMPN 1 PARONGPONG - Pas Foto Rapor",
+        "SMAN 2 CIMAHI - Foto Wisuda Siswa",
+        "SDN CIKAMPEK 2 - Pas Foto Kelas 6",
+        "SDN SUKAMAJU 3 - Background Merah",
+        "SDN KARANGANYAR - Cetak Pas Foto 3x4"
+    ];
+    in-out property <[string]> card-subs: [
+        "32 siswa · Background Merah",
+        "48 siswa · Background Biru",
+        "120 siswa · Full Retouch",
+        "28 siswa · Background Merah",
+        "35 siswa · Cetak & File",
+        "40 siswa · Background Biru"
+    ];
+    in-out property <[string]> card-due: [
+        "Besok, 17:00",
+        "28 Nov, 12:00",
+        "29 Nov, 15:00",
+        "30 Nov, 17:00",
+        "01 Des, 10:00",
+        "02 Des, 14:00"
+    ];
+    in-out property <[bool]> card-done: [true, false, false, true, false, false];
+
+    callback close-window();
+    callback toggle-done(int);
+    callback toast(string);
+
+    VerticalLayout {
+        padding: 0;
+        spacing: 0;
+
+        // Custom Titlebar Card List Window
+        Rectangle {
+            height: 38px;
+            background: Design.surface-elevated;
+            border-color: Design.separator;
+            border-width: 0.5px;
+
+            HorizontalLayout {
+                padding-left: 14px;
+                padding-right: 14px;
+                spacing: 8px;
+
+                Rectangle {
+                    width: 8px; height: 8px;
+                    y: (parent.height - self.height) / 2;
+                    border-radius: 4px;
+                    background: root.category-accent;
+                }
+
+                Text {
+                    text: "Trello — " + root.category + " (" + root.card-titles.length + " Kartu)";
+                    font-size: Design.font-body;
+                    font-weight: 800;
+                    color: Design.text-primary;
+                    vertical-alignment: center;
+                }
+
+                Rectangle { horizontal-stretch: 1; }
+
+                // Tombol Tutup Window
+                Rectangle {
+                    width: 28px;
+                    height: 28px;
+                    y: (parent.height - self.height) / 2;
+                    background: card-close-touch.has-hover ? Design.status-danger : transparent;
+                    border-radius: Design.radius-sm;
+
+                    card-close-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.close-window(); }
+                    }
+
+                    Text {
+                        text: "×";
+                        font-size: 18px;
+                        font-weight: 700;
+                        color: card-close-touch.has-hover ? #ffffff : Design.text-secondary;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        width: 100%;
+                        height: 100%;
+                    }
+                }
+            }
+        }
+
+        // Konten 2 Kolom: Kolom Kiri = Daftar Kartu, Kolom Kanan = Detail
+        HorizontalLayout {
+            padding: Design.space-md;
+            spacing: Design.space-md;
+
+            // Kolom Kiri: Search & Daftar Kartu
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: Design.space-sm;
+
+                // Search Bar
+                Rectangle {
+                    height: 32px;
+                    border-radius: Design.radius-sm;
+                    background: Design.bg-input;
+                    border-color: Design.border-default;
+                    border-width: 1px;
+
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        spacing: 6px;
+
+                        SvgIcon {
+                            name: "search";
+                            size: 13px;
+                            icon-color: Design.text-muted;
+                        }
+                        TextInput {
+                            text <=> root.search-query;
+                            font-size: Design.font-body;
+                            color: Design.text-primary;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+
+                // List Kartu
+                Rectangle {
+                    vertical-stretch: 1;
+                    background: Design.card-bg;
+                    border-color: Design.separator;
+                    border-width: 1px;
+                    border-radius: Design.radius-md;
+                    clip: true;
+
+                    VerticalLayout {
+                        padding: 6px;
+                        spacing: 4px;
+
+                        for title[idx] in root.card-titles : Rectangle {
+                            height: 52px;
+                            border-radius: Design.radius-sm;
+                            background: root.selected-idx == idx ? Design.accent-subtle : (row-touch.has-hover ? Design.bg-hover : transparent);
+                            border-color: root.selected-idx == idx ? Design.accent : transparent;
+                            border-width: 1px;
+
+                            row-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.selected-idx = idx; }
+                            }
+
+                            HorizontalLayout {
+                                padding-left: 10px;
+                                padding-right: 10px;
+                                spacing: 8px;
+
+                                // Checkbox selesai
+                                Rectangle {
+                                    width: 18px; height: 18px;
+                                    y: (parent.height - self.height) / 2;
+                                    border-radius: 4px;
+                                    background: root.card-done[idx] ? root.category-accent : transparent;
+                                    border-color: root.card-done[idx] ? root.category-accent : Design.separator;
+                                    border-width: 1.5px;
+
+                                    chk-touch := TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => {
+                                            root.card-done[idx] = !root.card-done[idx];
+                                            root.toggle-done(idx);
+                                        }
+                                    }
+
+                                    if root.card-done[idx] : SvgIcon {
+                                        x: (parent.width - self.width) / 2;
+                                        y: (parent.height - self.height) / 2;
+                                        name: "check";
+                                        size: 12px;
+                                        icon-color: #ffffff;
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    alignment: center;
+                                    spacing: 2px;
+                                    horizontal-stretch: 1;
+
+                                    Text {
+                                        text: title;
+                                        font-size: Design.font-body;
+                                        font-weight: 700;
+                                        color: Design.text-primary;
+                                        overflow: elide;
+                                    }
+                                    Text {
+                                        text: root.card-subs[idx];
+                                        font-size: Design.font-caption;
+                                        color: Design.text-secondary;
+                                        overflow: elide;
+                                    }
+                                }
+
+                                Text {
+                                    text: root.card-due[idx];
+                                    font-size: Design.font-caption;
+                                    font-weight: 600;
+                                    color: root.category-accent;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+
+                        Rectangle { vertical-stretch: 1; }
+                    }
+                }
+            }
+
+            // Kolom Kanan: Panel Detail
+            Rectangle {
+                width: 360px;
+                background: Design.surface-elevated;
+                border-color: Design.separator;
+                border-width: 1px;
+                border-radius: Design.radius-md;
+                clip: true;
+
+                TrelloDetailPanel {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    card-title: root.card-titles[root.selected-idx];
+                    event-date: root.card-due[root.selected-idx];
+                    due-text: "Due: " + root.card-due[root.selected-idx];
+                    is-manual: false;
+                    category-label: root.category;
+                    accent: root.category-accent;
+                    done: root.card-done[root.selected-idx];
+                    description: "Edit pas foto sekolah — crop, centering kepala di guide, logo terlihat rapi dan warna seimbang.";
+                    close() => { root.toast("Detail ditutup"); }
+                }
+            }
+        }
+    }
+}

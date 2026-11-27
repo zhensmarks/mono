@@ -4,7 +4,8 @@
 // widget POINTS, Leaderboard dari badan widget POINTS. (Dulu ada launcher
 // MODUL di port ini; dihapus 26 Nov karena tidak ada di aplikasi asli.)
 
-import { Design, Card, HSeparator, Btn, TextField, NavTab, Chip, Toggle } from "design.slint";
+import { Design, Card, HSeparator, Btn, TextField, NavTab, Chip, Toggle, SvgIcon } from "design.slint";
+import { SpreadsheetComponent } from "spreadsheet.slint";
 
 // Chip pilihan kecil (Harian/Bulanan, tab Toolbox, dsb.) — font Btn (12/600).
 component OptionChip inherits Rectangle {
@@ -736,45 +737,22 @@ export component ToolboxView inherits Rectangle {
 }
 
 // ================= SPREADSHEET =================
-// Editor grid 1 Google Sheet (service account); nomor baris = baris sheet asli.
+// Editor grid Google Sheets fungsional penuh bergaya Excel
 export component SheetsView inherits Rectangle {
     callback back();
     callback toast(string);
+    callback popout-window();
+
+    // Baris sheet dari akun (kompatibilitas binding main.slint)
     in-out property <string> sheet-s1: "SDN RANCAIYUH I";
     in-out property <string> sheet-p1: "1.280";
-    // Baris sheet dari akun (Rust mengisi; kosong = sheet belum ada).
     in-out property <[string]> sheet-rows: [];
-    in-out property <int> sheet-row-count: 0;
-    // Kolom sheet terpecah (Slint tidak punya split() string).
+    in-out property <int> sheet-row-count: 6;
     in-out property <[string]> sheet-col0: [];
     in-out property <[string]> sheet-col1: [];
     in-out property <[string]> sheet-col2: [];
 
-    // --- Draft persisten (C# SpreadsheetDraftStore) ---
-    // sheet-s1/sheet-p1 = nilai TERSIMPAN (yang terakhir di-commit ke
-    // sheet). draft-s1/draft-p1 = isi editan yang sedang diketik.
-    // Draft bertahan saat pindah tab/overlay dalam satu sesi: SheetsView
-    // di main.slint hanya di-toggle `visible`, instansinya tidak pernah
-    // dihancurkan, jadi draft + saved sama-sama hidup selama aplikasi
-    // jalan. (Persistensi antar-sesi / ke DB = Fase 6, seperti
-    // PersistDraftsAsync tiap 700 ms di C# — belum ada di mockup ini.)
-    // Di C#, draft dipulihkan hanya bila nilai asli sel di sheet masih
-    // sama (SpreadsheetDraftStore.Apply); di sini itu diwakili guard
-    // fingerprint di bawah.
-    in-out property <string> draft-s1: "SDN RANCAIYUH I";
-    in-out property <string> draft-p1: "1.280";
-    property <bool> has-draft: draft-s1 != sheet-s1 || draft-p1 != sheet-p1;
-
-    // --- Guard fingerprint (C# SpreadsheetRowAnchorGuard) ---
-    // Mockup: flag ini = "sheet berubah di luar sejak dimuat" (baris
-    // disisip/dihapus/di-cut). Selama flag aktif, Simpan DIBLOKIR —
-    // persis CheckRowsStillAlignedAsync() di C# yang membatalkan tulis
-    // bila sidik jari baris (seluruh nilai baris saat dimuat) tidak
-    // lagi cocok. "Muat ulang" mengambil ulang jangkar dari sheet
-    // sehingga flag terhapus; draft tetap dipertahankan.
-    in-out property <bool> external-changed: false;
-
-    // Klik kanan = kembali ke dashboard (C# OnEmbeddedViewPointerPressed).
+    // Klik kanan = kembali ke dashboard
     sheets-back-touch := TouchArea {
         width: 100%; height: 100%;
         pointer-event(ev) => {
@@ -789,8 +767,8 @@ export component SheetsView inherits Rectangle {
         height: 100%;
         padding-left: Design.space-xl;
         padding-right: Design.space-xl;
-        padding-bottom: 30px;
-        spacing: Design.space-md;
+        padding-bottom: 24px;
+        spacing: Design.space-sm;
 
         HorizontalLayout {
             height: 36px;
@@ -802,132 +780,31 @@ export component SheetsView inherits Rectangle {
                 color: Design.text-primary;
                 vertical-alignment: center;
             }
-        }
-        Text {
-            text: "1 Google Sheet (service account)";
-            font-size: Design.font-body;
-            font-weight: 700;
-            color: Design.cat-points;
-        }
-
-        // Tinggi EKSPLISIT (bukan vertical-stretch): rantai persentase
-        // di Slint jatuh ke preferred-height (pelajaran yang sama di
-        // main.slint ~536) — vertical-stretch di Card maupun Rectangle
-        // pembungkus tidak mengembang (terverifikasi live 2x). 232px =
-        // judul 36 + subjudul 24 + status 28 + tombol 36 + footnote 18
-        // + 5 gap 60 + padding-bawah 30. max() menjaga isi (282px)
-        // tidak terpotong bila root.height ternyata setinggi isi.
-        Card {
-            height: max(300px, root.height - 232px);
-            VerticalLayout {
-                padding: Design.space-md;
-                spacing: 2px;
-
-                // Header kolom.
-                HorizontalLayout {
-                    height: 28px;
-                    spacing: Design.space-sm;
-                    Text { width: 40px; text: "No"; font-size: Design.font-caption; font-weight: 800; color: Design.text-muted; vertical-alignment: center; }
-                    Text { horizontal-stretch: 1; text: "Sekolah"; font-size: Design.font-caption; font-weight: 800; color: Design.text-muted; vertical-alignment: center; }
-                    Text { width: 110px; text: "Status"; font-size: Design.font-caption; font-weight: 800; color: Design.text-muted; vertical-alignment: center; }
-                    Text { width: 80px; text: "Poin"; font-size: Design.font-caption; font-weight: 800; color: Design.text-muted; vertical-alignment: center; }
-                }
-                HSeparator { }
-
-                // Baris sheet (isi dari akun — Rust mengisi root.sheet-rows).
-                if root.sheet-row-count == 0 : HorizontalLayout {
-                    height: 36px;
-                    Text { width: 40px; text: "1"; font-size: Design.font-button; font-family: "JetBrains Mono"; color: Design.text-muted; vertical-alignment: center; }
-                    Text { horizontal-stretch: 1; text: "Sheet kosong — isi di kolom akun"; font-size: Design.font-body; color: Design.text-muted; vertical-alignment: center; }
-                    Text { width: 110px; text: ""; }
-                    Text { width: 80px; text: ""; }
-                }
-                for i in 10 : HorizontalLayout {
-                    visible: i < root.sheet-row-count;
-                    height: 36px; spacing: Design.space-sm;
-                    Text { width: 40px; text: i; font-size: Design.font-button; font-family: "JetBrains Mono"; color: Design.text-muted; vertical-alignment: center; }
-                    Text { horizontal-stretch: 1; text: root.sheet-col0[i]; font-size: Design.font-body; font-weight: 700; color: Design.text-primary; vertical-alignment: center; overflow: elide; }
-                    Text { width: 110px; text: root.sheet-col1[i]; font-size: Design.font-button; font-weight: 700; color: Design.text-muted; vertical-alignment: center; }
-                    Text { width: 80px; text: root.sheet-col2[i]; font-size: Design.font-body; font-weight: 700; color: Design.cat-points; vertical-alignment: center; }
-                }
-                // Baris status: penyelaras baris (C# SpreadsheetLoadAlignment —
-                // jangkar = awal range respons, jatuh kembali ke konfigurasi bila tak terurai).
-                HorizontalLayout {
-                    height: 28px;
-                    spacing: Design.space-sm;
-                    Text {
-                        text: root.external-changed
-                            ? "● Baris 4 di sheet berubah di luar — fingerprint tidak cocok (dimuat: 'SDN RANCAIYUH I')"
-                            : "● 6 baris selaras · grid 1–6 = sheet 4–9 · jangkar A3 · range A3:Z";
-                        font-size: Design.font-caption;
-                        font-weight: 700;
-                        color: root.external-changed ? Design.status-danger : Design.status-success;
-                        vertical-alignment: center;
-                        horizontal-stretch: 1;
-                        overflow: elide;
-                    }
-                    Text {
-                        text: root.has-draft ? "● Draft — belum disimpan" : "";
-                        font-size: Design.font-button;
-                        font-weight: 700;
-                        color: Design.status-warning;
-                        vertical-alignment: center;
-                    }
-                }
-
-                HorizontalLayout {
-                    height: 36px;
-                    spacing: Design.space-sm;
-                    Btn {
-                        label: "Simpan";
-                        variant: "primary";
-                        clicked => {
-                            if (root.external-changed) {
-                                // Guard memblokir — persis C#:
-                                // CheckRowsStillAlignedAsync() membatalkan tulis
-                                // bila sidik jari tidak cocok; draft tetap ada.
-                                root.toast("Save diblokir — sheet berubah di luar (guard fingerprint). Muat ulang dulu; draft tetap tersimpan.");
-                            } else if (!root.has-draft) {
-                                root.toast("Tidak ada perubahan untuk disimpan");
-                            } else {
-                                root.sheet-s1 = root.draft-s1;
-                                root.sheet-p1 = root.draft-p1;
-                                root.toast("Tersimpan ke sheet");
-                            }
-                        }
-                    }
-                    Btn {
-                        label: "Simulasikan perubahan di luar";
-                        variant: "secondary";
-                        clicked => {
-                            root.external-changed = true;
-                            root.toast("Simulasi: sheet berubah di luar — Simpan diblokir (guard fingerprint); draft tetap tersimpan.");
-                        }
-                    }
-                    Btn {
-                        label: "Muat ulang";
-                        variant: "secondary";
-                        clicked => {
-                            root.external-changed = false;
-                            if (root.has-draft) {
-                                root.toast("Sheet dimuat ulang — 6 baris selaras; draft belum disimpan tetap ada.");
-                            } else {
-                                root.toast("Sheet dimuat ulang — 6 baris selaras");
-                            }
-                        }
-                    }
-                }
-                Rectangle { horizontal-stretch: 1; }
+            Text {
+                text: "1 Google Sheet (service account)";
+                font-size: Design.font-body;
+                font-weight: 700;
+                color: Design.cat-points;
+                vertical-alignment: center;
             }
-                Text {
-                    text: "Guard fingerprint baris aktif — save diblokir bila sheet berubah di luar.";
-                    font-size: Design.font-caption;
-                    color: Design.text-muted;
-                    wrap: word-wrap;
-                }
+            Rectangle { horizontal-stretch: 1; }
+            Btn {
+                label: "Buka Window Baru";
+                variant: "secondary";
+                small: true;
+                clicked => { root.popout-window(); }
             }
+        }
+
+        // Full Interactive Spreadsheet Component
+        SpreadsheetComponent {
+            is-standalone: false;
+            toast(msg) => { root.toast(msg); }
+            popout-window() => { root.popout-window(); }
+            close-view() => { root.back(); }
         }
     }
+}
 
 // ================= LEADERBOARD =================
 // Poin harian/bulanan. Peringkat 1–3 pakai warna teks (emas/perak/perunggu),

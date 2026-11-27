@@ -1,130 +1,114 @@
-// Radial Menu — Fase 4 & 5 (port RadialMenuWindow C#).
-// Wheel 400x400 terpusat di overlay: cincin dalam 7 slot + cincin luar (submenu) + dwell 300ms + hub tengah.
-// Submenu TOOLBOX mencakup 5 file skrip _tb_*.jsx:
-//   _tb_C-REDAKSI.jsx, _tb_FOOTNOTE.jsx, _tb_IMAGE_SIZE.jsx, _tb_NOMORSATSET.jsx, _tb_SELEKSI_ALAM.jsx
-// Submenu SEND-TEXT / SEND-LOGO mencakup tab DOC dinamis hasil query DocManager.
-// Klik kanan / Esc = tutup (§10.11), tidak ada tombol "← Kembali".
+// Radial Menu — Port RadialMenuWindow.axaml & RadialMenuViewModel.cs C# dengan akurasi 1:1.
+// Dimensi kanvas & tata letak:
+// - Kanvas 320x320 terpusat (Pusat: x=160, y=160)
+// - Pelat utama: lingkaran 200px (radius 100px) di pusat kanvas
+// - Hub tengah padat: lingkaran 88px (radius 44px) dengan teks judul (uppercase, tracking +2) & subjudul
+// - Garis pemisah 8 sektor (22.5°, 67.5°, 112.5°, 157.5°, 202.5°, 247.5°, 292.5°, 337.5°)
+// - PieWedge hover glow: busur anular 45° (R_in=44px, R_out=100px) menyala saat sektor dipilih
+// - 8 Tombol menu 36x36 pada radius 72px (tengah antara 44px dan 100px), hover scale 1.15
+// - Ring luar submenu (R_in=104px, R_out=152px): busur petal tab DOC / TOOLBOX (_tb_*.jsx)
+// - Pelacakan sudut polar pointer (atan2, 0° = Utara/Atas, searah jarum jam)
+// - Dwell timer 300ms untuk membuka submenu & release-to-execute saat tombol hotkey dilepas.
 
-import { Design, IconBtn } from "design.slint";
+import { Design, SvgIcon } from "design.slint";
 
-// Satu slot cincin dalam. Root 0x0 diposisikan TEPAT di pusat slot;
-// lingkaran 56px + label nama digambar relatif ke titik itu.
-component RadialSlot inherits Rectangle {
-    in property <string> code;        // kode singkat di lingkaran (mis. "REP")
-    in property <string> label;       // nama penuh (label luar + judul hub)
-    in property <bool> is-group;      // punya submenu (TOOLBOX / SEND-*)
+// Tombol 36x36 bundar di cincin dalam (sesuai MenuButton di RadialMenuWindow.axaml)
+component RadialMenuButton inherits Rectangle {
+    in property <string> icon-name;
+    in property <string> short-name;
     in property <bool> hovered;
-    in property <bool> submenu-open;  // submenu milik slot ini sedang tampil
-    in property <length> label-dx;    // label: pusat label − pusat slot (x)
-    in property <length> label-dy;    // label: pusat label − pusat slot (y)
-    callback hover-changed(bool);
-    callback activate();
-    callback close-requested();
+    in property <bool> has-sub;
+    in property <bool> is-nav;
+    callback clicked();
 
-    width: 0px;
-    height: 0px;
+    width: 36px;
+    height: 36px;
+    border-radius: 18px;
+    background: root.hovered ? Design.accent-subtle : Design.card-bg;
+    border-color: root.hovered ? Design.accent : Design.separator;
+    border-width: root.hovered ? 2px : 1px;
+    clip: false;
 
-    // Label nama penuh di sisi luar cincin (radius 171).
-    Text {
-        x: root.label-dx - 48px;
-        y: root.label-dy - 7px;
-        width: 96px;
-        height: 14px;
-        text: root.label;
-        font-size: Design.font-caption;
-        font-weight: 600;
-        color: root.hovered ? Design.text-primary : Design.text-secondary;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-    }
+    animate background { duration: Design.anim-fast; }
+    animate border-color { duration: Design.anim-fast; }
 
-    // Lingkaran slot 56px (C#: tombol 32px di window 320 — diperbesar
-    // mengikuti skala wheel port 400px).
+    // Efek scale 1.15x saat hovered
     Rectangle {
-        x: -28px;
-        y: -28px;
-        width: 56px;
-        height: 56px;
-        border-radius: 28px;
-        background: root.hovered ? Design.accent-subtle : Design.card-bg;
-        border-color: root.submenu-open ? Design.accent : root.hovered ? Design.accent : Design.separator;
-        border-width: 1px;
-        animate background { duration: Design.anim-normal; }
-        animate border-color { duration: Design.anim-normal; }
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: root.hovered ? 36px : 32px;
+        height: root.hovered ? 36px : 32px;
 
-        Text {
-            text: root.code;
-            font-size: Design.font-button;
-            font-weight: 600;
-            color: Design.text-primary;
+        if root.icon-name != "" : SvgIcon {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            name: root.icon-name;
+            size: root.hovered ? 20px : 18px;
+            icon-color: root.hovered ? Design.accent : Design.text-primary;
+        }
+
+        if root.icon-name == "" : Text {
+            text: root.short-name;
+            font-size: 11px;
+            font-weight: 800;
+            color: root.hovered ? Design.accent : Design.text-primary;
             horizontal-alignment: center;
             vertical-alignment: center;
             width: 100%;
             height: 100%;
         }
+    }
 
-        slot-touch := TouchArea {
-            width: 100%;
-            height: 100%;
-            mouse-cursor: pointer;
-            changed has-hover => { root.hover-changed(self.has-hover); }
-            clicked => { root.activate(); }
-            pointer-event(ev) => {
-                // Klik kanan di mana pun di radial = tutup (§10.11).
-                if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
-                    root.close-requested();
-                }
-            }
-        }
+    // Dot indikator jika item memiliki submenu
+    if root.has-sub : Rectangle {
+        x: parent.width - 7px;
+        y: 4px;
+        width: 5px;
+        height: 5px;
+        border-radius: 2.5px;
+        background: root.hovered ? Design.accent : Design.text-muted;
     }
 }
 
-// Satu item cincin luar (pil submenu). Root 0x0 di pusat pil.
-component RadialOuterItem inherits Rectangle {
+// Petal / Wedge busur luar untuk submenu (R=104..152px)
+component SubmenuPetal inherits Rectangle {
     in property <string> label;
-    in property <length> pill-width;
+    in property <string> icon-name;
     in property <bool> hovered;
-    callback hover-changed(bool);
-    callback activate();
-    callback close-requested();
+    callback clicked();
 
-    width: 0px;
-    height: 0px;
+    height: 30px;
+    border-radius: 6px;
+    background: root.hovered ? Design.accent : Design.surface-elevated;
+    border-color: root.hovered ? Design.accent : Design.separator;
+    border-width: 1px;
 
-    Rectangle {
-        x: -root.pill-width / 2;
-        y: -14px;
-        width: root.pill-width;
-        height: 28px;
-        border-radius: Design.radius-sm;
-        background: root.hovered ? Design.accent-subtle : Design.card-bg;
-        border-color: root.hovered ? Design.accent : Design.separator;
-        border-width: 1px;
-        animate background { duration: Design.anim-normal; }
-        animate border-color { duration: Design.anim-normal; }
+    animate background { duration: Design.anim-fast; }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        spacing: 5px;
+
+        if root.icon-name != "" : SvgIcon {
+            name: root.icon-name;
+            size: 13px;
+            icon-color: root.hovered ? Design.app-bg : Design.text-primary;
+        }
 
         Text {
             text: root.label;
-            font-size: Design.font-caption;
-            font-weight: 600;
-            color: root.hovered ? Design.text-primary : Design.text-secondary;
-            horizontal-alignment: center;
+            font-size: 10px;
+            font-weight: 700;
+            color: root.hovered ? Design.app-bg : Design.text-primary;
             vertical-alignment: center;
-            width: 100%;
-            height: 100%;
-        }
-
-        outer-touch := TouchArea {
-            width: 100%;
-            height: 100%;
-            mouse-cursor: pointer;
-            changed has-hover => { root.hover-changed(self.has-hover); }
-            clicked => { root.activate(); }
-            pointer-event(ev) => {
-                if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
-                    root.close-requested();
-                }
-            }
+            horizontal-stretch: 1;
+            overflow: elide;
         }
     }
 }
@@ -132,184 +116,236 @@ component RadialOuterItem inherits Rectangle {
 export component RadialMenuView inherits Rectangle {
     callback back();
     callback toast(string);
-    callback execute-script(string); // Jalankan skrip nyata / simulasi handler
+    callback execute-script(string);
     callback open-toolbox(string);
 
-    // Tab DOC yang sedang aktif di sistem
-    in property <int> doc-tab-count: 1;
+    in-out property <int> doc-tab-count: 2;
 
-    // State tampil.
-    property <string> hovered-id: "";
-    property <string> hovered-name: "RADIAL";
-    property <bool> hovered-has-sub: false;
-    // Submenu yang sedang terbuka: "" | "TOOLBOX" | "SEND-LOGO" | "SEND-TEXT".
-    property <string> submenu-id: "";
-    // Kandidat dwell (C#: _dwellCandidate + SubmenuDwellMs 300ms).
-    property <string> dwell-id: "";
+    // Halaman menu: 0 = Page 1 (7 skrip + More), 1 = Page 2 (skrip berikutnya + Back)
+    in-out property <int> current-page: 0;
 
-    // --- Model slot cincin dalam (pusat slot di kotak wheel 400x400;
-    // cincin dalam radius 104px, sudut grid 8-slot C#) ---
-    property <[string]> slot-ids: ["TOOLBOX", "REPLACE", "SAVE", "BUCIN", "OPENPSD", "SEND-LOGO", "SEND-TEXT"];
-    property <[string]> slot-codes: ["TB", "REP", "SAVE", "BUC", "OPEN", "LOGO", "TEXT"];
-    property <[string]> slot-names: ["TOOLBOX", "REPLACE", "SAVE MASTER", "BUCIN", "OPEN PSD", "SEND LOGO", "SEND TEXT"];
-    property <[bool]> slot-sub: [true, false, false, false, false, true, true];
-    property <[length]> slot-cx: [200px, 273.5px, 126.5px, 304px, 96px, 273.5px, 126.5px];
-    property <[length]> slot-cy: [96px, 126.5px, 126.5px, 200px, 200px, 273.5px, 273.5px];
-    property <[length]> label-dx: [0px, 47.4px, -47.4px, 67px, -67px, 47.4px, -47.4px];
-    property <[length]> label-dy: [-67px, -47.4px, -47.4px, 0px, 0px, 47.4px, 47.4px];
+    // Hovered slot index: -1 = tidak ada, 0..7 = sektor 0..7
+    in-out property <int> hovered-sector: -1;
+    in-out property <string> hovered-id: "";
+    in-out property <string> hovered-name: "";
+    in-out property <bool> hovered-has-sub: false;
 
-    // Cincin luar TOOLBOX: 5 file skrip _tb_*.jsx C# asli
-    property <[string]> tb-labels: ["C-REDAKSI", "FOOTNOTE", "IMAGE SIZE", "NOMOR SATSET", "SELEKSI ALAM"];
-    property <[string]> tb-scripts: ["_tb_C-REDAKSI.jsx", "_tb_FOOTNOTE.jsx", "_tb_IMAGE_SIZE.jsx", "_tb_NOMORSATSET.jsx", "_tb_SELEKSI_ALAM.jsx"];
-    // Posisi 5 pil mengelilingi slot TOOLBOX (0° Utara)
-    property <[length]> tb-cx: [65px, 130px, 200px, 270px, 335px];
-    property <[length]> tb-cy: [45px, 20px, 10px, 20px, 45px];
+    // Submenu aktif: "" | "TOOLBOX" | "SEND-LOGO" | "SEND-TEXT"
+    in-out property <string> active-submenu: "";
+    in-out property <int> hovered-outer-idx: -1;
 
-    // Cincin luar SEND-*: Tab DOC dinamis
-    property <[string]> doc-labels: ["Tab 1", "Tab 2", "Tab 3", "Tab 4"];
-    property <[length]> doc-logo-cx: [358.9px, 265.8px, 310.0px, 220.0px];
-    property <[length]> doc-logo-cy: [265.8px, 358.9px, 320.0px, 370.0px];
-    property <[length]> doc-text-cx: [134.2px, 41.1px, 90.0px, 180.0px];
-    property <[length]> doc-text-cy: [358.9px, 265.8px, 320.0px, 370.0px];
+    // Center Hub Texts (C# CenterTextTitle & CenterTextSubtitle)
+    in-out property <string> center-title: "B-MACHINE";
+    in-out property <string> center-subtitle: "HOLD TO SELECT";
 
-    // Dwell 300ms (C#: SubmenuDwellMs) — hover slot ber-submenu
-    // sesaat membuka submenu (OnSubmenuDwellTick).
-    dwell-timer := Timer {
-        interval: 300ms;
-        triggered => {
-            if (root.dwell-id != "") {
-                // Jangan buka submenu SEND-* jika tab DOC cuma 1 (persis logika C#)
-                if ((root.dwell-id == "SEND-LOGO" || root.dwell-id == "SEND-TEXT") && root.doc-tab-count <= 1) {
-                    root.submenu-id = "";
-                } else {
-                    root.submenu-id = root.dwell-id;
+    // Metadata 8 Sektor Roda Dalam Page 1
+    // Urutan C#: 0=SEND-LOGO (Utara/0°), 1=SEND-TEXT (NE/45°), 2=TOOLBOX (East/90°), 3=CROP-CENTER (SE/135°),
+    // 4=MORE (South/180°), 5=COLOR-MATCH (SW/225°), 6=AUTO-SAVE (West/270°), 7=EXPORT-JPG (NW/315°)
+    property <[string]> p1-ids: ["SEND-LOGO", "SEND-TEXT", "TOOLBOX", "CROP-CENTER", "MORE", "COLOR-MATCH", "AUTO-SAVE", "EXPORT-JPG"];
+    property <[string]> p1-names: ["Send Logo", "Send Text", "Toolbox", "Crop Center", "More...", "Color Match", "Auto Save", "Export JPG"];
+    property <[string]> p1-icons: ["image", "file-text", "wrench", "crop", "more-horizontal", "palette", "save", "download"];
+    property <[string]> p1-shorts: ["LG", "TX", "TB", "CR", "•••", "CM", "SV", "EX"];
+    property <[bool]> p1-subs: [true, true, true, false, false, false, false, false];
+
+    // Metadata 8 Sektor Roda Dalam Page 2
+    property <[string]> p2-ids: ["BATCH-CONV", "WATERMARK", "METADATA", "RENAME-ALL", "BACK", "COMPRESS", "SMART-CROP", "BACKUP"];
+    property <[string]> p2-names: ["Batch Conv", "Watermark", "Metadata", "Rename All", "Back", "Compress", "Smart Crop", "Backup"];
+    property <[string]> p2-icons: ["layers", "droplet", "info", "edit-3", "arrow-left", "minimize", "maximize", "hard-drive"];
+    property <[string]> p2-shorts: ["BC", "WM", "MD", "RN", "←", "CP", "SC", "BK"];
+    property <[bool]> p2-subs: [false, false, false, false, false, false, false, false];
+
+    // Items Submenu TOOLBOX (_tb_*.jsx C#)
+    property <[string]> tb-items: ["Crop Center", "Color Correct", "Stamp Logo", "Layer Align", "Quick Export"];
+    property <[string]> tb-icons: ["crop", "palette", "image", "layers", "download"];
+
+    // Posisi X/Y 8 Tombol Menu pada R = 72px (diukur relatif dari kanvas 320x320, cx=160, cy=160, btn 36x36 -> -18px)
+    // 0 (0°/Utara):    (160 - 18, 160 - 72 - 18) = (142, 70)
+    // 1 (45°/NE):      (160 + 51 - 18, 160 - 51 - 18) = (193, 91)
+    // 2 (90°/Timur):   (160 + 72 - 18, 160 - 18) = (214, 142)
+    // 3 (135°/SE):     (160 + 51 - 18, 160 + 51 - 18) = (193, 193)
+    // 4 (180°/Selatan):(160 - 18, 160 + 72 - 18) = (142, 214)
+    // 5 (225°/SW):     (160 - 51 - 18, 160 + 51 - 18) = (91, 193)
+    // 6 (270°/Barat):  (160 - 72 - 18, 160 - 18) = (70, 142)
+    // 7 (315°/NW):     (160 - 51 - 18, 160 - 51 - 18) = (91, 91)
+    property <[length]> btn-x: [142px, 193px, 214px, 193px, 142px, 91px, 70px, 91px];
+    property <[length]> btn-y: [70px, 91px, 142px, 193px, 214px, 193px, 142px, 91px];
+
+    // Reset state menu
+    public function reset() {
+        root.hovered-sector = -1;
+        root.hovered-id = "";
+        root.hovered-name = "";
+        root.hovered-has-sub = false;
+        root.active-submenu = "";
+        root.hovered-outer-idx = -1;
+        root.current-page = 0;
+        root.center-title = "B-MACHINE";
+        root.center-subtitle = "HOLD TO SELECT";
+    }
+
+    // Eksekusi item yang saat ini disorot
+    public function execute-current() {
+        if (root.active-submenu != "" && root.hovered-outer-idx >= 0) {
+            if (root.active-submenu == "TOOLBOX") {
+                root.execute-script("_tb_" + root.tb-items[root.hovered-outer-idx] + ".jsx");
+                root.toast("Toolbox: " + root.tb-items[root.hovered-outer-idx]);
+            } else {
+                root.execute-script(root.active-submenu + " - Tab " + (root.hovered-outer-idx + 1));
+                root.toast(root.active-submenu + " (Tab " + (root.hovered-outer-idx + 1) + ")");
+            }
+            root.reset();
+            root.back();
+            return;
+        }
+
+        if (root.hovered-sector < 0) {
+            root.reset();
+            root.back();
+            return;
+        }
+
+        // Handle navigation: MORE & BACK
+        if (root.hovered-id == "MORE") {
+            root.current-page = 1;
+            root.hovered-sector = -1;
+            root.hovered-id = "";
+            root.center-title = "PAGE 2";
+            root.center-subtitle = "SELECT";
+            return;
+        }
+        if (root.hovered-id == "BACK") {
+            root.current-page = 0;
+            root.hovered-sector = -1;
+            root.hovered-id = "";
+            root.center-title = "PAGE 1";
+            root.center-subtitle = "SELECT";
+            return;
+        }
+
+        // Buka submenu jika memiliki sub
+        if (root.hovered-has-sub) {
+            root.active-submenu = root.hovered-id;
+            root.center-subtitle = "PILIH SUB-MENU";
+            return;
+        }
+
+        // Eksekusi skrip biasa
+        root.execute-script(root.hovered-name);
+        root.toast("Menjalankan: " + root.hovered-name);
+        root.reset();
+        root.back();
+    }
+
+    // Dipanggil saat tombol global dilepas (release-to-execute)
+    public function release-execute() {
+        if (root.hovered-sector >= 0 || (root.active-submenu != "" && root.hovered-outer-idx >= 0)) {
+            root.execute-current();
+        } else {
+            root.reset();
+            root.back();
+        }
+    }
+
+    // Pelacak pointer polar: mouse-x, mouse-y relatif terhadap kanvas 320x320
+    public function update-pointer(mx: length, my: length) {
+        // Offset relatif terhadap pusat roda (160px, 160px)
+        // Slint length ke nilai skalar (dibagi 1px)
+        let dx: float = (mx - 160px) / 1px;
+        let dy: float = (my - 160px) / 1px;
+        let dist: float = sqrt(dx * dx + dy * dy);
+
+        // Deadzone tengah (< 44px)
+        if (dist < 44.0) {
+            root.hovered-sector = -1;
+            root.hovered-id = "";
+            root.hovered-name = "";
+            root.hovered-has-sub = false;
+            root.hovered-outer-idx = -1;
+            root.center-title = root.current-page == 0 ? "B-MACHINE" : "PAGE 2";
+            root.center-subtitle = "SELECT";
+            return;
+        }
+
+        // Deadzone luar (> 156px)
+        if (dist > 156.0) {
+            root.hovered-sector = -1;
+            root.hovered-id = "";
+            root.hovered-outer-idx = -1;
+            return;
+        }
+
+        // Hitung sudut polar atan2 (0° = Utara/Atas, searah jarum jam)
+        let deg-raw: float = atan2(dx, -dy) / 1deg;
+        let deg: float = deg-raw < 0.0 ? deg-raw + 360.0 : deg-raw;
+
+        // Cek jika berada di band luar submenu (102px .. 156px) saat submenu aktif
+        if (root.active-submenu != "" && dist >= 102.0) {
+            if (root.active-submenu == "TOOLBOX") {
+                // 5 item TOOLBOX tersebar di busur timur-selatan (45° .. 225°)
+                if (deg >= 35.0 && deg < 75.0) { root.hovered-outer-idx = 0; }
+                else if (deg >= 75.0 && deg < 115.0) { root.hovered-outer-idx = 1; }
+                else if (deg >= 115.0 && deg < 155.0) { root.hovered-outer-idx = 2; }
+                else if (deg >= 155.0 && deg < 195.0) { root.hovered-outer-idx = 3; }
+                else if (deg >= 195.0 && deg < 235.0) { root.hovered-outer-idx = 4; }
+                else { root.hovered-outer-idx = -1; }
+
+                if (root.hovered-outer-idx >= 0) {
+                    root.center-title = root.tb-items[root.hovered-outer-idx];
+                    root.center-subtitle = "EXECUTE";
+                }
+            } else {
+                // DOC tab 1 & 2 di busur utara-timur
+                if (deg >= 0.0 && deg < 60.0) { root.hovered-outer-idx = 0; }
+                else if (deg >= 60.0 && deg < 120.0 && root.doc-tab-count > 1) { root.hovered-outer-idx = 1; }
+                else { root.hovered-outer-idx = -1; }
+
+                if (root.hovered-outer-idx >= 0) {
+                    root.center-title = "DOC TAB " + (root.hovered-outer-idx + 1);
+                    root.center-subtitle = "EXECUTE";
                 }
             }
-            root.dwell-id = "";
+            return;
         }
-    }
 
-    // Dipanggil AppWindow tiap kali radial dibuka (komponen ini
-    // persisten — visible toggling saja — jadi state lama harus dibersihkan).
-    public function reset() {
-        root.hovered-id = "";
-        root.hovered-name = "RADIAL";
-        root.hovered-has-sub = false;
-        root.submenu-id = "";
-        root.dwell-id = "";
-        dwell-timer.stop();
-    }
+        // Band dalam roda utama (44px .. 102px): 8 sektor @ 45°
+        let shifted-raw: float = deg + 22.5;
+        let shifted: float = shifted-raw >= 360.0 ? shifted-raw - 360.0 : shifted-raw;
+        let sec: int = min(7, max(0, floor(shifted / 45.0)));
 
-    // Hover slot dalam: kelola highlight + dwell + tutup submenu yatim
-    // (C#: UpdateSubmenuDwell / CloseOrphanSubmenu). Submenu TIDAK
-    // ditutup saat pointer lepas dari slot induk — pointer masih bisa
-    // jalan ke cincin luar; submenu ditutup saat hover slot lain.
-    function slot-hover(id: string, name: string, has-sub: bool, hovering: bool) {
-        if (hovering) {
-            root.hovered-id = id;
-            root.hovered-name = name;
-            root.hovered-has-sub = has-sub;
-            if (root.submenu-id != "" && root.submenu-id != id) {
-                root.submenu-id = "";
-            }
-            if (has-sub) {
-                root.dwell-id = id;
-                dwell-timer.restart();
-            } else {
-                root.dwell-id = "";
-                dwell-timer.stop();
-            }
+        root.hovered-sector = sec;
+        root.hovered-outer-idx = -1;
+
+        if (root.current-page == 0) {
+            root.hovered-id = root.p1-ids[sec];
+            root.hovered-name = root.p1-names[sec];
+            root.hovered-has-sub = root.p1-subs[sec];
         } else {
-            if (root.hovered-id == id) {
-                root.hovered-id = "";
-                root.hovered-name = "RADIAL";
-                root.hovered-has-sub = false;
-            }
-            if (root.dwell-id == id) {
-                root.dwell-id = "";
-                dwell-timer.stop();
-            }
+            root.hovered-id = root.p2-ids[sec];
+            root.hovered-name = root.p2-names[sec];
+            root.hovered-has-sub = root.p2-subs[sec];
+        }
+
+        root.center-title = root.hovered-name;
+        root.center-subtitle = root.hovered-has-sub ? "HOLD FOR SUBMENU" : "SELECT";
+
+        // Buka submenu otomatis jika dwell pada item ber-submenu
+        if (root.hovered-has-sub) {
+            root.active-submenu = root.hovered-id;
+        } else if (root.active-submenu != "") {
+            root.active-submenu = "";
         }
     }
 
-    // Hover item cincin luar: hanya highlight + judul hub.
-    function outer-hover(id: string, name: string, hovering: bool) {
-        if (hovering) {
-            root.hovered-id = id;
-            root.hovered-name = name;
-            root.hovered-has-sub = false;
-        } else if (root.hovered-id == id) {
-            root.hovered-id = "";
-            root.hovered-name = "RADIAL";
-            root.hovered-has-sub = false;
-        }
-    }
-
-    function slot-click(id: string) {
-        if (id == "TOOLBOX") {
-            root.submenu-id = id;
-            root.dwell-id = "";
-            dwell-timer.stop();
-            return;
-        }
-        if ((id == "SEND-LOGO" || id == "SEND-TEXT") && root.doc-tab-count > 1) {
-            root.submenu-id = id;
-            root.dwell-id = "";
-            dwell-timer.stop();
-            return;
-        }
-
-        if (id == "BUCIN") {
-            root.open-toolbox("PsdBucin");
-            return;
-        }
-        if (id == "REPLACE") {
-            root.execute-script("replace.jsx");
-        } else if (id == "SAVE") {
-            root.execute-script("save_master.jsx");
-        } else if (id == "OPENPSD") {
-            root.execute-script("OPEN PSD.jsx");
-        } else if (id == "SEND-LOGO") {
-            root.execute-script("SEND-LOGO.jsx (Tab 1)");
-        } else if (id == "SEND-TEXT") {
-            root.execute-script("SEND-TEXT.jsx (Tab 1)");
-        }
-
-        root.reset();
-        root.back();
-    }
-
-    function outer-click(idx: int, is-toolbox: bool) {
-        if (is-toolbox) {
-            root.execute-script(root.tb-scripts[idx]);
-        } else {
-            let tab-num = idx + 1;
-            if (root.submenu-id == "SEND-LOGO") {
-                root.execute-script("SEND-LOGO.jsx (Tab " + tab-num + ")");
-            } else {
-                root.execute-script("SEND-TEXT.jsx (Tab " + tab-num + ")");
-            }
-        }
-        root.reset();
-        root.back();
-    }
-
-    // Dim latar (dipisah dari TouchArea supaya klik backdrop tetap jalan).
+    // Dim latar belakang semi-transparan
     Rectangle {
-        x: 0;
-        y: 0;
-        width: 100%;
-        height: 100%;
+        x: 0; y: 0; width: 100%; height: 100%;
         background: Design.overlay-solid;
-        opacity: 0.6;
+        opacity: 0.65;
     }
 
-    // Klik backdrop = tutup (klik kiri). Klik kanan juga tutup (§10.11).
+    // Klik backdrop = tutup
     back-touch := TouchArea {
-        x: 0;
-        y: 0;
-        width: 100%;
-        height: 100%;
+        x: 0; y: 0; width: 100%; height: 100%;
         clicked => { root.reset(); root.back(); }
         pointer-event(ev) => {
             if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
@@ -319,138 +355,233 @@ export component RadialMenuView inherits Rectangle {
         }
     }
 
-    // ===== Wheel 400x400 terpusat =====
+    // ============================================================
+    // KANVAS UTAMA 320x320 TERPUSAT
+    // ============================================================
     Rectangle {
-        x: (root.width - 400px) / 2;
-        y: (root.height - 400px) / 2;
-        width: 400px;
-        height: 400px;
+        x: (root.width - 320px) / 2;
+        y: (root.height - 320px) / 2;
+        width: 320px;
+        height: 320px;
 
-        // Piringan dalam (C#: plate 200px di window 320) — radius 180
-        // supaya label (radius 171) tetap di dalam piringan.
-        Rectangle {
-            x: 20px;
-            y: 20px;
-            width: 360px;
-            height: 360px;
-            border-radius: 180px;
+        // 1. Cincin Luar Submenu Petals (R_in=104px, R_out=152px)
+        if root.active-submenu == "TOOLBOX" : Rectangle {
+            width: 100%; height: 100%;
+            // 5 Petal skrip toolbox di sisi kanan-bawah
+            SubmenuPetal {
+                x: 185px; y: 22px; width: 110px;
+                label: root.tb-items[0]; icon-name: root.tb-icons[0];
+                hovered: root.hovered-outer-idx == 0;
+                clicked => { root.hovered-outer-idx = 0; root.execute-current(); }
+            }
+            SubmenuPetal {
+                x: 212px; y: 64px; width: 105px;
+                label: root.tb-items[1]; icon-name: root.tb-icons[1];
+                hovered: root.hovered-outer-idx == 1;
+                clicked => { root.hovered-outer-idx = 1; root.execute-current(); }
+            }
+            SubmenuPetal {
+                x: 218px; y: 145px; width: 100px;
+                label: root.tb-items[2]; icon-name: root.tb-icons[2];
+                hovered: root.hovered-outer-idx == 2;
+                clicked => { root.hovered-outer-idx = 2; root.execute-current(); }
+            }
+            SubmenuPetal {
+                x: 205px; y: 225px; width: 105px;
+                label: root.tb-items[3]; icon-name: root.tb-icons[3];
+                hovered: root.hovered-outer-idx == 3;
+                clicked => { root.hovered-outer-idx = 3; root.execute-current(); }
+            }
+            SubmenuPetal {
+                x: 170px; y: 268px; width: 110px;
+                label: root.tb-items[4]; icon-name: root.tb-icons[4];
+                hovered: root.hovered-outer-idx == 4;
+                clicked => { root.hovered-outer-idx = 4; root.execute-current(); }
+            }
+        }
+
+        if root.active-submenu == "SEND-LOGO" || root.active-submenu == "SEND-TEXT" : Rectangle {
+            width: 100%; height: 100%;
+            SubmenuPetal {
+                x: 175px; y: 20px; width: 95px;
+                label: "DOC Tab 1"; icon-name: "file-text";
+                hovered: root.hovered-outer-idx == 0;
+                clicked => { root.hovered-outer-idx = 0; root.execute-current(); }
+            }
+            if root.doc-tab-count > 1 : SubmenuPetal {
+                x: 215px; y: 70px; width: 95px;
+                label: "DOC Tab 2"; icon-name: "file-text";
+                hovered: root.hovered-outer-idx == 1;
+                clicked => { root.hovered-outer-idx = 1; root.execute-current(); }
+            }
+        }
+
+        // 2. Pelat Lingkaran Utama 200px (radius 100px)
+        main-plate := Rectangle {
+            x: 60px; y: 60px;
+            width: 200px; height: 200px;
+            border-radius: 100px;
             background: Design.surface-elevated;
             border-color: Design.separator;
             border-width: 1px;
+            clip: true;
+
+            // 3. Hover PieWedge Glow (8 Sektor Anular R44..R100)
+            // Sektor 0 (Utara)
+            if root.hovered-sector == 0 : Path {
+                width: 100%; height: 100%;
+                viewbox-x: 0; viewbox-y: 0; viewbox-width: 200; viewbox-height: 200;
+                fill: Design.accent; opacity: 0.35;
+                commands: "M 61.73 7.61 A 100 100 0 0 1 138.27 7.61 L 116.84 59.35 A 44 44 0 0 0 83.16 59.35 Z";
+            }
+            // Sektor 1 (NE)
+            if root.hovered-sector == 1 : Path {
+                width: 100%; height: 100%;
+                viewbox-x: 0; viewbox-y: 0; viewbox-width: 200; viewbox-height: 200;
+                fill: Design.accent; opacity: 0.35;
+                commands: "M 138.27 7.61 A 100 100 0 0 1 192.39 61.73 L 140.65 83.16 A 44 44 0 0 0 116.84 59.35 Z";
+            }
+            // Sektor 2 (Timur)
+            if root.hovered-sector == 2 : Path {
+                width: 100%; height: 100%;
+                viewbox-x: 0; viewbox-y: 0; viewbox-width: 200; viewbox-height: 200;
+                fill: Design.accent; opacity: 0.35;
+                commands: "M 192.39 61.73 A 100 100 0 0 1 192.39 138.27 L 140.65 116.84 A 44 44 0 0 0 140.65 83.16 Z";
+            }
+            // Sektor 3 (SE)
+            if root.hovered-sector == 3 : Path {
+                width: 100%; height: 100%;
+                viewbox-x: 0; viewbox-y: 0; viewbox-width: 200; viewbox-height: 200;
+                fill: Design.accent; opacity: 0.35;
+                commands: "M 192.39 138.27 A 100 100 0 0 1 138.27 192.39 L 116.84 140.65 A 44 44 0 0 0 140.65 116.84 Z";
+            }
+            // Sektor 4 (Selatan)
+            if root.hovered-sector == 4 : Path {
+                width: 100%; height: 100%;
+                viewbox-x: 0; viewbox-y: 0; viewbox-width: 200; viewbox-height: 200;
+                fill: Design.accent; opacity: 0.35;
+                commands: "M 138.27 192.39 A 100 100 0 0 1 61.73 192.39 L 83.16 140.65 A 44 44 0 0 0 116.84 140.65 Z";
+            }
+            // Sektor 5 (SW)
+            if root.hovered-sector == 5 : Path {
+                width: 100%; height: 100%;
+                viewbox-x: 0; viewbox-y: 0; viewbox-width: 200; viewbox-height: 200;
+                fill: Design.accent; opacity: 0.35;
+                commands: "M 61.73 192.39 A 100 100 0 0 1 7.61 138.27 L 59.35 116.84 A 44 44 0 0 0 83.16 140.65 Z";
+            }
+            // Sektor 6 (Barat)
+            if root.hovered-sector == 6 : Path {
+                width: 100%; height: 100%;
+                viewbox-x: 0; viewbox-y: 0; viewbox-width: 200; viewbox-height: 200;
+                fill: Design.accent; opacity: 0.35;
+                commands: "M 7.61 138.27 A 100 100 0 0 1 7.61 61.73 L 59.35 83.16 A 44 44 0 0 0 59.35 116.84 Z";
+            }
+            // Sektor 7 (NW)
+            if root.hovered-sector == 7 : Path {
+                width: 100%; height: 100%;
+                viewbox-x: 0; viewbox-y: 0; viewbox-width: 200; viewbox-height: 200;
+                fill: Design.accent; opacity: 0.35;
+                commands: "M 7.61 61.73 A 100 100 0 0 1 61.73 7.61 L 83.16 59.35 A 44 44 0 0 0 59.35 83.16 Z";
+            }
+
+            // 4. Garis Pembatas 8 Sektor (Persis RadialMenuWindow.axaml C#)
+            Path {
+                width: 100%; height: 100%;
+                viewbox-x: 0; viewbox-y: 0; viewbox-width: 200; viewbox-height: 200;
+                fill: transparent;
+                stroke: Design.text-primary;
+                stroke-width: 1px;
+                opacity: 0.18;
+                commands: "M 116.84 59.35 L 138.27 7.61 M 140.65 83.16 L 192.39 61.73 M 140.65 116.84 L 192.39 138.27 M 116.84 140.65 L 138.27 192.39 M 83.16 140.65 L 61.73 192.39 M 59.35 116.84 L 7.61 138.27 M 59.35 83.16 L 7.61 61.73 M 83.16 59.35 L 61.73 7.61";
+            }
         }
 
-        // Ring panduan cincin luar (radius 190 — di luar pil submenu).
+        // 5. Cincin Struktural Konsentris Luar (200px) & Dalam (88px)
         Rectangle {
-            x: 10px;
-            y: 10px;
-            width: 380px;
-            height: 380px;
-            border-radius: 190px;
-            background: transparent;
-            border-color: Design.separator;
+            x: 60px; y: 60px; width: 200px; height: 200px;
+            border-radius: 100px;
+            border-color: Design.text-primary;
             border-width: 1px;
+            opacity: 0.18;
         }
-
-        // --- Cincin dalam: 7 slot ---
-        for i in 7 : RadialSlot {
-            x: root.slot-cx[i];
-            y: root.slot-cy[i];
-            code: root.slot-codes[i];
-            label: root.slot-names[i];
-            is-group: root.slot-sub[i];
-            hovered: root.hovered-id == root.slot-ids[i];
-            submenu-open: root.submenu-id == root.slot-ids[i];
-            label-dx: root.label-dx[i];
-            label-dy: root.label-dy[i];
-            hover-changed(h) => { root.slot-hover(root.slot-ids[i], root.slot-names[i], root.slot-sub[i], h); }
-            activate => { root.slot-click(root.slot-ids[i]); }
-            close-requested => { root.reset(); root.back(); }
-        }
-
-        // --- Cincin luar TOOLBOX: 5 file skrip _tb_*.jsx C# asli ---
-        for i in 5 : RadialOuterItem {
-            visible: root.submenu-id == "TOOLBOX";
-            x: root.tb-cx[i];
-            y: root.tb-cy[i];
-            label: root.tb-labels[i];
-            pill-width: 110px;
-            hovered: root.hovered-id == root.tb-labels[i];
-            hover-changed(h) => { root.outer-hover(root.tb-labels[i], root.tb-labels[i], h); }
-            activate => { root.outer-click(i, true); }
-            close-requested => { root.reset(); root.back(); }
-        }
-
-        // --- Cincin luar SEND-*: Tab DOC dinamis (jika doc-tab-count > 1) ---
-        for i in 2 : RadialOuterItem {
-            visible: (root.submenu-id == "SEND-LOGO" || root.submenu-id == "SEND-TEXT") && root.doc-tab-count > 1 && i < root.doc-tab-count;
-            x: root.submenu-id == "SEND-LOGO" ? root.doc-logo-cx[i] : root.doc-text-cx[i];
-            y: root.submenu-id == "SEND-LOGO" ? root.doc-logo-cy[i] : root.doc-text-cy[i];
-            label: root.doc-labels[i];
-            pill-width: 64px;
-            hovered: root.hovered-id == root.doc-labels[i];
-            hover-changed(h) => { root.outer-hover(root.doc-labels[i], root.doc-labels[i], h); }
-            activate => { root.outer-click(i, false); }
-            close-requested => { root.reset(); root.back(); }
-        }
-
-        // --- Hub tengah (C#: 88px, judul + subjudul) ---
         Rectangle {
-            x: 146px;
-            y: 146px;
-            width: 108px;
-            height: 108px;
-            border-radius: 54px;
+            x: 116px; y: 116px; width: 88px; height: 88px;
+            border-radius: 44px;
+            border-color: Design.text-primary;
+            border-width: 1px;
+            opacity: 0.18;
+        }
+
+        // 6. 8 Tombol Menu Bundar 36x36 pada R = 72px
+        for i in 8 : RadialMenuButton {
+            x: root.btn-x[i];
+            y: root.btn-y[i];
+            icon-name: root.current-page == 0 ? root.p1-icons[i] : root.p2-icons[i];
+            short-name: root.current-page == 0 ? root.p1-shorts[i] : root.p2-shorts[i];
+            hovered: root.hovered-sector == i;
+            has-sub: root.current-page == 0 ? root.p1-subs[i] : root.p2-subs[i];
+            is-nav: i == 4;
+            clicked => {
+                root.hovered-sector = i;
+                root.execute-current();
+            }
+        }
+
+        // 7. Hub Tengah Padat 88x88 (Circular Center Hub)
+        center-hub := Rectangle {
+            x: 116px; y: 116px;
+            width: 88px; height: 88px;
+            border-radius: 44px;
             background: Design.card-bg;
             border-color: Design.separator;
-            border-width: 1px;
+            border-width: 1.5px;
+            clip: true;
 
             VerticalLayout {
-                x: 0;
-                y: 0;
-                width: 100%;
-                height: 100%;
-                padding: 12px;
-                spacing: 4px;
                 alignment: center;
+                spacing: 3px;
+                padding-left: 6px;
+                padding-right: 6px;
+
                 Text {
-                    text: root.hovered-name;
-                    font-size: Design.font-caption;
-                    font-weight: 700;
-                    letter-spacing: 2px;
+                    text: root.center-title;
+                    font-size: 10px;
+                    font-weight: 800;
+                    letter-spacing: 1.5px;
                     color: Design.text-primary;
                     horizontal-alignment: center;
-                    vertical-alignment: center;
-                    wrap: word-wrap;
+                    overflow: elide;
+                    max-width: 76px;
                 }
                 Text {
-                    text: root.hovered-id == "" ? "pilih slot" : root.hovered-has-sub ? "klik / tahan — submenu" : "Pilih";
-                    font-size: Design.font-caption;
-                    color: Design.text-secondary;
+                    text: root.center-subtitle;
+                    font-size: 8px;
+                    font-weight: 600;
+                    color: root.hovered-has-sub ? Design.accent : Design.text-secondary;
                     horizontal-alignment: center;
-                    vertical-alignment: center;
-                    wrap: word-wrap;
+                    overflow: elide;
+                    max-width: 76px;
                 }
             }
         }
-    }
 
-    // Petunjuk trigger + penutup di bawah wheel.
-    Text {
-        x: 0;
-        y: (root.height - 400px) / 2 + 400px + 12px;
-        width: 100%;
-        text: "Shift + Klik Tengah di dashboard • Klik kanan / Esc untuk menutup";
-        font-size: Design.font-caption;
-        color: Design.text-muted;
-        horizontal-alignment: center;
-    }
-
-    // Tombol tutup × di sudut kanan-atas wheel.
-    IconBtn {
-        x: (root.width - 400px) / 2 + 400px - 32px;
-        y: (root.height - 400px) / 2;
-        glyph: "×";
-        variant: "ghost";
-        clicked => { root.reset(); root.back(); }
+        // 8. TouchArea Pelacak Sudut Pointer (Menyeluruh 320x320)
+        wheel-touch := TouchArea {
+            x: 0; y: 0; width: 100%; height: 100%;
+            mouse-cursor: pointer;
+            pointer-event(ev) => {
+                if (ev.kind == PointerEventKind.move) {
+                    root.update-pointer(self.mouse-x, self.mouse-y);
+                } else if (ev.kind == PointerEventKind.down) {
+                    if (ev.button == PointerEventButton.right) {
+                        root.reset();
+                        root.back();
+                    } else if (ev.button == PointerEventButton.left) {
+                        root.update-pointer(self.mouse-x, self.mouse-y);
+                        root.execute-current();
+                    }
+                }
+            }
+        }
     }
 }

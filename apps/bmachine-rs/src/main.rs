@@ -854,6 +854,76 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     }
 
+    // ---- Standalone Multi-Window Handlers (SpreadsheetWindow & CardListWindow) ----
+    let sheet_win_cell: std::rc::Rc<std::cell::RefCell<Option<SpreadsheetWindow>>> = std::rc::Rc::new(std::cell::RefCell::new(None));
+    let card_win_cell: std::rc::Rc<std::cell::RefCell<Option<CardListWindow>>> = std::rc::Rc::new(std::cell::RefCell::new(None));
+
+    {
+        let sheet_cell = sheet_win_cell.clone();
+        ui.on_open_new_sheet_window(move || {
+            let mut opt = sheet_cell.borrow_mut();
+            if opt.is_none() {
+                if let Ok(w) = SpreadsheetWindow::new() {
+                    let w_weak = w.as_weak();
+                    w.on_close_window(move || {
+                        if let Some(w) = w_weak.upgrade() {
+                            let _ = w.hide();
+                        }
+                    });
+                    *opt = Some(w);
+                }
+            }
+            if let Some(w) = opt.as_ref() {
+                let _ = w.show();
+            }
+        });
+    }
+
+    {
+        let card_cell = card_win_cell.clone();
+        let ui_weak = ui.as_weak();
+        ui.on_open_new_card_window(move |cat| {
+            let cat_str = cat.as_str().to_string();
+            let mut opt = card_cell.borrow_mut();
+            if opt.is_none() {
+                if let Ok(w) = CardListWindow::new() {
+                    let w_weak = w.as_weak();
+                    w.on_close_window(move || {
+                        if let Some(w) = w_weak.upgrade() {
+                            let _ = w.hide();
+                        }
+                    });
+                    *opt = Some(w);
+                }
+            }
+            if let Some(w) = opt.as_ref() {
+                w.set_category(slint::SharedString::from(cat_str.clone()));
+                if let Some(main_ui) = ui_weak.upgrade() {
+                    if cat_str == "EDITING" {
+                        w.set_category_accent(slint::Color::from_rgb_u8(59, 130, 246));
+                        w.set_card_titles(main_ui.get_editing_titles());
+                        w.set_card_subs(main_ui.get_editing_subs());
+                        w.set_card_due(main_ui.get_editing_due());
+                        w.set_card_done(main_ui.get_editing_done());
+                    } else if cat_str == "REVISION" {
+                        w.set_category_accent(slint::Color::from_rgb_u8(245, 158, 11));
+                        w.set_card_titles(main_ui.get_revision_titles());
+                        w.set_card_subs(main_ui.get_revision_subs());
+                        w.set_card_due(main_ui.get_revision_due());
+                        w.set_card_done(main_ui.get_revision_done());
+                    } else {
+                        w.set_category_accent(slint::Color::from_rgb_u8(239, 68, 68));
+                        w.set_card_titles(main_ui.get_late_titles());
+                        w.set_card_subs(main_ui.get_late_subs());
+                        w.set_card_due(main_ui.get_late_due());
+                        w.set_card_done(main_ui.get_late_done());
+                    }
+                }
+                let _ = w.show();
+            }
+        });
+    }
+
     // Callback simpan pengaturan akun ke SQLite nyata & trigger sync widget
     {
         let ui_weak = ui.as_weak();

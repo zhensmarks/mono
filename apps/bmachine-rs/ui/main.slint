@@ -4,7 +4,7 @@
 // window lewat ui-scale. Tab HOME/BATCH benar-benar berpindah.
 // Klik StatWidget menampilkan toast. Tombol profil membuka flyout.
 
-import { Design, Card, HSeparator, NavTab, StatWidget, Btn, IconBtn, Toggle, TextField } from "design.slint";
+import { Design, Card, HSeparator, NavTab, StatWidget, Btn, IconBtn, Toggle, TextField, SvgIcon } from "design.slint";
 export { Design }
 import { SettingsView } from "settings.slint";
 import { ToolboxView, SheetsView, LeaderboardView } from "modul.slint";
@@ -14,6 +14,7 @@ import { TrelloDetailPanel } from "trello-detail.slint";
 import { RadialMenuView } from "radial.slint";
 import { SplashView } from "splash.slint";
 import { ExitConfirmDialog, UpdateDialog } from "dialog.slint";
+export { SpreadsheetWindow, CardListWindow } from "windows.slint";
 
 export component AppWindow inherits Window {
     no-frame: true;
@@ -95,6 +96,8 @@ export component AppWindow inherits Window {
     callback win-minimize();
     callback win-maximize();
     callback win-move(length, length);
+    callback open-new-sheet-window();
+    callback open-new-card-window(string);
 
     // ---- Appearance & Customization (persisted in SQLite) ----
     in-out property <string> app-color-mode: "dark";
@@ -575,7 +578,7 @@ export component AppWindow inherits Window {
                 root.overlay-view = "RADIAL";
                 root.show-flyout = false;
             } else if (root.overlay-view == "RADIAL") {
-                root.overlay-view = "";
+                radial-view.release-execute();
             }
         }
     }
@@ -610,25 +613,12 @@ export component AppWindow inherits Window {
                     mouse-cursor: pointer;
                     clicked => { root.show-flyout = !root.show-flyout; }
                 }
-                Rectangle {
-                    width: 20px * root.ui-scale; height: 20px * root.ui-scale;
-                    x: 10px * root.ui-scale; y: 10px * root.ui-scale;
-                    background: transparent;
-                    border-color: Design.text-secondary;
-                    border-width: 1.5px;
-                    border-radius: 10px * root.ui-scale;
-                }
-                Rectangle {
-                    width: 6px * root.ui-scale; height: 6px * root.ui-scale;
-                    x: 17px * root.ui-scale; y: 14px * root.ui-scale;
-                    background: Design.text-secondary;
-                    border-radius: 3px * root.ui-scale;
-                }
-                Rectangle {
-                    width: 12px * root.ui-scale; height: 6px * root.ui-scale;
-                    x: 14px * root.ui-scale; y: 21px * root.ui-scale;
-                    background: Design.text-secondary;
-                    border-radius: 3px * root.ui-scale;
+                SvgIcon {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    name: "user";
+                    size: 18px * root.ui-scale;
+                    icon-color: root.show-flyout ? Design.accent : Design.text-secondary;
                 }
             }
 
@@ -684,14 +674,13 @@ export component AppWindow inherits Window {
                     border-width: 1px;
                     border-radius: 20px * root.ui-scale;
                     animate background { duration: Design.anim-normal; }
-                    Rectangle { x: 12px * root.ui-scale; y: 9px * root.ui-scale; width: 12px * root.ui-scale; height: 2px; background: Design.accent; }
-                    Rectangle { x: 9px * root.ui-scale; y: 11px * root.ui-scale; width: 4px * root.ui-scale; height: 2px; background: Design.accent; }
-                    Rectangle { x: 23px * root.ui-scale; y: 11px * root.ui-scale; width: 4px * root.ui-scale; height: 2px; background: Design.accent; }
-                    Rectangle { x: 8px * root.ui-scale; y: 13px * root.ui-scale; width: 2px; height: 10px * root.ui-scale; background: Design.accent; }
-                    Rectangle { x: 26px * root.ui-scale; y: 13px * root.ui-scale; width: 2px; height: 10px * root.ui-scale; background: Design.accent; }
-                    Rectangle { x: 9px * root.ui-scale; y: 23px * root.ui-scale; width: 4px * root.ui-scale; height: 2px; background: Design.accent; }
-                    Rectangle { x: 23px * root.ui-scale; y: 23px * root.ui-scale; width: 4px * root.ui-scale; height: 2px; background: Design.accent; }
-                    Rectangle { x: 12px * root.ui-scale; y: 25px * root.ui-scale; width: 12px * root.ui-scale; height: 2px; background: Design.accent; }
+                    SvgIcon {
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        name: "hexagon";
+                        size: 18px * root.ui-scale;
+                        icon-color: Design.accent;
+                    }
                     orb-touch := TouchArea {
                         mouse-cursor: pointer;
                         clicked => {
@@ -775,8 +764,8 @@ export component AppWindow inherits Window {
                             root.list-due = root.editing-due;
                             root.selected-card = "";
                             root.trello-window-cat = "EDITING";
-                            root.overlay-view = "TRELLO-WINDOW";
-                            root.toast = "Window Trello EDITING";
+                            root.open-new-card-window("EDITING");
+                            root.toast = "Membuka Window Trello EDITING";
                         }
                     }
                     StatWidget {
@@ -799,8 +788,8 @@ export component AppWindow inherits Window {
                             root.list-due = root.revision-due;
                             root.selected-card = "";
                             root.trello-window-cat = "REVISION";
-                            root.overlay-view = "TRELLO-WINDOW";
-                            root.toast = "Window Trello REVISI";
+                            root.open-new-card-window("REVISION");
+                            root.toast = "Membuka Window Trello REVISI";
                         }
                     }
                 }
@@ -827,8 +816,8 @@ export component AppWindow inherits Window {
                             root.list-due = root.late-due;
                             root.selected-card = "";
                             root.trello-window-cat = "LATE";
-                            root.overlay-view = "TRELLO-WINDOW";
-                            root.toast = "Window Trello SUSULAN";
+                            root.open-new-card-window("LATE");
+                            root.toast = "Membuka Window Trello SUSULAN";
                         }
                     }
                     StatWidget {
@@ -3066,8 +3055,8 @@ export component AppWindow inherits Window {
     // "Toolbox" (tanpa launcher Modul — tidak ada layar Modul di C#).
     // Explorer overlay ("EXPLORER") = Build B. =====
     SettingsView {
-        x: 0; y: root.app-chrome == "custom" ? 28px : 0px;
-        width: 100%; height: root.height - (root.app-chrome == "custom" ? 28px : 0px);
+        x: 0; y: root.app-chrome == "custom" ? 32px : 8px;
+        width: 100%; height: root.height - (root.app-chrome == "custom" ? 32px : 8px);
         visible: root.overlay-view == "SETTINGS";
         widget-bg <=> root.widget-bg;
         group <=> root.settings-group;
@@ -3140,14 +3129,16 @@ export component AppWindow inherits Window {
         check-update() => { root.check-update(); }
     }
     ToolboxView {
-        x: 0; y: 0; width: 100%; height: 100%;
+        x: 0; y: root.app-chrome == "custom" ? 32px : 8px;
+        width: 100%; height: root.height - (root.app-chrome == "custom" ? 32px : 8px);
         visible: root.overlay-view == "TOOLBOX";
         tool-tab <=> root.toolbox-tab;
         back() => { root.overlay-view = ""; }
         toast(text) => { root.toast = text; }
     }
     SheetsView {
-        x: 0; y: 0; width: 100%; height: 100%;
+        x: 0; y: root.app-chrome == "custom" ? 32px : 8px;
+        width: 100%; height: root.height - (root.app-chrome == "custom" ? 32px : 8px);
         visible: root.overlay-view == "SHEETS";
         sheet-rows <=> root.sheet-rows;
         sheet-row-count <=> root.sheet-row-count;
@@ -3156,9 +3147,11 @@ export component AppWindow inherits Window {
         sheet-col2 <=> root.sheet-col2;
         back() => { root.overlay-view = ""; }
         toast(text) => { root.toast = text; }
+        popout-window() => { root.open-new-sheet-window(); }
     }
     LeaderboardView {
-        x: 0; y: 0; width: 100%; height: 100%;
+        x: 0; y: root.app-chrome == "custom" ? 32px : 8px;
+        width: 100%; height: root.height - (root.app-chrome == "custom" ? 32px : 8px);
         visible: root.overlay-view == "LEADERBOARD";
         lb-rows <=> root.lb-rows;
         lb-row-count <=> root.lb-row-count;
@@ -3456,7 +3449,8 @@ export component AppWindow inherits Window {
     // layar penuh seperti Settings). Esc / klik kanan latar / tombol
     // × menutup kembali ke dashboard.
     explorer-view := ExplorerView {
-        x: 0; y: 0; width: 100%; height: 100%;
+        x: 0; y: root.app-chrome == "custom" ? 32px : 8px;
+        width: 100%; height: root.height - (root.app-chrome == "custom" ? 32px : 8px);
         visible: root.overlay-view == "EXPLORER";
         start-path: root.ex-start-path;
         sr-names: root.ex-sr-names;

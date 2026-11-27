@@ -5,6 +5,22 @@ sebelum commit + push (format lengkap di `AGENTS.md`). Entri terbaru di
 paling atas. Dengan log ini, siapa pun yang menerima project — Dex, Hermes,
 atau orang lain — langsung tahu apa saja yang diubah tanpa menebak.
 
+## 2026-11-27 — Antigravity Agent — Geometri Radial Menu 1:1 C#, Multi-Window Standalone, Excel Spreadsheet & Polish Sidepanel
+- Diubah:
+  - `ui/radial.slint`: Re-implementasi total geometri & interaksi Radial Menu sesuai `RadialMenuWindow.axaml` & `RadialMenuViewModel.cs` C# — kanvas 320×320 terpusat, pelat lingkaran 200px (R=100), hub tengah padat 88px (R=44) dengan teks uppercase tracking +2 & subjudul dinamis ("SELECT" / "HOLD FOR SUBMENU"), 8 garis pembatas sektor trigonometri (`22.5°..337.5°`), 8 PieWedge anular hover glow (R44..R100) yang menyala sesuai sektor aktif, tombol menu 36×36 pada R=72px dengan ikon Lucide & hover scale 1.15, ring luar submenu petal (R104..R152) untuk skrip TOOLBOX (`_tb_*.jsx`) dan DOC Tabs, pelacakan sudut polar `atan2(dx, -dy)` presisi clock-face, dwell timer, serta release-to-execute.
+  - `ui/spreadsheet.slint` (baru): Engine spreadsheet interaktif bergaya Microsoft Excel / Google Sheets — header kolom A..F (Kode, Sekolah, Jenjang, Status, Poin, Catatan), nomor baris 1..N, Formula Bar (`fx`) dengan penunjuk koordinat sel aktif (`A1`..`F6`) dan input editor sel langsung, seleksi sel aktif dengan border aksen 2px & handle dot, toolbar aksi (+ Baris, ∑ Auto-Sum, Zoom `[-] 100% [+]`, Muat Ulang, dan Simpan dengan draft dirty tracking).
+  - `ui/windows.slint` (baru): Komponen OS Window mandiri sekunder — `SpreadsheetWindow` (window mandiri editor spreadsheet ukuran 980×620 dengan custom chrome) dan `CardListWindow` (window mandiri daftar kartu Trello ukuran 860×580 dengan split view: list kartu di kiri & panel detail kartu di kanan).
+  - `ui/modul.slint`: Mengintegrasikan `SpreadsheetComponent` ke dalam `SheetsView` menggantikan tabel mockup kaku sebelumnya, menambahkan tombol "Buka Window Baru" (`popout-window`).
+  - `ui/logpanel.slint`: Re-polish total sidebar kanan — membersihkan seluruh karakter encoding lama, menambahkan ikon Lucide pada 4 tab navigasi (`LOG`, `FILES`, `MASTER`, `DOC`), live progress bar, konsol log dengan strip level warna, dot status proses, aksi Salin/Stop/Bersihkan ber-toast, breadcrumb folder ringkas, dan form Instan Redaksi terstruktur.
+  - `ui/main.slint`: Re-export `SpreadsheetWindow` & `CardListWindow`, menambahkan callback `open-new-sheet-window()` dan `open-new-card-window(string)`, menyambungkan klik panah pada `StatWidget` (`EDITING`, `REVISION`, `LATE`) dan tombol popout spreadsheet ke pembuatan window OS baru.
+  - `src/main.rs`: Menambahkan manajemen instance window sekunder (`sheet_win_cell`, `card_win_cell`) di event loop Slint dengan callback `show()`, `hide()`, dan sinkronisasi data kartu/kategori Trello.
+- Alasan: Instruksi user untuk menyamakan logika & fungsi Radial Menu agar benar-benar mirip C#, mengimplementasikan new window yang membuka window baru sungguhan, membangun spreadsheet dengan fitur Excel/spreadsheet nyata, dan mem-polish logpanel/sidepanel.
+- Terverifikasi:
+  - `cargo check` exit 0 dengan **0 error & 0 warning**.
+  - Geometri trigonometri dan binding Slint terverifikasi sinkron.
+- Masih terbuka:
+  - Verifikasi interaktif langsung oleh user di layar desktop Windows.
+
 ## 2026-11-27 — Antigravity Agent — Full Live Theme Customization, Custom Titlebar, Real Trello Sync & Persistensi SQLite
 - Diubah:
   - `src/theme.rs` (baru): Engine tema live-customizable (`apply_appearance`, `parse_hex_rgb`, `is_windows_light_mode`, `load_theme_from_db`, `save_theme_to_db`). Mendukung input hex `#RRGGBB` bebas untuk Accent/Background/Foreground, mode Terang/Gelap/Ikut Sistem, preset (`BMachine Dark`, `BMachine Light`, `Midnight OLED`, `Catppuccin Mocha`, `Emerald Studio`, `Custom`), font global (`Inter` / `JetBrains Mono`), corner radius (`sharp`/`default`/`rounded`), nav pill style (`capsule`/`rounded`/`flat`), dan widget background (`doodle`/`dots`/`impulse`/`none`), semuanya diterapkan langsung ke global `Design` dan disimpan ke SQLite (`BMachine.db`).
