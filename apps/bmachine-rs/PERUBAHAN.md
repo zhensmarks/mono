@@ -5,6 +5,14 @@ sebelum commit + push (format lengkap di `AGENTS.md`). Entri terbaru di
 paling atas. Dengan log ini, siapa pun yang menerima project — Dex, Hermes,
 atau orang lain — langsung tahu apa saja yang diubah tanpa menebak.
 
+## 2026-11-27 — Dex — Header flyout: hapus avatar + perbaiki jarak dot-sapaan
+
+- Diubah: `ui/main.slint` header flyout profil — avatar 48px dihapus (redundan: pemanggil flyout ini sendiri sudah ikon user); dot status Text "●" diganti Rectangle 8px (border-radius 4, `Design.status-success`) dibungkus VerticalLayout center (§7). Komentar header diperbarui.
+- Alasan: abeng 27 Nov 19:37 — avatar tidak perlu; jarak kosong antara dot hijau dan "Selamat sore" dipertanyakan.
+- Akar jarak kosong: Text "●" 8px lebarnya ~31px padahal glyph cuma 7px (terukur dari pixel: dot x 99–105, teks mulai x 135 → jarak 30px, bukan spacing 6px yang ditulis). Rectangle 8px menghilangkan keanehan metrik font.
+- Terverifikasi: build exit 0 (warning lama sha2), cargo test 24 passed. Klik avatar + screenshot Xvfb :98 (APPDATA tes /tmp/flyoutfix/appdata, DB asli tidak disentuh): header tanpa avatar; dot x 39–46 (8px), teks "Selamat sore" mulai x 52 → jarak 6px persis; flyout tetap menempel avatar; item lain (Terminal, Settings, Laporkan Bug, Log Out, footer) tidak berubah. Screenshot: `~/workspace/rust-gui-contoh/flyoutfix-verify.png`.
+- Masih terbuka: (lama) item radial belum dites klik langsung; Ctrl+L kedua tidak menutup Log Panel saat fokus di panel.
+
 ## 2026-11-27 — Dex — Sistem tema ala Omarchy (8 preset + tema user + density + warna widget), perbaiki pill nav turun, redesain flyout profil
 
 - Diubah:

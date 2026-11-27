@@ -3812,57 +3812,45 @@ export component AppWindow inherits Window {
 
         // Redesain 27 Nov 19:04 (abeng: "1000x lebih bagus") — posisi
         // TETAP menempel avatar (x=20, di bawah bar atas, jangan ubah):
-        // header profil (avatar 48px + nama + sapaan), item dikelompokkan
-        // (APLIKASI / LAINNYA) dengan ikon + label + shortcut yang
-        // konsisten + hover jelas, footer rapi (versi + status update).
-        // Semua warna dari token Design → ikut tema aktif.
+        // header profil (nama + sapaan, TANPA avatar — 27 Nov 19:37),
+        // item dikelompokkan (APLIKASI / LAINNYA) dengan ikon + label +
+        // shortcut yang konsisten + hover jelas, footer rapi (versi +
+        // status update). Semua warna dari token Design → ikut tema aktif.
         flyout-layout := VerticalLayout {
             padding: Design.space-md;
             spacing: 4px;
 
-            // Header profil: avatar besar + nama + status/sapaan.
-            HorizontalLayout {
-                spacing: 12px;
-                height: 56px;
-                Rectangle {
-                    width: 48px;
-                    height: 48px;
-                    background: Design.accent-subtle;
-                    border-color: Design.accent;
-                    border-width: 1px;
-                    border-radius: 24px;
-                    SvgIcon {
-                        x: (parent.width - self.width) / 2;
-                        y: (parent.height - self.height) / 2;
-                        name: "user";
-                        size: 22px;
-                        icon-color: Design.accent;
-                    }
+            // Header profil: nama + status/sapaan saja, TANPA avatar
+            // (abeng 27 Nov 19:37 — avatar redundan: pemanggil flyout
+            // ini sendiri sudah ikon user). Dot status berupa Rectangle
+            // 8px, bukan Text "●" — Text "●" lebarnya ~31px padahal
+            // glyph cuma 7px, sehingga jarak dot-teks jadi 30px padahal
+            // spacing yang ditulis 6px.
+            VerticalLayout {
+                spacing: 2px;
+                Text {
+                    text: root.app-user-name;
+                    font-size: Design.font-h3;
+                    font-weight: 700;
+                    color: Design.text-primary;
                 }
-                VerticalLayout {
-                    spacing: 2px;
-                    alignment: center;
-                    Text {
-                        text: root.app-user-name;
-                        font-size: Design.font-h3;
-                        font-weight: 700;
-                        color: Design.text-primary;
+                HorizontalLayout {
+                    height: 18px;
+                    spacing: 6px;
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 8px;
+                            height: 8px;
+                            background: Design.status-success;
+                            border-radius: 4px;
+                        }
                     }
-                    HorizontalLayout {
-                        height: 18px;
-                        spacing: 6px;
-                        Text {
-                            text: "●";
-                            font-size: 8px;
-                            color: Design.status-success;
-                            vertical-alignment: center;
-                        }
-                        Text {
-                            text: root.greeting-text;
-                            font-size: Design.font-caption;
-                            color: Design.text-secondary;
-                            vertical-alignment: center;
-                        }
+                    Text {
+                        text: root.greeting-text;
+                        font-size: Design.font-caption;
+                        color: Design.text-secondary;
+                        vertical-alignment: center;
                     }
                 }
             }
