@@ -1,3 +1,15 @@
+## 2026-11-28 — Dex — Layout Settings: panel konten rounded + sidebar bisa diciutkan (rail ikon)
+
+- Diubah:
+  - **`ui/settings.slint` — panel konten rounded:** `content-rect` kini panel `card-bg` + border `separator` 1px + radius `radius-lg` + `clip: true`, lebar `root.width − sidebar-w − 52px`; tiap grup Flickable diberi padding dalam 16px (kiri/kanan/atas). Dilewati saat chrome `"wrapped"` (transparan, border 0 — konten = panel window itu sendiri, anti double-wrap §23).
+  - **`ui/settings.slint` — collapse sidebar:** properti `sidebar-collapsed` (in-out) + `sidebar-w` (180px terbuka / 56px ciut) + callback `sidebar-collapsed-changed()`; `GroupRow` dapat properti `collapsed` (label dihapus via `if`, bukan `visible:false` — yang terakhir tetap makan ruang; ikon terpusat via `alignment: center`); judul "Settings" + search bar + spacer disembunyikan saat ciut (tinggi 0 + visible false); tombol "← Ciutkan" / "→" di bawah sidebar (spacer stretch) — klik = toggle + simpan. Heading nama grup ditambahkan ke grup General ("General") + Paths ("Paths") supaya nama grup tetap terlihat saat rail ikon aktif (grup lain sudah punya heading).
+  - **`ui/main.slint`:** properti `app-settings-sidebar-collapsed` + callback `sidebar-collapsed-changed`, binding dua arah ke SettingsView; panel window "wrapped" mulai x=208 saat Settings terbuka + sidebar terbuka, **x=84** saat sidebar ciut (20 padding + 56 rail + 8 gap).
+  - **`src/main.rs`:** startup muat `Settings.SidebarCollapsed` (Bool, tak dikenal → terbuka) → `app-settings-sidebar-collapsed`; handler `on_sidebar_collapsed_changed` simpan ke DB (`"true"/"false"`, `"Bool"`).
+  - **`DESIGN_SYSTEM.md` §17.1 + §23:** spesifikasi panel + collapse (termasuk batasan anti double-wrap yang kini terpenuhi).
+- Alasan: brief abeng 27 Nov 21:21 — (1) konten Settings dalam panel bersudut membulat (ref `settings-rounded-content-ref.jpg`), (2) mode collapse sidebar jadi rail ikon (ref `settings-collapse-ref.jpg`); constraint binding: wrapped WAJIB lewati panel sendiri.
+- Terverifikasi: `cargo build --offline` exit 0 (hanya warning lama sha2), `cargo test --offline` **131 passed**, 0 failed. GUI Xvfb :98, APPDATA terisolasi (screenshot `settings-*.png`): panel konten default chrome x 212–940, sidebar 180px, tombol "← Ciutkan" di (81,579); klik → rail 56px + konten melebar + heading "General" terlihat, DB `Settings.SidebarCollapsed=true`; klik ikon Appearance di rail (48,103) → grup Appearance tampil ("Visual style"); klik "→" → kembali terbuka, DB `false`; restart → Settings tetap ciut (dimuat dari DB); wrapped + Settings → SATU panel (sidebar transparan di frame, panel x=208, tanpa double-wrap), wrapped + ciut → panel x=84; tema terang → panel ikut token tema (sidebar + konten terang, teks gelap).
+- Masih terbuka: tidak ada — semua poin verifikasi lolos. Catatan: search bar tersembunyi saat sidebar ciut (filter tetap jalan bila query sudah terisi); nama grup saat ciut mengandalkan heading konten.
+
 ## 2026-11-28 — Dex — Template widget dashboard "Gauge" (arc bercahaya + angka besar + badge status)
 
 - Diubah:

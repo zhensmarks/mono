@@ -684,6 +684,8 @@ export component AppWindow inherits Window {
     callback toggle-settings-changed();
     // Paket ikon (Settings > Appearance) — DB Settings.IconPack.
     callback icon-pack-settings-changed();
+    // Sidebar Settings ciut/lebarkan — DB Settings.SidebarCollapsed.
+    callback sidebar-collapsed-changed();
     callback pet-active-changed(int);
     callback pet-install-requested(string);
     callback pet-remove-requested(int);
@@ -738,6 +740,9 @@ export component AppWindow inherits Window {
     // "feather" | "material") — DB Settings.IconPack, berlaku ke
     // semua SvgIcon app-wide, live tanpa restart.
     in-out property <string> app-icon-pack: "lucide";
+    // Sidebar Settings ciut (rail ikon) — DB
+    // Settings.SidebarCollapsed (Bool), default false (terbuka).
+    in-out property <bool> app-settings-sidebar-collapsed: false;
     // Turunan geometri chrome (dipakai titlebar, dashboard, overlay,
     // panel wrapped — supaya satu sumber kebenaran, bukan ternary
     // berulang di tiap elemen):
@@ -1288,12 +1293,13 @@ export component AppWindow inherits Window {
     // belakang konten (sibling sebelum dashboard/overlay) — konten
     // TIDAK jadi anak panel (supaya geometri overlay yang sudah ada
     // tidak berubah), panel hanya latar di belakangnya. Saat Settings
-    // terbuka, panel mulai setelah sidebar (x=208: padding 20 +
-    // sidebar 180 + gap 8) supaya sidebar duduk di area frame dan
-    // konten Settings = panel itu sendiri — bukan panel kedua
-    // ("bungkus di dalam bungkus" dilarang abeng 27 Nov 22:03).
+    // terbuka, panel mulai setelah sidebar (x=208 terbuka: padding 20 +
+    // sidebar 180 + gap 8; x=84 saat sidebar ciut: 20 + 56 + 8)
+    // supaya sidebar duduk di area frame dan konten Settings = panel
+    // itu sendiri — bukan panel kedua ("bungkus di dalam bungkus"
+    // dilarang abeng 27 Nov 22:03).
     if root.chrome-wrapped && root.app-stage == "main" : Rectangle {
-        x: root.overlay-view == "SETTINGS" ? 208px : 8px;
+        x: root.overlay-view == "SETTINGS" ? (root.app-settings-sidebar-collapsed ? 84px : 208px) : 8px;
         y: root.chrome-content-y;
         width: root.width - self.x - 8px;
         height: root.height - root.chrome-content-y - root.chrome-content-bottom;
@@ -2773,6 +2779,7 @@ export component AppWindow inherits Window {
         widget-bg <=> root.widget-bg;
         widget-style <=> root.widget-style;
         group <=> root.settings-group;
+        sidebar-collapsed <=> root.app-settings-sidebar-collapsed;
         color-mode <=> root.app-color-mode;
         theme-preset <=> root.app-theme-preset;
         accent-color <=> root.app-accent-color;
@@ -2834,6 +2841,7 @@ export component AppWindow inherits Window {
         toggle-settings-changed() => { root.toggle-settings-changed(); }
         icon-pack <=> root.app-icon-pack;
         icon-pack-settings-changed() => { root.icon-pack-settings-changed(); }
+        sidebar-collapsed-changed() => { root.sidebar-collapsed-changed(); }
         pet-names <=> root.app-pet-names;
         pet-authors <=> root.app-pet-authors;
         pet-slugs <=> root.app-pet-slugs;

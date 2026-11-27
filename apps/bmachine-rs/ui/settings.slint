@@ -25,6 +25,8 @@ component GroupRow inherits Rectangle {
     in property <string> label;
     in property <bool> selected;
     in property <bool> shown: true;
+    // Mode ciut (rail ikon): label disembunyikan, ikon di tengah.
+    in property <bool> collapsed: false;
     callback clicked();
     height: shown ? 36px : 0px;
     visible: shown;
@@ -37,9 +39,10 @@ component GroupRow inherits Rectangle {
     HorizontalLayout {
         width: 100%;
         height: 100%;
-        padding-left: 12px;
-        padding-right: 12px;
+        padding-left: collapsed ? 0px : 12px;
+        padding-right: collapsed ? 0px : 12px;
         spacing: 10px;
+        alignment: collapsed ? center : start;
         VerticalLayout {
             alignment: center;
             SvgIcon {
@@ -48,7 +51,10 @@ component GroupRow inherits Rectangle {
                 icon-color: selected ? Design.accent : Design.text-secondary;
             }
         }
-        Text {
+        // `if` (bukan visible:false) — label hilang total dari
+        // layout saat ciut, ikon jadi satu-satunya anak dan
+        // terpusat (visible:false tetap makan ruang di Slint).
+        if !collapsed : Text {
             text: label;
             font-size: Design.font-body;
             font-weight: selected ? 700 : 600;
@@ -506,6 +512,11 @@ export component SettingsView inherits Rectangle {
     // berlaku ke semua SvgIcon app-wide, live tanpa restart.
     in-out property <string> icon-pack: "lucide";
     callback icon-pack-settings-changed();
+    // Sidebar Settings ciut (rail ikon saja) — terikat dua arah ke
+    // AppWindow; tersimpan di DB `Settings.SidebarCollapsed`
+    // (Bool), default false (terbuka). Live tanpa restart.
+    in-out property <bool> sidebar-collapsed: false;
+    callback sidebar-collapsed-changed();
     in-out property <bool> notch-voice-enabled: true;
     in-out property <string> notch-voice-name: "";
     in-out property <string> notch-voice-volume: "80";
@@ -658,6 +669,11 @@ export component SettingsView inherits Rectangle {
     // dihapus 26 Nov — duplikat judul panel).
     property <length> body-h: root.height - 30px;
 
+    // Lebar sidebar: 180px terbuka, 56px saat ciut (rail ikon —
+    // ref settings-collapse-ref.jpg). Dipakai sidebar + lebar
+    // konten (root.width − sidebar-w − spacing 12 − padding 40).
+    property <length> sidebar-w: root.sidebar-collapsed ? 56px : 180px;
+
     // Klik kanan = kembali ke dashboard (C# OnEmbeddedViewPointerPressed:
     // klik kanan = NavigateBack). TouchArea latar di belakang isi.
     settings-back-touch := TouchArea {
@@ -683,7 +699,7 @@ export component SettingsView inherits Rectangle {
 
             // ----- Side panel grup -----
             Rectangle {
-                width: 180px;
+                width: root.sidebar-w;
                 height: root.body-h;
                 // Saat chrome "wrapped", sidebar duduk di area frame
                 // (di luar panel rounded) — tanpa kartu/border supaya
@@ -699,20 +715,26 @@ export component SettingsView inherits Rectangle {
                     padding: Design.space-md;
                     spacing: 2px;
                     // Judul panel (18px/800, pola gambar referensi).
+                    // Disembunyikan saat sidebar ciut (tinggi 0 +
+                    // visible false — visible saja tetap makan ruang).
                     Text {
                         text: "Settings";
                         font-size: Design.font-h2;
                         font-weight: 800;
                         color: Design.text-primary;
                         vertical-alignment: center;
-                        height: 30px;
+                        height: root.sidebar-collapsed ? 0px : 30px;
+                        visible: !root.sidebar-collapsed;
                     }
                     // Search bar: glyph ⌕ + TextInput + placeholder.
                     // TextField tidak dipakai di sini — input-nya butuh
                     // glyph di dalam bar, dan TextInput-nya TextField
                     // mulai di x:10 (akan tertutup glyph).
+                    // Disembunyikan saat sidebar ciut (filter tetap
+                    // jalan kalau query sudah terisi).
                     search-box := Rectangle {
-                        height: 36px;
+                        height: root.sidebar-collapsed ? 0px : 36px;
+                        visible: !root.sidebar-collapsed;
                         background: Design.bg-input;
                         border-color: search-input.has-focus ? Design.border-focus : Design.border-default;
                         border-width: 1px;
@@ -753,12 +775,13 @@ export component SettingsView inherits Rectangle {
                             visible: root.search-q == "" && !search-input.has-focus;
                         }
                     }
-                    Rectangle { height: 8px; }
+                    Rectangle { height: root.sidebar-collapsed ? 0px : 8px; }
                     GroupRow {
                         icon: "settings";
                         label: "General";
                         selected: root.group == "General";
                         shown: root.show-general;
+                        collapsed: root.sidebar-collapsed;
                         clicked => { root.group = "General"; }
                     }
                     GroupRow {
@@ -766,6 +789,7 @@ export component SettingsView inherits Rectangle {
                         label: "Appearance";
                         selected: root.group == "Appearance";
                         shown: root.show-appearance;
+                        collapsed: root.sidebar-collapsed;
                         clicked => { root.group = "Appearance"; }
                     }
                     GroupRow {
@@ -773,6 +797,7 @@ export component SettingsView inherits Rectangle {
                         label: "Account";
                         selected: root.group == "Account";
                         shown: root.show-account;
+                        collapsed: root.sidebar-collapsed;
                         clicked => { root.group = "Account"; }
                     }
                     GroupRow {
@@ -780,6 +805,7 @@ export component SettingsView inherits Rectangle {
                         label: "Extensions";
                         selected: root.group == "Extensions";
                         shown: root.show-extensions;
+                        collapsed: root.sidebar-collapsed;
                         clicked => { root.group = "Extensions"; }
                     }
                     GroupRow {
@@ -787,6 +813,7 @@ export component SettingsView inherits Rectangle {
                         label: "Script Manager";
                         selected: root.group == "Script Manager";
                         shown: root.show-scripts;
+                        collapsed: root.sidebar-collapsed;
                         clicked => { root.group = "Script Manager"; }
                     }
                     GroupRow {
@@ -794,6 +821,7 @@ export component SettingsView inherits Rectangle {
                         label: "Paths";
                         selected: root.group == "Paths";
                         shown: root.show-paths;
+                        collapsed: root.sidebar-collapsed;
                         clicked => { root.group = "Paths"; }
                     }
                     GroupRow {
@@ -801,20 +829,71 @@ export component SettingsView inherits Rectangle {
                         label: "About";
                         selected: root.group == "About";
                         shown: root.show-about;
+                        collapsed: root.sidebar-collapsed;
                         clicked => { root.group = "About"; }
+                    }
+                    // Spacer dorong tombol ciut ke bawah sidebar.
+                    Rectangle { vertical-stretch: 1; }
+                    // Tombol ciutkan/lebarkan sidebar (rail ikon saja
+                    // saat ciut — ref settings-collapse-ref.jpg).
+                    // Selalu terlihat (ikon saja saat ciut).
+                    collapse-btn := Rectangle {
+                        height: 36px;
+                        background: collapse-touch.has-hover ? Design.bg-hover : transparent;
+                        border-radius: Design.radius-sm;
+                        collapse-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                root.sidebar-collapsed = !root.sidebar-collapsed;
+                                root.sidebar-collapsed-changed();
+                            }
+                        }
+                        HorizontalLayout {
+                            width: 100%;
+                            height: 100%;
+                            padding-left: root.sidebar-collapsed ? 0px : 12px;
+                            padding-right: root.sidebar-collapsed ? 0px : 12px;
+                            spacing: 10px;
+                            alignment: root.sidebar-collapsed ? center : start;
+                            VerticalLayout {
+                                alignment: center;
+                                SvgIcon {
+                                    name: root.sidebar-collapsed ? "arrow-right" : "arrow-left";
+                                    size: 15px;
+                                    icon-color: Design.text-secondary;
+                                }
+                            }
+                            if !root.sidebar-collapsed : Text {
+                                text: "Ciutkan";
+                                font-size: Design.font-body;
+                                font-weight: 600;
+                                color: Design.text-secondary;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                            }
+                        }
                     }
                 }
             }
 
             // ----- Konten grup (menumpuk; tiap grup Flickable sendiri
             // supaya konten panjang bisa di-scroll di window kecil) -----
-            // Lebar EKSPLISIT (window − side panel 180 − spacing 12 −
+            // Lebar EKSPLISIT (window − side panel − spacing 12 −
             // padding 40): horizontal-stretch di Rectangle berisi
             // Flickable tidak mengembang di Slint ini — sisa ruang malah
             // jadi gap di tengah (terlihat di 520px, 26 Nov).
             content-rect := Rectangle {
-                width: root.width - 232px;
+                // Panel konten rounded (ref
+                // settings-rounded-content-ref.jpg) — dilewati saat
+                // chrome "wrapped": konten = panel window itu sendiri
+                // (anti double-wrap §23), sama seperti sidebar di atas.
+                width: root.width - root.sidebar-w - 52px;
                 height: root.body-h;
+                background: root.chrome == "wrapped" ? transparent : Design.card-bg;
+                border-color: Design.separator;
+                border-width: root.chrome == "wrapped" ? 0px : 1px;
+                border-radius: Design.radius-lg;
+                clip: true;
 
                 // ===== APPEARANCE =====
                 sv-appearance := Flickable {
@@ -823,6 +902,9 @@ export component SettingsView inherits Rectangle {
                     VerticalLayout {
                         x: 0; width: content-rect.width;
                         spacing: Design.space-lg;
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        padding-top: 16px;
                         padding-bottom: Design.space-lg;
 
                         Text {
@@ -1983,6 +2065,9 @@ export component SettingsView inherits Rectangle {
                     VerticalLayout {
                         x: 0; width: content-rect.width;
                         spacing: Design.space-lg;
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        padding-top: 16px;
                         padding-bottom: Design.space-lg;
 
                         // 1. Trello Integration
@@ -2385,6 +2470,9 @@ export component SettingsView inherits Rectangle {
                     VerticalLayout {
                         x: 0; width: content-rect.width;
                         spacing: Design.space-lg;
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        padding-top: 16px;
                         padding-bottom: Design.space-lg;
 
                         Card {
@@ -2470,6 +2558,9 @@ export component SettingsView inherits Rectangle {
                     VerticalLayout {
                         x: 0; width: content-rect.width;
                         spacing: Design.space-lg;
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        padding-top: 16px;
                         padding-bottom: Design.space-lg;
 
                         Card {
@@ -2761,7 +2852,21 @@ export component SettingsView inherits Rectangle {
                     VerticalLayout {
                         x: 0; width: content-rect.width;
                         spacing: Design.space-lg;
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        padding-top: 16px;
                         padding-bottom: Design.space-lg;
+
+                        // Judul grup (nama grup tetap terlihat saat
+                        // sidebar ciut — rail ikon tidak menampilkan
+                        // label; gaya judul sama seperti "Visual style"
+                        // di Appearance).
+                        Text {
+                            text: "General";
+                            font-size: Design.font-h3;
+                            font-weight: 800;
+                            color: Design.text-primary;
+                        }
 
                         VerticalLayout {
                             spacing: 6px;
@@ -3015,7 +3120,19 @@ export component SettingsView inherits Rectangle {
                     VerticalLayout {
                         x: 0; width: content-rect.width;
                         spacing: Design.space-lg;
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        padding-top: 16px;
                         padding-bottom: Design.space-lg;
+
+                        // Judul grup (nama grup tetap terlihat saat
+                        // sidebar ciut — lihat komentar di grup General).
+                        Text {
+                            text: "Paths";
+                            font-size: Design.font-h3;
+                            font-weight: 800;
+                            color: Design.text-primary;
+                        }
 
                         VerticalLayout {
                             spacing: 6px;
@@ -3155,6 +3272,9 @@ export component SettingsView inherits Rectangle {
                     VerticalLayout {
                         x: 0; width: content-rect.width;
                         spacing: Design.space-lg;
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        padding-top: 16px;
                         padding-bottom: Design.space-lg;
                         Card {
                             VerticalLayout {

@@ -4275,6 +4275,13 @@ fn main() -> Result<(), slint::PlatformError> {
             }
             ui.set_app_icon_pack(slint::SharedString::from(icon_pack.as_str()));
             theme::push_icons(&Design::get(&ui), &icon_pack);
+            // Sidebar Settings ciut/lebarkan (default terbuka;
+            // nilai tak dikenal → terbuka).
+            let mut sidebar_collapsed = false;
+            if let Some(v) = db_guard.get("Settings.SidebarCollapsed") {
+                sidebar_collapsed = v == "true" || v == "1";
+            }
+            ui.set_app_settings_sidebar_collapsed(sidebar_collapsed);
             let mut vcfg = voice::VoiceConfig::default();
             if let Some(v) = db_guard.get("Settings.Notch.VoiceEnabled") {
                 vcfg.enabled = !(v == "false" || v == "0");
@@ -8147,6 +8154,26 @@ fn main() -> Result<(), slint::PlatformError> {
             sync_radial_theme(&ui, &radial_cell);
             sync_task_theme(&ui, &task_cell);
             sync_chrome_to_windows(&ui, &sheet_cell, &toolbox_cell, &card_cell);
+        });
+    }
+
+    {
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
+        ui.on_sidebar_collapsed_changed(move || {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let collapsed = ui.get_app_settings_sidebar_collapsed();
+            if let Some(ref db_mutex) = db_clone {
+                if let Ok(mut guard) = db_mutex.lock() {
+                    let _ = guard.set(
+                        "Settings.SidebarCollapsed",
+                        if collapsed { "true" } else { "false" },
+                        "Bool",
+                    );
+                }
+            }
         });
     }
 

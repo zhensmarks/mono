@@ -1376,6 +1376,21 @@ di-highlight. Grup di port (`ui/settings.slint`):
 BMachine sendiri di dalamnya (hanya polanya yang diambil
 dari contoh, bukan item aplikasi lain).
 
+**Panel konten rounded + sidebar ciut (abeng, 27 Nov 21:21):**
+konten tiap grup duduk dalam panel rounded (`card-bg`, border
+`separator` 1px, radius `radius-lg`, padding dalam 16px) — ref
+`settings-rounded-content-ref.jpg`. Sidebar bisa diciutkan jadi
+rail ikon 56px (dari 180px) via tombol "← Ciutkan" / "→" di bawah
+sidebar (ref `settings-collapse-ref.jpg`); judul + search
+disembunyikan saat ciut, label grup hilang (`if`, bukan
+`visible:false`), ikon terpusat, grup tetap bisa dipilih dari rail;
+nama grup tetap terlihat dari heading konten ("General" / "Paths"
+ditambahkan — grup lain sudah punya heading). Pilihan tersimpan di
+DB `Settings.SidebarCollapsed` (Bool, default false), live tanpa
+restart, dimuat saat startup. Saat chrome `wrapped`, panel konten
+dilewati (konten = panel window itu sendiri — anti double-wrap
+§23) dan panel window mulai x=208 (terbuka) / x=84 (ciut).
+
 ### 17.2 Appearance — kustomisasi penuh [MENGIKAT — abeng, 26 Nov 16:09]
 
 Isi Settings bukan hanya yang "berguna", tapi **yang memang
@@ -2538,10 +2553,15 @@ saat wrapped aktif dan Settings dibuka, sidebar Settings pindah ke area
 frame (`x=20..200`, Rectangle sidebar transparan tanpa border) dan
 konten Settings = panel window itu sendiri (panel mulai `x=208`) —
 BUKAN panel kedua. Saat wrapped tidak aktif, Settings pakai panel
-rounded-nya sendiri (lihat §17). **Batasan untuk item layout Settings
-yang akan datang:** panel rounded + collapse sidebar di item itu WAJIB
-cek `chrome == "wrapped"` dan melewati panelnya sendiri saat wrapped
-aktif, supaya tidak double-wrap.
+rounded-nya sendiri (lihat §17). **Panel rounded + collapse
+sidebar (28 Nov 2026):** sudah diimplementasikan sesuai batasan di
+atas — konten Settings pakai panel rounded-nya sendiri kecuali saat
+wrapped (dilewati, konten = panel window; panel window mulai x=208
+terbuka / x=84 ciut); sidebar ciut jadi rail ikon 56px, DB
+`Settings.SidebarCollapsed`. Lihat §17.1. Terverifikasi GUI
+(screenshot `settings-*.png`): panel konten x 212–940 (default
+chrome), rail 56px + grup bisa dipilih dari rail, persistensi
+restart, wrapped tanpa double-wrap (panel x=208/84), tema terang.
 
 **Headless — drag strip:** strip `TouchArea` 28px teratas, double-click
 = maximize, `win-move` delta → `set_position` (Rust). Strip
