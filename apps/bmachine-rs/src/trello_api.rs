@@ -48,17 +48,25 @@ impl TrelloApiService {
             api_key, token
         );
 
-        let res = client.get(&url).send().map_err(|e| format!("HTTP request gagal: {}", e))?;
+        let res = client
+            .get(&url)
+            .send()
+            .map_err(|e| format!("HTTP request gagal: {}", e))?;
         if !res.status().is_success() {
             return Err(format!("Trello API error: {}", res.status()));
         }
 
-        let boards: Vec<TrelloBoardItem> = res.json().map_err(|e| format!("JSON parse error: {}", e))?;
+        let boards: Vec<TrelloBoardItem> =
+            res.json().map_err(|e| format!("JSON parse error: {}", e))?;
         Ok(boards)
     }
 
     #[allow(dead_code)]
-    pub fn fetch_lists(api_key: &str, token: &str, board_id: &str) -> Result<Vec<TrelloListItem>, String> {
+    pub fn fetch_lists(
+        api_key: &str,
+        token: &str,
+        board_id: &str,
+    ) -> Result<Vec<TrelloListItem>, String> {
         let client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()
@@ -69,12 +77,16 @@ impl TrelloApiService {
             board_id, api_key, token
         );
 
-        let res = client.get(&url).send().map_err(|e| format!("HTTP request gagal: {}", e))?;
+        let res = client
+            .get(&url)
+            .send()
+            .map_err(|e| format!("HTTP request gagal: {}", e))?;
         if !res.status().is_success() {
             return Err(format!("Trello API error: {}", res.status()));
         }
 
-        let lists: Vec<TrelloListItem> = res.json().map_err(|e| format!("JSON parse error: {}", e))?;
+        let lists: Vec<TrelloListItem> =
+            res.json().map_err(|e| format!("JSON parse error: {}", e))?;
         Ok(lists)
     }
 
@@ -90,7 +102,10 @@ impl TrelloApiService {
             token.trim()
         );
 
-        let res = client.get(&url).send().map_err(|e| format!("HTTP request gagal: {}", e))?;
+        let res = client
+            .get(&url)
+            .send()
+            .map_err(|e| format!("HTTP request gagal: {}", e))?;
         if !res.status().is_success() {
             return Err(format!("Trello auth gagal ({})", res.status()));
         }
@@ -98,7 +113,11 @@ impl TrelloApiService {
             .map_err(|e| format!("JSON parse error: {}", e))
     }
 
-    pub fn fetch_cards(api_key: &str, token: &str, list_id: &str) -> Result<Vec<TrelloCardItem>, String> {
+    pub fn fetch_cards(
+        api_key: &str,
+        token: &str,
+        list_id: &str,
+    ) -> Result<Vec<TrelloCardItem>, String> {
         let client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()
@@ -111,17 +130,26 @@ impl TrelloApiService {
             token.trim()
         );
 
-        let res = client.get(&url).send().map_err(|e| format!("HTTP request gagal: {}", e))?;
+        let res = client
+            .get(&url)
+            .send()
+            .map_err(|e| format!("HTTP request gagal: {}", e))?;
         if !res.status().is_success() {
             return Err(format!("Trello API error: {}", res.status()));
         }
 
-        let cards: Vec<TrelloCardItem> = res.json().map_err(|e| format!("JSON parse error: {}", e))?;
+        let cards: Vec<TrelloCardItem> =
+            res.json().map_err(|e| format!("JSON parse error: {}", e))?;
         Ok(cards)
     }
 
     #[allow(dead_code)]
-    pub fn add_comment(api_key: &str, token: &str, card_id: &str, text: &str) -> Result<(), String> {
+    pub fn add_comment(
+        api_key: &str,
+        token: &str,
+        card_id: &str,
+        text: &str,
+    ) -> Result<(), String> {
         let client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()

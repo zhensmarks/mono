@@ -315,6 +315,11 @@ export component SettingsView inherits Rectangle {
     callback browse-path(string);
     callback test-trello();
     callback open-url(string);
+    // ShortcutConfig sama seperti C#: trigger direkam, disimpan ke SQLite, lalu hook aktif diperbarui.
+    callback start-recording-shortcut();
+    callback cancel-recording-shortcut();
+    in-out property <bool> recording-shortcut: false;
+    in-out property <string> current-shortcut-label: "Win + Shift + '";
     // Widget background — terikat dua arah ke AppWindow (kartu dashboard ikut berubah).
     in-out property <string> widget-bg: "doodle";
 
@@ -1702,6 +1707,52 @@ export component SettingsView inherits Rectangle {
                                 padding: Design.space-lg;
                                 spacing: Design.space-md;
                                 Text {
+                                    text: "RADIAL SHORTCUT";
+                                    font-size: Design.font-h3;
+                                    font-weight: 700;
+                                    letter-spacing: 1px;
+                                    color: Design.text-primary;
+                                }
+                                Text {
+                                    text: root.recording-shortcut ? "Tekan kombinasi keyboard atau tombol mouse sekarang. Esc untuk batal." : "Shortcut global membuka radial tepat di posisi cursor.";
+                                    font-size: Design.font-caption;
+                                    color: root.recording-shortcut ? Design.accent : Design.text-muted;
+                                }
+                                HorizontalLayout {
+                                    spacing: Design.space-sm;
+                                    Rectangle {
+                                        width: 260px;
+                                        height: 36px;
+                                        background: Design.bg-hover;
+                                        border-color: root.recording-shortcut ? Design.accent : Design.separator;
+                                        border-width: 1px;
+                                        border-radius: Design.radius-sm;
+                                        Text {
+                                            text: root.recording-shortcut ? "MENUNGGU INPUT…" : root.current-shortcut-label;
+                                            font-size: Design.font-button;
+                                            font-weight: 700;
+                                            color: root.recording-shortcut ? Design.accent : Design.text-primary;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                    Btn {
+                                        label: root.recording-shortcut ? "Batal" : "Rekam Shortcut";
+                                        variant: root.recording-shortcut ? "secondary" : "primary";
+                                        clicked => {
+                                            if (root.recording-shortcut) { root.cancel-recording-shortcut(); }
+                                            else { root.start-recording-shortcut(); }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Card {
+                            VerticalLayout {
+                                padding: Design.space-lg;
+                                spacing: Design.space-md;
+                                Text {
                                     text: "SCRIPT MANAGER & RADIAL WHEEL CONFIGURATION";
                                     font-size: Design.font-h3;
                                     font-weight: 700;
@@ -1747,60 +1798,127 @@ export component SettingsView inherits Rectangle {
                                     letter-spacing: 1px;
                                     color: Design.text-primary;
                                 }
-
-                                HorizontalLayout {
-                                    spacing: 8px;
-                                    Rectangle {
-                                        width: 140px; height: 36px;
-                                        background: Design.bg-hover;
-                                        border-radius: Design.radius-sm;
-                                        Text { text: "0° (Utara): BUAT MASTER"; font-size: 10px; color: Design.text-primary; vertical-alignment: center; horizontal-alignment: center; }
-                                    }
-                                    Rectangle {
-                                        width: 140px; height: 36px;
-                                        background: Design.bg-hover;
-                                        border-radius: Design.radius-sm;
-                                        Text { text: "45° (Timur Laut): SEND-TEXT"; font-size: 10px; color: Design.text-primary; vertical-alignment: center; horizontal-alignment: center; }
-                                    }
-                                    Rectangle {
-                                        width: 140px; height: 36px;
-                                        background: Design.bg-hover;
-                                        border-radius: Design.radius-sm;
-                                        Text { text: "90° (Timur): SEND-LOGO"; font-size: 10px; color: Design.text-primary; vertical-alignment: center; horizontal-alignment: center; }
-                                    }
-                                    Rectangle {
-                                        width: 140px; height: 36px;
-                                        background: Design.bg-hover;
-                                        border-radius: Design.radius-sm;
-                                        Text { text: "135° (Tenggara): TOOLBOX"; font-size: 10px; color: Design.text-primary; vertical-alignment: center; horizontal-alignment: center; }
-                                    }
+                                Text {
+                                    text: "Pratinjau roda live 1:1 — 7 slot skrip + 1 navigasi More/Back di posisi 180° (Selatan)";
+                                    font-size: Design.font-caption;
+                                    color: Design.text-muted;
                                 }
 
                                 HorizontalLayout {
-                                    spacing: 8px;
+                                    spacing: Design.space-lg;
+
+                                    // Roda 200x200 (RadialSlotsControl C#)
                                     Rectangle {
-                                        width: 140px; height: 36px;
-                                        background: Design.bg-hover;
-                                        border-radius: Design.radius-sm;
-                                        Text { text: "180° (Selatan): MORE / NEXT"; font-size: 10px; color: Design.text-secondary; vertical-alignment: center; horizontal-alignment: center; }
+                                        width: 200px;
+                                        height: 200px;
+                                        border-radius: 100px;
+                                        background: Design.surface-elevated;
+                                        border-color: Design.separator;
+                                        border-width: 1px;
+                                        clip: true;
+
+                                        // 8 Pembatas sektor
+                                        Path {
+                                            width: 100%; height: 100%;
+                                            viewbox-x: 0; viewbox-y: 0; viewbox-width: 200; viewbox-height: 200;
+                                            fill: transparent;
+                                            stroke: Design.text-primary;
+                                            stroke-width: 1px;
+                                            opacity: 0.15;
+                                            commands: "M 116.84 59.35 L 138.27 7.61 M 140.65 83.16 L 192.39 61.73 M 140.65 116.84 L 192.39 138.27 M 116.84 140.65 L 138.27 192.39 M 83.16 140.65 L 61.73 192.39 M 59.35 116.84 L 7.61 138.27 M 59.35 83.16 L 7.61 61.73 M 83.16 59.35 L 61.73 7.61";
+                                        }
+
+                                        // Hub tengah 88px
+                                        Rectangle {
+                                            x: 56px; y: 56px; width: 88px; height: 88px;
+                                            border-radius: 44px;
+                                            background: Design.card-bg;
+                                            border-color: Design.separator;
+                                            border-width: 1px;
+                                            VerticalLayout {
+                                                alignment: center;
+                                                spacing: 2px;
+                                                Text { text: "RADIAL"; font-size: 10px; font-weight: 800; letter-spacing: 1px; color: Design.text-primary; horizontal-alignment: center; }
+                                                Text { text: "7 SLOTS"; font-size: 8px; font-weight: 600; color: Design.accent; horizontal-alignment: center; }
+                                            }
+                                        }
+
+                                        // 8 Tombol slot pada R = 72px (cx=100, cy=100, btn 32x32 -> -16px)
+                                        // 0° (Utara): (100 - 16, 100 - 72 - 16) = (84, 12)
+                                        Rectangle {
+                                            x: 84px; y: 12px; width: 32px; height: 32px; border-radius: 16px;
+                                            background: Design.card-bg; border-color: Design.accent; border-width: 1.5px;
+                                            SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "image"; size: 16px; icon-color: Design.accent; }
+                                        }
+                                        // 45° (NE): (100 + 51 - 16, 100 - 51 - 16) = (135, 33)
+                                        Rectangle {
+                                            x: 135px; y: 33px; width: 32px; height: 32px; border-radius: 16px;
+                                            background: Design.card-bg; border-color: Design.accent; border-width: 1.5px;
+                                            SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "file-text"; size: 16px; icon-color: Design.accent; }
+                                        }
+                                        // 90° (Timur): (100 + 72 - 16, 100 - 16) = (156, 84)
+                                        Rectangle {
+                                            x: 156px; y: 84px; width: 32px; height: 32px; border-radius: 16px;
+                                            background: Design.card-bg; border-color: Design.accent; border-width: 1.5px;
+                                            SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "wrench"; size: 16px; icon-color: Design.accent; }
+                                        }
+                                        // 135° (SE): (100 + 51 - 16, 100 + 51 - 16) = (135, 135)
+                                        Rectangle {
+                                            x: 135px; y: 135px; width: 32px; height: 32px; border-radius: 16px;
+                                            background: Design.card-bg; border-color: Design.separator; border-width: 1px;
+                                            SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "crop"; size: 16px; icon-color: Design.text-primary; }
+                                        }
+                                        // 180° (Selatan - More/Nav): (100 - 16, 100 + 72 - 16) = (84, 156)
+                                        Rectangle {
+                                            x: 84px; y: 156px; width: 32px; height: 32px; border-radius: 16px;
+                                            background: Design.accent-subtle; border-color: Design.accent; border-width: 1px;
+                                            SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "more-horizontal"; size: 16px; icon-color: Design.accent; }
+                                        }
+                                        // 225° (SW): (100 - 51 - 16, 100 + 51 - 16) = (33, 135)
+                                        Rectangle {
+                                            x: 33px; y: 135px; width: 32px; height: 32px; border-radius: 16px;
+                                            background: Design.card-bg; border-color: Design.separator; border-width: 1px;
+                                            SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "palette"; size: 16px; icon-color: Design.text-primary; }
+                                        }
+                                        // 270° (Barat): (100 - 72 - 16, 100 - 16) = (12, 84)
+                                        Rectangle {
+                                            x: 12px; y: 84px; width: 32px; height: 32px; border-radius: 16px;
+                                            background: Design.card-bg; border-color: Design.separator; border-width: 1px;
+                                            SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "save"; size: 16px; icon-color: Design.text-primary; }
+                                        }
+                                        // 315° (NW): (100 - 51 - 16, 100 - 51 - 16) = (33, 33)
+                                        Rectangle {
+                                            x: 33px; y: 33px; width: 32px; height: 32px; border-radius: 16px;
+                                            background: Design.card-bg; border-color: Design.separator; border-width: 1px;
+                                            SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "download"; size: 16px; icon-color: Design.text-primary; }
+                                        }
                                     }
-                                    Rectangle {
-                                        width: 140px; height: 36px;
-                                        background: Design.bg-hover;
-                                        border-radius: Design.radius-sm;
-                                        Text { text: "225° (Barat Daya): KOSONG"; font-size: 10px; color: Design.text-muted; vertical-alignment: center; horizontal-alignment: center; }
-                                    }
-                                    Rectangle {
-                                        width: 140px; height: 36px;
-                                        background: Design.bg-hover;
-                                        border-radius: Design.radius-sm;
-                                        Text { text: "270° (Barat): KOSONG"; font-size: 10px; color: Design.text-muted; vertical-alignment: center; horizontal-alignment: center; }
-                                    }
-                                    Rectangle {
-                                        width: 140px; height: 36px;
-                                        background: Design.bg-hover;
-                                        border-radius: Design.radius-sm;
-                                        Text { text: "315° (Barat Laut): KOSONG"; font-size: 10px; color: Design.text-muted; vertical-alignment: center; horizontal-alignment: center; }
+
+                                    // Kolom Rincian 8 Slot
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+
+                                        HorizontalLayout {
+                                            spacing: 6px;
+                                            Rectangle { width: 140px; height: 28px; background: Design.bg-hover; border-radius: 4px; Text { text: "0° (Utara): SEND-LOGO [Sub]"; font-size: 10px; font-weight: 700; color: Design.accent; vertical-alignment: center; horizontal-alignment: center; } }
+                                            Rectangle { width: 140px; height: 28px; background: Design.bg-hover; border-radius: 4px; Text { text: "45° (NE): SEND-TEXT [Sub]"; font-size: 10px; font-weight: 700; color: Design.accent; vertical-alignment: center; horizontal-alignment: center; } }
+                                        }
+                                        HorizontalLayout {
+                                            spacing: 6px;
+                                            Rectangle { width: 140px; height: 28px; background: Design.bg-hover; border-radius: 4px; Text { text: "90° (Timur): TOOLBOX [Grup]"; font-size: 10px; font-weight: 700; color: Design.accent; vertical-alignment: center; horizontal-alignment: center; } }
+                                            Rectangle { width: 140px; height: 28px; background: Design.bg-hover; border-radius: 4px; Text { text: "135° (SE): CROP-CENTER"; font-size: 10px; color: Design.text-primary; vertical-alignment: center; horizontal-alignment: center; } }
+                                        }
+                                        HorizontalLayout {
+                                            spacing: 6px;
+                                            Rectangle { width: 140px; height: 28px; background: Design.accent-subtle; border-color: Design.accent; border-width: 1px; border-radius: 4px; Text { text: "180° (Selatan): MORE (Nav)"; font-size: 10px; font-weight: 800; color: Design.accent; vertical-alignment: center; horizontal-alignment: center; } }
+                                            Rectangle { width: 140px; height: 28px; background: Design.bg-hover; border-radius: 4px; Text { text: "225° (SW): COLOR-MATCH"; font-size: 10px; color: Design.text-primary; vertical-alignment: center; horizontal-alignment: center; } }
+                                        }
+                                        HorizontalLayout {
+                                            spacing: 6px;
+                                            Rectangle { width: 140px; height: 28px; background: Design.bg-hover; border-radius: 4px; Text { text: "270° (Barat): AUTO-SAVE"; font-size: 10px; color: Design.text-primary; vertical-alignment: center; horizontal-alignment: center; } }
+                                            Rectangle { width: 140px; height: 28px; background: Design.bg-hover; border-radius: 4px; Text { text: "315° (NW): EXPORT-JPG"; font-size: 10px; color: Design.text-primary; vertical-alignment: center; horizontal-alignment: center; } }
+                                        }
                                     }
                                 }
                             }

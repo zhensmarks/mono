@@ -154,9 +154,10 @@ export component RadialMenuView inherits Rectangle {
     property <[string]> p2-shorts: ["BC", "WM", "MD", "RN", "←", "CP", "SC", "BK"];
     property <[bool]> p2-subs: [false, false, false, false, false, false, false, false];
 
-    // Items Submenu TOOLBOX (_tb_*.jsx C#)
-    property <[string]> tb-items: ["Crop Center", "Color Correct", "Stamp Logo", "Layer Align", "Quick Export"];
-    property <[string]> tb-icons: ["crop", "palette", "image", "layers", "download"];
+    // Items Submenu TOOLBOX: 5 file _tb_*.jsx C# asli (BMACHINE_RADIAL_MENU.md §11.3)
+    property <[string]> tb-items: ["C-REDAKSI", "FOOTNOTE", "IMAGE_SIZE", "NOMORSATSET", "SELEKSI_ALAM"];
+    property <[string]> tb-labels: ["C-Redaksi", "Footnote", "Image Size", "NomorSatset", "Seleksi Alam"];
+    property <[string]> tb-icons: ["file-text", "book-open", "maximize", "hash", "crop"];
 
     // Posisi X/Y 8 Tombol Menu pada R = 72px (diukur relatif dari kanvas 320x320, cx=160, cy=160, btn 36x36 -> -18px)
     // 0 (0°/Utara):    (160 - 18, 160 - 72 - 18) = (142, 70)
@@ -290,7 +291,7 @@ export component RadialMenuView inherits Rectangle {
                 else { root.hovered-outer-idx = -1; }
 
                 if (root.hovered-outer-idx >= 0) {
-                    root.center-title = root.tb-items[root.hovered-outer-idx];
+                    root.center-title = root.tb-labels[root.hovered-outer-idx];
                     root.center-subtitle = "EXECUTE";
                 }
             } else {
@@ -367,34 +368,34 @@ export component RadialMenuView inherits Rectangle {
         // 1. Cincin Luar Submenu Petals (R_in=104px, R_out=152px)
         if root.active-submenu == "TOOLBOX" : Rectangle {
             width: 100%; height: 100%;
-            // 5 Petal skrip toolbox di sisi kanan-bawah
+            // 5 Petal skrip toolbox di sisi kanan-bawah (_tb_*.jsx C#)
             SubmenuPetal {
                 x: 185px; y: 22px; width: 110px;
-                label: root.tb-items[0]; icon-name: root.tb-icons[0];
+                label: root.tb-labels[0]; icon-name: root.tb-icons[0];
                 hovered: root.hovered-outer-idx == 0;
                 clicked => { root.hovered-outer-idx = 0; root.execute-current(); }
             }
             SubmenuPetal {
                 x: 212px; y: 64px; width: 105px;
-                label: root.tb-items[1]; icon-name: root.tb-icons[1];
+                label: root.tb-labels[1]; icon-name: root.tb-icons[1];
                 hovered: root.hovered-outer-idx == 1;
                 clicked => { root.hovered-outer-idx = 1; root.execute-current(); }
             }
             SubmenuPetal {
                 x: 218px; y: 145px; width: 100px;
-                label: root.tb-items[2]; icon-name: root.tb-icons[2];
+                label: root.tb-labels[2]; icon-name: root.tb-icons[2];
                 hovered: root.hovered-outer-idx == 2;
                 clicked => { root.hovered-outer-idx = 2; root.execute-current(); }
             }
             SubmenuPetal {
                 x: 205px; y: 225px; width: 105px;
-                label: root.tb-items[3]; icon-name: root.tb-icons[3];
+                label: root.tb-labels[3]; icon-name: root.tb-icons[3];
                 hovered: root.hovered-outer-idx == 3;
                 clicked => { root.hovered-outer-idx = 3; root.execute-current(); }
             }
             SubmenuPetal {
                 x: 170px; y: 268px; width: 110px;
-                label: root.tb-items[4]; icon-name: root.tb-icons[4];
+                label: root.tb-labels[4]; icon-name: root.tb-icons[4];
                 hovered: root.hovered-outer-idx == 4;
                 clicked => { root.hovered-outer-idx = 4; root.execute-current(); }
             }

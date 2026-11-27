@@ -19,11 +19,11 @@ use sheets_api::GoogleSheetsService;
 use doc_manager::DocManager;
 use local_update::LocalUpdateService;
 use process_log::ProcessLogService;
-use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicU8, Ordering};
-use std::cell::Cell;
-use std::io::Write;
 use rdev::{Button, Event, EventType, Key};
+use std::cell::Cell;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
 
 // TABEL GLOBAL EXPLORER — digenerate tools/gen_explorer_data.py.
 // (folder-key, path, name, kind, ext, base, size, date, preview, loc)
@@ -34,7 +34,7 @@ use rdev::{Button, Event, EventType, Key};
 // Radial menu global trigger config. The C# `ShortcutConfig` JSON shape is
 // mirrored here so the Rust port can read the same DB key without changing
 // the C# app's storage format.
-#[derive(serde::Deserialize)]
+#[derive(Clone, Copy, Debug, serde::Deserialize, serde::Serialize)]
 #[allow(non_snake_case)]
 struct RadialShortcutConfig {
     #[serde(default = "default_trigger_type")]
@@ -47,10 +47,18 @@ struct RadialShortcutConfig {
     Modifiers: u8,
 }
 
-fn default_trigger_type() -> u8 { 1 }
-fn default_mouse_button() -> u8 { 2 }
-fn default_trigger_key() -> u32 { 222 }
-fn default_trigger_modifiers() -> u8 { 12 }
+fn default_trigger_type() -> u8 {
+    1
+}
+fn default_mouse_button() -> u8 {
+    2
+}
+fn default_trigger_key() -> u32 {
+    222
+}
+fn default_trigger_modifiers() -> u8 {
+    12
+}
 
 fn vk_to_rdev_key(vk: u32) -> Option<Key> {
     match vk {
@@ -123,6 +131,86 @@ fn vk_to_rdev_key(vk: u32) -> Option<Key> {
     }
 }
 
+fn rdev_key_to_vk(key: Key) -> Option<u32> {
+    match key {
+        Key::Backspace => Some(8),
+        Key::Tab => Some(9),
+        Key::Return => Some(13),
+        Key::Escape => Some(27),
+        Key::Space => Some(32),
+        Key::PageUp => Some(33),
+        Key::PageDown => Some(34),
+        Key::End => Some(35),
+        Key::Home => Some(36),
+        Key::LeftArrow => Some(37),
+        Key::UpArrow => Some(38),
+        Key::RightArrow => Some(39),
+        Key::DownArrow => Some(40),
+        Key::Insert => Some(45),
+        Key::Delete => Some(46),
+        Key::KeyA => Some(65),
+        Key::KeyB => Some(66),
+        Key::KeyC => Some(67),
+        Key::KeyD => Some(68),
+        Key::KeyE => Some(69),
+        Key::KeyF => Some(70),
+        Key::KeyG => Some(71),
+        Key::KeyH => Some(72),
+        Key::KeyI => Some(73),
+        Key::KeyJ => Some(74),
+        Key::KeyK => Some(75),
+        Key::KeyL => Some(76),
+        Key::KeyM => Some(77),
+        Key::KeyN => Some(78),
+        Key::KeyO => Some(79),
+        Key::KeyP => Some(80),
+        Key::KeyQ => Some(81),
+        Key::KeyR => Some(82),
+        Key::KeyS => Some(83),
+        Key::KeyT => Some(84),
+        Key::KeyU => Some(85),
+        Key::KeyV => Some(86),
+        Key::KeyW => Some(87),
+        Key::KeyX => Some(88),
+        Key::KeyY => Some(89),
+        Key::KeyZ => Some(90),
+        Key::Num0 => Some(48),
+        Key::Num1 => Some(49),
+        Key::Num2 => Some(50),
+        Key::Num3 => Some(51),
+        Key::Num4 => Some(52),
+        Key::Num5 => Some(53),
+        Key::Num6 => Some(54),
+        Key::Num7 => Some(55),
+        Key::Num8 => Some(56),
+        Key::Num9 => Some(57),
+        Key::F1 => Some(112),
+        Key::F2 => Some(113),
+        Key::F3 => Some(114),
+        Key::F4 => Some(115),
+        Key::F5 => Some(116),
+        Key::F6 => Some(117),
+        Key::F7 => Some(118),
+        Key::F8 => Some(119),
+        Key::F9 => Some(120),
+        Key::F10 => Some(121),
+        Key::F11 => Some(122),
+        Key::F12 => Some(123),
+        Key::SemiColon => Some(186),
+        Key::Equal => Some(187),
+        Key::Comma => Some(188),
+        Key::Minus => Some(189),
+        Key::Dot => Some(190),
+        Key::Slash => Some(191),
+        Key::BackQuote => Some(192),
+        Key::LeftBracket => Some(219),
+        Key::BackSlash => Some(220),
+        Key::RightBracket => Some(221),
+        Key::Quote => Some(222),
+        _ => None,
+    }
+}
+
 fn mouse_button_index_to_rdev(index: u8) -> Option<Button> {
     match index {
         0 => Some(Button::Left),
@@ -132,40 +220,573 @@ fn mouse_button_index_to_rdev(index: u8) -> Option<Button> {
     }
 }
 
+// C# GlobalInputHookService.CheckModifiers compares the whole bitmask, not a
+// subset. Keep matching pure so both keyboard and mouse paths use one rule.
+fn shortcut_matches(
+    config: &RadialShortcutConfig,
+    key: Option<Key>,
+    button: Option<Button>,
+    modifiers: u8,
+) -> bool {
+    if modifiers != config.Modifiers {
+        return false;
+    }
+    match config.Type {
+        0 => button == mouse_button_index_to_rdev(config.MouseButton),
+        1 => key == vk_to_rdev_key(config.Key),
+        _ => false,
+    }
+}
+
+fn shortcut_label(config: &RadialShortcutConfig) -> String {
+    let mut parts = Vec::new();
+    if config.Modifiers & 8 != 0 {
+        parts.push("Win");
+    }
+    if config.Modifiers & 2 != 0 {
+        parts.push("Ctrl");
+    }
+    if config.Modifiers & 1 != 0 {
+        parts.push("Alt");
+    }
+    if config.Modifiers & 4 != 0 {
+        parts.push("Shift");
+    }
+    let trigger = if config.Type == 0 {
+        match config.MouseButton {
+            0 => "Mouse Left".to_string(),
+            1 => "Mouse Right".to_string(),
+            2 => "Mouse Middle".to_string(),
+            _ => format!("Mouse {}", config.MouseButton),
+        }
+    } else {
+        match config.Key {
+            222 => "'".to_string(),
+            219 => "[".to_string(),
+            221 => "]".to_string(),
+            112..=123 => format!("F{}", config.Key - 111),
+            other => format!("Key {}", other),
+        }
+    };
+    parts.push(&trigger);
+    parts.join(" + ")
+}
+
+fn is_modifier_key(key: Key) -> bool {
+    matches!(
+        key,
+        Key::ShiftLeft
+            | Key::ShiftRight
+            | Key::ControlLeft
+            | Key::ControlRight
+            | Key::Alt
+            | Key::MetaLeft
+            | Key::MetaRight
+    )
+}
+
+fn modifier_mask_for_key(key: Key) -> u8 {
+    match key {
+        Key::ShiftLeft | Key::ShiftRight => 4,
+        Key::ControlLeft | Key::ControlRight => 2,
+        Key::Alt => 1,
+        Key::MetaLeft | Key::MetaRight => 8,
+        _ => 0,
+    }
+}
+
+fn cursor_screen_position() -> Option<(i32, i32)> {
+    #[cfg(target_os = "windows")]
+    {
+        #[repr(C)]
+        struct Point {
+            x: i32,
+            y: i32,
+        }
+        unsafe extern "system" {
+            fn GetCursorPos(point: *mut Point) -> i32;
+        }
+        let mut point = Point { x: 0, y: 0 };
+        if unsafe { GetCursorPos(&mut point) } != 0 {
+            Some((point.x, point.y))
+        } else {
+            None
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        None
+    }
+}
+
+fn radial_window_origin(cursor: (i32, i32)) -> (i32, i32) {
+    (cursor.0 - 160, cursor.1 - 160)
+}
+
+#[derive(Clone, Copy)]
+enum RadialHookEvent {
+    TriggerDown,
+    TriggerUp,
+    Recorded(RadialShortcutConfig),
+}
+
+#[cfg(test)]
+mod radial_shortcut_tests {
+    use super::*;
+
+    #[test]
+    fn csharp_default_shortcut_config_is_preserved() {
+        let cfg: RadialShortcutConfig =
+            serde_json::from_str(r#"{"Type":1,"MouseButton":2,"Key":222,"Modifiers":12}"#).unwrap();
+        assert_eq!(cfg.Type, 1);
+        assert_eq!(cfg.Key, 222);
+        assert_eq!(cfg.Modifiers, 12);
+        assert_eq!(vk_to_rdev_key(cfg.Key), Some(Key::Quote));
+    }
+
+    #[test]
+    fn shortcut_json_missing_properties_uses_csharp_defaults() {
+        let cfg: RadialShortcutConfig = serde_json::from_str("{}").unwrap();
+        assert_eq!(cfg.Type, default_trigger_type());
+        assert_eq!(cfg.MouseButton, default_mouse_button());
+        assert_eq!(cfg.Key, default_trigger_key());
+        assert_eq!(cfg.Modifiers, default_trigger_modifiers());
+    }
+
+    #[test]
+    fn keyboard_shortcut_requires_exact_modifiers_and_matching_key() {
+        let cfg = RadialShortcutConfig {
+            Type: 1,
+            MouseButton: 2,
+            Key: 222,
+            Modifiers: 12,
+        };
+        assert!(shortcut_matches(&cfg, Some(Key::Quote), None, 12));
+        assert!(!shortcut_matches(&cfg, Some(Key::Quote), None, 4));
+        assert!(!shortcut_matches(&cfg, Some(Key::Quote), None, 13));
+        assert!(!shortcut_matches(&cfg, Some(Key::F1), None, 12));
+        assert!(!shortcut_matches(&cfg, None, Some(Button::Middle), 12));
+    }
+
+    #[test]
+    fn rdev_recording_maps_back_to_csharp_virtual_keys() {
+        assert_eq!(rdev_key_to_vk(Key::Quote), Some(222));
+        assert_eq!(rdev_key_to_vk(Key::LeftBracket), Some(219));
+        assert_eq!(rdev_key_to_vk(Key::F1), Some(112));
+    }
+
+    #[test]
+    fn mouse_shortcut_requires_matching_button_and_exact_modifiers() {
+        let cfg = RadialShortcutConfig {
+            Type: 0,
+            MouseButton: 2,
+            Key: 222,
+            Modifiers: 4,
+        };
+        assert!(shortcut_matches(&cfg, None, Some(Button::Middle), 4));
+        assert!(!shortcut_matches(&cfg, None, Some(Button::Middle), 12));
+        assert!(!shortcut_matches(&cfg, None, Some(Button::Left), 4));
+        assert!(!shortcut_matches(&cfg, Some(Key::Quote), None, 4));
+    }
+}
+
 static EXPLORER_ITEMS: &[(&str, &str, &str, &str, &str, &str, &str, &str, &str, &str)] = &[
-    ("root", "D:\\#GAWENA", "08 AGUSTUS 2026", "folder", "", "08 AGUSTUS 2026", "", "12 Agu 2026", "", "#GAWENA"),
-    ("root", "D:\\#GAWENA", "09 SEPTEMBER 2026", "folder", "", "09 SEPTEMBER 2026", "", "9 Sep 2026", "", "#GAWENA"),
-    ("root", "D:\\#GAWENA", "10 OKTOBER 2026", "folder", "", "10 OKTOBER 2026", "", "10 Okt 2026", "", "#GAWENA"),
-    ("root", "D:\\#GAWENA", "27_SDN RANCAIYUH I", "folder", "", "27_SDN RANCAIYUH I", "", "26 Nov 2026", "", "#GAWENA"),
-    ("root", "D:\\#GAWENA", "28_SDN BANTAR KAMBING 03", "folder", "", "28_SDN BANTAR KAMBING 03", "", "25 Nov 2026", "", "#GAWENA"),
-    ("root", "D:\\#GAWENA", "PAS FOTO.lnk", "link", ".lnk", "PAS FOTO", "1 KB", "26 Nov 2026", "", "#GAWENA"),
-    ("root", "D:\\#GAWENA", "catatan.txt", "file", ".txt", "catatan", "1 KB", "24 Nov 2026", "Catatan QC — cek logo sekolah sebelum kirim.\nKODE= MSK-001\nJangan lupa: centering kepala di guide.", "#GAWENA"),
-    ("root", "D:\\#GAWENA", "Panduan.docx", "file", ".docx", "Panduan", "15 KB", "20 Nov 2026", "", "#GAWENA"),
-    ("root", "D:\\#GAWENA", "README.md", "file", ".md", "README", "2 KB", "3 Nov 2026", "# BMachine\nFolder output lokal (D:\\#GAWENA).\nHasil olahan master tersimpan di sini.", "#GAWENA"),
-    ("a", "D:\\#GAWENA\\27_SDN RANCAIYUH I", "1. PAS FOTO", "folder", "", "1. PAS FOTO", "", "26 Nov 2026", "", "27_SDN RANCAIYUH I"),
-    ("a", "D:\\#GAWENA\\27_SDN RANCAIYUH I", "2. FOTO10RP_FREE SEKOLAH_GRAIS", "folder", "", "2. FOTO10RP_FREE SEKOLAH_GRAIS", "", "25 Nov 2026", "", "27_SDN RANCAIYUH I"),
-    ("a", "D:\\#GAWENA\\27_SDN RANCAIYUH I", "3. SOUVENIR_FREE ID CARD", "folder", "", "3. SOUVENIR_FREE ID CARD", "", "24 Nov 2026", "", "27_SDN RANCAIYUH I"),
-    ("a", "D:\\#GAWENA\\27_SDN RANCAIYUH I", "4. SOUVENIR_FREE KARTU PELAJA", "folder", "", "4. SOUVENIR_FREE KARTU PELAJA", "", "23 Nov 2026", "", "27_SDN RANCAIYUH I"),
-    ("a", "D:\\#GAWENA\\27_SDN RANCAIYUH I", "KODE= PFM-005.txt", "file", ".txt", "KODE= PFM-005", "1 KB", "26 Nov 2026", "KODE= PFM-005\nJenis: PAS FOTO\nSekolah: SDN RANCAIYUH I\nTemplate: PFM-005.psd", "27_SDN RANCAIYUH I"),
-    ("b", "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03", "1. PAS FOTO", "folder", "", "1. PAS FOTO", "", "25 Nov 2026", "", "28_SDN BANTAR KAMBING 03"),
-    ("b", "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03", "2. WISUDA", "folder", "", "2. WISUDA", "", "24 Nov 2026", "", "28_SDN BANTAR KAMBING 03"),
-    ("b", "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03", "3. ID CARD", "folder", "", "3. ID CARD", "", "23 Nov 2026", "", "28_SDN BANTAR KAMBING 03"),
-    ("b", "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03", "4. KARTU PELAJAR", "folder", "", "4. KARTU PELAJAR", "", "22 Nov 2026", "", "28_SDN BANTAR KAMBING 03"),
-    ("b", "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03", "KODE= MSK-001.txt", "file", ".txt", "KODE= MSK-001", "1 KB", "25 Nov 2026", "KODE= MSK-001\nJenis: MANASIK\nSekolah: SDN BANTAR KAMBING 03\nTemplate: MSK-001.psd", "28_SDN BANTAR KAMBING 03"),
-    ("pf", "D:\\#GAWENA\\27_SDN RANCAIYUH I\\1. PAS FOTO", "KELAS 1 B", "folder", "", "KELAS 1 B", "", "26 Nov 2026", "", "1. PAS FOTO"),
-    ("pf", "D:\\#GAWENA\\27_SDN RANCAIYUH I\\1. PAS FOTO", "Ahmad.jpg", "file", ".jpg", "Ahmad", "2,4 MB", "26 Nov 2026", "", "1. PAS FOTO"),
-    ("pf", "D:\\#GAWENA\\27_SDN RANCAIYUH I\\1. PAS FOTO", "Budi.jpg", "file", ".jpg", "Budi", "2,1 MB", "25 Nov 2026", "", "1. PAS FOTO"),
-    ("pf", "D:\\#GAWENA\\27_SDN RANCAIYUH I\\1. PAS FOTO", "template.psd", "file", ".psd", "template", "48,2 MB", "24 Nov 2026", "", "1. PAS FOTO"),
-    ("pfb", "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03\\1. PAS FOTO", "KELAS 1 B", "folder", "", "KELAS 1 B", "", "25 Nov 2026", "", "1. PAS FOTO"),
-    ("pfb", "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03\\1. PAS FOTO", "Dewi.jpg", "file", ".jpg", "Dewi", "2,3 MB", "25 Nov 2026", "", "1. PAS FOTO"),
-    ("pfb", "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03\\1. PAS FOTO", "Eko.jpg", "file", ".jpg", "Eko", "2,0 MB", "24 Nov 2026", "", "1. PAS FOTO"),
-    ("pfb", "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03\\1. PAS FOTO", "template.psd", "file", ".psd", "template", "48,2 MB", "24 Nov 2026", "", "1. PAS FOTO"),
-    ("gen", "D:\\#GAWENA\\08 AGUSTUS 2026", "foto_01.jpg", "file", ".jpg", "foto_01", "1,8 MB", "24 Nov 2026", "", "08 AGUSTUS 2026"),
-    ("gen", "D:\\#GAWENA\\08 AGUSTUS 2026", "foto_02.jpg", "file", ".jpg", "foto_02", "1,9 MB", "23 Nov 2026", "", "08 AGUSTUS 2026"),
-    ("gen", "D:\\#GAWENA\\08 AGUSTUS 2026", "template.psd", "file", ".psd", "template", "48,2 MB", "22 Nov 2026", "", "08 AGUSTUS 2026"),
-    ("master", "D:\\#DATA ABENG\\MASTER", "MSK-001.psd", "file", ".psd", "MSK-001", "49,7 MB", "25 Nov 2026", "", "MASTER"),
-    ("master", "D:\\#DATA ABENG\\MASTER", "PFM-005.psd", "file", ".psd", "PFM-005", "52,1 MB", "26 Nov 2026", "", "MASTER"),
-    ("master", "D:\\#DATA ABENG\\MASTER", "WSD-003.psd", "file", ".psd", "WSD-003", "51,3 MB", "24 Nov 2026", "", "MASTER"),
+    (
+        "root",
+        "D:\\#GAWENA",
+        "08 AGUSTUS 2026",
+        "folder",
+        "",
+        "08 AGUSTUS 2026",
+        "",
+        "12 Agu 2026",
+        "",
+        "#GAWENA",
+    ),
+    (
+        "root",
+        "D:\\#GAWENA",
+        "09 SEPTEMBER 2026",
+        "folder",
+        "",
+        "09 SEPTEMBER 2026",
+        "",
+        "9 Sep 2026",
+        "",
+        "#GAWENA",
+    ),
+    (
+        "root",
+        "D:\\#GAWENA",
+        "10 OKTOBER 2026",
+        "folder",
+        "",
+        "10 OKTOBER 2026",
+        "",
+        "10 Okt 2026",
+        "",
+        "#GAWENA",
+    ),
+    (
+        "root",
+        "D:\\#GAWENA",
+        "27_SDN RANCAIYUH I",
+        "folder",
+        "",
+        "27_SDN RANCAIYUH I",
+        "",
+        "26 Nov 2026",
+        "",
+        "#GAWENA",
+    ),
+    (
+        "root",
+        "D:\\#GAWENA",
+        "28_SDN BANTAR KAMBING 03",
+        "folder",
+        "",
+        "28_SDN BANTAR KAMBING 03",
+        "",
+        "25 Nov 2026",
+        "",
+        "#GAWENA",
+    ),
+    (
+        "root",
+        "D:\\#GAWENA",
+        "PAS FOTO.lnk",
+        "link",
+        ".lnk",
+        "PAS FOTO",
+        "1 KB",
+        "26 Nov 2026",
+        "",
+        "#GAWENA",
+    ),
+    (
+        "root",
+        "D:\\#GAWENA",
+        "catatan.txt",
+        "file",
+        ".txt",
+        "catatan",
+        "1 KB",
+        "24 Nov 2026",
+        "Catatan QC — cek logo sekolah sebelum kirim.\nKODE= MSK-001\nJangan lupa: centering kepala di guide.",
+        "#GAWENA",
+    ),
+    (
+        "root",
+        "D:\\#GAWENA",
+        "Panduan.docx",
+        "file",
+        ".docx",
+        "Panduan",
+        "15 KB",
+        "20 Nov 2026",
+        "",
+        "#GAWENA",
+    ),
+    (
+        "root",
+        "D:\\#GAWENA",
+        "README.md",
+        "file",
+        ".md",
+        "README",
+        "2 KB",
+        "3 Nov 2026",
+        "# BMachine\nFolder output lokal (D:\\#GAWENA).\nHasil olahan master tersimpan di sini.",
+        "#GAWENA",
+    ),
+    (
+        "a",
+        "D:\\#GAWENA\\27_SDN RANCAIYUH I",
+        "1. PAS FOTO",
+        "folder",
+        "",
+        "1. PAS FOTO",
+        "",
+        "26 Nov 2026",
+        "",
+        "27_SDN RANCAIYUH I",
+    ),
+    (
+        "a",
+        "D:\\#GAWENA\\27_SDN RANCAIYUH I",
+        "2. FOTO10RP_FREE SEKOLAH_GRAIS",
+        "folder",
+        "",
+        "2. FOTO10RP_FREE SEKOLAH_GRAIS",
+        "",
+        "25 Nov 2026",
+        "",
+        "27_SDN RANCAIYUH I",
+    ),
+    (
+        "a",
+        "D:\\#GAWENA\\27_SDN RANCAIYUH I",
+        "3. SOUVENIR_FREE ID CARD",
+        "folder",
+        "",
+        "3. SOUVENIR_FREE ID CARD",
+        "",
+        "24 Nov 2026",
+        "",
+        "27_SDN RANCAIYUH I",
+    ),
+    (
+        "a",
+        "D:\\#GAWENA\\27_SDN RANCAIYUH I",
+        "4. SOUVENIR_FREE KARTU PELAJA",
+        "folder",
+        "",
+        "4. SOUVENIR_FREE KARTU PELAJA",
+        "",
+        "23 Nov 2026",
+        "",
+        "27_SDN RANCAIYUH I",
+    ),
+    (
+        "a",
+        "D:\\#GAWENA\\27_SDN RANCAIYUH I",
+        "KODE= PFM-005.txt",
+        "file",
+        ".txt",
+        "KODE= PFM-005",
+        "1 KB",
+        "26 Nov 2026",
+        "KODE= PFM-005\nJenis: PAS FOTO\nSekolah: SDN RANCAIYUH I\nTemplate: PFM-005.psd",
+        "27_SDN RANCAIYUH I",
+    ),
+    (
+        "b",
+        "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03",
+        "1. PAS FOTO",
+        "folder",
+        "",
+        "1. PAS FOTO",
+        "",
+        "25 Nov 2026",
+        "",
+        "28_SDN BANTAR KAMBING 03",
+    ),
+    (
+        "b",
+        "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03",
+        "2. WISUDA",
+        "folder",
+        "",
+        "2. WISUDA",
+        "",
+        "24 Nov 2026",
+        "",
+        "28_SDN BANTAR KAMBING 03",
+    ),
+    (
+        "b",
+        "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03",
+        "3. ID CARD",
+        "folder",
+        "",
+        "3. ID CARD",
+        "",
+        "23 Nov 2026",
+        "",
+        "28_SDN BANTAR KAMBING 03",
+    ),
+    (
+        "b",
+        "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03",
+        "4. KARTU PELAJAR",
+        "folder",
+        "",
+        "4. KARTU PELAJAR",
+        "",
+        "22 Nov 2026",
+        "",
+        "28_SDN BANTAR KAMBING 03",
+    ),
+    (
+        "b",
+        "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03",
+        "KODE= MSK-001.txt",
+        "file",
+        ".txt",
+        "KODE= MSK-001",
+        "1 KB",
+        "25 Nov 2026",
+        "KODE= MSK-001\nJenis: MANASIK\nSekolah: SDN BANTAR KAMBING 03\nTemplate: MSK-001.psd",
+        "28_SDN BANTAR KAMBING 03",
+    ),
+    (
+        "pf",
+        "D:\\#GAWENA\\27_SDN RANCAIYUH I\\1. PAS FOTO",
+        "KELAS 1 B",
+        "folder",
+        "",
+        "KELAS 1 B",
+        "",
+        "26 Nov 2026",
+        "",
+        "1. PAS FOTO",
+    ),
+    (
+        "pf",
+        "D:\\#GAWENA\\27_SDN RANCAIYUH I\\1. PAS FOTO",
+        "Ahmad.jpg",
+        "file",
+        ".jpg",
+        "Ahmad",
+        "2,4 MB",
+        "26 Nov 2026",
+        "",
+        "1. PAS FOTO",
+    ),
+    (
+        "pf",
+        "D:\\#GAWENA\\27_SDN RANCAIYUH I\\1. PAS FOTO",
+        "Budi.jpg",
+        "file",
+        ".jpg",
+        "Budi",
+        "2,1 MB",
+        "25 Nov 2026",
+        "",
+        "1. PAS FOTO",
+    ),
+    (
+        "pf",
+        "D:\\#GAWENA\\27_SDN RANCAIYUH I\\1. PAS FOTO",
+        "template.psd",
+        "file",
+        ".psd",
+        "template",
+        "48,2 MB",
+        "24 Nov 2026",
+        "",
+        "1. PAS FOTO",
+    ),
+    (
+        "pfb",
+        "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03\\1. PAS FOTO",
+        "KELAS 1 B",
+        "folder",
+        "",
+        "KELAS 1 B",
+        "",
+        "25 Nov 2026",
+        "",
+        "1. PAS FOTO",
+    ),
+    (
+        "pfb",
+        "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03\\1. PAS FOTO",
+        "Dewi.jpg",
+        "file",
+        ".jpg",
+        "Dewi",
+        "2,3 MB",
+        "25 Nov 2026",
+        "",
+        "1. PAS FOTO",
+    ),
+    (
+        "pfb",
+        "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03\\1. PAS FOTO",
+        "Eko.jpg",
+        "file",
+        ".jpg",
+        "Eko",
+        "2,0 MB",
+        "24 Nov 2026",
+        "",
+        "1. PAS FOTO",
+    ),
+    (
+        "pfb",
+        "D:\\#GAWENA\\28_SDN BANTAR KAMBING 03\\1. PAS FOTO",
+        "template.psd",
+        "file",
+        ".psd",
+        "template",
+        "48,2 MB",
+        "24 Nov 2026",
+        "",
+        "1. PAS FOTO",
+    ),
+    (
+        "gen",
+        "D:\\#GAWENA\\08 AGUSTUS 2026",
+        "foto_01.jpg",
+        "file",
+        ".jpg",
+        "foto_01",
+        "1,8 MB",
+        "24 Nov 2026",
+        "",
+        "08 AGUSTUS 2026",
+    ),
+    (
+        "gen",
+        "D:\\#GAWENA\\08 AGUSTUS 2026",
+        "foto_02.jpg",
+        "file",
+        ".jpg",
+        "foto_02",
+        "1,9 MB",
+        "23 Nov 2026",
+        "",
+        "08 AGUSTUS 2026",
+    ),
+    (
+        "gen",
+        "D:\\#GAWENA\\08 AGUSTUS 2026",
+        "template.psd",
+        "file",
+        ".psd",
+        "template",
+        "48,2 MB",
+        "22 Nov 2026",
+        "",
+        "08 AGUSTUS 2026",
+    ),
+    (
+        "master",
+        "D:\\#DATA ABENG\\MASTER",
+        "MSK-001.psd",
+        "file",
+        ".psd",
+        "MSK-001",
+        "49,7 MB",
+        "25 Nov 2026",
+        "",
+        "MASTER",
+    ),
+    (
+        "master",
+        "D:\\#DATA ABENG\\MASTER",
+        "PFM-005.psd",
+        "file",
+        ".psd",
+        "PFM-005",
+        "52,1 MB",
+        "26 Nov 2026",
+        "",
+        "MASTER",
+    ),
+    (
+        "master",
+        "D:\\#DATA ABENG\\MASTER",
+        "WSD-003.psd",
+        "file",
+        ".psd",
+        "WSD-003",
+        "51,3 MB",
+        "24 Nov 2026",
+        "",
+        "MASTER",
+    ),
 ];
 
 // Subtree tiap folder (search rekursif = folder ini + turunan).
@@ -180,7 +801,6 @@ static EXPLORER_SUBTREE: &[(&str, &[&str])] = &[
     ("gen", &["gen"]),
     ("master", &["master"]),
 ];
-
 
 fn subtree_keys(key: &str) -> Vec<&str> {
     for (k, sub) in EXPLORER_SUBTREE {
@@ -278,14 +898,18 @@ fn main() -> Result<(), slint::PlatformError> {
 
     if simulate_hotkey {
         let sim = slint::Timer::default();
-        sim.start(slint::TimerMode::SingleShot, std::time::Duration::from_secs(2), move || {
-            let _ = rdev::simulate(&rdev::EventType::KeyPress(Key::MetaLeft));
-            let _ = rdev::simulate(&rdev::EventType::KeyPress(Key::ShiftLeft));
-            let _ = rdev::simulate(&rdev::EventType::KeyPress(Key::Quote));
-            let _ = rdev::simulate(&rdev::EventType::KeyRelease(Key::Quote));
-            let _ = rdev::simulate(&rdev::EventType::KeyRelease(Key::ShiftLeft));
-            let _ = rdev::simulate(&rdev::EventType::KeyRelease(Key::MetaLeft));
-        });
+        sim.start(
+            slint::TimerMode::SingleShot,
+            std::time::Duration::from_secs(2),
+            move || {
+                let _ = rdev::simulate(&rdev::EventType::KeyPress(Key::MetaLeft));
+                let _ = rdev::simulate(&rdev::EventType::KeyPress(Key::ShiftLeft));
+                let _ = rdev::simulate(&rdev::EventType::KeyPress(Key::Quote));
+                let _ = rdev::simulate(&rdev::EventType::KeyRelease(Key::Quote));
+                let _ = rdev::simulate(&rdev::EventType::KeyRelease(Key::ShiftLeft));
+                let _ = rdev::simulate(&rdev::EventType::KeyRelease(Key::MetaLeft));
+            },
+        );
     }
 
     // Inisialisasi Database SQLite BMachine.db nyata di AppData/BMachine
@@ -445,11 +1069,26 @@ fn main() -> Result<(), slint::PlatformError> {
         }
         let sheet_count = sheet_rows.len() as i32;
         let lb_count = lb_rows.len() as i32;
-        let sc0: Vec<slint::SharedString> = sheet_rows.iter().map(|r| slint::SharedString::from(r.split('\t').next().unwrap_or("").to_string())).collect();
-        let sc1: Vec<slint::SharedString> = sheet_rows.iter().map(|r| slint::SharedString::from(r.split('\t').nth(1).unwrap_or("").to_string())).collect();
-        let sc2: Vec<slint::SharedString> = sheet_rows.iter().map(|r| slint::SharedString::from(r.split('\t').nth(2).unwrap_or("").to_string())).collect();
-        let lc0: Vec<slint::SharedString> = lb_rows.iter().map(|r| slint::SharedString::from(r.split('\t').next().unwrap_or("").to_string())).collect();
-        let lc1: Vec<slint::SharedString> = lb_rows.iter().map(|r| slint::SharedString::from(r.split('\t').nth(1).unwrap_or("").to_string())).collect();
+        let sc0: Vec<slint::SharedString> = sheet_rows
+            .iter()
+            .map(|r| slint::SharedString::from(r.split('\t').next().unwrap_or("").to_string()))
+            .collect();
+        let sc1: Vec<slint::SharedString> = sheet_rows
+            .iter()
+            .map(|r| slint::SharedString::from(r.split('\t').nth(1).unwrap_or("").to_string()))
+            .collect();
+        let sc2: Vec<slint::SharedString> = sheet_rows
+            .iter()
+            .map(|r| slint::SharedString::from(r.split('\t').nth(2).unwrap_or("").to_string()))
+            .collect();
+        let lc0: Vec<slint::SharedString> = lb_rows
+            .iter()
+            .map(|r| slint::SharedString::from(r.split('\t').next().unwrap_or("").to_string()))
+            .collect();
+        let lc1: Vec<slint::SharedString> = lb_rows
+            .iter()
+            .map(|r| slint::SharedString::from(r.split('\t').nth(1).unwrap_or("").to_string()))
+            .collect();
         ui.set_sheet_rows(slint::ModelRc::new(slint::VecModel::from(sheet_rows)));
         ui.set_lb_rows(slint::ModelRc::new(slint::VecModel::from(lb_rows)));
         ui.set_sheet_row_count(sheet_count);
@@ -488,29 +1127,66 @@ fn main() -> Result<(), slint::PlatformError> {
                     if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &el) {
                         synced += cards.len();
                         let count = format!("{}", cards.len());
-                        let titles: Vec<slint::SharedString> = cards.iter().map(|c| slint::SharedString::from(c.name.as_str())).collect();
-                        let subs: Vec<slint::SharedString> = cards.iter().map(|c| {
-                            let s = c.desc.as_deref().unwrap_or("").lines().next().unwrap_or("").trim();
-                            slint::SharedString::from(if s.is_empty() { "Trello Card" } else { s })
-                        }).collect();
-                        let dues: Vec<slint::SharedString> = cards.iter().map(|c| {
-                            let d = c.due.as_deref().unwrap_or("-");
-                            slint::SharedString::from(d.get(..10).unwrap_or(d))
-                        }).collect();
-                        let ids: Vec<slint::SharedString> = cards.iter().map(|c| {
-                            let did = extract_card_display_id(&c.name);
-                            slint::SharedString::from(if did.is_empty() { c.id.clone() } else { did })
-                        }).collect();
+                        let titles: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| slint::SharedString::from(c.name.as_str()))
+                            .collect();
+                        let subs: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| {
+                                let s = c
+                                    .desc
+                                    .as_deref()
+                                    .unwrap_or("")
+                                    .lines()
+                                    .next()
+                                    .unwrap_or("")
+                                    .trim();
+                                slint::SharedString::from(if s.is_empty() {
+                                    "Trello Card"
+                                } else {
+                                    s
+                                })
+                            })
+                            .collect();
+                        let dues: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| {
+                                let d = c.due.as_deref().unwrap_or("-");
+                                slint::SharedString::from(d.get(..10).unwrap_or(d))
+                            })
+                            .collect();
+                        let ids: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| {
+                                let did = extract_card_display_id(&c.name);
+                                slint::SharedString::from(if did.is_empty() {
+                                    c.id.clone()
+                                } else {
+                                    did
+                                })
+                            })
+                            .collect();
                         let dones: Vec<bool> = vec![false; cards.len()];
                         let _ = ui_weak.upgrade_in_event_loop(move |u| {
                             u.set_stat_editing(count.into());
-                            u.set_editing_titles(slint::ModelRc::new(slint::VecModel::from(titles.clone())));
-                            u.set_editing_subs(slint::ModelRc::new(slint::VecModel::from(subs.clone())));
-                            u.set_editing_due(slint::ModelRc::new(slint::VecModel::from(dues.clone())));
+                            u.set_editing_titles(slint::ModelRc::new(slint::VecModel::from(
+                                titles.clone(),
+                            )));
+                            u.set_editing_subs(slint::ModelRc::new(slint::VecModel::from(
+                                subs.clone(),
+                            )));
+                            u.set_editing_due(slint::ModelRc::new(slint::VecModel::from(
+                                dues.clone(),
+                            )));
                             u.set_editing_ids(slint::ModelRc::new(slint::VecModel::from(ids)));
                             u.set_editing_done(slint::ModelRc::new(slint::VecModel::from(dones)));
-                            if u.get_list_category().as_str() == "EDITING" || u.get_trello_window_cat().as_str() == "EDITING" {
-                                u.set_list_titles(slint::ModelRc::new(slint::VecModel::from(titles)));
+                            if u.get_list_category().as_str() == "EDITING"
+                                || u.get_trello_window_cat().as_str() == "EDITING"
+                            {
+                                u.set_list_titles(slint::ModelRc::new(slint::VecModel::from(
+                                    titles,
+                                )));
                                 u.set_list_subs(slint::ModelRc::new(slint::VecModel::from(subs)));
                                 u.set_list_due(slint::ModelRc::new(slint::VecModel::from(dues)));
                             }
@@ -521,26 +1197,55 @@ fn main() -> Result<(), slint::PlatformError> {
                     if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &rl) {
                         synced += cards.len();
                         let count = format!("{}", cards.len());
-                        let titles: Vec<slint::SharedString> = cards.iter().map(|c| slint::SharedString::from(c.name.as_str())).collect();
-                        let subs: Vec<slint::SharedString> = cards.iter().map(|c| {
-                            let s = c.desc.as_deref().unwrap_or("").lines().next().unwrap_or("").trim();
-                            slint::SharedString::from(if s.is_empty() { "Revisi" } else { s })
-                        }).collect();
-                        let dues: Vec<slint::SharedString> = cards.iter().map(|c| {
-                            let d = c.due.as_deref().unwrap_or("-");
-                            slint::SharedString::from(d.get(..10).unwrap_or(d))
-                        }).collect();
-                        let ids: Vec<slint::SharedString> = cards.iter().map(|c| slint::SharedString::from(extract_card_display_id(&c.name))).collect();
+                        let titles: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| slint::SharedString::from(c.name.as_str()))
+                            .collect();
+                        let subs: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| {
+                                let s = c
+                                    .desc
+                                    .as_deref()
+                                    .unwrap_or("")
+                                    .lines()
+                                    .next()
+                                    .unwrap_or("")
+                                    .trim();
+                                slint::SharedString::from(if s.is_empty() { "Revisi" } else { s })
+                            })
+                            .collect();
+                        let dues: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| {
+                                let d = c.due.as_deref().unwrap_or("-");
+                                slint::SharedString::from(d.get(..10).unwrap_or(d))
+                            })
+                            .collect();
+                        let ids: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| slint::SharedString::from(extract_card_display_id(&c.name)))
+                            .collect();
                         let dones: Vec<bool> = vec![false; cards.len()];
                         let _ = ui_weak.upgrade_in_event_loop(move |u| {
                             u.set_stat_revision(count.into());
-                            u.set_revision_titles(slint::ModelRc::new(slint::VecModel::from(titles.clone())));
-                            u.set_revision_subs(slint::ModelRc::new(slint::VecModel::from(subs.clone())));
-                            u.set_revision_due(slint::ModelRc::new(slint::VecModel::from(dues.clone())));
+                            u.set_revision_titles(slint::ModelRc::new(slint::VecModel::from(
+                                titles.clone(),
+                            )));
+                            u.set_revision_subs(slint::ModelRc::new(slint::VecModel::from(
+                                subs.clone(),
+                            )));
+                            u.set_revision_due(slint::ModelRc::new(slint::VecModel::from(
+                                dues.clone(),
+                            )));
                             u.set_revision_ids(slint::ModelRc::new(slint::VecModel::from(ids)));
                             u.set_revision_done(slint::ModelRc::new(slint::VecModel::from(dones)));
-                            if u.get_list_category().as_str() == "REVISION" || u.get_trello_window_cat().as_str() == "REVISION" {
-                                u.set_list_titles(slint::ModelRc::new(slint::VecModel::from(titles)));
+                            if u.get_list_category().as_str() == "REVISION"
+                                || u.get_trello_window_cat().as_str() == "REVISION"
+                            {
+                                u.set_list_titles(slint::ModelRc::new(slint::VecModel::from(
+                                    titles,
+                                )));
                                 u.set_list_subs(slint::ModelRc::new(slint::VecModel::from(subs)));
                                 u.set_list_due(slint::ModelRc::new(slint::VecModel::from(dues)));
                             }
@@ -551,26 +1256,55 @@ fn main() -> Result<(), slint::PlatformError> {
                     if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &ll) {
                         synced += cards.len();
                         let count = format!("{}", cards.len());
-                        let titles: Vec<slint::SharedString> = cards.iter().map(|c| slint::SharedString::from(c.name.as_str())).collect();
-                        let subs: Vec<slint::SharedString> = cards.iter().map(|c| {
-                            let s = c.desc.as_deref().unwrap_or("").lines().next().unwrap_or("").trim();
-                            slint::SharedString::from(if s.is_empty() { "Susulan" } else { s })
-                        }).collect();
-                        let dues: Vec<slint::SharedString> = cards.iter().map(|c| {
-                            let d = c.due.as_deref().unwrap_or("-");
-                            slint::SharedString::from(d.get(..10).unwrap_or(d))
-                        }).collect();
-                        let ids: Vec<slint::SharedString> = cards.iter().map(|c| slint::SharedString::from(extract_card_display_id(&c.name))).collect();
+                        let titles: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| slint::SharedString::from(c.name.as_str()))
+                            .collect();
+                        let subs: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| {
+                                let s = c
+                                    .desc
+                                    .as_deref()
+                                    .unwrap_or("")
+                                    .lines()
+                                    .next()
+                                    .unwrap_or("")
+                                    .trim();
+                                slint::SharedString::from(if s.is_empty() { "Susulan" } else { s })
+                            })
+                            .collect();
+                        let dues: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| {
+                                let d = c.due.as_deref().unwrap_or("-");
+                                slint::SharedString::from(d.get(..10).unwrap_or(d))
+                            })
+                            .collect();
+                        let ids: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| slint::SharedString::from(extract_card_display_id(&c.name)))
+                            .collect();
                         let dones: Vec<bool> = vec![false; cards.len()];
                         let _ = ui_weak.upgrade_in_event_loop(move |u| {
                             u.set_stat_late(count.into());
-                            u.set_late_titles(slint::ModelRc::new(slint::VecModel::from(titles.clone())));
-                            u.set_late_subs(slint::ModelRc::new(slint::VecModel::from(subs.clone())));
-                            u.set_late_due(slint::ModelRc::new(slint::VecModel::from(dues.clone())));
+                            u.set_late_titles(slint::ModelRc::new(slint::VecModel::from(
+                                titles.clone(),
+                            )));
+                            u.set_late_subs(slint::ModelRc::new(slint::VecModel::from(
+                                subs.clone(),
+                            )));
+                            u.set_late_due(slint::ModelRc::new(slint::VecModel::from(
+                                dues.clone(),
+                            )));
                             u.set_late_ids(slint::ModelRc::new(slint::VecModel::from(ids)));
                             u.set_late_done(slint::ModelRc::new(slint::VecModel::from(dones)));
-                            if u.get_list_category().as_str() == "LATE" || u.get_trello_window_cat().as_str() == "LATE" {
-                                u.set_list_titles(slint::ModelRc::new(slint::VecModel::from(titles)));
+                            if u.get_list_category().as_str() == "LATE"
+                                || u.get_trello_window_cat().as_str() == "LATE"
+                            {
+                                u.set_list_titles(slint::ModelRc::new(slint::VecModel::from(
+                                    titles,
+                                )));
                                 u.set_list_subs(slint::ModelRc::new(slint::VecModel::from(subs)));
                                 u.set_list_due(slint::ModelRc::new(slint::VecModel::from(dues)));
                             }
@@ -582,9 +1316,14 @@ fn main() -> Result<(), slint::PlatformError> {
                 u.set_trello_refreshing(false);
                 if show_toast {
                     if synced > 0 {
-                        u.set_toast(slint::SharedString::from(format!("Trello di-refresh — {} card dimuat", synced)));
+                        u.set_toast(slint::SharedString::from(format!(
+                            "Trello di-refresh — {} card dimuat",
+                            synced
+                        )));
                     } else if k.is_empty() || t.is_empty() {
-                        u.set_toast(slint::SharedString::from("Isi API Key & Token Trello di Settings > Account"));
+                        u.set_toast(slint::SharedString::from(
+                            "Isi API Key & Token Trello di Settings > Account",
+                        ));
                     } else {
                         u.set_toast(slint::SharedString::from("Trello di-refresh"));
                     }
@@ -651,7 +1390,9 @@ fn main() -> Result<(), slint::PlatformError> {
                         theme::save_theme_to_db(&ui, &mut db_guard);
                     }
                 }
-                ui.set_toast(slint::SharedString::from("Tema dikembalikan ke BMachine Dark default"));
+                ui.set_toast(slint::SharedString::from(
+                    "Tema dikembalikan ke BMachine Dark default",
+                ));
             }
         });
     }
@@ -662,9 +1403,22 @@ fn main() -> Result<(), slint::PlatformError> {
             if let Some(ui) = ui_weak.upgrade() {
                 if let Some(ref db_mutex) = db_clone {
                     if let Ok(mut db_guard) = db_mutex.lock() {
-                        let _ = db_guard.set("User.Name", ui.get_app_user_name().as_str(), "String");
-                        let _ = db_guard.set("Settings.StartupAnim", if ui.get_app_anim_startup() { "true" } else { "false" }, "Bool");
-                        let _ = db_guard.set("Settings.StatSpeed", ui.get_app_anim_speed().as_str(), "String");
+                        let _ =
+                            db_guard.set("User.Name", ui.get_app_user_name().as_str(), "String");
+                        let _ = db_guard.set(
+                            "Settings.StartupAnim",
+                            if ui.get_app_anim_startup() {
+                                "true"
+                            } else {
+                                "false"
+                            },
+                            "Bool",
+                        );
+                        let _ = db_guard.set(
+                            "Settings.StatSpeed",
+                            ui.get_app_anim_speed().as_str(),
+                            "String",
+                        );
                     }
                 }
                 ui.set_toast(slint::SharedString::from("Pengaturan General disimpan"));
@@ -678,16 +1432,46 @@ fn main() -> Result<(), slint::PlatformError> {
             if let Some(ui) = ui_weak.upgrade() {
                 if let Some(ref db_mutex) = db_clone {
                     if let Ok(mut db_guard) = db_mutex.lock() {
-                        let _ = db_guard.set("Paths.LocalOutput", ui.get_app_path_local().as_str(), "String");
-                        let _ = db_guard.set("Paths.OkeBase", ui.get_app_path_okebase().as_str(), "String");
-                        let _ = db_guard.set("Paths.Photoshop", ui.get_app_path_photoshop().as_str(), "String");
-                        let _ = db_guard.set("Paths.PasFoto", ui.get_app_path_pasfoto().as_str(), "String");
-                        let _ = db_guard.set("Paths.Manasik", ui.get_app_path_manasik().as_str(), "String");
-                        let _ = db_guard.set("Paths.Wisuda", ui.get_app_path_wisuda().as_str(), "String");
-                        let _ = db_guard.set("Paths.Profesi", ui.get_app_path_profesi().as_str(), "String");
+                        let _ = db_guard.set(
+                            "Paths.LocalOutput",
+                            ui.get_app_path_local().as_str(),
+                            "String",
+                        );
+                        let _ = db_guard.set(
+                            "Paths.OkeBase",
+                            ui.get_app_path_okebase().as_str(),
+                            "String",
+                        );
+                        let _ = db_guard.set(
+                            "Paths.Photoshop",
+                            ui.get_app_path_photoshop().as_str(),
+                            "String",
+                        );
+                        let _ = db_guard.set(
+                            "Paths.PasFoto",
+                            ui.get_app_path_pasfoto().as_str(),
+                            "String",
+                        );
+                        let _ = db_guard.set(
+                            "Paths.Manasik",
+                            ui.get_app_path_manasik().as_str(),
+                            "String",
+                        );
+                        let _ = db_guard.set(
+                            "Paths.Wisuda",
+                            ui.get_app_path_wisuda().as_str(),
+                            "String",
+                        );
+                        let _ = db_guard.set(
+                            "Paths.Profesi",
+                            ui.get_app_path_profesi().as_str(),
+                            "String",
+                        );
                     }
                 }
-                ui.set_toast(slint::SharedString::from("Path folder disimpan ke database"));
+                ui.set_toast(slint::SharedString::from(
+                    "Path folder disimpan ke database",
+                ));
             }
         });
     }
@@ -708,8 +1492,14 @@ fn main() -> Result<(), slint::PlatformError> {
             let kind = target.to_string();
             std::thread::spawn(move || {
                 let picked = match kind.as_str() {
-                    "creds" => platform::pick_file("Pilih credentials.json", "JSON Files (*.json)|*.json|All Files (*.*)|*.*"),
-                    "photoshop" => platform::pick_file("Pilih Photoshop.exe", "Executable (*.exe)|*.exe|All Files (*.*)|*.*"),
+                    "creds" => platform::pick_file(
+                        "Pilih credentials.json",
+                        "JSON Files (*.json)|*.json|All Files (*.*)|*.*",
+                    ),
+                    "photoshop" => platform::pick_file(
+                        "Pilih Photoshop.exe",
+                        "Executable (*.exe)|*.exe|All Files (*.*)|*.*",
+                    ),
                     _ => platform::pick_folder("Pilih Folder"),
                 };
                 if let Some(path) = picked {
@@ -759,7 +1549,9 @@ fn main() -> Result<(), slint::PlatformError> {
                 let k = ui.get_trello_api_key().to_string();
                 let t = ui.get_trello_token().to_string();
                 if k.trim().is_empty() || t.trim().is_empty() {
-                    ui.set_toast(slint::SharedString::from("Isi API Key dan Token Trello dulu"));
+                    ui.set_toast(slint::SharedString::from(
+                        "Isi API Key dan Token Trello dulu",
+                    ));
                     return;
                 }
                 ui.set_app_trello_status(slint::SharedString::from("Menghubungkan ke Trello..."));
@@ -781,15 +1573,24 @@ fn main() -> Result<(), slint::PlatformError> {
                             }
                             let _ = ui_w.upgrade_in_event_loop(move |u| {
                                 u.set_app_trello_connected(true);
-                                u.set_app_trello_status(slint::SharedString::from(format!("Tersambung sebagai {}", name)));
-                                u.set_toast(slint::SharedString::from(format!("Trello tersambung ({})", name)));
+                                u.set_app_trello_status(slint::SharedString::from(format!(
+                                    "Tersambung sebagai {}",
+                                    name
+                                )));
+                                u.set_toast(slint::SharedString::from(format!(
+                                    "Trello tersambung ({})",
+                                    name
+                                )));
                             });
                             spawn_trello_sync(ui_w, k, t, el, rl, ll, false);
                         }
                         Err(e) => {
                             let _ = ui_w.upgrade_in_event_loop(move |u| {
                                 u.set_app_trello_connected(false);
-                                u.set_app_trello_status(slint::SharedString::from(format!("Gagal: {}", e)));
+                                u.set_app_trello_status(slint::SharedString::from(format!(
+                                    "Gagal: {}",
+                                    e
+                                )));
                                 u.set_toast(slint::SharedString::from(e));
                             });
                         }
@@ -849,14 +1650,17 @@ fn main() -> Result<(), slint::PlatformError> {
                 let pos = ui.window().position();
                 let nx = pos.x + (dx * scale) as i32;
                 let ny = pos.y + (dy * scale) as i32;
-                ui.window().set_position(slint::PhysicalPosition::new(nx, ny));
+                ui.window()
+                    .set_position(slint::PhysicalPosition::new(nx, ny));
             }
         });
     }
 
     // ---- Standalone Multi-Window Handlers (SpreadsheetWindow & CardListWindow) ----
-    let sheet_win_cell: std::rc::Rc<std::cell::RefCell<Option<SpreadsheetWindow>>> = std::rc::Rc::new(std::cell::RefCell::new(None));
-    let card_win_cell: std::rc::Rc<std::cell::RefCell<Option<CardListWindow>>> = std::rc::Rc::new(std::cell::RefCell::new(None));
+    let sheet_win_cell: std::rc::Rc<std::cell::RefCell<Option<SpreadsheetWindow>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(None));
+    let card_win_cell: std::rc::Rc<std::cell::RefCell<Option<CardListWindow>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(None));
 
     {
         let sheet_cell = sheet_win_cell.clone();
@@ -981,7 +1785,9 @@ fn main() -> Result<(), slint::PlatformError> {
                 std::thread::spawn(move || {
                     if !k.is_empty() && !t.is_empty() {
                         if !e_l.is_empty() {
-                            if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &e_l) {
+                            if let Ok(cards) =
+                                trello_api::TrelloApiService::fetch_cards(&k, &t, &e_l)
+                            {
                                 let count = format!("{}", cards.len());
                                 let _ = ui_bg.upgrade_in_event_loop(move |u| {
                                     u.set_stat_editing(count.into());
@@ -991,17 +1797,22 @@ fn main() -> Result<(), slint::PlatformError> {
                             let _ = ui_bg.upgrade_in_event_loop(|u| u.set_stat_editing("-".into()));
                         }
                         if !r_l.is_empty() {
-                            if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &r_l) {
+                            if let Ok(cards) =
+                                trello_api::TrelloApiService::fetch_cards(&k, &t, &r_l)
+                            {
                                 let count = format!("{}", cards.len());
                                 let _ = ui_bg.upgrade_in_event_loop(move |u| {
                                     u.set_stat_revision(count.into());
                                 });
                             }
                         } else {
-                            let _ = ui_bg.upgrade_in_event_loop(|u| u.set_stat_revision("-".into()));
+                            let _ =
+                                ui_bg.upgrade_in_event_loop(|u| u.set_stat_revision("-".into()));
                         }
                         if !l_l.is_empty() {
-                            if let Ok(cards) = trello_api::TrelloApiService::fetch_cards(&k, &t, &l_l) {
+                            if let Ok(cards) =
+                                trello_api::TrelloApiService::fetch_cards(&k, &t, &l_l)
+                            {
                                 let count = format!("{}", cards.len());
                                 let _ = ui_bg.upgrade_in_event_loop(move |u| {
                                     u.set_stat_late(count.into());
@@ -1028,12 +1839,36 @@ fn main() -> Result<(), slint::PlatformError> {
         let proc_log_clone = Arc::clone(&proc_log);
         std::thread::spawn(move || {
             let steps = [
-                (10, "Menghubungkan Database SQLite...", "> Membuka SQLite BMachine.db"),
-                (25, "Memuat Pengaturan Tema & UI...", "> Tema Dark diterapkan"),
-                (50, "Memuat Konfigurasi Aplikasi (Preload)...", "> 82 keys tersimpan ke memori"),
-                (75, "Memeriksa dependensi Engine & Script Python...", "> Engine Python OK (Scripts/Master)"),
-                (90, "Menyiapkan Layanan Eksternal & Dashboard...", "> Menyiapkan dashboard"),
-                (100, "BMachine Siap Beroperasi.", "> BMachine Siap Beroperasi"),
+                (
+                    10,
+                    "Menghubungkan Database SQLite...",
+                    "> Membuka SQLite BMachine.db",
+                ),
+                (
+                    25,
+                    "Memuat Pengaturan Tema & UI...",
+                    "> Tema Dark diterapkan",
+                ),
+                (
+                    50,
+                    "Memuat Konfigurasi Aplikasi (Preload)...",
+                    "> 82 keys tersimpan ke memori",
+                ),
+                (
+                    75,
+                    "Memeriksa dependensi Engine & Script Python...",
+                    "> Engine Python OK (Scripts/Master)",
+                ),
+                (
+                    90,
+                    "Menyiapkan Layanan Eksternal & Dashboard...",
+                    "> Menyiapkan dashboard",
+                ),
+                (
+                    100,
+                    "BMachine Siap Beroperasi.",
+                    "> BMachine Siap Beroperasi",
+                ),
             ];
 
             for (prog, status, log_entry) in steps {
@@ -1081,7 +1916,10 @@ fn main() -> Result<(), slint::PlatformError> {
             let ui = ui_weak.upgrade().unwrap();
             let (info, status) = LocalUpdateService::check(None);
             if info.is_update_available {
-                ui.set_update_latest_version(slint::SharedString::from(format!("v{}", info.latest_version)));
+                ui.set_update_latest_version(slint::SharedString::from(format!(
+                    "v{}",
+                    info.latest_version
+                )));
                 ui.set_update_size_text(slint::SharedString::from(if info.size_bytes > 0 {
                     format!("{:.1} MB", info.size_bytes as f64 / 1_048_576.0)
                 } else {
@@ -1101,7 +1939,9 @@ fn main() -> Result<(), slint::PlatformError> {
         let ui_weak = ui.as_weak();
         ui.on_apply_update(move || {
             let ui = ui_weak.upgrade().unwrap();
-            ui.set_toast(slint::SharedString::from("Pembaruan disiapkan (restart diperlukan)..."));
+            ui.set_toast(slint::SharedString::from(
+                "Pembaruan disiapkan (restart diperlukan)...",
+            ));
         });
     }
 
@@ -1109,7 +1949,9 @@ fn main() -> Result<(), slint::PlatformError> {
         let ui_weak = ui.as_weak();
         ui.on_dismiss_update(move || {
             let ui = ui_weak.upgrade().unwrap();
-            ui.set_toast(slint::SharedString::from("Pembaruan ditunda (disimpan ke database)."));
+            ui.set_toast(slint::SharedString::from(
+                "Pembaruan ditunda (disimpan ke database).",
+            ));
         });
     }
 
@@ -1165,16 +2007,16 @@ fn main() -> Result<(), slint::PlatformError> {
                 let (status, prog_val, label) = match (&progress, &result) {
                     (_, Some((ok, s))) => {
                         let st = if *ok { "DONE" } else { "ERROR" };
-                        let lbl = format!(
-                            "{}: {}",
-                            if *ok { "Selesai" } else { "Gagal" },
-                            s
-                        );
+                        let lbl = format!("{}: {}", if *ok { "Selesai" } else { "Gagal" }, s);
                         (st.to_string(), 100, lbl)
                     }
                     (Some((cur, tot, file)), None) => {
                         let pct = if *tot > 0 { *cur * 100 / *tot } else { 0 };
-                        ("RUNNING".to_string(), pct, format!("{} ({}/{})", file, cur, tot))
+                        (
+                            "RUNNING".to_string(),
+                            pct,
+                            format!("{} ({}/{})", file, cur, tot),
+                        )
                     }
                     (None, None) => ("IDLE".to_string(), 0, "Siap".to_string()),
                 };
@@ -1184,10 +2026,8 @@ fn main() -> Result<(), slint::PlatformError> {
                 let snap = format!("{}|{}|{}|{}", status, prog_val, label, lines.len());
                 if snap != last_snap {
                     last_snap = snap;
-                    let lines_src: Vec<slint::SharedString> = lines
-                        .into_iter()
-                        .map(slint::SharedString::from)
-                        .collect();
+                    let lines_src: Vec<slint::SharedString> =
+                        lines.into_iter().map(slint::SharedString::from).collect();
                     let s_status = slint::SharedString::from(status);
                     let s_label = slint::SharedString::from(label);
                     let _ = slint::invoke_from_event_loop({
@@ -1270,13 +2110,9 @@ fn main() -> Result<(), slint::PlatformError> {
         let ui_weak = ui.as_weak();
         let proc_log_w = Arc::clone(&proc_log);
         ui.on_stop_log(move || {
-            proc_log_w
-                .lock()
-                .unwrap()
-                .add_log(
-                    "[WARNING] Stop diminta — belum ada proses aktif di port ini (Fase 6)."
-                        .to_string(),
-                );
+            proc_log_w.lock().unwrap().add_log(
+                "[WARNING] Stop diminta — belum ada proses aktif di port ini (Fase 6).".to_string(),
+            );
             let _ = slint::invoke_from_event_loop({
                 let ui_w = ui_weak.clone();
                 move || {
@@ -1323,22 +2159,14 @@ fn main() -> Result<(), slint::PlatformError> {
                     ordered.push(h);
                 }
             }
-            let names: Vec<slint::SharedString> =
-                ordered.iter().map(|i| i.2.into()).collect();
-            let kinds: Vec<slint::SharedString> =
-                ordered.iter().map(|i| i.3.into()).collect();
-            let exts: Vec<slint::SharedString> =
-                ordered.iter().map(|i| i.4.into()).collect();
-            let bases: Vec<slint::SharedString> =
-                ordered.iter().map(|i| i.5.into()).collect();
-            let sizes: Vec<slint::SharedString> =
-                ordered.iter().map(|i| i.6.into()).collect();
-            let dates: Vec<slint::SharedString> =
-                ordered.iter().map(|i| i.7.into()).collect();
-            let previews: Vec<slint::SharedString> =
-                ordered.iter().map(|i| i.8.into()).collect();
-            let locs: Vec<slint::SharedString> =
-                ordered.iter().map(|i| i.9.into()).collect();
+            let names: Vec<slint::SharedString> = ordered.iter().map(|i| i.2.into()).collect();
+            let kinds: Vec<slint::SharedString> = ordered.iter().map(|i| i.3.into()).collect();
+            let exts: Vec<slint::SharedString> = ordered.iter().map(|i| i.4.into()).collect();
+            let bases: Vec<slint::SharedString> = ordered.iter().map(|i| i.5.into()).collect();
+            let sizes: Vec<slint::SharedString> = ordered.iter().map(|i| i.6.into()).collect();
+            let dates: Vec<slint::SharedString> = ordered.iter().map(|i| i.7.into()).collect();
+            let previews: Vec<slint::SharedString> = ordered.iter().map(|i| i.8.into()).collect();
+            let locs: Vec<slint::SharedString> = ordered.iter().map(|i| i.9.into()).collect();
             let paths: Vec<slint::SharedString> = ordered
                 .iter()
                 .map(|i| {
@@ -1399,23 +2227,19 @@ fn main() -> Result<(), slint::PlatformError> {
     ui.on_ex_initials(move |name| {
         slint::SharedString::from(name.chars().take(2).collect::<String>().to_uppercase())
     });
-    ui.on_ex_split_ext(move |name| {
-        match name.rfind('.') {
-            Some(i) if i > 0 => slint::SharedString::from(&name[i..]),
-            _ => slint::SharedString::new(),
-        }
+    ui.on_ex_split_ext(move |name| match name.rfind('.') {
+        Some(i) if i > 0 => slint::SharedString::from(&name[i..]),
+        _ => slint::SharedString::new(),
     });
-    ui.on_ex_name_base(move |name| {
-        match name.rfind('.') {
-            Some(i) if i > 0 => slint::SharedString::from(&name[..i]),
-            _ => name,
-        }
+    ui.on_ex_name_base(move |name| match name.rfind('.') {
+        Some(i) if i > 0 => slint::SharedString::from(&name[..i]),
+        _ => name,
     });
     ui.on_ex_is_typeahead_char(move |ch| {
         ch.chars().count() == 1
-            && ch.chars()
-                .next()
-                .map_or(false, |c| c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == '.')
+            && ch.chars().next().map_or(false, |c| {
+                c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == '.'
+            })
     });
 
     // ---- Import kartu manual (C# ConfirmAddManualCard) ----
@@ -1505,148 +2329,173 @@ fn main() -> Result<(), slint::PlatformError> {
             ui.set_manual_done(slint::ModelRc::new(slint::VecModel::from_slice(&dones)));
             ui.set_manual_count(count - 1);
             ui.set_selected_card(slint::SharedString::new());
-            ui.set_toast(slint::SharedString::from("Kartu manual dihapus dari daftar."));
+            ui.set_toast(slint::SharedString::from(
+                "Kartu manual dihapus dari daftar.",
+            ));
         });
     }
 
-    // Global radial shortcut watcher. The C# app listens globally for the
-    // configured ShortcutConfig; this port mirrors that with rdev. The UI
-    // property `radial-open` is toggled by a Slint timer so the global hook
-    // never blocks or races the UI thread.
-    {
-        let shortcut = {
-            let mut cfg = RadialShortcutConfig {
-                Type: 1,
-                MouseButton: 2,
-                Key: 222,
-                Modifiers: 12,
-            };
-            if let Some(ref db_mutex) = db {
-                if let Ok(guard) = db_mutex.lock() {
-                    if let Some(json) = guard.get("ShortcutConfig") {
-                        if let Ok(parsed) = serde_json::from_str::<RadialShortcutConfig>(&json) {
-                            cfg = parsed;
-                        }
+    // C# parity: record in Settings, write the same ShortcutConfig JSON, and
+    // update the running hook immediately. Queue edges; do not collapse a tap.
+    let initial_shortcut = {
+        let mut cfg = RadialShortcutConfig {
+            Type: 1,
+            MouseButton: 2,
+            Key: 222,
+            Modifiers: 12,
+        };
+        if let Some(ref db_mutex) = db {
+            if let Ok(guard) = db_mutex.lock() {
+                if let Some(json) = guard.get("ShortcutConfig") {
+                    if let Ok(parsed) = serde_json::from_str::<RadialShortcutConfig>(&json) {
+                        cfg = parsed;
                     }
                 }
             }
-            cfg
-        };
-
-        let trigger_key = if shortcut.Type == 1 {
-            vk_to_rdev_key(shortcut.Key)
-        } else {
-            None
-        };
-        let trigger_button = if shortcut.Type == 0 {
-            mouse_button_index_to_rdev(shortcut.MouseButton)
-        } else {
-            None
-        };
-        let trigger_mods = shortcut.Modifiers;
-
-        let state = Arc::new(AtomicU8::new(0)); // 0 idle, 1 open, 2 close
-        let state_for_hook = Arc::clone(&state);
-        let hotkey_log = std::env::var("APPDATA")
-            .ok()
-            .map(|a| std::path::PathBuf::from(a).join("BMachine").join("rdev_hotkey.log"));
-        if let Some(ref p) = hotkey_log {
-            if let Some(parent) = p.parent() {
-                let _ = std::fs::create_dir_all(parent);
-            }
-            let _ = std::fs::write(p, "Starting global radial shortcut hook (rdev listen)...\n");
         }
-        std::thread::spawn(move || {
-            let mods_cell = Cell::new(0u8);
-            let log_path = std::env::var("APPDATA")
-                .ok()
-                .map(|a| std::path::PathBuf::from(a).join("BMachine").join("rdev_hotkey.log"));
-            if let Some(ref p) = log_path {
-                if let Some(parent) = p.parent() {
-                    let _ = std::fs::create_dir_all(parent);
+        cfg
+    };
+    ui.set_current_shortcut_label(slint::SharedString::from(shortcut_label(&initial_shortcut)));
+    let shortcut = Arc::new(Mutex::new(initial_shortcut));
+    let recording = Arc::new(AtomicBool::new(false));
+    let (hook_tx, hook_rx) = mpsc::channel::<RadialHookEvent>();
+
+    {
+        let recording = Arc::clone(&recording);
+        let ui_weak = ui.as_weak();
+        ui.on_start_recording_shortcut(move || {
+            recording.store(true, Ordering::SeqCst);
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_recording_shortcut(true);
+            }
+        });
+    }
+    {
+        let recording = Arc::clone(&recording);
+        let ui_weak = ui.as_weak();
+        ui.on_cancel_recording_shortcut(move || {
+            recording.store(false, Ordering::SeqCst);
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_recording_shortcut(false);
+            }
+        });
+    }
+
+    let hook_shortcut = Arc::clone(&shortcut);
+    let hook_recording = Arc::clone(&recording);
+    std::thread::spawn(move || {
+        let modifiers = Cell::new(0u8);
+        let active = Cell::new(false);
+        let _ = rdev::listen(move |event: Event| {
+            let mut mods = modifiers.get();
+            match event.event_type {
+                EventType::KeyPress(key) => {
+                    mods |= modifier_mask_for_key(key);
+                    modifiers.set(mods);
+                    if hook_recording.load(Ordering::SeqCst) && !is_modifier_key(key) {
+                        if let Some(vk) = rdev_key_to_vk(key) {
+                            let cfg = RadialShortcutConfig {
+                                Type: 1,
+                                MouseButton: 2,
+                                Key: vk,
+                                Modifiers: mods,
+                            };
+                            let _ = hook_tx.send(RadialHookEvent::Recorded(cfg));
+                            hook_recording.store(false, Ordering::SeqCst);
+                        }
+                        return;
+                    }
+                    let cfg = *hook_shortcut.lock().unwrap();
+                    if !active.get() && shortcut_matches(&cfg, Some(key), None, mods) {
+                        active.set(true);
+                        let _ = hook_tx.send(RadialHookEvent::TriggerDown);
+                    }
+                }
+                EventType::KeyRelease(key) => {
+                    let cfg = *hook_shortcut.lock().unwrap();
+                    if active.get() && cfg.Type == 1 && vk_to_rdev_key(cfg.Key) == Some(key) {
+                        active.set(false);
+                        let _ = hook_tx.send(RadialHookEvent::TriggerUp);
+                    }
+                    mods &= !modifier_mask_for_key(key);
+                    modifiers.set(mods);
+                }
+                EventType::ButtonPress(button) => {
+                    if hook_recording.load(Ordering::SeqCst) {
+                        let mouse_button = match button {
+                            Button::Left => 0,
+                            Button::Right => 1,
+                            Button::Middle => 2,
+                            _ => return,
+                        };
+                        let _ = hook_tx.send(RadialHookEvent::Recorded(RadialShortcutConfig {
+                            Type: 0,
+                            MouseButton: mouse_button,
+                            Key: 0,
+                            Modifiers: mods,
+                        }));
+                        hook_recording.store(false, Ordering::SeqCst);
+                        return;
+                    }
+                    let cfg = *hook_shortcut.lock().unwrap();
+                    if !active.get() && shortcut_matches(&cfg, None, Some(button), mods) {
+                        active.set(true);
+                        let _ = hook_tx.send(RadialHookEvent::TriggerDown);
+                    }
+                }
+                EventType::ButtonRelease(button) => {
+                    let cfg = *hook_shortcut.lock().unwrap();
+                    if active.get()
+                        && cfg.Type == 0
+                        && mouse_button_index_to_rdev(cfg.MouseButton) == Some(button)
+                    {
+                        active.set(false);
+                        let _ = hook_tx.send(RadialHookEvent::TriggerUp);
+                    }
+                }
+                _ => {}
+            }
+        });
+    });
+
+    let ui_weak = ui.as_weak();
+    let db_for_hook = db.clone();
+    let shortcut_for_ui = Arc::clone(&shortcut);
+    let recording_for_ui = Arc::clone(&recording);
+    slint::Timer::default().start(
+        slint::TimerMode::Repeated,
+        std::time::Duration::from_millis(16),
+        move || {
+            while let Ok(event) = hook_rx.try_recv() {
+                if let Some(ui) = ui_weak.upgrade() {
+                    match event {
+                        RadialHookEvent::TriggerDown => ui.set_radial_open(true),
+                        RadialHookEvent::TriggerUp => ui.set_radial_open(false),
+                        RadialHookEvent::Recorded(cfg) => {
+                            if let Ok(mut current) = shortcut_for_ui.lock() {
+                                *current = cfg;
+                            }
+                            if let Some(ref db_mutex) = db_for_hook {
+                                if let Ok(mut db_guard) = db_mutex.lock() {
+                                    if let Ok(json) = serde_json::to_string(&cfg) {
+                                        let _ = db_guard.set("ShortcutConfig", &json, "String");
+                                    }
+                                }
+                            }
+                            recording_for_ui.store(false, Ordering::SeqCst);
+                            ui.set_recording_shortcut(false);
+                            ui.set_current_shortcut_label(slint::SharedString::from(
+                                shortcut_label(&cfg),
+                            ));
+                            ui.set_toast(slint::SharedString::from(
+                                "Shortcut radial disimpan dan langsung aktif.",
+                            ));
+                        }
+                    }
                 }
             }
-            let _ = rdev::listen(move |event: Event| {
-                let mut m = mods_cell.get();
-                match event.event_type {
-                    EventType::KeyPress(key) => {
-                        if let Some(ref p) = log_path {
-                            let msg = format!("{}\n", event.name.unwrap_or_default());
-                            let _ = std::fs::OpenOptions::new().create(true).append(true).open(p).unwrap().write(msg.as_bytes());
-                        }
-                        match key {
-                            Key::ShiftLeft | Key::ShiftRight => m |= 4,
-                            Key::ControlLeft | Key::ControlRight => m |= 2,
-                            Key::Alt => m |= 1,
-                            Key::MetaLeft | Key::MetaRight => m |= 8,
-                            _ => {}
-                        }
-                        mods_cell.set(m);
-                        if shortcut.Type == 1 {
-                            if let Some(k) = trigger_key {
-                                if key == k && (m & trigger_mods == trigger_mods) {
-                                    state_for_hook.store(1, Ordering::SeqCst);
-                                }
-                            }
-                        }
-                    }
-                    EventType::KeyRelease(key) => {
-                        if shortcut.Type == 1 {
-                            if let Some(k) = trigger_key {
-                                if key == k {
-                                    state_for_hook.store(2, Ordering::SeqCst);
-                                }
-                            }
-                        }
-                        match key {
-                            Key::ShiftLeft | Key::ShiftRight => m &= !4,
-                            Key::ControlLeft | Key::ControlRight => m &= !2,
-                            Key::Alt => m &= !1,
-                            Key::MetaLeft | Key::MetaRight => m &= !8,
-                            _ => {}
-                        }
-                        mods_cell.set(m);
-                    }
-                    EventType::ButtonPress(button) => {
-                        if shortcut.Type == 0 {
-                            if let Some(b) = trigger_button {
-                                if button == b && (m & trigger_mods == trigger_mods) {
-                                    state_for_hook.store(1, Ordering::SeqCst);
-                                }
-                            }
-                        }
-                    }
-                    EventType::ButtonRelease(button) => {
-                        if shortcut.Type == 0 {
-                            if let Some(b) = trigger_button {
-                                if button == b {
-                                    state_for_hook.store(2, Ordering::SeqCst);
-                                }
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-            });
-        });
-
-        let ui_weak = ui.as_weak();
-        let state = Arc::clone(&state);
-        slint::Timer::default().start(
-            slint::TimerMode::Repeated,
-            std::time::Duration::from_millis(30),
-            move || {
-                let cmd = state.swap(0, Ordering::SeqCst);
-                if let Some(ui) = ui_weak.upgrade() {
-                    if cmd == 1 {
-                        ui.set_radial_open(true);
-                    } else if cmd == 2 {
-                        ui.set_radial_open(false);
-                    }
-                }
-            },
-        );
-    }
+        },
+    );
 
     // ui.run() mengambil alih event loop; show() sudah dipanggil di atas.
     ui.run()?;

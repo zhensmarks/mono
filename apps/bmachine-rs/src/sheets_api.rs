@@ -19,7 +19,10 @@ impl GoogleSheetsService {
     pub fn validate_credentials(creds_path: &str) -> Result<String, String> {
         let p = Path::new(creds_path);
         if !p.exists() {
-            return Err(format!("File credentials tidak ditemukan di: {}", creds_path));
+            return Err(format!(
+                "File credentials tidak ditemukan di: {}",
+                creds_path
+            ));
         }
 
         let content = fs::read_to_string(p).map_err(|e| format!("Gagal membaca file: {}", e))?;

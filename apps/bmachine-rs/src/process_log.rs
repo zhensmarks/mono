@@ -38,7 +38,11 @@ impl ProcessLogService {
             if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) {
                 let current = v.get("current").and_then(|x| x.as_i64()).unwrap_or(0) as i32;
                 let total = v.get("total").and_then(|x| x.as_i64()).unwrap_or(0) as i32;
-                let file = v.get("file").and_then(|x| x.as_str()).unwrap_or("").to_string();
+                let file = v
+                    .get("file")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("")
+                    .to_string();
                 return Some((current, total, file));
             }
         }

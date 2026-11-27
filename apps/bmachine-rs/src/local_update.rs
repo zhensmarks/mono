@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-pub const DEFAULT_NAS_FOLDER: &str = r"\\delapanmataair\Editor\#MASTER DESIGN\SOFTWARE\#PROJECT ROBOT\BMachine";
+pub const DEFAULT_NAS_FOLDER: &str =
+    r"\\delapanmataair\Editor\#MASTER DESIGN\SOFTWARE\#PROJECT ROBOT\BMachine";
 pub const DEFAULT_DRIVE_FOLDER: &str = r"U:\#MASTER DESIGN\SOFTWARE\#PROJECT ROBOT\BMachine";
 pub const MANIFEST_FILE_NAME: &str = "manifest.json";
 #[allow(dead_code)]
@@ -78,7 +79,11 @@ impl LocalUpdateService {
         let mut add = |p: Option<String>| {
             if let Some(val) = p {
                 let trimmed = val.trim().trim_matches('"').to_string();
-                if !trimmed.is_empty() && !list.iter().any(|existing: &String| existing.eq_ignore_ascii_case(&trimmed)) {
+                if !trimmed.is_empty()
+                    && !list
+                        .iter()
+                        .any(|existing: &String| existing.eq_ignore_ascii_case(&trimmed))
+                {
                     list.push(trimmed);
                 }
             }
@@ -114,10 +119,27 @@ impl LocalUpdateService {
             match fs::read_to_string(&manifest_path) {
                 Ok(content) => {
                     if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                        let latest_ver = json.get("version").and_then(|v| v.as_str()).unwrap_or("").trim().trim_start_matches(|c| c == 'v' || c == 'V').to_string();
-                        let payload_name = json.get("payload").and_then(|v| v.as_str()).unwrap_or("payload");
-                        let payload_folder = Path::new(&candidate).join(payload_name).to_string_lossy().to_string();
-                        let sha = json.get("sha256").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
+                        let latest_ver = json
+                            .get("version")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .trim()
+                            .trim_start_matches(|c| c == 'v' || c == 'V')
+                            .to_string();
+                        let payload_name = json
+                            .get("payload")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("payload");
+                        let payload_folder = Path::new(&candidate)
+                            .join(payload_name)
+                            .to_string_lossy()
+                            .to_string();
+                        let sha = json
+                            .get("sha256")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .trim()
+                            .to_string();
                         let size = json.get("sizeBytes").and_then(|v| v.as_i64()).unwrap_or(0);
 
                         let mut notes = Vec::new();
@@ -126,7 +148,9 @@ impl LocalUpdateService {
                                 for item in arr {
                                     if let Some(s) = item.as_str() {
                                         let t = s.trim();
-                                        if !t.is_empty() { notes.push(t.to_string()); }
+                                        if !t.is_empty() {
+                                            notes.push(t.to_string());
+                                        }
                                     }
                                 }
                             }
@@ -135,7 +159,9 @@ impl LocalUpdateService {
                         let mut components = Vec::new();
                         if let Some(comps_val) = json.get("components").and_then(|v| v.as_array()) {
                             for c in comps_val {
-                                if let Ok(comp) = serde_json::from_value::<ManifestComponentInfo>(c.clone()) {
+                                if let Ok(comp) =
+                                    serde_json::from_value::<ManifestComponentInfo>(c.clone())
+                                {
                                     components.push(comp);
                                 }
                             }
@@ -150,7 +176,8 @@ impl LocalUpdateService {
                         info.components = components;
 
                         // Periksa versi
-                        info.is_update_available = latest_ver != current_ver && !latest_ver.is_empty();
+                        info.is_update_available =
+                            latest_ver != current_ver && !latest_ver.is_empty();
 
                         let status = if info.is_update_available {
                             format!("Versi baru v{} tersedia.", latest_ver)
@@ -169,7 +196,11 @@ impl LocalUpdateService {
             }
         }
 
-        let detail = if !errors.is_empty() { errors.join(" | ") } else { "Folder update tidak bisa dibaca".to_string() };
+        let detail = if !errors.is_empty() {
+            errors.join(" | ")
+        } else {
+            "Folder update tidak bisa dibaca".to_string()
+        };
         (info, format!("Gagal: {}", detail))
     }
 }

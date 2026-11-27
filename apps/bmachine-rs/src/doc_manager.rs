@@ -20,8 +20,16 @@ impl DocTabItem {
             id: format!("tab_{}", number),
             number,
             title: format!("Redaksi {}", number),
-            name: if number == 1 { "SDN RANCAIYUH I".to_string() } else { String::new() },
-            address: if number == 1 { "Jl. Raya Rancaiyuh No. 12, Kec. Parongpong, Kab. Bandung Barat 40559".to_string() } else { String::new() },
+            name: if number == 1 {
+                "SDN RANCAIYUH I".to_string()
+            } else {
+                String::new()
+            },
+            address: if number == 1 {
+                "Jl. Raya Rancaiyuh No. 12, Kec. Parongpong, Kab. Bandung Barat 40559".to_string()
+            } else {
+                String::new()
+            },
             logo_path: String::new(),
             logo_path2: String::new(),
             show_second_logo: false,
@@ -99,7 +107,10 @@ impl DocManager {
             "logo2": tab.logo_path2
         });
 
-        match fs::write(&json_path, serde_json::to_string_pretty(&payload).unwrap_or_default()) {
+        match fs::write(
+            &json_path,
+            serde_json::to_string_pretty(&payload).unwrap_or_default(),
+        ) {
             Ok(_) => Ok(json_path),
             Err(e) => Err(format!("Gagal menulis doc_info.json: {}", e)),
         }

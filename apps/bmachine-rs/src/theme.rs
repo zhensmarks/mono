@@ -22,9 +22,15 @@ fn rgb(r: u8, g: u8, b: u8) -> Color {
 fn blend(a: (u8, u8, u8), b: (u8, u8, u8), t: f32) -> (u8, u8, u8) {
     let inv = 1.0 - t;
     (
-        ((a.0 as f32 * inv) + (b.0 as f32 * t)).round().clamp(0.0, 255.0) as u8,
-        ((a.1 as f32 * inv) + (b.1 as f32 * t)).round().clamp(0.0, 255.0) as u8,
-        ((a.2 as f32 * inv) + (b.2 as f32 * t)).round().clamp(0.0, 255.0) as u8,
+        ((a.0 as f32 * inv) + (b.0 as f32 * t))
+            .round()
+            .clamp(0.0, 255.0) as u8,
+        ((a.1 as f32 * inv) + (b.1 as f32 * t))
+            .round()
+            .clamp(0.0, 255.0) as u8,
+        ((a.2 as f32 * inv) + (b.2 as f32 * t))
+            .round()
+            .clamp(0.0, 255.0) as u8,
     )
 }
 
@@ -140,7 +146,11 @@ pub fn apply_appearance(ui: &AppWindow) -> Result<(), String> {
     d.set_text_primary(rgb(eff_fg.0, eff_fg.1, eff_fg.2));
 
     if light_surface {
-        let card = if eff_bg.0 >= 250 { (255, 255, 255) } else { (255, 255, 255) };
+        let card = if eff_bg.0 >= 250 {
+            (255, 255, 255)
+        } else {
+            (255, 255, 255)
+        };
         let elev = (255, 255, 255);
         let sep = shift(eff_bg, -24);
         let hover = shift(eff_bg, -12);
@@ -237,7 +247,11 @@ pub fn apply_appearance(ui: &AppWindow) -> Result<(), String> {
 
     // Font family
     let font = ui.get_app_font_choice().to_string();
-    d.set_font_family(SharedString::from(if font.is_empty() { "Inter" } else { &font }));
+    d.set_font_family(SharedString::from(if font.is_empty() {
+        "Inter"
+    } else {
+        &font
+    }));
 
     // Corner radius
     match ui.get_app_corner_style().as_str() {
@@ -326,18 +340,38 @@ pub fn load_theme_from_db(ui: &AppWindow, db: &DatabaseService) {
 pub fn save_theme_to_db(ui: &AppWindow, db: &mut DatabaseService) {
     let mode = ui.get_app_color_mode().to_string();
     let _ = db.set("Settings.Theme", &mode, "String");
-    let _ = db.set("Settings.ThemePreset", ui.get_app_theme_preset().as_str(), "String");
-    let _ = db.set("Settings.Accent", ui.get_app_accent_hex_good().as_str(), "String");
+    let _ = db.set(
+        "Settings.ThemePreset",
+        ui.get_app_theme_preset().as_str(),
+        "String",
+    );
+    let _ = db.set(
+        "Settings.Accent",
+        ui.get_app_accent_hex_good().as_str(),
+        "String",
+    );
     let bg_key = if mode == "light" {
         "Appearance.Background.Light"
     } else {
         "Appearance.Background.Dark"
     };
     let _ = db.set(bg_key, ui.get_app_bg_hex_good().as_str(), "String");
-    let _ = db.set("Settings.Foreground", ui.get_app_fg_hex_good().as_str(), "String");
+    let _ = db.set(
+        "Settings.Foreground",
+        ui.get_app_fg_hex_good().as_str(),
+        "String",
+    );
     let _ = db.set("Settings.Font", ui.get_app_font_choice().as_str(), "String");
     let _ = db.set("Settings.WidgetBg", ui.get_widget_bg().as_str(), "String");
-    let _ = db.set("Settings.CornerRadius", ui.get_app_corner_style().as_str(), "String");
-    let _ = db.set("Settings.NavStyle", ui.get_app_nav_style().as_str(), "String");
+    let _ = db.set(
+        "Settings.CornerRadius",
+        ui.get_app_corner_style().as_str(),
+        "String",
+    );
+    let _ = db.set(
+        "Settings.NavStyle",
+        ui.get_app_nav_style().as_str(),
+        "String",
+    );
     let _ = db.set("Settings.Chrome", ui.get_app_chrome().as_str(), "String");
 }

@@ -155,6 +155,10 @@ export component AppWindow inherits Window {
     // Global radial shortcut watcher toggles this property; the UI opens/closes
     // the RADIAL overlay exactly as the nav orb and local middle-click do.
     in-out property <bool> radial-open: false;
+    in-out property <bool> recording-shortcut: false;
+    in-out property <string> current-shortcut-label: "Win + Shift + '";
+    callback start-recording-shortcut();
+    callback cancel-recording-shortcut();
 
     // Overlay layar penuh (Settings/Toolbox/Sheets/Leaderboard/
     // Explorer/Trello-Window): "" = dashboard tampil (pill nav
@@ -3115,6 +3119,10 @@ export component AppWindow inherits Window {
         stat-revision <=> root.stat-revision;
         stat-late <=> root.stat-late;
         stat-points <=> root.stat-points;
+        recording-shortcut <=> root.recording-shortcut;
+        current-shortcut-label <=> root.current-shortcut-label;
+        start-recording-shortcut() => { root.start-recording-shortcut(); }
+        cancel-recording-shortcut() => { root.cancel-recording-shortcut(); }
         save-account-settings() => { root.save-account-settings(); }
         appearance-changed() => { root.apply-appearance(); }
         reset-appearance() => { root.reset-appearance(); }

@@ -5,6 +5,33 @@
 import { Design, Btn, SvgIcon, TextField } from "design.slint";
 import { SpreadsheetComponent } from "spreadsheet.slint";
 import { TrelloDetailPanel } from "trello-detail.slint";
+import { RadialMenuView } from "radial.slint";
+
+// ============================================================
+// RADIAL MENU WINDOW — 320×320 transparent, topmost, cursor-centered.
+// Mirrors C# RadialMenuWindow; screen positioning comes from Rust hook code.
+// ============================================================
+export component RadialMenuWindow inherits Window {
+    title: "BMachine Radial Menu";
+    width: 320px;
+    height: 320px;
+    background: transparent;
+    no-frame: true;
+    always-on-top: true;
+    default-font-family: Design.font-family;
+    callback close-window();
+    callback execute-script(string);
+    callback toast(string);
+    in-out property <int> doc-tab-count: 1;
+
+    wheel := RadialMenuView {
+        x: 0; y: 0; width: 320px; height: 320px;
+        doc-tab-count: root.doc-tab-count;
+        back() => { root.close-window(); }
+        toast(message) => { root.toast(message); }
+        execute-script(name) => { root.execute-script(name); }
+    }
+}
 
 // ============================================================
 // 1. SPREADSHEET WINDOW — Window Mandiri Editor Spreadsheet

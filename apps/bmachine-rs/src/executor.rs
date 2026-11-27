@@ -21,12 +21,18 @@ impl ScriptExecutor {
 
         let mut cmd = Command::new("python");
         cmd.arg(&wrapper)
-            .arg("--target").arg(target_script)
-            .arg("--pilihan").arg(source_path)
-            .arg("--master").arg(master1)
-            .arg("--master2").arg(master2)
-            .arg("--output").arg(output_base)
-            .arg("--okebase").arg(oke_base)
+            .arg("--target")
+            .arg(target_script)
+            .arg("--pilihan")
+            .arg(source_path)
+            .arg("--master")
+            .arg(master1)
+            .arg("--master2")
+            .arg(master2)
+            .arg("--output")
+            .arg(output_base)
+            .arg("--okebase")
+            .arg(oke_base)
             .env("BMACHINE_USER_NAME", user_name)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
@@ -38,12 +44,10 @@ impl ScriptExecutor {
         }
 
         match cmd.spawn() {
-            Ok(mut child) => {
-                match child.wait() {
-                    Ok(status) => Ok(status.code().unwrap_or(-1)),
-                    Err(e) => Err(format!("Gagal menunggu proses python: {}", e)),
-                }
-            }
+            Ok(mut child) => match child.wait() {
+                Ok(status) => Ok(status.code().unwrap_or(-1)),
+                Err(e) => Err(format!("Gagal menunggu proses python: {}", e)),
+            },
             Err(e) => Err(format!("Gagal meluncurkan python: {}", e)),
         }
     }
