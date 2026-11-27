@@ -514,8 +514,40 @@ export component AppWindow inherits Window {
             padding-top: Design.space-md * root.ui-scale;
             padding-bottom: Design.space-md * root.ui-scale;
 
+            // Akun terpisah di kiri; pill hanya untuk Home + Batch.
             Rectangle { horizontal-stretch: 1; }
-
+            Rectangle {
+                width: 40px * root.ui-scale;
+                height: 40px * root.ui-scale;
+                background: root.show-flyout ? Design.bg-hover : Design.card-bg;
+                border-color: Design.separator;
+                border-width: 1px;
+                border-radius: 20px * root.ui-scale;
+                account-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.show-flyout = !root.show-flyout; }
+                }
+                Rectangle {
+                    width: 20px * root.ui-scale; height: 20px * root.ui-scale;
+                    x: 10px * root.ui-scale; y: 10px * root.ui-scale;
+                    background: transparent;
+                    border-color: Design.text-secondary;
+                    border-width: 1.5px;
+                    border-radius: 10px * root.ui-scale;
+                }
+                Rectangle {
+                    width: 6px * root.ui-scale; height: 6px * root.ui-scale;
+                    x: 17px * root.ui-scale; y: 14px * root.ui-scale;
+                    background: Design.text-secondary;
+                    border-radius: 3px * root.ui-scale;
+                }
+                Rectangle {
+                    width: 12px * root.ui-scale; height: 6px * root.ui-scale;
+                    x: 14px * root.ui-scale; y: 21px * root.ui-scale;
+                    background: Design.text-secondary;
+                    border-radius: 3px * root.ui-scale;
+                }
+            }
             Rectangle {
                 width: pill-content.preferred-width;
                 height: 44px * root.ui-scale;
@@ -531,55 +563,9 @@ export component AppWindow inherits Window {
                     spacing: 2px * root.ui-scale;
                     alignment: center;
 
-                    // Tombol profil (ikon user-circle).
-                    Rectangle {
-                        width: 32px * root.ui-scale;
-                        height: 32px * root.ui-scale;
-                        background: root.show-flyout ? Design.bg-hover : transparent;
-                        border-radius: Design.radius-sm;
-
-                        TouchArea {
-                            mouse-cursor: pointer;
-                            clicked => { root.show-flyout = !root.show-flyout; }
-                        }
-
-                        Rectangle {
-                            width: 24px * root.ui-scale;
-                            height: 24px * root.ui-scale;
-                            x: 4px * root.ui-scale;
-                            y: 4px * root.ui-scale;
-                            background: transparent;
-                            border-color: Design.text-primary;
-                            border-width: 1.5px * root.ui-scale;
-                            border-radius: 12px * root.ui-scale;
-                        }
-                        Rectangle {
-                            width: 8px * root.ui-scale;
-                            height: 8px * root.ui-scale;
-                            x: 12px * root.ui-scale;
-                            y: 9px * root.ui-scale;
-                            background: Design.text-primary;
-                            border-radius: 4px * root.ui-scale;
-                        }
-                        Rectangle {
-                            width: 14px * root.ui-scale;
-                            height: 7px * root.ui-scale;
-                            x: 9px * root.ui-scale;
-                            y: 19px * root.ui-scale;
-                            background: Design.text-primary;
-                            border-radius: 4px * root.ui-scale;
-                        }
-                    }
-
-                    // Separator.
-                    Rectangle {
-                        width: 1px;
-                        height: 24px * root.ui-scale;
-                        background: Design.separator;
-                    }
-
                     NavTab {
                         label: "HOME";
+                        icon: "home";
                         selected: root.current-tab == "HOME";
                         scale: root.ui-scale;
                         clicked => { root.current-tab = "HOME"; root.show-flyout = false; root.list-category = ""; root.selected-card = ""; root.add-manual-open = false; root.detail-panel = ""; root.detail-added-count = 0; }
@@ -588,28 +574,8 @@ export component AppWindow inherits Window {
                         label: "BATCH";
                         selected: root.current-tab == "BATCH";
                         scale: root.ui-scale;
+                        icon: "layers";
                         clicked => { root.current-tab = "BATCH"; root.show-flyout = false; root.list-category = ""; root.selected-card = ""; root.add-manual-open = false; root.detail-panel = ""; root.detail-added-count = 0; }
-                    }
-
-                    // Tombol close window (kustom — no-frame).
-                    Rectangle {
-                        width: 28px * root.ui-scale;
-                        height: 28px * root.ui-scale;
-                        background: close-btn.has-hover ? Design.bg-hover : transparent;
-                        border-radius: Design.radius-sm;
-                        close-btn := TouchArea {
-                            mouse-cursor: pointer;
-                            clicked => { root.close(); }
-                        }
-                        Text {
-                            x: 0; y: 0; width: 100%; height: 100%;
-                            text: "×";
-                            font-size: 16px * root.ui-scale;
-                            font-weight: 700;
-                            color: Design.text-primary;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                        }
                     }
                 }
             }
@@ -633,14 +599,15 @@ export component AppWindow inherits Window {
                     border-width: 1px;
                     border-radius: 18px * root.ui-scale;
                     animate background { duration: Design.anim-normal; }
-                    Rectangle {
-                        width: 10px * root.ui-scale;
-                        height: 10px * root.ui-scale;
-                        x: (parent.width - 10px * root.ui-scale) / 2;
-                        y: (parent.height - 10px * root.ui-scale) / 2;
-                        background: Design.accent;
-                        border-radius: 5px * root.ui-scale;
-                    }
+                    // Stepped outline hexagon, avoiding font-dependent glyph fallback.
+                    Rectangle { x: 12px * root.ui-scale; y: 9px * root.ui-scale; width: 12px * root.ui-scale; height: 2px; background: Design.accent; }
+                    Rectangle { x: 9px * root.ui-scale; y: 11px * root.ui-scale; width: 4px * root.ui-scale; height: 2px; background: Design.accent; }
+                    Rectangle { x: 23px * root.ui-scale; y: 11px * root.ui-scale; width: 4px * root.ui-scale; height: 2px; background: Design.accent; }
+                    Rectangle { x: 8px * root.ui-scale; y: 13px * root.ui-scale; width: 2px; height: 10px * root.ui-scale; background: Design.accent; }
+                    Rectangle { x: 26px * root.ui-scale; y: 13px * root.ui-scale; width: 2px; height: 10px * root.ui-scale; background: Design.accent; }
+                    Rectangle { x: 9px * root.ui-scale; y: 23px * root.ui-scale; width: 4px * root.ui-scale; height: 2px; background: Design.accent; }
+                    Rectangle { x: 23px * root.ui-scale; y: 23px * root.ui-scale; width: 4px * root.ui-scale; height: 2px; background: Design.accent; }
+                    Rectangle { x: 12px * root.ui-scale; y: 25px * root.ui-scale; width: 12px * root.ui-scale; height: 2px; background: Design.accent; }
                     orb-touch := TouchArea {
                         mouse-cursor: pointer;
                         clicked => {

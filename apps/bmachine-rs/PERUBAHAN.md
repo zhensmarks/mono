@@ -5,6 +5,14 @@ sebelum commit + push (format lengkap di `AGENTS.md`). Entri terbaru di
 paling atas. Dengan log ini, siapa pun yang menerima project — Dex, Hermes,
 atau orang lain — langsung tahu apa saja yang diubah tanpa menebak.
 
+## 2026-11-27 — Antigravity Agent — Navbar dashboard mengikuti referensi (Akun kiri, Home/Batch pill, radial kanan)
+- Diubah:
+  - `ui/main.slint`: Kontrol Akun dipisah ke sisi kiri nav, pill tengah hanya Home + Batch; tombol close `×` yang tidak ada di referensi dihilangkan. Tombol radial kanan kini memakai hexagon geometris.
+  - `ui/design.slint`: NavTab mendukung ikon Home/layers, Home terpilih memakai kapsul terang dan teks/ikon gelap, tab nonaktif muted, radius pill penuh; underline biru dihapus.
+- Alasan: Mengikuti screenshot referensi dan arahan user untuk memperbaiki navigation layout serta polish UI.
+- Terverifikasi: `cargo build` exit 0. VM `Win10LTSC-Dev`, screenshot `D:/VMs/dashboard-nav-final.png`: akun terpisah kiri, Home pill putih tanpa underline, Batch layers, tombol kanan hexagon, 4 cards penuh terlihat.
+- Masih terbuka: angka cards tetap 0 jika koneksi Trello/akun belum dikonfigurasi.
+
 ## 2026-11-27 — Antigravity Agent — Polish Tampilan: Widget Live dari Akun, Tokenisasi Warna, No-Frame Window, Ukuran Jendela Pas
 - Diubah:
   - `ui/design.slint`: Token warna baru `done-row-bg`, `done-row-border`, `done-text`, `done-text-alt`, `row-border-idle`, `row-text-dim`, `row-text-alt`, `overlay-dim`, `overlay-solid`, `medal-bronze` — menggantikan hardcoded hex di seluruh UI.
