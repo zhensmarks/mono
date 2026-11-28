@@ -1962,6 +1962,63 @@ dan Terminal (buka Log Panel).
   (MasterExtraRow sudah benar sejak awal; DokumenRow diperbaiki 28 Nov
   dengan pola yang sama).
 
+### 18.5 Tear-off DOC — tab Panel Samping + DocWindow (28 Nov 2026)
+
+Keputusan abeng 28 Nov 07:05: DUA-DUANYA — tab DOC di Panel Samping DAN
+window mengambang yang bisa dilepas; menutup window mengembalikan DOC ke
+panel. Pola = tear-off BATCH (§16.10); komponen bersama `DocView`
+(`ui/doc.slint`) dipakai tab maupun window, jadi isinya identik.
+
+- **Tab DOC (INSTAN REDAKSI):** judul + grip ⋮⋮, 4 tombol (Pengaturan
+  Teks / Pop Out / Logo 2: + Tambah / Reset) dalam 2 baris (panel 288px
+  terlalu sempit untuk 1 baris), strip chip tab bernomor + chip "+",
+  field Nama Sekolah + Alamat (multiline), slot Logo Utama + opsional
+  Logo Alternatif (mode 2 kolom saat aktif), tombol "Sinkronisasi
+  Redaksi" (tulis `doc_info.json`), grup DOKUMEN (§18.4).
+- **DocWindow (560×640, `ui/windows.slint`):** titlebar "DOC — <nama
+  sekolah>", DocView yang sama (`show-tear-off: false`, `two-col: true`),
+  chrome disinkronkan via `push_chrome_to_doc` (warna tema TIDAK ikut —
+  celah tema #13, sama seperti BatchWindow). Esc / × titlebar / OS × →
+  dock kembali ke tab. Geometri tersimpan kunci `DocWindow.*`
+  (X/Y/Width/Height); Pop Out membuka di posisi TERAKHIR saat dock
+  (bukan di tengah) — perbaikan 28 Nov: `detach_doc_window` dengan
+  `pos=None` dan geometri tersimpan tidak lagi menimpa posisi dengan
+  `center_over_main` (bug yang sama masih ada di `detach_batch_window`:
+  tombol "Lepas" BATCH selalu memusatkan — belum diperbaiki).
+- **Grip drag > 48px** (di dalam window — drag-out murni OS TIDAK
+  MUNGKIN di Slint, pointer berhenti di tepi window; batasan yang sama
+  seperti §16.10): window baru terbit dengan titlebar di bawah pointer
+  (240px kiri, 14px atas dari posisi pointer saat ambang 48px tercapai).
+  Tombol "Pop Out" = lepas di posisi tersimpan / tengah bila belum ada.
+- **Satu-satunya sumber kebenaran = DocManager + prop AppWindow.**
+  DocWindow hanya cermin (`sync_doc_window`); semua callback-nya
+  diteruskan ke AppWindow via `invoke_doc_*`. Edit dari window terlepas
+  TIDAK memperbarui prop AppWindow otomatis (window terpisah, tanpa
+  binding .slint) — handler Rust memakai argumen callback sebagai nilai
+  baru, lalu `set_doc_*` eksplisit sebelum persist + sync balik.
+- **Persistensi:** tab → DB `Doc.Tabs` (JSON, tiap edit field /
+  tambah / pilih / tutup tab); daftar teks sumber → DB
+  `Doc.NameSources` / `Doc.AddressSources`; sync → tulis
+  `%APPDATA%\BMachine.v2\doc_info.json` (nama, alamat, logo, logo2,
+  nameSources, addressSources).
+- **DocSettingsWindow (520×460, dibuat baru tiap dibuka):** dua TextBox
+  multiline "Teks Nama (placeholder)" / "Teks Alamat (placeholder)",
+  satu variasi per baris; Simpan = parse baris (`parse_doc_sources`)
+  → DB + DocManager; Batal / Esc / × = tutup tanpa menyimpan; Default
+  = kosongkan kedua daftar (daftar kosong = field tidak diganti, per
+  spesifikasi C#).
+- **Penyimpangan dari C# (dicatat, disengaja):** tombol hover field
+  selalu terlihat (Slint tidak bisa hover-track tanpa TouchArea yang
+  menelan klik TextInput); pratinjau logo = kotak tint + nama file
+  (port tidak pernah decode gambar — sama seperti thumbnail Explorer);
+  "Salin" logo (copy gambar) tidak ditawarkan — clipboard Linux hanya
+  teks; "Dari PS" / "Kirim ke PS" = toast jujur (butuh Photoshop di
+  Windows, belum ada di port Linux); "Tempel" logo hanya menerima
+  clipboard berupa path file gambar yang ada di disk.
+- **Pelajaran build:** `doc-sel-idx` (pilihan daftar DOKUMEN) adalah
+  state lokal LogPanelView, BUKAN AppWindow — jangan disalin di
+  `sync_doc_window` (di window terlepas pilihan mulai dari -1).
+
 ## 19. Fase 4 — Toolbox, Spreadsheet, Leaderboard (BUKAN "Modul")
 
 [rekonstruksi — dari kode `ui/modul.slint` + `BMACHINE_ALUR_APLIKASI.md`

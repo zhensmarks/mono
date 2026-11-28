@@ -6,6 +6,7 @@
 // Menggunakan token Design dan ikon vektor Lucide.
 
 import { Design, Card, HSeparator, Btn, TextField, SvgIcon } from "design.slint";
+import { DocView } from "doc.slint";
 
 // Tombol tab kecil di header panel dengan garis aksen aktif di bawah
 component PanelTab inherits Rectangle {
@@ -448,106 +449,32 @@ component MasterExtraRow inherits Rectangle {
 }
 
 
-// Satu baris DOKUMEN (daftar dokumen kerja): klik = pilih, dobel-klik =
-// buka di aplikasi default; tombol kanan = buka / hapus dari daftar.
-// File yang tidak ada di disk tampil redup.
-component DokumenRow inherits Rectangle {
-    in property <string> name;
-    in property <string> path;
-    in property <bool> exists;
-    in property <bool> selected;
-    callback clicked();
-    callback double-clicked();
-    callback open();
-    callback remove();
-
-    height: 44px;
-    background: root.selected ? Design.accent-subtle : (row-touch.has-hover ? Design.bg-hover : transparent);
-    border-radius: Design.radius-sm;
-
-    // row-touch HANYA hover (tanpa clicked/double-clicked): TouchArea
-    // baris yang punya handler clicked menelan klik tombol RowBtn di
-    // bawahnya — terbukti di verifikasi GUI 28 Nov (klik ×/buka hanya
-    // menyeleksi baris). Pola yang sama dipakai MasterExtraRow (tombol
-    // jalan karena row-touch-nya tanpa clicked). Klik pilih + dobel-klik
-    // buka ditangani text-touch di kolom teks (di luar area tombol).
-    row-touch := TouchArea { mouse-cursor: pointer; }
-
-    HorizontalLayout {
-        padding-left: Design.space-sm;
-        padding-right: Design.space-sm;
-        spacing: Design.space-sm;
-
-        VerticalLayout {
-            alignment: center;
-            SvgIcon {
-                name: "file-text";
-                size: 14px;
-                icon-color: root.exists ? Design.accent : Design.text-muted;
-            }
-        }
-
-        Rectangle {
-            horizontal-stretch: 1;
-            text-touch := TouchArea {
-                mouse-cursor: pointer;
-                clicked => { root.clicked(); }
-                double-clicked => { root.double-clicked(); }
-            }
-            VerticalLayout {
-                x: 0; y: 0; width: 100%; height: 100%;
-                alignment: center;
-                spacing: 1px;
-                Text {
-                    text: root.name;
-                    font-size: Design.font-body;
-                    font-weight: 700;
-                    color: root.exists ? Design.text-primary : Design.text-muted;
-                    vertical-alignment: center;
-                    horizontal-stretch: 1;
-                    overflow: elide;
-                }
-                Text {
-                    text: root.path;
-                    font-size: Design.font-caption;
-                    font-family: "JetBrains Mono";
-                    color: Design.text-muted;
-                    vertical-alignment: center;
-                    horizontal-stretch: 1;
-                    overflow: elide;
-                }
-            }
-        }
-
-        VerticalLayout {
-            alignment: center;
-            RowBtn {
-                icon-name: "external-link";
-                clicked => { root.open(); }
-            }
-        }
-        VerticalLayout {
-            alignment: center;
-            RowBtn {
-                icon-name: "x";
-                clicked => { root.remove(); }
-            }
-        }
-    }
-
-    Rectangle {
-        x: 0; y: parent.height - 1px; width: 100%; height: 1px;
-        background: Design.separator;
-    }
-}
-
-
+// Panel Samping — kartu kanan dashboard (lihat DESIGN_SYSTEM.md §18).
 export component LogPanelView inherits Rectangle {
     callback toast(string);
     callback close();
     callback open-explorer(string);
+    // DOC — Instan Redaksi (DocView bersama, ui/doc.slint): diikat
+    // AppWindow ke callback Rust. doc-detached = DOC sedang tampil di
+    // DocWindow terpisah (tab menampilkan placeholder + tombol kembali).
+    callback doc-open-settings();
+    callback doc-pop-out();
+    callback doc-tear-off(length, length);
+    callback doc-dock();
+    callback doc-toggle-second-logo();
+    callback doc-reset();
+    callback doc-sync();
     callback doc-tab-add();
-    callback doc-tab-close();
+    callback doc-tab-select(int);
+    callback doc-tab-close(int);
+    callback doc-school-edited(string);
+    callback doc-address-edited(string);
+    callback doc-from-ps(string);
+    callback doc-copy-field(string);
+    callback doc-pick-logo(int);
+    callback doc-clear-logo(int);
+    callback doc-send-logo(int);
+    callback doc-paste-logo(int);
     // Navigasi Explorer compact: muat folder / naik / buka file /
     // kirim folder ke BATCH — diikat AppWindow ke callback Rust.
     callback ex-nav(string);
@@ -573,11 +500,18 @@ export component LogPanelView inherits Rectangle {
     // sendiri ("bungkus di dalam bungkus" dilarang abeng 27 Nov 22:03).
     in property <bool> flat: false;
 
-    // State tab MASTER & DOC
+    // State tab MASTER & DOC (diikat dua arah ke AppWindow).
     in-out property <string> master-search: "";
     in-out property <string> doc-school: "";
     in-out property <string> doc-address: "";
-    in-out property <string> doc-tab: "1";
+    in-out property <[string]> doc-tab-titles: ["Redaksi 1"];
+    in-out property <int> doc-tab-idx: 0;
+    in-out property <bool> doc-show-second-logo: false;
+    in-out property <string> doc-logo-path: "";
+    in-out property <string> doc-logo2-path: "";
+    in property <bool> doc-logo-exists: false;
+    in property <bool> doc-logo2-exists: false;
+    in property <bool> doc-detached: false;
 
     // Grup TAMBAHAN MASTER + DOKUMEN (28 Nov 2026) — array sejajar dari
     // AppWindow (didorong Rust); am-* sudah terfilter `master-search`.
@@ -927,160 +861,66 @@ export component LogPanelView inherits Rectangle {
                 }
             }
 
-            // ===== 4. Tab DOC: Instan Redaksi =====
-            VerticalLayout {
+            // ===== 4. Tab DOC: Instan Redaksi (DocView bersama) =====
+            // Saat terlepas, tab menampilkan placeholder + tombol kembali
+            // (pola BATCH §16.10); tutup DocWindow -> dock ke sini.
+            if root.panel-tab == "DOC" && root.doc-detached : VerticalLayout {
                 x: 0; y: 0; width: 100%; height: 100%;
-                visible: root.panel-tab == "DOC";
-                spacing: Design.space-sm;
+                spacing: Design.space-md;
+                alignment: center;
 
                 Text {
-                    text: "INSTAN REDAKSI";
-                    font-size: Design.font-h3;
-                    font-weight: 800;
-                    color: Design.text-primary;
-                    letter-spacing: 1px;
+                    text: "DOC sedang terbuka di window terpisah.";
+                    font-size: Design.font-body;
+                    color: Design.text-secondary;
+                    horizontal-alignment: center;
+                    wrap: word-wrap;
                 }
-
-                Text {
-                    text: "Nama Sekolah";
-                    font-size: Design.font-caption;
-                    font-weight: 700;
-                    color: Design.text-muted;
-                }
-                Rectangle {
-                    height: 32px;
-                    background: Design.bg-input;
-                    border-color: Design.border-default;
-                    border-width: 1px;
-                    border-radius: Design.radius-sm;
-                    TextInput {
-                        x: 8px; y: 0; width: parent.width - 16px; height: 100%;
-                        text: root.doc-school;
-                        font-size: Design.font-body;
-                        color: Design.text-primary;
-                        vertical-alignment: center;
-                        edited => { root.doc-school = self.text; }
-                    }
-                }
-
-                Text {
-                    text: "Alamat";
-                    font-size: Design.font-caption;
-                    font-weight: 700;
-                    color: Design.text-muted;
-                }
-                Rectangle {
-                    height: 60px;
-                    background: Design.bg-input;
-                    border-color: Design.border-default;
-                    border-width: 1px;
-                    border-radius: Design.radius-sm;
-                    TextInput {
-                        x: 6px; y: 6px; width: parent.width - 12px; height: parent.height - 12px;
-                        text: root.doc-address;
-                        font-size: Design.font-body;
-                        color: Design.text-primary;
-                        wrap: word-wrap;
-                        edited => { root.doc-address = self.text; }
-                    }
-                }
-
-                // Tab Selector Redaksi (1, 2)
-                HorizontalLayout {
-                    spacing: 6px;
-                    Rectangle {
-                        width: 44px; height: 28px;
-                        background: root.doc-tab == "1" ? Design.accent-subtle : Design.surface-elevated;
-                        border-color: root.doc-tab == "1" ? Design.accent : Design.separator;
-                        border-width: 1px;
-                        border-radius: Design.radius-sm;
-                        TouchArea {
-                            mouse-cursor: pointer;
-                            clicked => { root.doc-tab = "1"; root.toast("Tab Redaksi 1 aktif"); }
-                        }
-                        Text {
-                            text: "Tab 1";
-                            font-size: 10px; font-weight: 700;
-                            color: root.doc-tab == "1" ? Design.accent : Design.text-secondary;
-                            horizontal-alignment: center; vertical-alignment: center;
-                        }
-                    }
-                    Rectangle {
-                        width: 44px; height: 28px;
-                        background: root.doc-tab == "2" ? Design.accent-subtle : Design.surface-elevated;
-                        border-color: root.doc-tab == "2" ? Design.accent : Design.separator;
-                        border-width: 1px;
-                        border-radius: Design.radius-sm;
-                        TouchArea {
-                            mouse-cursor: pointer;
-                            clicked => { root.doc-tab = "2"; root.toast("Tab Redaksi 2 aktif"); }
-                        }
-                        Text {
-                            text: "Tab 2";
-                            font-size: 10px; font-weight: 700;
-                            color: root.doc-tab == "2" ? Design.accent : Design.text-secondary;
-                            horizontal-alignment: center; vertical-alignment: center;
-                        }
-                    }
-                }
-
                 Btn {
-                    label: "Sinkronisasi Redaksi";
+                    label: "Kembalikan ke Panel";
                     variant: "primary";
                     small: true;
-                    clicked => { root.toast("Redaksi tersinkronisasi ke Photoshop (doc_info.json)"); }
+                    clicked => { root.doc-dock(); }
                 }
+            }
 
-                // ----- Grup DOKUMEN (28 Nov 2026, interpretasi port) -----
-                // Daftar dokumen kerja (.doc/.docx/.pdf) yang dikurasi user:
-                // tambah lewat pemilih file, klik = pilih, dobel-klik /
-                // tombol panah = buka di aplikasi default, × = hapus dari
-                // daftar (file di disk TIDAK dihapus). TIDAK ada padanan
-                // grup ini di C# maupun di dokumen port — lihat PERUBAHAN.md.
-                HorizontalLayout {
-                    height: 24px;
-                    spacing: 6px;
-
-                    Text {
-                        text: "DOKUMEN";
-                        font-size: 11px;
-                        font-weight: 800;
-                        letter-spacing: 0.5px;
-                        color: Design.text-muted;
-                        vertical-alignment: center;
-                    }
-                    Rectangle { horizontal-stretch: 1; }
-                    MiniBtn {
-                        label: "+ Tambah";
-                        clicked => { root.doc-add(); }
-                    }
-                }
-
-                Flickable {
-                    vertical-stretch: 1;
-                    min-height: 80px;
-                    VerticalLayout {
-                        spacing: 0px;
-
-                        if root.doc-names.length == 0 : Text {
-                            text: "Belum ada dokumen — tambah file .doc / .docx / .pdf.";
-                            font-size: Design.font-body;
-                            color: Design.text-muted;
-                            wrap: word-wrap;
-                        }
-
-                        for item[i] in root.doc-names : DokumenRow {
-                            name: item;
-                            path: root.doc-paths[i];
-                            exists: root.doc-exists[i];
-                            selected: root.doc-sel-idx == i;
-                            clicked => { root.doc-sel-idx = i; }
-                            double-clicked => { root.doc-open(i); }
-                            open() => { root.doc-open(i); }
-                            remove() => { root.doc-remove(i); }
-                        }
-                    }
-                }
+            if root.panel-tab == "DOC" && !root.doc-detached : DocView {
+                x: 0; y: 0; width: 100%; height: 100%;
+                show-tear-off: true;
+                two-col: false;
+                doc-school <=> root.doc-school;
+                doc-address <=> root.doc-address;
+                doc-tab-titles <=> root.doc-tab-titles;
+                doc-tab-idx <=> root.doc-tab-idx;
+                doc-show-second-logo <=> root.doc-show-second-logo;
+                doc-logo-path <=> root.doc-logo-path;
+                doc-logo2-path <=> root.doc-logo2-path;
+                doc-logo-exists: root.doc-logo-exists;
+                doc-logo2-exists: root.doc-logo2-exists;
+                doc-names: root.doc-names;
+                doc-paths: root.doc-paths;
+                doc-exists: root.doc-exists;
+                doc-sel-idx <=> root.doc-sel-idx;
+                doc-open-settings() => { root.doc-open-settings(); }
+                doc-pop-out() => { root.doc-pop-out(); }
+                doc-tear-off(x, y) => { root.doc-tear-off(x, y); }
+                doc-toggle-second-logo() => { root.doc-toggle-second-logo(); }
+                doc-reset() => { root.doc-reset(); }
+                doc-sync() => { root.doc-sync(); }
+                doc-tab-add() => { root.doc-tab-add(); }
+                doc-tab-select(idx) => { root.doc-tab-select(idx); }
+                doc-tab-close(idx) => { root.doc-tab-close(idx); }
+                doc-school-edited(text) => { root.doc-school-edited(text); }
+                doc-address-edited(text) => { root.doc-address-edited(text); }
+                doc-from-ps(field) => { root.doc-from-ps(field); }
+                doc-copy-field(field) => { root.doc-copy-field(field); }
+                doc-pick-logo(n) => { root.doc-pick-logo(n); }
+                doc-clear-logo(n) => { root.doc-clear-logo(n); }
+                doc-send-logo(n) => { root.doc-send-logo(n); }
+                doc-paste-logo(n) => { root.doc-paste-logo(n); }
+                doc-add() => { root.doc-add(); }
+                doc-open(idx) => { root.doc-open(idx); }
+                doc-remove(idx) => { root.doc-remove(idx); }
             }
         }
     }

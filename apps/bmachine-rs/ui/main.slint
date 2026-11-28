@@ -16,7 +16,7 @@ import { RadialMenuView } from "radial.slint";
 import { BatchView, BatchRow, RegulerDirRow, RegulerSchoolRow } from "batch.slint";
 import { SplashView } from "splash.slint";
 import { ExitConfirmDialog, UpdateDialog } from "dialog.slint";
-export { SpreadsheetWindow, CardListWindow, CommentWindow, RadialMenuWindow, ToolboxWindow, ReportBugDialog, DynamicBarWindow, BatchWindow } from "windows.slint";
+export { SpreadsheetWindow, CardListWindow, CommentWindow, RadialMenuWindow, ToolboxWindow, ReportBugDialog, DynamicBarWindow, BatchWindow, DocWindow, DocSettingsWindow } from "windows.slint";
 
 
 // Satu tugas Task Manager (tahap 5). state: "queued" | "running" |
@@ -815,6 +815,36 @@ export component AppWindow inherits Window {
     callback doc-add();
     callback doc-open(int);
     callback doc-remove(int);
+    // ----- Panel Samping: tab DOC — Instan Redaksi (28 Nov 2026) -----
+    // State redaksi (DocManager, src/doc_manager.rs; DB `Doc.Tabs`).
+    in-out property <string> doc-school: "";
+    in-out property <string> doc-address: "";
+    in-out property <[string]> doc-tab-titles: ["Redaksi 1"];
+    in-out property <int> doc-tab-idx: 0;
+    in-out property <bool> doc-show-second-logo: false;
+    in-out property <string> doc-logo-path: "";
+    in-out property <string> doc-logo2-path: "";
+    in-out property <bool> doc-logo-exists: false;
+    in-out property <bool> doc-logo2-exists: false;
+    in-out property <bool> doc-detached: false;
+    callback doc-open-settings();
+    callback doc-pop-out();
+    callback doc-tear-off(length, length);
+    callback doc-dock();
+    callback doc-toggle-second-logo();
+    callback doc-reset();
+    callback doc-sync();
+    callback doc-tab-add();
+    callback doc-tab-select(int);
+    callback doc-tab-close(int);
+    callback doc-school-edited(string);
+    callback doc-address-edited(string);
+    callback doc-from-ps(string);
+    callback doc-copy-field(string);
+    callback doc-pick-logo(int);
+    callback doc-clear-logo(int);
+    callback doc-send-logo(int);
+    callback doc-paste-logo(int);
     in-out property <bool> ex-view-desc: false;
     in-out property <string> ex-view-group: "Date";
     in-out property <string> ex-view-layout: "Vertical";
@@ -1242,7 +1272,7 @@ export component AppWindow inherits Window {
         property <bool> radial-open-watcher: root.radial-open;
         changed radial-open-watcher => {
             if (root.radial-open) {
-                root.radial-doc-tab-count = log-panel.doc-tab == "2" ? 2 : 1;
+                root.radial-doc-tab-count = log-panel.doc-tab-titles.length;
                 root.show-flyout = false;
                 root.open-radial-at-cursor();
             } else {
@@ -2327,6 +2357,34 @@ export component AppWindow inherits Window {
                 doc-names: root.doc-names;
                 doc-paths: root.doc-paths;
                 doc-exists: root.doc-exists;
+                doc-school <=> root.doc-school;
+                doc-address <=> root.doc-address;
+                doc-tab-titles <=> root.doc-tab-titles;
+                doc-tab-idx <=> root.doc-tab-idx;
+                doc-show-second-logo <=> root.doc-show-second-logo;
+                doc-logo-path <=> root.doc-logo-path;
+                doc-logo2-path <=> root.doc-logo2-path;
+                doc-logo-exists: root.doc-logo-exists;
+                doc-logo2-exists: root.doc-logo2-exists;
+                doc-detached: root.doc-detached;
+                doc-open-settings() => { root.doc-open-settings(); }
+                doc-pop-out() => { root.doc-pop-out(); }
+                doc-tear-off(x, y) => { root.doc-tear-off(x, y); }
+                doc-dock() => { root.doc-dock(); }
+                doc-toggle-second-logo() => { root.doc-toggle-second-logo(); }
+                doc-reset() => { root.doc-reset(); }
+                doc-sync() => { root.doc-sync(); }
+                doc-tab-add() => { root.doc-tab-add(); }
+                doc-tab-select(idx) => { root.doc-tab-select(idx); }
+                doc-tab-close(idx) => { root.doc-tab-close(idx); }
+                doc-school-edited(text) => { root.doc-school-edited(text); }
+                doc-address-edited(text) => { root.doc-address-edited(text); }
+                doc-from-ps(field) => { root.doc-from-ps(field); }
+                doc-copy-field(field) => { root.doc-copy-field(field); }
+                doc-pick-logo(n) => { root.doc-pick-logo(n); }
+                doc-clear-logo(n) => { root.doc-clear-logo(n); }
+                doc-send-logo(n) => { root.doc-send-logo(n); }
+                doc-paste-logo(n) => { root.doc-paste-logo(n); }
                 am-add() => { root.am-add(); }
                 am-delete(idx) => { root.am-delete(idx); }
                 am-move(idx, dir) => { root.am-move(idx, dir); }
@@ -2365,8 +2423,6 @@ export component AppWindow inherits Window {
                     root.show-logpanel = false;
                     explorer-view.focus-list();
                 }
-                doc-tab-add() => { }
-                doc-tab-close() => { }
             }
     }
 

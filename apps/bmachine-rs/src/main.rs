@@ -2695,6 +2695,17 @@ fn push_chrome_to_batch(w: &BatchWindow, ui: &AppWindow) {
     ));
 }
 
+fn push_chrome_to_doc(w: &DocWindow, ui: &AppWindow) {
+    theme::sync_icons(&Design::get(ui), &Design::get(w));
+    w.set_chrome_style(slint::SharedString::from(ui.get_app_chrome()));
+    w.set_chrome_button_style(slint::SharedString::from(
+        ui.get_app_chrome_button_style(),
+    ));
+    w.set_chrome_button_position(slint::SharedString::from(
+        ui.get_app_chrome_button_position(),
+    ));
+}
+
 fn push_chrome_to_comment(w: &CommentWindow, ui: &AppWindow) {
     theme::sync_icons(&Design::get(ui), &Design::get(w));
     w.set_chrome_style(slint::SharedString::from(ui.get_app_chrome()));
@@ -2716,6 +2727,7 @@ fn sync_chrome_to_windows(
     card_cell: &std::rc::Rc<std::cell::RefCell<Option<CardListWindow>>>,
     comment_cell: &std::rc::Rc<std::cell::RefCell<Option<CommentWindow>>>,
     batch_cell: &BatchWinCell,
+    doc_cell: &DocWinCell,
 ) {
     if let Some(w) = sheet_cell.borrow().as_ref() {
         push_chrome_to_sheet(w, ui);
@@ -2731,6 +2743,9 @@ fn sync_chrome_to_windows(
     }
     if let Some(w) = batch_cell.borrow().as_ref() {
         push_chrome_to_batch(w, ui);
+    }
+    if let Some(w) = doc_cell.borrow().as_ref() {
+        push_chrome_to_doc(w, ui);
     }
 }
 
@@ -3321,6 +3336,81 @@ fn sync_batch_window(w: &BatchWindow, ui: &AppWindow) {
 fn sync_batch_to_open_window(cell: &BatchWinCell, ui: &AppWindow) {
     if let Some(w) = cell.borrow().as_ref() {
         sync_batch_window(w, ui);
+    }
+}
+
+/// Sel DocWindow terlepas (tear-off DOC, 28 Nov 2026) — pola sama
+/// seperti BatchWinCell.
+type DocWinCell = std::rc::Rc<std::cell::RefCell<Option<DocWindow>>>;
+
+/// Dorong state redaksi aktif (DocManager) ke AppWindow.
+fn push_doc_to_ui(ui: &AppWindow, mgr: &DocManager) {
+    let titles: Vec<String> = mgr.tabs.iter().map(|t| t.title.clone()).collect();
+    ui.set_doc_tab_titles(sheet_model(titles));
+    ui.set_doc_tab_idx(mgr.active_index as i32);
+    if let Some(t) = mgr.active_tab() {
+        ui.set_doc_school(slint::SharedString::from(t.name.clone()));
+        ui.set_doc_address(slint::SharedString::from(t.address.clone()));
+        ui.set_doc_logo_path(slint::SharedString::from(t.logo_path.clone()));
+        ui.set_doc_logo2_path(slint::SharedString::from(t.logo_path2.clone()));
+        ui.set_doc_show_second_logo(t.show_second_logo);
+        ui.set_doc_logo_exists(
+            !t.logo_path.trim().is_empty() && std::path::Path::new(&t.logo_path).exists(),
+        );
+        ui.set_doc_logo2_exists(
+            !t.logo_path2.trim().is_empty() && std::path::Path::new(&t.logo_path2).exists(),
+        );
+    }
+}
+
+/// Simpan SEMUA tab redaksi ke DB (key port `Doc.Tabs`, JSON array).
+fn persist_doc_tabs(db: &Option<Arc<Mutex<DatabaseService>>>, mgr: &DocManager) {
+    let Some(dbm) = db else { return };
+    if let Ok(mut g) = dbm.lock() {
+        let _ = g.set("Doc.Tabs", &mgr.to_json(), "String");
+    }
+}
+
+/// Simpan daftar teks sumber pengaturan DOC ke DB (key port
+/// `Doc.NameSources` / `Doc.AddressSources`, JSON array string).
+fn persist_doc_sources(db: &Option<Arc<Mutex<DatabaseService>>>, mgr: &DocManager) {
+    let Some(dbm) = db else { return };
+    if let Ok(mut g) = dbm.lock() {
+        if let Ok(json) = serde_json::to_string(&mgr.name_sources) {
+            let _ = g.set("Doc.NameSources", &json, "String");
+        }
+        if let Ok(json) = serde_json::to_string(&mgr.address_sources) {
+            let _ = g.set("Doc.AddressSources", &json, "String");
+        }
+    }
+}
+
+/// Salin SELURUH state DOC dari AppWindow ke DocWindow terlepas.
+/// Satu-satunya sumber kebenaran = AppWindow; window terlepas hanya
+/// cermin — callback-nya meneruskan ke AppWindow via invoke_* (Rust),
+/// jadi semua perubahan state mengalir lewat handler AppWindow.
+fn sync_doc_window(w: &DocWindow, ui: &AppWindow) {
+    w.set_doc_school(ui.get_doc_school());
+    w.set_doc_address(ui.get_doc_address());
+    w.set_doc_tab_titles(ui.get_doc_tab_titles());
+    w.set_doc_tab_idx(ui.get_doc_tab_idx());
+    w.set_doc_show_second_logo(ui.get_doc_show_second_logo());
+    w.set_doc_logo_path(ui.get_doc_logo_path());
+    w.set_doc_logo2_path(ui.get_doc_logo2_path());
+    w.set_doc_logo_exists(ui.get_doc_logo_exists());
+    w.set_doc_logo2_exists(ui.get_doc_logo2_exists());
+    w.set_doc_names(ui.get_doc_names());
+    w.set_doc_paths(ui.get_doc_paths());
+    w.set_doc_exists(ui.get_doc_exists());
+    // doc-sel-idx (pilihan di daftar DOKUMEN) sengaja TIDAK disalin:
+    // itu state lokal LogPanelView, bukan AppWindow; di window
+    // terlepas pilihannya mulai dari -1 (tidak ada yang dipilih).
+}
+
+/// Sinkronkan ke DocWindow bila sedang terlepas (no-op bila tidak).
+fn sync_doc_to_open_window(cell: &DocWinCell, ui: &AppWindow) {
+    if let Some(w) = cell.borrow().as_ref() {
+        sync_doc_window(w, ui);
     }
 }
 
@@ -4230,6 +4320,329 @@ fn dock_batch_window(
     }
     *cell.borrow_mut() = None;
     ui.set_batch_detached(false);
+}
+
+/// Buat DocWindow bila belum ada + pasang handler (sekali per instans;
+/// dibuat baru tiap lepas-ulang setelah dock — pola sama seperti
+/// BatchWindow: hide->show reuse tidak andal di Linux).
+/// Semua callback DOC diteruskan ke AppWindow via invoke_* — AppWindow
+/// tetap satu-satunya sumber kebenaran; DocWindow hanya cermin yang
+/// disinkronkan lewat sync_doc_window. Chrome disinkronkan via
+/// push_chrome_to_doc (warna tema TIDAK ikut — celah tema #13, sama
+/// seperti Spreadsheet/Toolbox/CardList/BatchWindow).
+fn ensure_doc_window(
+    ui: &AppWindow,
+    cell: &DocWinCell,
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+) {
+    if cell.borrow().is_some() {
+        return;
+    }
+    if let Ok(w) = DocWindow::new() {
+        // --- Chrome window (pola BatchWindow). ---
+        let ui_weak = ui.as_weak();
+        let cell_c = cell.clone();
+        let db_c = db.clone();
+        // x titlebar -> dock (kembali ke tab panel).
+        w.on_close_window(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                dock_doc_window(&ui, &cell_c, &db_c);
+            }
+        });
+        let w_weak_min = w.as_weak();
+        w.on_minimize_window(move || {
+            if let Some(w) = w_weak_min.upgrade() {
+                w.window().set_minimized(true);
+            }
+        });
+        let w_weak_max = w.as_weak();
+        w.on_maximize_window(move || {
+            if let Some(w) = w_weak_max.upgrade() {
+                let m = w.window().is_maximized();
+                w.window().set_maximized(!m);
+            }
+        });
+        let w_weak2 = w.as_weak();
+        w.on_move_window(move |dx, dy| {
+            if let Some(w) = w_weak2.upgrade() {
+                let scale = w.window().scale_factor();
+                let pos = w.window().position();
+                let nx = pos.x + (dx * scale) as i32;
+                let ny = pos.y + (dy * scale) as i32;
+                w.window()
+                    .set_position(slint::PhysicalPosition::new(nx, ny));
+            }
+        });
+        // Toast diteruskan ke AppWindow (toast hanya ada di dashboard).
+        let ui_weak = ui.as_weak();
+        w.on_doc_toast(move |t| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_toast(t);
+            }
+        });
+        // Semua callback DOC diteruskan ke AppWindow via invoke_* —
+        // AppWindow tetap satu-satunya sumber kebenaran; DocWindow hanya
+        // cermin yang disinkronkan lewat sync_doc_window.
+        let ui_weak = ui.as_weak();
+        w.on_doc_open_settings(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_doc_open_settings();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_doc_toggle_second_logo(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_doc_toggle_second_logo();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_doc_reset(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_doc_reset();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_doc_sync(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_doc_sync();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_doc_tab_add(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_doc_tab_add();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_doc_tab_select(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_doc_tab_select(a);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_doc_tab_close(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_doc_tab_close(a);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_doc_school_edited(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_doc_school_edited(a);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_doc_address_edited(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_doc_address_edited(a);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_doc_from_ps(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_doc_from_ps(a);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_doc_copy_field(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_doc_copy_field(a);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_doc_pick_logo(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_doc_pick_logo(a);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_doc_clear_logo(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_doc_clear_logo(a);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_doc_send_logo(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_doc_send_logo(a);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_doc_paste_logo(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_doc_paste_logo(a);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_doc_add(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_doc_add();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_doc_open(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_doc_open(a);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_doc_remove(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_doc_remove(a);
+            }
+        });
+        // OS x (chrome native) -> dock juga, bukan tutup proses.
+        let ui_weak2 = ui.as_weak();
+        let cell_c2 = cell.clone();
+        let db_c2 = db.clone();
+        w.window().on_close_requested(move || {
+            if let Some(ui) = ui_weak2.upgrade() {
+                dock_doc_window(&ui, &cell_c2, &db_c2);
+            }
+            slint::CloseRequestResponse::HideWindow
+        });
+        // Geometri tersimpan (kunci "DocWindow", pola BatchWindow).
+        let scale = w.window().scale_factor();
+        if let Some((x, y, lw, lh)) = read_window_geometry(db, "DocWindow") {
+            let x = x.max(0);
+            let y = y.max(0);
+            w.window().set_position(slint::PhysicalPosition::new(
+                (x as f32 * scale) as i32,
+                (y as f32 * scale) as i32,
+            ));
+            w.window().set_size(slint::PhysicalSize::new(
+                (lw as f32 * scale) as u32,
+                (lh as f32 * scale) as u32,
+            ));
+        }
+        push_chrome_to_doc(&w, ui);
+        sync_doc_window(&w, ui);
+        *cell.borrow_mut() = Some(w);
+    }
+}
+
+/// Lepas DOC ke window OS sendiri. `pos` = posisi kiri-atas (physical
+/// px) bila Some; None = di tengah window utama (dari ukuran window
+/// sebenarnya). Sekali lepas, tab DOC menampilkan placeholder sampai dock.
+fn detach_doc_window(
+    ui: &AppWindow,
+    cell: &DocWinCell,
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+    pos: Option<(i32, i32)>,
+) {
+    if ui.get_doc_detached() {
+        return;
+    }
+    ensure_doc_window(ui, cell, db);
+    // Posisi: drag grip memberi posisi eksplisit (titlebar di bawah
+    // pointer); tombol Pop Out tanpa geometri tersimpan -> pusatkan di
+    // atas window utama; bila ada geometri tersimpan, JANGAN timpa —
+    // ensure_doc_window sudah menaruh window di posisi terakhir saat
+    // dock (C# mengembalikan window ke posisi terakhirnya).
+    let pos: Option<(i32, i32)> = match pos {
+        Some(p) => Some(p),
+        None => match read_window_geometry(db, "DocWindow") {
+            Some(_) => None,
+            None => {
+                let (lw, lh) = match cell.borrow().as_ref() {
+                    Some(w) => {
+                        let scale = w.window().scale_factor().max(1.0);
+                        let size = w.window().size();
+                        (
+                            (size.width as f32 / scale) as i32,
+                            (size.height as f32 / scale) as i32,
+                        )
+                    }
+                    None => (560, 640),
+                };
+                Some(center_over_main(ui, lw, lh))
+            }
+        },
+    };
+    if let Some(w) = cell.borrow().as_ref() {
+        if let Some((px, py)) = pos {
+            w.window()
+                .set_position(slint::PhysicalPosition::new(px, py));
+        }
+        let _ = w.hide();
+        let _ = w.show();
+    }
+    ui.set_doc_detached(true);
+}
+
+/// Kembalikan DOC ke tab panel: sembunyikan + buang window terlepas
+/// (lepas-ulang selalu buat window baru), simpan geometrinya.
+fn dock_doc_window(
+    ui: &AppWindow,
+    cell: &DocWinCell,
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+) {
+    if let Some(w) = cell.borrow().as_ref() {
+        save_window_geometry(w.window(), db, "DocWindow");
+        let _ = w.hide();
+    }
+    *cell.borrow_mut() = None;
+    ui.set_doc_detached(false);
+}
+
+/// Buka DocSettingsWindow ("Pengaturan DOC", C#). Dibuat baru tiap
+/// dibuka (pola ReportBugDialog). Simpan = tulis daftar sumber ke DB +
+/// DocManager; Batal/x = tutup tanpa menyimpan.
+fn open_doc_settings_window(
+    ui_weak: &slint::Weak<AppWindow>,
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+    doc_mgr: &Arc<Mutex<DocManager>>,
+) {
+    let Ok(w) = DocSettingsWindow::new() else {
+        return;
+    };
+    {
+        let mgr = doc_mgr.lock().unwrap();
+        w.set_name_text(slint::SharedString::from(mgr.name_sources.join("\n")));
+        w.set_address_text(slint::SharedString::from(
+            mgr.address_sources.join("\n"),
+        ));
+    }
+    let w_weak = w.as_weak();
+    w.on_close_window(move || {
+        if let Some(w) = w_weak.upgrade() {
+            let _ = w.hide();
+        }
+    });
+    let ui_weak2 = ui_weak.clone();
+    let db_clone = db.clone();
+    let mgr_clone = doc_mgr.clone();
+    let w_weak_save = w.as_weak();
+    w.on_save_settings(move |name_text, address_text| {
+        let name_sources = doc_manager::parse_doc_sources(&name_text);
+        let address_sources = doc_manager::parse_doc_sources(&address_text);
+        {
+            let mut mgr = mgr_clone.lock().unwrap();
+            mgr.name_sources = name_sources;
+            mgr.address_sources = address_sources;
+            persist_doc_sources(&db_clone, &mgr);
+        }
+        if let Some(ui) = ui_weak2.upgrade() {
+            ui.set_toast(slint::SharedString::from(
+                "Pengaturan teks DOC disimpan.",
+            ));
+        }
+        if let Some(w) = w_weak_save.upgrade() {
+            let _ = w.hide();
+        }
+    });
+    let ui_weak3 = ui_weak.clone();
+    w.on_toast(move |msg| {
+        if let Some(ui) = ui_weak3.upgrade() {
+            ui.set_toast(msg);
+        }
+    });
+    if let Some(ui) = ui_weak.upgrade() {
+        let (cx, cy) = center_over_main(&ui, 520, 460);
+        w.window()
+            .set_position(slint::PhysicalPosition::new(cx, cy));
+    }
+    let _ = w.show();
 }
 
 
@@ -5535,6 +5948,9 @@ fn main() -> Result<(), slint::PlatformError> {
     // tab BATCH diseret keluar; None = BATCH masih embedded di dashboard.
     let batch_win_cell: BatchWinCell =
         std::rc::Rc::new(std::cell::RefCell::new(None));
+    // DocWindow terlepas (tear-off DOC, 28 Nov 2026) — pola sama dengan
+    // BatchWindow; None = DOC masih di tab Panel Samping.
+    let doc_win_cell: DocWinCell = std::rc::Rc::new(std::cell::RefCell::new(None));
     // Waktu drag terakhir mode pet (wander tidak jalan 5 detik
     // setelah user selesai men-drag avatar).
     let pet_last_drag: Arc<Mutex<Instant>> =
@@ -5569,6 +5985,30 @@ fn main() -> Result<(), slint::PlatformError> {
     }
 
     let doc_mgr = Arc::new(Mutex::new(DocManager::default()));
+    // Muat tab redaksi tersimpan (DB `Doc.Tabs`) + daftar teks sumber
+    // pengaturan DOC (`Doc.NameSources` / `Doc.AddressSources`).
+    if let Some(dbm) = &db {
+        if let Ok(g) = dbm.lock() {
+            if let Some(json) = g.get("Doc.Tabs") {
+                let mut mgr = doc_mgr.lock().unwrap();
+                *mgr = DocManager::from_json(&json);
+            }
+            if let Some(json) = g.get("Doc.NameSources") {
+                if let Ok(v) = serde_json::from_str::<Vec<String>>(&json) {
+                    doc_mgr.lock().unwrap().name_sources = v;
+                }
+            }
+            if let Some(json) = g.get("Doc.AddressSources") {
+                if let Ok(v) = serde_json::from_str::<Vec<String>>(&json) {
+                    doc_mgr.lock().unwrap().address_sources = v;
+                }
+            }
+        }
+    }
+    {
+        let mgr = doc_mgr.lock().unwrap();
+        push_doc_to_ui(&ui, &mgr);
+    }
     let proc_log = Arc::new(Mutex::new(ProcessLogService::default()));
 
     // BATCH state (Batch Master): roots + seleksi + Folder Reguler.
@@ -6766,6 +7206,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let card_cell_sync = card_win_cell.clone();
         let comment_cell_sync = comment_win_cell.clone();
         let batch_cell_sync = batch_win_cell.clone();
+        let doc_cell_sync = doc_win_cell.clone();
         ui.on_apply_appearance(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 match theme::apply_appearance(&ui) {
@@ -6785,6 +7226,7 @@ fn main() -> Result<(), slint::PlatformError> {
                             &card_cell_sync,
                             &comment_cell_sync,
                             &batch_cell_sync,
+                            &doc_cell_sync,
                         );
                     }
                     Err(msg) => {
@@ -6805,6 +7247,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let card_cell_sync = card_win_cell.clone();
         let comment_cell_sync = comment_win_cell.clone();
         let batch_cell_sync = batch_win_cell.clone();
+        let doc_cell_sync = doc_win_cell.clone();
         ui.on_reset_appearance(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 ui.set_app_color_mode(slint::SharedString::from("dark"));
@@ -6845,6 +7288,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     &card_cell_sync,
                     &comment_cell_sync,
                     &batch_cell_sync,
+                    &doc_cell_sync,
                 );
                 if let Some(ref db_mutex) = db_clone {
                     if let Ok(mut db_guard) = db_mutex.lock() {
@@ -10090,6 +10534,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let card_cell = card_win_cell.clone();
         let comment_cell = comment_win_cell.clone();
         let batch_cell = batch_win_cell.clone();
+        let doc_cell = doc_win_cell.clone();
         let ui_weak = ui.as_weak();
         let db_clone = db.clone();
         ui.on_icon_pack_settings_changed(move || {
@@ -10107,7 +10552,7 @@ fn main() -> Result<(), slint::PlatformError> {
             sync_bar_theme(&ui, &bar_cell);
             sync_radial_theme(&ui, &radial_cell);
             sync_task_theme(&ui, &task_cell);
-            sync_chrome_to_windows(&ui, &sheet_cell, &toolbox_cell, &card_cell, &comment_cell, &batch_cell);
+            sync_chrome_to_windows(&ui, &sheet_cell, &toolbox_cell, &card_cell, &comment_cell, &batch_cell, &doc_cell);
         });
     }
 
@@ -10560,17 +11005,12 @@ fn main() -> Result<(), slint::PlatformError> {
     }
 
     // ---- FASE 5: DOC TAB DYNAMICS ----
-    {
-        let doc_clone = Arc::clone(&doc_mgr);
-        let _ui_weak = ui.as_weak();
-        // Handlers: sinkronisasi state ke AppData/BMachine.v2/doc_info.json saat eksekusi
-        let mut mgr = doc_clone.lock().unwrap();
-        let _ = mgr.add_tab();
-        let _ = mgr.active_tab();
-        let _ = mgr.active_tab_mut();
-        mgr.close_tab(1);
-        let _ = mgr.write_doc_info_json(0);
-    }
+    // Tab DOC di Panel Samping + DocWindow terlepas di-wiring lewat
+    // handler `on_doc_*` (lihat blok handler DOC di bawah, dekat
+    // handler doc-add/doc-open/doc-remove) — DocManager asli dari
+    // startup (`doc_mgr`), BUKAN manajer default sesaat seperti dulu
+    // di sini (blok lama itu mati: add_tab/close_tab/write pada
+    // manajer yang langsung dibuang).
 
     // ---- FASE 5: LOG PROGRESS WATCHER (live) ----
     // Thread nyata mem-poll file progress/result C# (%TEMP%\bmachine_*.json)
@@ -11765,6 +12205,379 @@ fn main() -> Result<(), slint::PlatformError> {
                 "Dokumen dihapus dari daftar: {}",
                 name
             )));
+        });
+    }
+
+    // ---- Panel DOC: Instan Redaksi — tab + window mengambang ----
+    // (28 Nov 2026; spesifikasi C# di EXPLORER_SPEC.md bagian Tab DOC;
+    // pola tear-off = BATCH c208473, DESIGN_SYSTEM.md §16.10.)
+    // Satu-satunya sumber kebenaran = DocManager (`doc_mgr`) + prop
+    // AppWindow; DocWindow hanya cermin (sync_doc_to_open_window).
+    // Catatan: edit dari DocWindow TIDAK memperbarui prop AppWindow
+    // otomatis (window terpisah, tanpa binding .slint) — handler di
+    // sini memakai argumen callback sebagai nilai baru, lalu set prop
+    // AppWindow secara eksplisit sebelum persist + sync balik.
+    {
+        let ui_weak = ui.as_weak();
+        let db_c = db.clone();
+        let mgr_c = doc_mgr.clone();
+        ui.on_doc_open_settings(move || {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            open_doc_settings_window(&ui_weak, &db_c, &mgr_c);
+            let _ = ui;
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let doc_c = doc_win_cell.clone();
+        let db_c = db.clone();
+        ui.on_doc_pop_out(move || {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            detach_doc_window(&ui, &doc_c, &db_c, None);
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let doc_c = doc_win_cell.clone();
+        let db_c = db.clone();
+        ui.on_doc_tear_off(move |x, y| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            let win = ui.window();
+            let pos = win.position();
+            let scale = win.scale_factor();
+            let px = pos.x + (x * scale) as i32;
+            let py = pos.y + (y * scale) as i32;
+            let nx = (px - (240.0 * scale) as i32).max(0);
+            let ny = (py - (14.0 * scale) as i32).max(0);
+            detach_doc_window(&ui, &doc_c, &db_c, Some((nx, ny)));
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let doc_c = doc_win_cell.clone();
+        let db_c = db.clone();
+        ui.on_doc_dock(move || {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            dock_doc_window(&ui, &doc_c, &db_c);
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_c = db.clone();
+        let mgr_c = doc_mgr.clone();
+        let doc_c = doc_win_cell.clone();
+        ui.on_doc_toggle_second_logo(move || {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            let second = {
+                let mut mgr = mgr_c.lock().unwrap();
+                if let Some(t) = mgr.active_tab_mut() {
+                    t.show_second_logo = !t.show_second_logo;
+                }
+                let s = mgr.active_tab().map(|t| t.show_second_logo).unwrap_or(false);
+                persist_doc_tabs(&db_c, &mgr);
+                s
+            };
+            ui.set_doc_show_second_logo(second);
+            ui.set_toast(slint::SharedString::from(if second {
+                "Logo alternatif ditampilkan."
+            } else {
+                "Logo alternatif disembunyikan."
+            }));
+            sync_doc_to_open_window(&doc_c, &ui);
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_c = db.clone();
+        let mgr_c = doc_mgr.clone();
+        let doc_c = doc_win_cell.clone();
+        ui.on_doc_reset(move || {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            {
+                let mut mgr = mgr_c.lock().unwrap();
+                mgr.reset_active();
+                persist_doc_tabs(&db_c, &mgr);
+                push_doc_to_ui(&ui, &mgr);
+            }
+            sync_doc_to_open_window(&doc_c, &ui);
+            ui.set_toast(slint::SharedString::from("Redaksi direset."));
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let mgr_c = doc_mgr.clone();
+        ui.on_doc_sync(move || {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            let mgr = mgr_c.lock().unwrap();
+            match mgr.write_doc_info_json(mgr.active_index) {
+                Ok(path) => {
+                    ui.set_toast(slint::SharedString::from(format!(
+                        "doc_info.json ditulis: {}",
+                        path.display()
+                    )));
+                }
+                Err(e) => {
+                    ui.set_toast(slint::SharedString::from(e));
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_c = db.clone();
+        let mgr_c = doc_mgr.clone();
+        let doc_c = doc_win_cell.clone();
+        ui.on_doc_tab_add(move || {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            {
+                let mut mgr = mgr_c.lock().unwrap();
+                mgr.add_tab();
+                persist_doc_tabs(&db_c, &mgr);
+                push_doc_to_ui(&ui, &mgr);
+            }
+            sync_doc_to_open_window(&doc_c, &ui);
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let mgr_c = doc_mgr.clone();
+        let doc_c = doc_win_cell.clone();
+        ui.on_doc_tab_select(move |idx| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            {
+                let mut mgr = mgr_c.lock().unwrap();
+                mgr.set_active(idx as usize);
+                push_doc_to_ui(&ui, &mgr);
+            }
+            sync_doc_to_open_window(&doc_c, &ui);
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_c = db.clone();
+        let mgr_c = doc_mgr.clone();
+        let doc_c = doc_win_cell.clone();
+        ui.on_doc_tab_close(move |idx| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            {
+                let mut mgr = mgr_c.lock().unwrap();
+                mgr.close_tab(idx as usize);
+                persist_doc_tabs(&db_c, &mgr);
+                push_doc_to_ui(&ui, &mgr);
+            }
+            sync_doc_to_open_window(&doc_c, &ui);
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_c = db.clone();
+        let mgr_c = doc_mgr.clone();
+        let doc_c = doc_win_cell.clone();
+        ui.on_doc_school_edited(move |text| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            ui.set_doc_school(text.clone());
+            {
+                let mut mgr = mgr_c.lock().unwrap();
+                mgr.update_active(
+                    &text,
+                    &ui.get_doc_address(),
+                    &ui.get_doc_logo_path(),
+                    &ui.get_doc_logo2_path(),
+                    ui.get_doc_show_second_logo(),
+                );
+                persist_doc_tabs(&db_c, &mgr);
+            }
+            sync_doc_to_open_window(&doc_c, &ui);
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_c = db.clone();
+        let mgr_c = doc_mgr.clone();
+        let doc_c = doc_win_cell.clone();
+        ui.on_doc_address_edited(move |text| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            ui.set_doc_address(text.clone());
+            {
+                let mut mgr = mgr_c.lock().unwrap();
+                mgr.update_active(
+                    &ui.get_doc_school(),
+                    &text,
+                    &ui.get_doc_logo_path(),
+                    &ui.get_doc_logo2_path(),
+                    ui.get_doc_show_second_logo(),
+                );
+                persist_doc_tabs(&db_c, &mgr);
+            }
+            sync_doc_to_open_window(&doc_c, &ui);
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_doc_from_ps(move |field| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            // Ambil teks dari layer Photoshop = butuh Photoshop di
+            // Windows (jsx); di Linux port ini belum ada — jujur saja.
+            let _ = field;
+            ui.set_toast(slint::SharedString::from(
+                "Ambil dari Photoshop butuh Photoshop di Windows.",
+            ));
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_doc_copy_field(move |field| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            let text = if field.as_str() == "address" {
+                ui.get_doc_address().to_string()
+            } else {
+                ui.get_doc_school().to_string()
+            };
+            match platform::copy_to_clipboard(&text) {
+                Ok(()) => {
+                    ui.set_toast(slint::SharedString::from("Disalin ke clipboard."));
+                }
+                Err(e) => {
+                    ui.set_toast(slint::SharedString::from(e));
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_c = db.clone();
+        let mgr_c = doc_mgr.clone();
+        let doc_c = doc_win_cell.clone();
+        ui.on_doc_pick_logo(move |n| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            match platform::pick_file(
+                "Pilih logo",
+                "Gambar (*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.gif)|*.png;*.jpg;*.jpeg;*.webp;*.bmp;*.gif",
+            ) {
+                platform::PickResult::Cancelled => {}
+                platform::PickResult::Unavailable(msg) => {
+                    ui.set_toast(slint::SharedString::from(msg));
+                }
+                platform::PickResult::Picked(path) => {
+                    let is2 = n == 2;
+                    if is2 {
+                        ui.set_doc_logo2_path(slint::SharedString::from(path.clone()));
+                    } else {
+                        ui.set_doc_logo_path(slint::SharedString::from(path.clone()));
+                    }
+                    {
+                        let mut mgr = mgr_c.lock().unwrap();
+                        mgr.update_active(
+                            &ui.get_doc_school(),
+                            &ui.get_doc_address(),
+                            &ui.get_doc_logo_path(),
+                            &ui.get_doc_logo2_path(),
+                            ui.get_doc_show_second_logo(),
+                        );
+                        persist_doc_tabs(&db_c, &mgr);
+                        push_doc_to_ui(&ui, &mgr);
+                    }
+                    sync_doc_to_open_window(&doc_c, &ui);
+                    ui.set_toast(slint::SharedString::from(format!(
+                        "Logo {} dipilih: {}",
+                        if is2 { "2" } else { "1" },
+                        std::path::Path::new(&path)
+                            .file_name()
+                            .map(|f| f.to_string_lossy().to_string())
+                            .unwrap_or(path)
+                    )));
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_c = db.clone();
+        let mgr_c = doc_mgr.clone();
+        let doc_c = doc_win_cell.clone();
+        ui.on_doc_clear_logo(move |n| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            if n == 2 {
+                ui.set_doc_logo2_path(slint::SharedString::from(""));
+            } else {
+                ui.set_doc_logo_path(slint::SharedString::from(""));
+            }
+            {
+                let mut mgr = mgr_c.lock().unwrap();
+                mgr.update_active(
+                    &ui.get_doc_school(),
+                    &ui.get_doc_address(),
+                    &ui.get_doc_logo_path(),
+                    &ui.get_doc_logo2_path(),
+                    ui.get_doc_show_second_logo(),
+                );
+                persist_doc_tabs(&db_c, &mgr);
+                push_doc_to_ui(&ui, &mgr);
+            }
+            sync_doc_to_open_window(&doc_c, &ui);
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_doc_send_logo(move |n| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            // Kirim logo ke Photoshop = butuh Photoshop di Windows.
+            let _ = n;
+            ui.set_toast(slint::SharedString::from(
+                "Kirim ke Photoshop butuh Photoshop di Windows.",
+            ));
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_c = db.clone();
+        let mgr_c = doc_mgr.clone();
+        let doc_c = doc_win_cell.clone();
+        ui.on_doc_paste_logo(move |n| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            match platform::paste_from_clipboard() {
+                Ok(text) => {
+                    let t = text.trim().to_string();
+                    let p = std::path::Path::new(&t);
+                    let is_img = p.exists()
+                        && p.extension()
+                            .map(|e| {
+                                matches!(
+                                    e.to_string_lossy().to_lowercase().as_str(),
+                                    "png" | "jpg" | "jpeg" | "webp" | "bmp" | "gif"
+                                )
+                            })
+                            .unwrap_or(false);
+                    if !is_img {
+                        ui.set_toast(slint::SharedString::from(
+                            "Clipboard bukan path gambar yang ada.",
+                        ));
+                        return;
+                    }
+                    if n == 2 {
+                        ui.set_doc_logo2_path(slint::SharedString::from(t));
+                    } else {
+                        ui.set_doc_logo_path(slint::SharedString::from(t));
+                    }
+                    {
+                        let mut mgr = mgr_c.lock().unwrap();
+                        mgr.update_active(
+                            &ui.get_doc_school(),
+                            &ui.get_doc_address(),
+                            &ui.get_doc_logo_path(),
+                            &ui.get_doc_logo2_path(),
+                            ui.get_doc_show_second_logo(),
+                        );
+                        persist_doc_tabs(&db_c, &mgr);
+                        push_doc_to_ui(&ui, &mgr);
+                    }
+                    sync_doc_to_open_window(&doc_c, &ui);
+                    ui.set_toast(slint::SharedString::from("Logo ditempel dari clipboard."));
+                }
+                Err(e) => {
+                    ui.set_toast(slint::SharedString::from(e));
+                }
+            }
         });
     }
 

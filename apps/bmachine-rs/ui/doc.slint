@@ -1,0 +1,668 @@
+// DOC — Instan Redaksi (SATU komponen, dua host: LogPanelView embedded
+// dan DocWindow terlepas, ui/windows.slint). Dipindah dari ui/logpanel.slint
+// 28 Nov 2026 (tear-off DOC, pola c208473 tear-off BATCH): SATU komponen,
+// dua host — jangan duplikasi tampilan ini. Semua state DOC hidup di Rust
+// (src/doc_manager.rs + AppWindow); host hanya mengikat prop dua arah +
+// meneruskan callback ke Rust. Jendela terlepas disinkronkan Rust dari
+// AppWindow (sync_doc_window di src/main.rs) tiap kali state berubah.
+//
+// Isi mengikuti C# (EXPLORER_SPEC.md §3.6, DocPanelView.axaml):
+// judul "INSTAN REDAKSI" + 4 tombol (Pengaturan Teks DOC, Pop Out,
+// tambah/hapus logo alternatif, Reset); field SchoolName + SchoolAddress
+// (multiline); slot Logo Utama + opsional Logo Alternatif (mode 2 kolom
+// bila aktif); tiap field punya tombol (ambil teks dari layer Photoshop,
+// Copy, Paste logo "1"/"2", kirim logo ke Photoshop "1"/"2"); redaksi
+// multi-tab (strip chip bernomor + chip "+").
+// Penyimpangan port (dicatat di PERUBAHAN.md): tombol field selalu
+// terlihat (C# hanya saat hover — Slint tidak bisa hover tanpa TouchArea
+// yang menelan klik TextInput); aksi Photoshop ("Dari PS" / "Kirim")
+// di Linux hanya toast jujur (butuh Photoshop di Windows); pratinjau
+// logo = kotak tinted + nama file (port tidak decode gambar, sama
+// seperti thumbnail Explorer); grup DOKUMEN di bawah adalah interpretasi
+// port (tidak ada di C#) — lihat DESIGN_SYSTEM.md §18.4.
+
+import { Design, Btn, SvgIcon } from "design.slint";
+
+// Tombol baris kecil (salinan RowBtn ui/logpanel.slint — dipakai
+// DokumenRow di sini supaya doc.slint mandiri; logpanel.slint punya
+// salinannya sendiri untuk MasterExtraRow).
+component DocRowBtn inherits Rectangle {
+    in property <string> icon-name: "";
+    in property <string> glyph: "";
+    in property <bool> enabled: true;
+    callback clicked();
+
+    width: 22px;
+    height: 22px;
+    background: btn-touch.has-hover ? Design.bg-hover : transparent;
+    border-radius: 4px;
+    opacity: root.enabled ? 1 : 0.35;
+
+    btn-touch := TouchArea {
+        mouse-cursor: pointer;
+        enabled: root.enabled;
+        clicked => { root.clicked(); }
+    }
+
+    if root.icon-name != "" : SvgIcon {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        name: root.icon-name;
+        size: 13px;
+        icon-color: Design.text-secondary;
+    }
+    if root.icon-name == "" : Text {
+        text: root.glyph;
+        font-size: 12px;
+        font-weight: 700;
+        color: Design.text-secondary;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: 100%;
+        height: 100%;
+    }
+}
+
+// Tombol mini 24px (salinan MiniBtn ui/logpanel.slint, alasan sama).
+component DocMiniBtn inherits Rectangle {
+    in property <string> label;
+    in property <string> icon-name: "";
+    callback clicked();
+
+    height: 24px;
+    background: btn-touch.has-hover ? Design.bg-hover : Design.surface-elevated;
+    border-color: Design.separator;
+    border-width: 1px;
+    border-radius: Design.radius-sm;
+
+    btn-touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    HorizontalLayout {
+        spacing: 4px;
+        padding-left: 8px;
+        padding-right: 8px;
+        alignment: center;
+
+        if root.icon-name != "" : VerticalLayout {
+            alignment: center;
+            SvgIcon {
+                name: root.icon-name;
+                size: 11px;
+                icon-color: Design.text-secondary;
+            }
+        }
+
+        Text {
+            text: root.label;
+            font-size: 11px;
+            font-weight: 700;
+            color: Design.text-secondary;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// Grip tear-off (salinan BatchTearGrip ui/batch.slint): seret melewati
+// 48px ke arah mana pun -> DOC lepas jadi window OS; tutup window itu
+// -> kembali ke panel (§18.5).
+component DocTearGrip inherits TouchArea {
+    in property <bool> show: true;
+    callback tear-off(length, length);
+    width: 22px;
+    height: 32px;
+    visible: root.show;
+    mouse-cursor: grab;
+    property <length> grip-start-x: 0px;
+    property <length> grip-start-y: 0px;
+    property <bool> grip-dragging: false;
+    pointer-event(ev) => {
+        if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+            self.grip-start-x = self.mouse-x;
+            self.grip-start-y = self.mouse-y;
+            self.grip-dragging = true;
+        } else if (ev.kind == PointerEventKind.up) {
+            self.grip-dragging = false;
+        } else if (ev.kind == PointerEventKind.move && self.grip-dragging) {
+            if (self.mouse-x - self.grip-start-x > 48px || self.grip-start-x - self.mouse-x > 48px || self.mouse-y - self.grip-start-y > 48px || self.grip-start-y - self.mouse-y > 48px) {
+                self.grip-dragging = false;
+                root.tear-off(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+            }
+        }
+    }
+    Text {
+        text: "⋮⋮";
+        font-size: 14px;
+        font-weight: 800;
+        color: Design.text-muted;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: 100%;
+        height: 100%;
+    }
+}
+
+// Satu baris dokumen kerja (dipindah utuh dari ui/logpanel.slint,
+// 28 Nov 2026 — RowBtn diganti DocRowBtn lokal). Aturan TouchArea
+// baris (§18.4): row-touch HANYA hover, tombol anak punya TouchArea
+// sendiri, pilih/dobel-klik di text-touch kolom teks.
+component DokumenRow inherits Rectangle {
+    in property <string> name;
+    in property <string> path;
+    in property <bool> exists;
+    in property <bool> selected;
+    callback clicked();
+    callback double-clicked();
+    callback open();
+    callback remove();
+
+    height: 44px;
+    background: root.selected ? Design.accent-subtle : (row-touch.has-hover ? Design.bg-hover : transparent);
+    border-radius: Design.radius-sm;
+
+    row-touch := TouchArea { mouse-cursor: pointer; }
+
+    HorizontalLayout {
+        padding-left: Design.space-sm;
+        padding-right: Design.space-sm;
+        spacing: Design.space-sm;
+
+        VerticalLayout {
+            alignment: center;
+            SvgIcon {
+                name: "file-text";
+                size: 14px;
+                icon-color: root.exists ? Design.accent : Design.text-muted;
+            }
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+            text-touch := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.clicked(); }
+                double-clicked => { root.double-clicked(); }
+            }
+            VerticalLayout {
+                x: 0; y: 0; width: 100%; height: 100%;
+                alignment: center;
+                spacing: 1px;
+                Text {
+                    text: root.name;
+                    font-size: Design.font-body;
+                    font-weight: 700;
+                    color: root.exists ? Design.text-primary : Design.text-muted;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                }
+                Text {
+                    text: root.path;
+                    font-size: Design.font-caption;
+                    font-family: "JetBrains Mono";
+                    color: Design.text-muted;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                }
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            DocRowBtn {
+                icon-name: "external-link";
+                clicked => { root.open(); }
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            DocRowBtn {
+                icon-name: "x";
+                clicked => { root.remove(); }
+            }
+        }
+    }
+
+    Rectangle {
+        x: 0; y: parent.height - 1px; width: 100%; height: 1px;
+        background: Design.separator;
+    }
+}
+
+// Satu slot logo (Utama = 1, Alternatif = 2): pratinjau kotak tinted +
+// nama file (port tidak decode gambar) + 4 aksi. "Tempel" = baca path
+// dari clipboard teks (bila berisi path file gambar yang ada); "Kirim"
+// = kirim ke Photoshop (Windows saja — di Linux toast jujur).
+component DocLogoSlot inherits VerticalLayout {
+    in property <int> slot-no: 1;
+    in property <string> logo-path: "";
+    in property <bool> logo-exists: false;
+    callback pick-logo(int);
+    callback clear-logo(int);
+    callback send-logo(int);
+    callback paste-logo(int);
+
+    spacing: 4px;
+
+    Text {
+        text: root.slot-no == 1 ? "Logo Utama" : "Logo Alternatif";
+        font-size: Design.font-caption;
+        font-weight: 700;
+        color: Design.text-muted;
+    }
+
+    Rectangle {
+        height: 56px;
+        background: Design.surface-elevated;
+        border-color: root.logo-path != "" && !root.logo-exists ? Design.status-danger : Design.separator;
+        border-width: 1px;
+        border-radius: Design.radius-sm;
+
+        HorizontalLayout {
+            padding-left: Design.space-sm;
+            padding-right: Design.space-sm;
+            spacing: Design.space-sm;
+
+            VerticalLayout {
+                alignment: center;
+                SvgIcon {
+                    name: "image";
+                    size: 20px;
+                    icon-color: root.logo-path != "" && root.logo-exists ? Design.accent : Design.text-muted;
+                }
+            }
+
+            VerticalLayout {
+                horizontal-stretch: 1;
+                alignment: center;
+                spacing: 1px;
+                Text {
+                    text: root.logo-path == "" ? "Belum ada logo" : (root.logo-exists ? "Logo terpasang" : "File tidak ditemukan");
+                    font-size: 12px;
+                    font-weight: 700;
+                    color: root.logo-path != "" && !root.logo-exists ? Design.status-danger : Design.text-primary;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                }
+                Text {
+                    text: root.logo-path == "" ? "PNG / JPG — klik Pilih" : root.logo-path;
+                    font-size: Design.font-caption;
+                    font-family: "JetBrains Mono";
+                    color: Design.text-muted;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                }
+            }
+        }
+    }
+
+    HorizontalLayout {
+        spacing: 4px;
+        DocMiniBtn {
+            label: "Pilih";
+            horizontal-stretch: 1;
+            clicked => { root.pick-logo(root.slot-no); }
+        }
+        DocMiniBtn {
+            label: "Tempel";
+            horizontal-stretch: 1;
+            clicked => { root.paste-logo(root.slot-no); }
+        }
+        DocMiniBtn {
+            label: "Kirim";
+            horizontal-stretch: 1;
+            clicked => { root.send-logo(root.slot-no); }
+        }
+        DocMiniBtn {
+            label: "Hapus";
+            horizontal-stretch: 1;
+            clicked => { root.clear-logo(root.slot-no); }
+        }
+    }
+}
+
+// ===== DOC — tampilan INSTAN REDAKSI (dipakai dua host) =====
+export component DocView inherits Rectangle {
+    // false = sudah terlepas (grip + tombol Pop Out disembunyikan).
+    in property <bool> show-tear-off: true;
+    // true = slot logo berdampingan 2 kolom (window terlepas, lebar);
+    // false = susun vertikal (panel samping, sempit).
+    in property <bool> two-col: false;
+
+    in-out property <string> doc-school: "";
+    in-out property <string> doc-address: "";
+    in-out property <[string]> doc-tab-titles: ["Redaksi 1"];
+    in-out property <int> doc-tab-idx: 0;
+    in-out property <bool> doc-show-second-logo: false;
+    in-out property <string> doc-logo-path: "";
+    in-out property <string> doc-logo2-path: "";
+    in property <bool> doc-logo-exists: false;
+    in property <bool> doc-logo2-exists: false;
+    // Grup DOKUMEN (interpretasi port, §18.4).
+    in property <[string]> doc-names: [];
+    in property <[string]> doc-paths: [];
+    in property <[bool]> doc-exists: [];
+    in-out property <int> doc-sel-idx: -1;
+
+    callback doc-open-settings();
+    callback doc-pop-out();
+    callback doc-tear-off(length, length);
+    callback doc-toggle-second-logo();
+    callback doc-reset();
+    callback doc-sync();
+    callback doc-tab-add();
+    callback doc-tab-select(int);
+    callback doc-tab-close(int);
+    callback doc-school-edited(string);
+    callback doc-address-edited(string);
+    callback doc-from-ps(string);
+    callback doc-copy-field(string);
+    callback doc-pick-logo(int);
+    callback doc-clear-logo(int);
+    callback doc-send-logo(int);
+    callback doc-paste-logo(int);
+    callback doc-add();
+    callback doc-open(int);
+    callback doc-remove(int);
+
+    VerticalLayout {
+        width: 100%;
+        height: 100%;
+        spacing: Design.space-sm;
+
+        // ----- Judul + grip tear-off -----
+        HorizontalLayout {
+            height: 24px;
+            spacing: 6px;
+            Text {
+                text: "INSTAN REDAKSI";
+                font-size: Design.font-h3;
+                font-weight: 800;
+                color: Design.text-primary;
+                letter-spacing: 1px;
+                vertical-alignment: center;
+            }
+            Rectangle { horizontal-stretch: 1; }
+            DocTearGrip {
+                show: root.show-tear-off;
+                tear-off(x, y) => { root.doc-tear-off(x, y); }
+            }
+        }
+
+        // ----- 4 tombol C# (2 baris x 2 — panel 288px tidak muat 1 baris) -----
+        HorizontalLayout {
+            spacing: 6px;
+            DocMiniBtn {
+                label: "⚙ Pengaturan Teks";
+                horizontal-stretch: 1;
+                clicked => { root.doc-open-settings(); }
+            }
+            DocMiniBtn {
+                label: "⧉ Pop Out";
+                horizontal-stretch: 1;
+                visible: root.show-tear-off;
+                clicked => { root.doc-pop-out(); }
+            }
+        }
+        HorizontalLayout {
+            spacing: 6px;
+            DocMiniBtn {
+                label: root.doc-show-second-logo ? "Logo 2: − Hapus" : "Logo 2: ＋ Tambah";
+                horizontal-stretch: 1;
+                clicked => { root.doc-toggle-second-logo(); }
+            }
+            DocMiniBtn {
+                label: "↺ Reset";
+                horizontal-stretch: 1;
+                clicked => { root.doc-reset(); }
+            }
+        }
+
+        // ----- Strip chip tab redaksi (nomor + ×, chip "+" tambah) -----
+        HorizontalLayout {
+            spacing: 6px;
+            for title[i] in root.doc-tab-titles : Rectangle {
+                width: 52px;
+                height: 28px;
+                background: root.doc-tab-idx == i ? Design.accent-subtle : Design.surface-elevated;
+                border-color: root.doc-tab-idx == i ? Design.accent : Design.separator;
+                border-width: 1px;
+                border-radius: Design.radius-sm;
+
+                chip-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.doc-tab-select(i); }
+                }
+
+                HorizontalLayout {
+                    padding-left: 8px;
+                    padding-right: 4px;
+                    spacing: 2px;
+                    Text {
+                        text: i + 1;
+                        font-size: 11px;
+                        font-weight: 700;
+                        color: root.doc-tab-idx == i ? Design.accent : Design.text-secondary;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                    }
+                    if root.doc-tab-titles.length > 1 : Text {
+                        text: "×";
+                        font-size: 12px;
+                        font-weight: 700;
+                        color: Design.text-muted;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        width: 14px;
+                        height: 100%;
+                        x-touch := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { root.doc-tab-close(i); }
+                        }
+                    }
+                }
+            }
+            Rectangle {
+                width: 44px;
+                height: 28px;
+                background: add-touch.has-hover ? Design.bg-hover : Design.surface-elevated;
+                border-color: Design.separator;
+                border-width: 1px;
+                border-radius: Design.radius-sm;
+                add-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.doc-tab-add(); }
+                }
+                Text {
+                    text: "+";
+                    font-size: 14px;
+                    font-weight: 800;
+                    color: Design.text-secondary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    width: 100%;
+                    height: 100%;
+                }
+            }
+        }
+
+        // ----- Field Nama Sekolah + tombol hover -----
+        HorizontalLayout {
+            height: 24px;
+            spacing: 6px;
+            Text {
+                text: "Nama Sekolah";
+                font-size: Design.font-caption;
+                font-weight: 700;
+                color: Design.text-muted;
+                vertical-alignment: center;
+            }
+            Rectangle { horizontal-stretch: 1; }
+            DocMiniBtn {
+                label: "Dari PS";
+                clicked => { root.doc-from-ps("name"); }
+            }
+            DocMiniBtn {
+                label: "Salin";
+                clicked => { root.doc-copy-field("name"); }
+            }
+        }
+        Rectangle {
+            height: 32px;
+            background: Design.bg-input;
+            border-color: Design.border-default;
+            border-width: 1px;
+            border-radius: Design.radius-sm;
+            TextInput {
+                x: 8px; y: 0; width: parent.width - 16px; height: 100%;
+                text <=> root.doc-school;
+                font-size: Design.font-body;
+                color: Design.text-primary;
+                vertical-alignment: center;
+                edited => { root.doc-school-edited(self.text); }
+            }
+        }
+
+        // ----- Field Alamat (multiline) + tombol hover -----
+        HorizontalLayout {
+            height: 24px;
+            spacing: 6px;
+            Text {
+                text: "Alamat";
+                font-size: Design.font-caption;
+                font-weight: 700;
+                color: Design.text-muted;
+                vertical-alignment: center;
+            }
+            Rectangle { horizontal-stretch: 1; }
+            DocMiniBtn {
+                label: "Dari PS";
+                clicked => { root.doc-from-ps("address"); }
+            }
+            DocMiniBtn {
+                label: "Salin";
+                clicked => { root.doc-copy-field("address"); }
+            }
+        }
+        Rectangle {
+            height: 60px;
+            background: Design.bg-input;
+            border-color: Design.border-default;
+            border-width: 1px;
+            border-radius: Design.radius-sm;
+            TextInput {
+                x: 6px; y: 6px; width: parent.width - 12px; height: parent.height - 12px;
+                text <=> root.doc-address;
+                font-size: Design.font-body;
+                color: Design.text-primary;
+                wrap: word-wrap;
+                edited => { root.doc-address-edited(self.text); }
+            }
+        }
+
+        // ----- Slot logo (2 kolom di window, vertikal di panel) -----
+        if root.two-col : HorizontalLayout {
+            spacing: Design.space-sm;
+            DocLogoSlot {
+                slot-no: 1;
+                horizontal-stretch: 1;
+                logo-path <=> root.doc-logo-path;
+                logo-exists: root.doc-logo-exists;
+                pick-logo(n) => { root.doc-pick-logo(n); }
+                clear-logo(n) => { root.doc-clear-logo(n); }
+                send-logo(n) => { root.doc-send-logo(n); }
+                paste-logo(n) => { root.doc-paste-logo(n); }
+            }
+            if root.doc-show-second-logo : DocLogoSlot {
+                slot-no: 2;
+                horizontal-stretch: 1;
+                logo-path <=> root.doc-logo2-path;
+                logo-exists: root.doc-logo2-exists;
+                pick-logo(n) => { root.doc-pick-logo(n); }
+                clear-logo(n) => { root.doc-clear-logo(n); }
+                send-logo(n) => { root.doc-send-logo(n); }
+                paste-logo(n) => { root.doc-paste-logo(n); }
+            }
+        }
+        if !root.two-col : VerticalLayout {
+            spacing: Design.space-sm;
+            DocLogoSlot {
+                slot-no: 1;
+                logo-path <=> root.doc-logo-path;
+                logo-exists: root.doc-logo-exists;
+                pick-logo(n) => { root.doc-pick-logo(n); }
+                clear-logo(n) => { root.doc-clear-logo(n); }
+                send-logo(n) => { root.doc-send-logo(n); }
+                paste-logo(n) => { root.doc-paste-logo(n); }
+            }
+            if root.doc-show-second-logo : DocLogoSlot {
+                slot-no: 2;
+                logo-path <=> root.doc-logo2-path;
+                logo-exists: root.doc-logo2-exists;
+                pick-logo(n) => { root.doc-pick-logo(n); }
+                clear-logo(n) => { root.doc-clear-logo(n); }
+                send-logo(n) => { root.doc-send-logo(n); }
+                paste-logo(n) => { root.doc-paste-logo(n); }
+            }
+        }
+
+        Btn {
+            label: "Sinkronisasi Redaksi";
+            variant: "primary";
+            small: true;
+            clicked => { root.doc-sync(); }
+        }
+
+        // ----- Grup DOKUMEN (interpretasi port, §18.4) -----
+        HorizontalLayout {
+            height: 24px;
+            spacing: 6px;
+
+            Text {
+                text: "DOKUMEN";
+                font-size: 11px;
+                font-weight: 800;
+                letter-spacing: 0.5px;
+                color: Design.text-muted;
+                vertical-alignment: center;
+            }
+            Rectangle { horizontal-stretch: 1; }
+            DocMiniBtn {
+                label: "+ Tambah";
+                clicked => { root.doc-add(); }
+            }
+        }
+
+        Flickable {
+            vertical-stretch: 1;
+            min-height: 80px;
+            VerticalLayout {
+                spacing: 0px;
+
+                if root.doc-names.length == 0 : Text {
+                    text: "Belum ada dokumen — tambah file .doc / .docx / .pdf.";
+                    font-size: Design.font-body;
+                    color: Design.text-muted;
+                    wrap: word-wrap;
+                }
+
+                for item[i] in root.doc-names : DokumenRow {
+                    name: item;
+                    path: root.doc-paths[i];
+                    exists: root.doc-exists[i];
+                    selected: root.doc-sel-idx == i;
+                    clicked => { root.doc-sel-idx = i; }
+                    double-clicked => { root.doc-open(i); }
+                    open() => { root.doc-open(i); }
+                    remove() => { root.doc-remove(i); }
+                }
+            }
+        }
+    }
+}
