@@ -1,12 +1,14 @@
 // SETTINGS — side panel + konten (DESIGN_SYSTEM.md §17).
-// Grup (C# SettingsView.axaml: 7 grup): General (default), Appearance,
-// Account, Extensions, Script Manager, Paths, About. Grup "Explorer"
+// Grup (10 grup — C# aslinya 7; Dynamic Island / Radial Menu / Profile
+// grup khusus port, abeng 28 Nov 11:04/11:05/11:07): General (default),
+// Appearance, Profile, Account, Extensions, Dynamic Island, Radial Menu,
+// Script Manager, Paths, About. Grup "Explorer"
 // BUKAN bagian Settings — dipindah ke ExplorerSettingsView tersendiri
 // (ui/explorer-settings.slint, dibuka dari tombol "⚙ Explorer" di
 // sidebar Explorer), sesuai C# ExplorerSettingsView terpisah.
 // Side panel pola gambar referensi (26 Nov 16:54): judul "Settings" +
 // search bar (filter substring) + item berikon, item terpilih
-// highlight accent-subtle. 7 grup dikelompokkan ke 4 kategori
+// highlight accent-subtle. 10 grup dikelompokkan ke 5 kategori
 // berlabel kecil + separator tipis (abeng, 28 Nov 07:05: sidebar
 // jangan dempet, kustomisasi akan makin banyak dan panel makin rame).
 // Sidebar POLOS tanpa panel sendiri di semua mode chrome — HANYA
@@ -713,6 +715,19 @@ export component SettingsView inherits Rectangle {
     callback test-trello();
     callback notch-settings-changed();
     callback test-notch-voice();
+    // Visibilitas Dynamic Island (notch hidup) — terikat dua arah ke
+    // AppWindow; on/off lewat callback open/hide-dynamic-bar (Rust
+    // menyimpan `Settings.DynamicBar.Visible` + tampil/sembunyikan
+    // window bar).
+    in-out property <bool> dynamic-bar-visible: true;
+    // Auto-hide Dynamic Island ala layzee (abeng 28 Nov 11:58):
+    // ON = notch mengecil jadi garis tipis saat window lain
+    // maksimal, hilang total saat fullscreen; OFF = selalu tampil.
+    // Terikat dua arah ke AppWindow, tersimpan di DB
+    // `Settings.Notch.AutoHide` (Bool, default true).
+    in-out property <bool> notch-auto-hide: true;
+    callback open-dynamic-bar();
+    callback hide-dynamic-bar();
     callback radial-settings-changed();
     // Pet PetDex (install/hapus dari galeri petdex.dev — model
     // skill Hermes). pet-names[0] = "Blob bawaan"; pet-slugs[0]
@@ -785,19 +800,24 @@ export component SettingsView inherits Rectangle {
     property <bool> show-appearance: root.search-q == "" || "appearance".replace-all(root.search-q.to-lowercase(), "") != "appearance";
     property <bool> show-account: root.search-q == "" || "account".replace-all(root.search-q.to-lowercase(), "") != "account" || "trello".replace-all(root.search-q.to-lowercase(), "") != "trello" || "google".replace-all(root.search-q.to-lowercase(), "") != "google";
     property <bool> show-extensions: root.search-q == "" || "extensions".replace-all(root.search-q.to-lowercase(), "") != "extensions" || "plugin".replace-all(root.search-q.to-lowercase(), "") != "plugin";
-    property <bool> show-scripts: root.search-q == "" || "scripts".replace-all(root.search-q.to-lowercase(), "") != "scripts" || "radial".replace-all(root.search-q.to-lowercase(), "") != "radial" || "master".replace-all(root.search-q.to-lowercase(), "") != "master";
+    property <bool> show-scripts: root.search-q == "" || "scripts".replace-all(root.search-q.to-lowercase(), "") != "scripts" || "master".replace-all(root.search-q.to-lowercase(), "") != "master";
     property <bool> show-paths: root.search-q == "" || "paths".replace-all(root.search-q.to-lowercase(), "") != "paths";
     property <bool> show-about: root.search-q == "" || "about".replace-all(root.search-q.to-lowercase(), "") != "about";
+    property <bool> show-profile: root.search-q == "" || "profile".replace-all(root.search-q.to-lowercase(), "") != "profile" || "profil".replace-all(root.search-q.to-lowercase(), "") != "profil" || "nama".replace-all(root.search-q.to-lowercase(), "") != "nama" || "avatar".replace-all(root.search-q.to-lowercase(), "") != "avatar" || "user".replace-all(root.search-q.to-lowercase(), "") != "user";
+    property <bool> show-dynamic-island: root.search-q == "" || "dynamic".replace-all(root.search-q.to-lowercase(), "") != "dynamic" || "island".replace-all(root.search-q.to-lowercase(), "") != "island" || "notch".replace-all(root.search-q.to-lowercase(), "") != "notch" || "pet".replace-all(root.search-q.to-lowercase(), "") != "pet" || "voice".replace-all(root.search-q.to-lowercase(), "") != "voice" || "suara".replace-all(root.search-q.to-lowercase(), "") != "suara" || "mata".replace-all(root.search-q.to-lowercase(), "") != "mata" || "auto-hide".replace-all(root.search-q.to-lowercase(), "") != "auto-hide" || "sembunyi".replace-all(root.search-q.to-lowercase(), "") != "sembunyi";
+    property <bool> show-radial: root.search-q == "" || "radial".replace-all(root.search-q.to-lowercase(), "") != "radial" || "menu".replace-all(root.search-q.to-lowercase(), "") != "menu";
 
     // Kategori sidebar (abeng, 28 Nov 07:05) — kategori tampil bila
     // minimal satu itemnya lolos filter search; label + separator
     // kategori ikut sembunyi bila kosong.
     //   APLIKASI: General, Appearance
-    //   AKUN: Account, Extensions
+    //   AKUN: Profile, Account, Extensions
+    //   FITUR: Dynamic Island, Radial Menu
     //   SKRIP & FILE: Script Manager, Paths
     //   INFO: About
     property <bool> cat-app-shown: root.show-general || root.show-appearance;
-    property <bool> cat-akun-shown: root.show-account || root.show-extensions;
+    property <bool> cat-akun-shown: root.show-profile || root.show-account || root.show-extensions;
+    property <bool> cat-fitur-shown: root.show-dynamic-island || root.show-radial;
     property <bool> cat-skrip-shown: root.show-scripts || root.show-paths;
     property <bool> cat-info-shown: root.show-about;
 
@@ -910,15 +930,14 @@ export component SettingsView inherits Rectangle {
 
     // --- General ---
     in-out property <string> user-name: "USER";
+    // Huruf pertama nama user (avatar) — terikat dua arah ke AppWindow.
+    in-out property <string> user-initial: "U";
     in-out property <string> lang: "Indonesia";
     in-out property <bool> anim-startup: true;
     in-out property <string> anim-speed: "Normal";
     in-out property <string> trello-interval: "60";
     // --- General (C# SettingsView.axaml:579-660) ---
     in-out property <string> batch-file-filter: "";
-    in-out property <bool> is-batch-visible: true;
-    in-out property <bool> is-folder-locker-visible: true;
-    in-out property <bool> is-output-explorer-visible: true;
 
     // --- Paths ---
     in-out property <string> path-local: "";
@@ -1052,91 +1071,134 @@ export component SettingsView inherits Rectangle {
                         }
                     }
                     Rectangle { height: root.sidebar-collapsed ? 0px : 8px; }
-                    // Kategori APLIKASI.
-                    SidebarCategoryLabel {
-                        label: "APLIKASI";
-                        shown: root.cat-app-shown;
-                        collapsed: root.sidebar-collapsed;
+                    // Daftar grup di-scroll (Flickable) — 10 grup + 5
+                    // kategori tidak muat di tinggi window default 640px
+                    // (About + tombol Ciutkan terpotong); judul, search,
+                    // dan tombol Ciutkan tetap di tempat.
+                    sidebar-scroll := Flickable {
+                        vertical-stretch: 1;
+                        VerticalLayout {
+                            width: sidebar-scroll.width;
+                            spacing: 2px;
+                            // Kategori APLIKASI.
+                            SidebarCategoryLabel {
+                                label: "APLIKASI";
+                                shown: root.cat-app-shown;
+                                collapsed: root.sidebar-collapsed;
+                            }
+                            GroupRow {
+                                icon: "settings";
+                                label: "General";
+                                selected: root.group == "General";
+                                shown: root.show-general;
+                                collapsed: root.sidebar-collapsed;
+                                clicked => { root.group = "General"; }
+                            }
+                            GroupRow {
+                                icon: "sun";
+                                label: "Appearance";
+                                selected: root.group == "Appearance";
+                                shown: root.show-appearance;
+                                collapsed: root.sidebar-collapsed;
+                                clicked => { root.group = "Appearance"; }
+                            }
+                            // Kategori AKUN.
+                            SidebarSeparator { shown: root.cat-app-shown && root.cat-akun-shown; }
+                            SidebarCategoryLabel {
+                                label: "AKUN";
+                                shown: root.cat-akun-shown;
+                                collapsed: root.sidebar-collapsed;
+                            }
+                            GroupRow {
+                                icon: "user";
+                                label: "Profile";
+                                selected: root.group == "Profile";
+                                shown: root.show-profile;
+                                collapsed: root.sidebar-collapsed;
+                                clicked => { root.group = "Profile"; }
+                            }
+                            GroupRow {
+                                icon: "grid";
+                                label: "Account";
+                                selected: root.group == "Account";
+                                shown: root.show-account;
+                                collapsed: root.sidebar-collapsed;
+                                clicked => { root.group = "Account"; }
+                            }
+                            GroupRow {
+                                icon: "puzzle";
+                                label: "Extensions";
+                                selected: root.group == "Extensions";
+                                shown: root.show-extensions;
+                                collapsed: root.sidebar-collapsed;
+                                clicked => { root.group = "Extensions"; }
+                            }
+                            // Kategori FITUR (grup khusus per fitur — abeng 28 Nov 11:04).
+                            SidebarSeparator { shown: root.cat-akun-shown && root.cat-fitur-shown; }
+                            SidebarCategoryLabel {
+                                label: "FITUR";
+                                shown: root.cat-fitur-shown;
+                                collapsed: root.sidebar-collapsed;
+                            }
+                            GroupRow {
+                                icon: "layers";
+                                label: "Dynamic Island";
+                                selected: root.group == "Dynamic Island";
+                                shown: root.show-dynamic-island;
+                                collapsed: root.sidebar-collapsed;
+                                clicked => { root.group = "Dynamic Island"; }
+                            }
+                            GroupRow {
+                                icon: "rotate-cw";
+                                label: "Radial Menu";
+                                selected: root.group == "Radial Menu";
+                                shown: root.show-radial;
+                                collapsed: root.sidebar-collapsed;
+                                clicked => { root.group = "Radial Menu"; }
+                            }
+                            // Kategori SKRIP & FILE.
+                            SidebarSeparator { shown: root.cat-fitur-shown && root.cat-skrip-shown; }
+                            SidebarCategoryLabel {
+                                label: "SKRIP & FILE";
+                                shown: root.cat-skrip-shown;
+                                collapsed: root.sidebar-collapsed;
+                            }
+                            GroupRow {
+                                icon: "zap";
+                                label: "Script Manager";
+                                selected: root.group == "Script Manager";
+                                shown: root.show-scripts;
+                                collapsed: root.sidebar-collapsed;
+                                clicked => { root.group = "Script Manager"; }
+                            }
+                            GroupRow {
+                                icon: "folder-open";
+                                label: "Paths";
+                                selected: root.group == "Paths";
+                                shown: root.show-paths;
+                                collapsed: root.sidebar-collapsed;
+                                clicked => { root.group = "Paths"; }
+                            }
+                            // Kategori INFO.
+                            SidebarSeparator { shown: root.cat-skrip-shown && root.cat-info-shown; }
+                            SidebarCategoryLabel {
+                                label: "INFO";
+                                shown: root.cat-info-shown;
+                                collapsed: root.sidebar-collapsed;
+                            }
+                            GroupRow {
+                                icon: "info";
+                                label: "About";
+                                selected: root.group == "About";
+                                shown: root.show-about;
+                                collapsed: root.sidebar-collapsed;
+                                clicked => { root.group = "About"; }
+                            }
+                        }
                     }
-                    GroupRow {
-                        icon: "settings";
-                        label: "General";
-                        selected: root.group == "General";
-                        shown: root.show-general;
-                        collapsed: root.sidebar-collapsed;
-                        clicked => { root.group = "General"; }
-                    }
-                    GroupRow {
-                        icon: "sun";
-                        label: "Appearance";
-                        selected: root.group == "Appearance";
-                        shown: root.show-appearance;
-                        collapsed: root.sidebar-collapsed;
-                        clicked => { root.group = "Appearance"; }
-                    }
-                    // Kategori AKUN.
-                    SidebarSeparator { shown: root.cat-app-shown && root.cat-akun-shown; }
-                    SidebarCategoryLabel {
-                        label: "AKUN";
-                        shown: root.cat-akun-shown;
-                        collapsed: root.sidebar-collapsed;
-                    }
-                    GroupRow {
-                        icon: "user";
-                        label: "Account";
-                        selected: root.group == "Account";
-                        shown: root.show-account;
-                        collapsed: root.sidebar-collapsed;
-                        clicked => { root.group = "Account"; }
-                    }
-                    GroupRow {
-                        icon: "puzzle";
-                        label: "Extensions";
-                        selected: root.group == "Extensions";
-                        shown: root.show-extensions;
-                        collapsed: root.sidebar-collapsed;
-                        clicked => { root.group = "Extensions"; }
-                    }
-                    // Kategori SKRIP & FILE.
-                    SidebarSeparator { shown: root.cat-akun-shown && root.cat-skrip-shown; }
-                    SidebarCategoryLabel {
-                        label: "SKRIP & FILE";
-                        shown: root.cat-skrip-shown;
-                        collapsed: root.sidebar-collapsed;
-                    }
-                    GroupRow {
-                        icon: "zap";
-                        label: "Script Manager";
-                        selected: root.group == "Script Manager";
-                        shown: root.show-scripts;
-                        collapsed: root.sidebar-collapsed;
-                        clicked => { root.group = "Script Manager"; }
-                    }
-                    GroupRow {
-                        icon: "folder-open";
-                        label: "Paths";
-                        selected: root.group == "Paths";
-                        shown: root.show-paths;
-                        collapsed: root.sidebar-collapsed;
-                        clicked => { root.group = "Paths"; }
-                    }
-                    // Kategori INFO.
-                    SidebarSeparator { shown: root.cat-skrip-shown && root.cat-info-shown; }
-                    SidebarCategoryLabel {
-                        label: "INFO";
-                        shown: root.cat-info-shown;
-                        collapsed: root.sidebar-collapsed;
-                    }
-                    GroupRow {
-                        icon: "info";
-                        label: "About";
-                        selected: root.group == "About";
-                        shown: root.show-about;
-                        collapsed: root.sidebar-collapsed;
-                        clicked => { root.group = "About"; }
-                    }
-                    // Spacer dorong tombol ciut ke bawah sidebar.
-                    Rectangle { vertical-stretch: 1; }
+                    // (Spacer lama dihapus — Flickable di atas sudah
+                    // vertical-stretch: 1 sehingga tombol Ciutkan
+                    // tetap terdorong ke bawah sidebar.)
                     // Tombol ciutkan/lebarkan sidebar (rail ikon saja
                     // saat ciut — ref settings-collapse-ref.jpg).
                     // Selalu terlihat (ikon saja saat ciut).
@@ -1951,171 +2013,6 @@ export component SettingsView inherits Rectangle {
                             }
                         }
 
-                        // Notch hidup (rework 27 Nov 2026, referensi
-                        // Nusa): mode Notch / Avatar Pet + voice SAPI
-                        // (Windows). Semua perubahan disimpan +
-                        // diterapkan langsung tanpa restart.
-                        SettingRow {
-                            title: "Notch";
-                            desc: "Notch hidup di atas layar — pill hitam kecil berisi mata; hover untuk mengembang. Mode Avatar Pet: maskot bisa di-drag ke mana saja dan bergerak sendiri";
-                            stacked: root.stacked;
-                            HorizontalLayout {
-                                spacing: 6px;
-                                OptionChip {
-                                    label: "Notch";
-                                    horizontal-stretch: 1;
-                                    selected: root.notch-mode == "notch";
-                                    clicked => { root.notch-mode = "notch"; root.notch-settings-changed(); root.toast("Mode notch: Notch"); }
-                                }
-                                OptionChip {
-                                    label: "Avatar Pet";
-                                    horizontal-stretch: 1;
-                                    selected: root.notch-mode == "pet";
-                                    clicked => { root.notch-mode = "pet"; root.notch-settings-changed(); root.toast("Mode notch: Avatar Pet"); }
-                                }
-                            }
-                        }
-
-                        // Gaya mata notch + blob pet bawaan (bukan
-                        // sprite PetDex). Nusa = oval putih bercahaya
-                        // (bawaan); Baymax = dua titik yang
-                        // dihubungkan garis (ref eyes-ref.gif —
-                        // warnanya dibalik jadi putih supaya terbaca
-                        // di atas pill hitam); Bulat = lingkaran
-                        // putih besar tanpa glow.
-                        SettingRow {
-                            title: "Gaya mata";
-                            desc: "Bentuk mata maskot di notch dan blob pet bawaan — berlaku langsung tanpa restart";
-                            stacked: root.stacked;
-                            HorizontalLayout {
-                                spacing: 6px;
-                                OptionChip {
-                                    label: "Nusa";
-                                    horizontal-stretch: 1;
-                                    selected: root.notch-eye-style == "nusa";
-                                    clicked => { root.notch-eye-style = "nusa"; root.notch-settings-changed(); root.toast("Gaya mata: Nusa"); }
-                                }
-                                OptionChip {
-                                    label: "Baymax";
-                                    horizontal-stretch: 1;
-                                    selected: root.notch-eye-style == "baymax";
-                                    clicked => { root.notch-eye-style = "baymax"; root.notch-settings-changed(); root.toast("Gaya mata: Baymax"); }
-                                }
-                                OptionChip {
-                                    label: "Bulat";
-                                    horizontal-stretch: 1;
-                                    selected: root.notch-eye-style == "bulat";
-                                    clicked => { root.notch-eye-style = "bulat"; root.notch-settings-changed(); root.toast("Gaya mata: Bulat"); }
-                                }
-                            }
-                        }
-
-                        // Pet PetDex (galeri petdex.dev — model
-                        // skill Hermes): install dari galeri, pilih
-                        // aktif, hapus. Pet aktif tampil di mode
-                        // Avatar Pet (bukan di pill notch). Blob
-                        // bawaan = default bila belum ada pet.
-                        // ComboBox = baris SettingRow (label kiri);
-                        // install + daftar pet ter-install tetap
-                        // full-width di bawahnya (daftar butuh lebar).
-                        VerticalLayout {
-                            spacing: 6px;
-                            SettingRow {
-                                title: "Pet";
-                                desc: "Maskot mode Avatar Pet — blob bawaan, atau pet animasi dari galeri PetDex (gratis, 5340+ pet). Ketik slug atau nama pet, lalu Install. Kredit pembuat tampil di bawah nama.";
-                                stacked: root.stacked;
-                                ComboBox {
-                                    width: root.stacked ? parent.width : 260px;
-                                    model: root.pet-names;
-                                    current-index: root.pet-active-index;
-                                    selected(index) => {
-                                        root.pet-active-index = index;
-                                        root.pet-active-changed(index);
-                                        root.toast("Pet aktif: " + root.pet-names[index]);
-                                    }
-                                }
-                            }
-                            HorizontalLayout {
-                                spacing: 8px;
-                                TextField {
-                                    horizontal-stretch: 1;
-                                    text <=> root.pet-install-input;
-                                    placeholder: "slug atau nama pet, misal: boba";
-                                    accepted(text) => {
-                                        root.pet-install-requested(text);
-                                    }
-                                }
-                                Btn {
-                                    label: root.pet-install-busy ? "Mengunduh…" : "Install";
-                                    variant: "secondary";
-                                    enabled: !root.pet-install-busy;
-                                    clicked => { root.pet-install-requested(root.pet-install-input); }
-                                }
-                            }
-                            for pet[i] in root.pet-installed-slugs : PetRow {
-                                label: root.pet-installed-names[i];
-                                author: root.pet-installed-authors[i];
-                                selected: root.pet-active-index == i + 1;
-                                clicked => {
-                                    root.pet-active-index = i + 1;
-                                    root.pet-active-changed(i + 1);
-                                    root.toast("Pet aktif: " + root.pet-installed-names[i]);
-                                }
-                                delete => { root.pet-remove-requested(i); }
-                                open => { root.pet-open-page(i); }
-                            }
-                        }
-
-                        SettingRow {
-                            title: "Suara maskot";
-                            desc: "Maskot bicara saat ada kartu baru masuk atau poin bertambah (Windows SAPI — offline, gratis; di Linux tidak ada suara)";
-                            stacked: root.stacked;
-                            Toggle {
-                                toggle-style: root.toggle-style;
-                                checked: root.notch-voice-enabled;
-                                toggled(checked) => { root.notch-voice-enabled = checked; root.notch-settings-changed(); root.toast(checked ? "Suara maskot nyala" : "Suara maskot mati"); }
-                            }
-                        }
-
-                        SettingRow {
-                            title: "Pilih suara";
-                            desc: "Suara Windows yang terpasang — Otomatis memakai Bahasa Indonesia bila ada";
-                            stacked: root.stacked;
-                            ComboBox {
-                                width: root.stacked ? parent.width : 260px;
-                                model: root.notch-voices;
-                                current-index: root.notch-voice-index;
-                                selected(index) => {
-                                    root.notch-voice-index = index;
-                                    root.notch-settings-changed();
-                                    root.toast("Suara: " + (index == 0 ? "Otomatis" : root.notch-voices[index]));
-                                }
-                            }
-                        }
-
-                        SettingRow {
-                            title: "Volume suara";
-                            desc: "Keras suara maskot, 0–100";
-                            stacked: root.stacked;
-                            HorizontalLayout {
-                                spacing: 8px;
-                                TextField {
-                                    width: 80px;
-                                    text: root.notch-voice-volume;
-                                    placeholder: "80";
-                                    edited(text) => { root.notch-voice-volume = text; }
-                                    accepted(text) => {
-                                        root.notch-settings-changed();
-                                        root.toast("Volume suara: " + text);
-                                    }
-                                }
-                                Btn {
-                                    label: "Tes suara";
-                                    variant: "secondary";
-                                    clicked => { root.test-notch-voice(); }
-                                }
-                            }
-                        }
 
                         // Corner Radius & Nav Pill Style
                         SettingRow {
@@ -3133,181 +3030,7 @@ export component SettingsView inherits Rectangle {
                             }
                         }
 
-                        Card {
-                            VerticalLayout {
-                                padding: Design.space-lg;
-                                spacing: Design.space-md;
-                                Text {
-                                    text: "RADIAL WHEEL SLOTS (8 ARAH TRIGONOMETRI)";
-                                    font-size: Design.font-h3;
-                                    font-weight: 700;
-                                    letter-spacing: 1px;
-                                    color: Design.text-primary;
-                                    wrap: word-wrap;
-                                }
-                                Text {
-                                    text: "Pratinjau roda live 1:1 — 7 slot skrip + 1 navigasi More/Back di posisi 180° (Selatan)";
-                                    font-size: Design.font-caption;
-                                    color: Design.text-muted;
-                                    wrap: word-wrap;
-                                }
-
-                                // Lebar: roda + rincian berdampingan.
-                                // Menumpuk (520px): roda di atas (tengah),
-                                // 8 chip rincian penuh lebar di bawah —
-                                // berdampingan butuh ~500px, konten 520px
-                                // cuma 256px.
-                                if !root.stacked : HorizontalLayout {
-                                    spacing: Design.space-lg;
-                                    RadialWheelPreview { }
-                                    VerticalLayout {
-                                        horizontal-stretch: 1;
-                                        spacing: 4px;
-                                        HorizontalLayout {
-                                            spacing: 6px;
-                                            SlotChip { label: "0° (Utara): SEND-LOGO [Sub]"; accent-text: true; width: 140px; }
-                                            SlotChip { label: "45° (NE): SEND-TEXT [Sub]"; accent-text: true; width: 140px; }
-                                        }
-                                        HorizontalLayout {
-                                            spacing: 6px;
-                                            SlotChip { label: "90° (Timur): TOOLBOX [Grup]"; accent-text: true; width: 140px; }
-                                            SlotChip { label: "135° (SE): CROP-CENTER"; width: 140px; }
-                                        }
-                                        HorizontalLayout {
-                                            spacing: 6px;
-                                            SlotChip { label: "180° (Selatan): MORE (Nav)"; more: true; width: 140px; }
-                                            SlotChip { label: "225° (SW): COLOR-MATCH"; width: 140px; }
-                                        }
-                                        HorizontalLayout {
-                                            spacing: 6px;
-                                            SlotChip { label: "270° (Barat): AUTO-SAVE"; width: 140px; }
-                                            SlotChip { label: "315° (NW): EXPORT-JPG"; width: 140px; }
-                                        }
-                                    }
-                                }
-                                if root.stacked : VerticalLayout {
-                                    spacing: Design.space-md;
-                                    HorizontalLayout {
-                                        alignment: center;
-                                        RadialWheelPreview { }
-                                    }
-                                    VerticalLayout {
-                                        spacing: 4px;
-                                        SlotChip { label: "0° (Utara): SEND-LOGO [Sub]"; accent-text: true; }
-                                        SlotChip { label: "45° (NE): SEND-TEXT [Sub]"; accent-text: true; }
-                                        SlotChip { label: "90° (Timur): TOOLBOX [Grup]"; accent-text: true; }
-                                        SlotChip { label: "135° (SE): CROP-CENTER"; }
-                                        SlotChip { label: "180° (Selatan): MORE (Nav)"; more: true; }
-                                        SlotChip { label: "225° (SW): COLOR-MATCH"; }
-                                        SlotChip { label: "270° (Barat): AUTO-SAVE"; }
-                                        SlotChip { label: "315° (NW): EXPORT-JPG"; }
-                                    }
-                                }
-                            }
-                        }
-
-                        Card {
-                            VerticalLayout {
-                                padding: Design.space-lg;
-                                spacing: Design.space-md;
-                                Text {
-                                    text: "GAYA & SEGMEN RADIAL";
-                                    font-size: Design.font-h3;
-                                    font-weight: 700;
-                                    letter-spacing: 1px;
-                                    color: Design.text-primary;
-                                    wrap: word-wrap;
-                                }
-                                Text {
-                                    text: "Segmen radial mengikuti warna aksen tema aktif (Spider = merah, Gwen = pink) — berlaku langsung tanpa restart";
-                                    font-size: Design.font-caption;
-                                    color: Design.text-muted;
-                                    wrap: word-wrap;
-                                }
-
-                                // Gaya ring radial: Kaca = ring kaca
-                                // gelap transparan; HUD = outline tipis
-                                // + glow aksen di segmen aktif; Flat =
-                                // datar tanpa kaca/glow.
-                                SettingRow {
-                                    title: "Gaya radial";
-                                    desc: "Kaca = ring kaca gelap; HUD = outline tipis + glow aksen; Flat = datar tanpa glow";
-                                    stacked: root.stacked;
-                                    HorizontalLayout {
-                                        spacing: 6px;
-                                        OptionChip {
-                                            label: "Kaca";
-                                            horizontal-stretch: 1;
-                                            selected: root.radial-style == "glass";
-                                            clicked => { root.radial-style = "glass"; root.radial-settings-changed(); root.toast("Gaya radial: Kaca"); }
-                                        }
-                                        OptionChip {
-                                            label: "HUD";
-                                            horizontal-stretch: 1;
-                                            selected: root.radial-style == "hud";
-                                            clicked => { root.radial-style = "hud"; root.radial-settings-changed(); root.toast("Gaya radial: HUD"); }
-                                        }
-                                        OptionChip {
-                                            label: "Flat";
-                                            horizontal-stretch: 1;
-                                            selected: root.radial-style == "flat";
-                                            clicked => { root.radial-style = "flat"; root.radial-settings-changed(); root.toast("Gaya radial: Flat"); }
-                                        }
-                                    }
-                                }
-
-                                // Jumlah segmen ring (split rule): ring
-                                // dibagi N segmen sama rata; segmen
-                                // terakhir selalu navigasi (More/Back).
-                                // 9–12 baru terbuka bila slot radial
-                                // bisa diedit user.
-                                SettingRow {
-                                    title: "Jumlah segmen";
-                                    desc: "Ring dibagi sama rata sesuai jumlah segmen — segmen terakhir selalu More/Back";
-                                    stacked: root.stacked;
-                                    HorizontalLayout {
-                                        spacing: 6px;
-                                        OptionChip {
-                                            label: "2";
-                                            horizontal-stretch: 1;
-                                            selected: root.radial-segments == 2;
-                                            clicked => { root.radial-segments = 2; root.radial-settings-changed(); root.toast("Segmen radial: 2"); }
-                                        }
-                                        OptionChip {
-                                            label: "3";
-                                            horizontal-stretch: 1;
-                                            selected: root.radial-segments == 3;
-                                            clicked => { root.radial-segments = 3; root.radial-settings-changed(); root.toast("Segmen radial: 3"); }
-                                        }
-                                        OptionChip {
-                                            label: "4";
-                                            horizontal-stretch: 1;
-                                            selected: root.radial-segments == 4;
-                                            clicked => { root.radial-segments = 4; root.radial-settings-changed(); root.toast("Segmen radial: 4"); }
-                                        }
-                                        OptionChip {
-                                            label: "5";
-                                            horizontal-stretch: 1;
-                                            selected: root.radial-segments == 5;
-                                            clicked => { root.radial-segments = 5; root.radial-settings-changed(); root.toast("Segmen radial: 5"); }
-                                        }
-                                        OptionChip {
-                                            label: "6";
-                                            horizontal-stretch: 1;
-                                            selected: root.radial-segments == 6;
-                                            clicked => { root.radial-segments = 6; root.radial-settings-changed(); root.toast("Segmen radial: 6"); }
-                                        }
-                                        OptionChip {
-                                            label: "8";
-                                            horizontal-stretch: 1;
-                                            selected: root.radial-segments == 8;
-                                            clicked => { root.radial-segments = 8; root.radial-settings-changed(); root.toast("Segmen radial: 8"); }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                }
                 }
 
                 // ===== GENERAL =====
@@ -3338,19 +3061,6 @@ export component SettingsView inherits Rectangle {
                             color: Design.text-primary;
                         }
 
-                        SettingRow {
-                            title: "Nama user";
-                            desc: "Nama yang tampil di profil & log";
-                            stacked: root.stacked;
-                            TextField {
-                                // Secukupnya (260px) saat lebar, penuh saat menumpuk.
-                                width: root.stacked ? parent.width : 260px;
-                                text: root.user-name;
-                                placeholder: "Nama user";
-                                edited(text) => { root.user-name = text; }
-                                accepted(text) => { root.toast("Disimpan: Nama user"); }
-                            }
-                        }
                         SettingRow {
                             title: "Bahasa";
                             desc: "Bahasa antarmuka aplikasi";
@@ -3475,139 +3185,6 @@ export component SettingsView inherits Rectangle {
                                         label: "Import";
                                         variant: "secondary";
                                         clicked => { root.import-database(); }
-                                    }
-                                }
-                            }
-                        }
-                        // Visibilitas: toggle HANYA mengubah properti; penyimpanan
-                        // lewat tombol Simpan (pola C# General.Save).
-                        // Catatan 27 Nov 2026: auto-save per-toggle sengaja
-                        // tidak dipakai di sini (cukup Simpan). Toggle ini
-                        // sempat diduga "tidak merespons", ternyata klik tes
-                        // meleset 27px ke kiri track (x=890, track 896-939)
-                        // — bukan bug aplikasi.
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Visibilitas dashboard"; desc: "Tampilkan / sembunyikan bagian dashboard"; }
-                            HorizontalLayout {
-                                spacing: 8px;
-                                Text {
-                                    text: "Tampilkan Batch";
-                                    font-size: Design.font-body;
-                                    color: Design.text-primary;
-                                    vertical-alignment: center;
-                                    horizontal-stretch: 1;
-                                }
-                                Toggle {
-                                    toggle-style: root.toggle-style;
-                                    checked: root.is-batch-visible;
-                                    toggled(checked) => {
-                                        root.is-batch-visible = checked;
-                                    }
-                                }
-                            }
-                            HorizontalLayout {
-                                spacing: 8px;
-                                Text {
-                                    text: "Tampilkan Folder Locker";
-                                    font-size: Design.font-body;
-                                    color: Design.text-primary;
-                                    vertical-alignment: center;
-                                    horizontal-stretch: 1;
-                                }
-                                Toggle {
-                                    toggle-style: root.toggle-style;
-                                    checked: root.is-folder-locker-visible;
-                                    toggled(checked) => {
-                                        root.is-folder-locker-visible = checked;
-                                    }
-                                }
-                            }
-                            HorizontalLayout {
-                                spacing: 8px;
-                                Text {
-                                    text: "Tampilkan Output Explorer";
-                                    font-size: Design.font-body;
-                                    color: Design.text-primary;
-                                    vertical-alignment: center;
-                                    horizontal-stretch: 1;
-                                }
-                                Toggle {
-                                    toggle-style: root.toggle-style;
-                                    checked: root.is-output-explorer-visible;
-                                    toggled(checked) => {
-                                        root.is-output-explorer-visible = checked;
-                                    }
-                                }
-                            }
-                        }
-                        SettingRow {
-                            title: "Shortcut menu";
-                            desc: "Shortcut global membuka radial tepat di posisi cursor";
-                            stacked: root.stacked;
-                            VerticalLayout {
-                                spacing: 8px;
-                                Text {
-                                    text: root.recording-shortcut ? "MENUNGGU INPUT — tekan kombinasi keyboard / tombol mouse. Esc untuk batal." : "Shortcut saat ini:";
-                                    font-size: Design.font-caption;
-                                    color: root.recording-shortcut ? Design.accent : Design.text-muted;
-                                    wrap: word-wrap;
-                                }
-                                // Lebar: kotak + tombol berdampingan
-                                // saat lebar; menumpuk (kotak penuh +
-                                // tombol penuh) saat sempit — berdampingan
-                                // butuh ~390px, konten 520px cuma 256px.
-                                if !root.stacked : HorizontalLayout {
-                                    spacing: Design.space-sm;
-                                    Rectangle {
-                                        width: 260px;
-                                        height: 36px;
-                                        background: Design.bg-hover;
-                                        border-color: root.recording-shortcut ? Design.accent : Design.separator;
-                                        border-width: 1px;
-                                        border-radius: Design.radius-sm;
-                                        Text {
-                                            text: root.recording-shortcut ? "MENUNGGU INPUT…" : root.current-shortcut-label;
-                                            font-size: Design.font-button;
-                                            font-weight: 700;
-                                            color: root.recording-shortcut ? Design.accent : Design.text-primary;
-                                            horizontal-alignment: center;
-                                            vertical-alignment: center;
-                                        }
-                                    }
-                                    Btn {
-                                        label: root.recording-shortcut ? "Batal" : "Rekam Shortcut";
-                                        variant: root.recording-shortcut ? "secondary" : "primary";
-                                        clicked => {
-                                            if (root.recording-shortcut) { root.cancel-recording-shortcut(); }
-                                            else { root.start-recording-shortcut(); }
-                                        }
-                                    }
-                                }
-                                if root.stacked : VerticalLayout {
-                                    spacing: 8px;
-                                    Rectangle {
-                                        height: 36px;
-                                        background: Design.bg-hover;
-                                        border-color: root.recording-shortcut ? Design.accent : Design.separator;
-                                        border-width: 1px;
-                                        border-radius: Design.radius-sm;
-                                        Text {
-                                            text: root.recording-shortcut ? "MENUNGGU INPUT…" : root.current-shortcut-label;
-                                            font-size: Design.font-button;
-                                            font-weight: 700;
-                                            color: root.recording-shortcut ? Design.accent : Design.text-primary;
-                                            horizontal-alignment: center;
-                                            vertical-alignment: center;
-                                        }
-                                    }
-                                    Btn {
-                                        label: root.recording-shortcut ? "Batal" : "Rekam Shortcut";
-                                        variant: root.recording-shortcut ? "secondary" : "primary";
-                                        clicked => {
-                                            if (root.recording-shortcut) { root.cancel-recording-shortcut(); }
-                                            else { root.start-recording-shortcut(); }
-                                        }
                                     }
                                 }
                             }
@@ -3793,6 +3370,628 @@ export component SettingsView inherits Rectangle {
                                     label: "Browse";
                                     variant: "secondary";
                                     clicked => { root.browse-path("profesi"); }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ===== DYNAMIC ISLAND =====
+                sv-dynamic-island := Flickable {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    visible: root.group == "Dynamic Island";
+                    VerticalLayout {
+                        x: 0; width: content-rect.width;
+                        // Isi rapat di atas (alignment start): tanpa ini,
+                        // konten yang lebih pendek dari viewport
+                        // direnggangkan ke tinggi penuh — lih. DESIGN_SYSTEM §17.4.
+                        alignment: start;
+                        spacing: Design.space-lg;
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        padding-top: 16px;
+                        padding-bottom: Design.space-lg;
+
+                        Text {
+                            text: "Dynamic Island";
+                            font-size: Design.font-h3;
+                            font-weight: 800;
+                            color: Design.text-primary;
+                        }
+
+                        Text {
+                            text: "Behavior";
+                            font-size: Design.font-h3;
+                            font-weight: 700;
+                            color: Design.text-primary;
+                        }
+
+                        SettingRow {
+                            title: "Dynamic Island";
+                            desc: "Tampilkan notch hidup di atas layar — matikan untuk menyembunyikan pill / maskot";
+                            stacked: root.stacked;
+                            Toggle {
+                                toggle-style: root.toggle-style;
+                                checked: root.dynamic-bar-visible;
+                                toggled(checked) => {
+                                    if (checked) { root.open-dynamic-bar(); root.toast("Dynamic Island nyala"); }
+                                    else { root.hide-dynamic-bar(); root.toast("Dynamic Island mati"); }
+                                }
+                            }
+                        }
+
+                        // Auto-hide ala layzee (abeng 28 Nov 11:58,
+                        // video TikTok @mr.deeal + frame screenshot):
+                        // window lain maksimal → garis tipis 4px;
+                        // fullscreen (video/game) → hilang total.
+                        SettingRow {
+                            title: "Auto-hide";
+                            desc: "Notch mengecil jadi garis tipis saat ada window maksimal, dan hilang total saat fullscreen (video / game) — seperti layzee; matikan untuk selalu tampil";
+                            stacked: root.stacked;
+                            Toggle {
+                                toggle-style: root.toggle-style;
+                                checked: root.notch-auto-hide;
+                                toggled(checked) => {
+                                    root.notch-auto-hide = checked;
+                                    root.notch-settings-changed();
+                                    root.toast(checked ? "Auto-hide nyala" : "Auto-hide mati");
+                                }
+                            }
+                        }
+
+                        // Notch hidup (rework 27 Nov 2026, referensi
+                        // Nusa): mode Notch / Avatar Pet + voice SAPI
+                        // (Windows). Semua perubahan disimpan +
+                        // diterapkan langsung tanpa restart.
+                        SettingRow {
+                            title: "Mode";
+                            desc: "Notch = pill hitam kecil berisi mata di atas layar; Avatar Pet = maskot bisa di-drag ke mana saja dan bergerak sendiri";
+                            stacked: root.stacked;
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OptionChip {
+                                    label: "Notch";
+                                    horizontal-stretch: 1;
+                                    selected: root.notch-mode == "notch";
+                                    clicked => { root.notch-mode = "notch"; root.notch-settings-changed(); root.toast("Mode notch: Notch"); }
+                                }
+                                OptionChip {
+                                    label: "Avatar Pet";
+                                    horizontal-stretch: 1;
+                                    selected: root.notch-mode == "pet";
+                                    clicked => { root.notch-mode = "pet"; root.notch-settings-changed(); root.toast("Mode notch: Avatar Pet"); }
+                                }
+                            }
+                        }
+
+                        
+
+                        Text {
+                            text: "Tampilan";
+                            font-size: Design.font-h3;
+                            font-weight: 700;
+                            color: Design.text-primary;
+                        }
+
+                        // Gaya mata notch + blob pet bawaan (bukan
+                        // sprite PetDex). Nusa = oval putih bercahaya
+                        // (bawaan); Baymax = dua titik yang
+                        // dihubungkan garis (ref eyes-ref.gif —
+                        // warnanya dibalik jadi putih supaya terbaca
+                        // di atas pill hitam); Bulat = lingkaran
+                        // putih besar tanpa glow.
+                        SettingRow {
+                            title: "Gaya mata";
+                            desc: "Bentuk mata maskot di notch dan blob pet bawaan — berlaku langsung tanpa restart";
+                            stacked: root.stacked;
+                            HorizontalLayout {
+                                spacing: 6px;
+                                OptionChip {
+                                    label: "Nusa";
+                                    horizontal-stretch: 1;
+                                    selected: root.notch-eye-style == "nusa";
+                                    clicked => { root.notch-eye-style = "nusa"; root.notch-settings-changed(); root.toast("Gaya mata: Nusa"); }
+                                }
+                                OptionChip {
+                                    label: "Baymax";
+                                    horizontal-stretch: 1;
+                                    selected: root.notch-eye-style == "baymax";
+                                    clicked => { root.notch-eye-style = "baymax"; root.notch-settings-changed(); root.toast("Gaya mata: Baymax"); }
+                                }
+                                OptionChip {
+                                    label: "Bulat";
+                                    horizontal-stretch: 1;
+                                    selected: root.notch-eye-style == "bulat";
+                                    clicked => { root.notch-eye-style = "bulat"; root.notch-settings-changed(); root.toast("Gaya mata: Bulat"); }
+                                }
+                            }
+                        }
+
+                        
+
+                        Text {
+                            text: "Suara";
+                            font-size: Design.font-h3;
+                            font-weight: 700;
+                            color: Design.text-primary;
+                        }
+
+                        SettingRow {
+                            title: "Suara maskot";
+                            desc: "Maskot bicara saat ada kartu baru masuk atau poin bertambah (Windows SAPI — offline, gratis; di Linux tidak ada suara)";
+                            stacked: root.stacked;
+                            Toggle {
+                                toggle-style: root.toggle-style;
+                                checked: root.notch-voice-enabled;
+                                toggled(checked) => { root.notch-voice-enabled = checked; root.notch-settings-changed(); root.toast(checked ? "Suara maskot nyala" : "Suara maskot mati"); }
+                            }
+                        }
+
+                        SettingRow {
+                            title: "Pilih suara";
+                            desc: "Suara Windows yang terpasang — Otomatis memakai Bahasa Indonesia bila ada";
+                            stacked: root.stacked;
+                            ComboBox {
+                                width: root.stacked ? parent.width : 260px;
+                                model: root.notch-voices;
+                                current-index: root.notch-voice-index;
+                                selected(index) => {
+                                    root.notch-voice-index = index;
+                                    root.notch-settings-changed();
+                                    root.toast("Suara: " + (index == 0 ? "Otomatis" : root.notch-voices[index]));
+                                }
+                            }
+                        }
+
+                        SettingRow {
+                            title: "Volume suara";
+                            desc: "Keras suara maskot, 0–100";
+                            stacked: root.stacked;
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField {
+                                    width: 80px;
+                                    text: root.notch-voice-volume;
+                                    placeholder: "80";
+                                    edited(text) => { root.notch-voice-volume = text; }
+                                    accepted(text) => {
+                                        root.notch-settings-changed();
+                                        root.toast("Volume suara: " + text);
+                                    }
+                                }
+                                Btn {
+                                    label: "Tes suara";
+                                    variant: "secondary";
+                                    clicked => { root.test-notch-voice(); }
+                                }
+                            }
+                        }
+
+                        Text {
+                            text: "Pet";
+                            font-size: Design.font-h3;
+                            font-weight: 700;
+                            color: Design.text-primary;
+                        }
+
+                        // Pet PetDex (galeri petdex.dev — model
+                        // skill Hermes): install dari galeri, pilih
+                        // aktif, hapus. Pet aktif tampil di mode
+                        // Avatar Pet (bukan di pill notch). Blob
+                        // bawaan = default bila belum ada pet.
+                        // ComboBox = baris SettingRow (label kiri);
+                        // install + daftar pet ter-install tetap
+                        // full-width di bawahnya (daftar butuh lebar).
+                        VerticalLayout {
+                            spacing: 6px;
+                            SettingRow {
+                                title: "Pet";
+                                desc: "Maskot mode Avatar Pet — blob bawaan, atau pet animasi dari galeri PetDex (gratis, 5340+ pet). Ketik slug atau nama pet, lalu Install. Kredit pembuat tampil di bawah nama.";
+                                stacked: root.stacked;
+                                ComboBox {
+                                    width: root.stacked ? parent.width : 260px;
+                                    model: root.pet-names;
+                                    current-index: root.pet-active-index;
+                                    selected(index) => {
+                                        root.pet-active-index = index;
+                                        root.pet-active-changed(index);
+                                        root.toast("Pet aktif: " + root.pet-names[index]);
+                                    }
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField {
+                                    horizontal-stretch: 1;
+                                    text <=> root.pet-install-input;
+                                    placeholder: "slug atau nama pet, misal: boba";
+                                    accepted(text) => {
+                                        root.pet-install-requested(text);
+                                    }
+                                }
+                                Btn {
+                                    label: root.pet-install-busy ? "Mengunduh…" : "Install";
+                                    variant: "secondary";
+                                    enabled: !root.pet-install-busy;
+                                    clicked => { root.pet-install-requested(root.pet-install-input); }
+                                }
+                            }
+                            for pet[i] in root.pet-installed-slugs : PetRow {
+                                label: root.pet-installed-names[i];
+                                author: root.pet-installed-authors[i];
+                                selected: root.pet-active-index == i + 1;
+                                clicked => {
+                                    root.pet-active-index = i + 1;
+                                    root.pet-active-changed(i + 1);
+                                    root.toast("Pet aktif: " + root.pet-installed-names[i]);
+                                }
+                                delete => { root.pet-remove-requested(i); }
+                                open => { root.pet-open-page(i); }
+                            }
+                        }
+
+                    }
+                }
+
+                // ===== RADIAL MENU =====
+                sv-radial-menu := Flickable {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    visible: root.group == "Radial Menu";
+                    VerticalLayout {
+                        x: 0; width: content-rect.width;
+                        // Isi rapat di atas (alignment start): tanpa ini,
+                        // konten yang lebih pendek dari viewport
+                        // direnggangkan ke tinggi penuh — lih. DESIGN_SYSTEM §17.4.
+                        alignment: start;
+                        spacing: Design.space-lg;
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        padding-top: 16px;
+                        padding-bottom: Design.space-lg;
+
+                        Text {
+                            text: "Radial Menu";
+                            font-size: Design.font-h3;
+                            font-weight: 800;
+                            color: Design.text-primary;
+                        }
+
+                        Card {
+                            VerticalLayout {
+                                padding: Design.space-lg;
+                                spacing: Design.space-md;
+                                Text {
+                                    text: "RADIAL WHEEL SLOTS (8 ARAH TRIGONOMETRI)";
+                                    font-size: Design.font-h3;
+                                    font-weight: 700;
+                                    letter-spacing: 1px;
+                                    color: Design.text-primary;
+                                    wrap: word-wrap;
+                                }
+                                Text {
+                                    text: "Pratinjau roda live 1:1 — 7 slot skrip + 1 navigasi More/Back di posisi 180° (Selatan)";
+                                    font-size: Design.font-caption;
+                                    color: Design.text-muted;
+                                    wrap: word-wrap;
+                                }
+
+                                // Lebar: roda + rincian berdampingan.
+                                // Menumpuk (520px): roda di atas (tengah),
+                                // 8 chip rincian penuh lebar di bawah —
+                                // berdampingan butuh ~500px, konten 520px
+                                // cuma 256px.
+                                if !root.stacked : HorizontalLayout {
+                                    spacing: Design.space-lg;
+                                    RadialWheelPreview { }
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        spacing: 4px;
+                                        HorizontalLayout {
+                                            spacing: 6px;
+                                            SlotChip { label: "0° (Utara): SEND-LOGO [Sub]"; accent-text: true; width: 140px; }
+                                            SlotChip { label: "45° (NE): SEND-TEXT [Sub]"; accent-text: true; width: 140px; }
+                                        }
+                                        HorizontalLayout {
+                                            spacing: 6px;
+                                            SlotChip { label: "90° (Timur): TOOLBOX [Grup]"; accent-text: true; width: 140px; }
+                                            SlotChip { label: "135° (SE): CROP-CENTER"; width: 140px; }
+                                        }
+                                        HorizontalLayout {
+                                            spacing: 6px;
+                                            SlotChip { label: "180° (Selatan): MORE (Nav)"; more: true; width: 140px; }
+                                            SlotChip { label: "225° (SW): COLOR-MATCH"; width: 140px; }
+                                        }
+                                        HorizontalLayout {
+                                            spacing: 6px;
+                                            SlotChip { label: "270° (Barat): AUTO-SAVE"; width: 140px; }
+                                            SlotChip { label: "315° (NW): EXPORT-JPG"; width: 140px; }
+                                        }
+                                    }
+                                }
+                                if root.stacked : VerticalLayout {
+                                    spacing: Design.space-md;
+                                    HorizontalLayout {
+                                        alignment: center;
+                                        RadialWheelPreview { }
+                                    }
+                                    VerticalLayout {
+                                        spacing: 4px;
+                                        SlotChip { label: "0° (Utara): SEND-LOGO [Sub]"; accent-text: true; }
+                                        SlotChip { label: "45° (NE): SEND-TEXT [Sub]"; accent-text: true; }
+                                        SlotChip { label: "90° (Timur): TOOLBOX [Grup]"; accent-text: true; }
+                                        SlotChip { label: "135° (SE): CROP-CENTER"; }
+                                        SlotChip { label: "180° (Selatan): MORE (Nav)"; more: true; }
+                                        SlotChip { label: "225° (SW): COLOR-MATCH"; }
+                                        SlotChip { label: "270° (Barat): AUTO-SAVE"; }
+                                        SlotChip { label: "315° (NW): EXPORT-JPG"; }
+                                    }
+                                }
+                            }
+                        }
+
+                        Card {
+                            VerticalLayout {
+                                padding: Design.space-lg;
+                                spacing: Design.space-md;
+                                Text {
+                                    text: "GAYA & SEGMEN RADIAL";
+                                    font-size: Design.font-h3;
+                                    font-weight: 700;
+                                    letter-spacing: 1px;
+                                    color: Design.text-primary;
+                                    wrap: word-wrap;
+                                }
+                                Text {
+                                    text: "Segmen radial mengikuti warna aksen tema aktif (Spider = merah, Gwen = pink) — berlaku langsung tanpa restart";
+                                    font-size: Design.font-caption;
+                                    color: Design.text-muted;
+                                    wrap: word-wrap;
+                                }
+
+                                // Gaya ring radial: Kaca = ring kaca
+                                // gelap transparan; HUD = outline tipis
+                                // + glow aksen di segmen aktif; Flat =
+                                // datar tanpa kaca/glow.
+                                SettingRow {
+                                    title: "Gaya radial";
+                                    desc: "Kaca = ring kaca gelap; HUD = outline tipis + glow aksen; Flat = datar tanpa glow";
+                                    stacked: root.stacked;
+                                    HorizontalLayout {
+                                        spacing: 6px;
+                                        OptionChip {
+                                            label: "Kaca";
+                                            horizontal-stretch: 1;
+                                            selected: root.radial-style == "glass";
+                                            clicked => { root.radial-style = "glass"; root.radial-settings-changed(); root.toast("Gaya radial: Kaca"); }
+                                        }
+                                        OptionChip {
+                                            label: "HUD";
+                                            horizontal-stretch: 1;
+                                            selected: root.radial-style == "hud";
+                                            clicked => { root.radial-style = "hud"; root.radial-settings-changed(); root.toast("Gaya radial: HUD"); }
+                                        }
+                                        OptionChip {
+                                            label: "Flat";
+                                            horizontal-stretch: 1;
+                                            selected: root.radial-style == "flat";
+                                            clicked => { root.radial-style = "flat"; root.radial-settings-changed(); root.toast("Gaya radial: Flat"); }
+                                        }
+                                    }
+                                }
+
+                                // Jumlah segmen ring (split rule): ring
+                                // dibagi N segmen sama rata; segmen
+                                // terakhir selalu navigasi (More/Back).
+                                // 9–12 baru terbuka bila slot radial
+                                // bisa diedit user.
+                                SettingRow {
+                                    title: "Jumlah segmen";
+                                    desc: "Ring dibagi sama rata sesuai jumlah segmen — segmen terakhir selalu More/Back";
+                                    stacked: root.stacked;
+                                    HorizontalLayout {
+                                        spacing: 6px;
+                                        OptionChip {
+                                            label: "2";
+                                            horizontal-stretch: 1;
+                                            selected: root.radial-segments == 2;
+                                            clicked => { root.radial-segments = 2; root.radial-settings-changed(); root.toast("Segmen radial: 2"); }
+                                        }
+                                        OptionChip {
+                                            label: "3";
+                                            horizontal-stretch: 1;
+                                            selected: root.radial-segments == 3;
+                                            clicked => { root.radial-segments = 3; root.radial-settings-changed(); root.toast("Segmen radial: 3"); }
+                                        }
+                                        OptionChip {
+                                            label: "4";
+                                            horizontal-stretch: 1;
+                                            selected: root.radial-segments == 4;
+                                            clicked => { root.radial-segments = 4; root.radial-settings-changed(); root.toast("Segmen radial: 4"); }
+                                        }
+                                        OptionChip {
+                                            label: "5";
+                                            horizontal-stretch: 1;
+                                            selected: root.radial-segments == 5;
+                                            clicked => { root.radial-segments = 5; root.radial-settings-changed(); root.toast("Segmen radial: 5"); }
+                                        }
+                                        OptionChip {
+                                            label: "6";
+                                            horizontal-stretch: 1;
+                                            selected: root.radial-segments == 6;
+                                            clicked => { root.radial-segments = 6; root.radial-settings-changed(); root.toast("Segmen radial: 6"); }
+                                        }
+                                        OptionChip {
+                                            label: "8";
+                                            horizontal-stretch: 1;
+                                            selected: root.radial-segments == 8;
+                                            clicked => { root.radial-segments = 8; root.radial-settings-changed(); root.toast("Segmen radial: 8"); }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        SettingRow {
+                            title: "Shortcut menu";
+                            desc: "Shortcut global membuka radial tepat di posisi cursor";
+                            stacked: root.stacked;
+                            VerticalLayout {
+                                spacing: 8px;
+                                Text {
+                                    text: root.recording-shortcut ? "MENUNGGU INPUT — tekan kombinasi keyboard / tombol mouse. Esc untuk batal." : "Shortcut saat ini:";
+                                    font-size: Design.font-caption;
+                                    color: root.recording-shortcut ? Design.accent : Design.text-muted;
+                                    wrap: word-wrap;
+                                }
+                                // Lebar: kotak + tombol berdampingan
+                                // saat lebar; menumpuk (kotak penuh +
+                                // tombol penuh) saat sempit — berdampingan
+                                // butuh ~390px, konten 520px cuma 256px.
+                                if !root.stacked : HorizontalLayout {
+                                    spacing: Design.space-sm;
+                                    Rectangle {
+                                        width: 260px;
+                                        height: 36px;
+                                        background: Design.bg-hover;
+                                        border-color: root.recording-shortcut ? Design.accent : Design.separator;
+                                        border-width: 1px;
+                                        border-radius: Design.radius-sm;
+                                        Text {
+                                            text: root.recording-shortcut ? "MENUNGGU INPUT…" : root.current-shortcut-label;
+                                            font-size: Design.font-button;
+                                            font-weight: 700;
+                                            color: root.recording-shortcut ? Design.accent : Design.text-primary;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                    Btn {
+                                        label: root.recording-shortcut ? "Batal" : "Rekam Shortcut";
+                                        variant: root.recording-shortcut ? "secondary" : "primary";
+                                        clicked => {
+                                            if (root.recording-shortcut) { root.cancel-recording-shortcut(); }
+                                            else { root.start-recording-shortcut(); }
+                                        }
+                                    }
+                                }
+                                if root.stacked : VerticalLayout {
+                                    spacing: 8px;
+                                    Rectangle {
+                                        height: 36px;
+                                        background: Design.bg-hover;
+                                        border-color: root.recording-shortcut ? Design.accent : Design.separator;
+                                        border-width: 1px;
+                                        border-radius: Design.radius-sm;
+                                        Text {
+                                            text: root.recording-shortcut ? "MENUNGGU INPUT…" : root.current-shortcut-label;
+                                            font-size: Design.font-button;
+                                            font-weight: 700;
+                                            color: root.recording-shortcut ? Design.accent : Design.text-primary;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                    Btn {
+                                        label: root.recording-shortcut ? "Batal" : "Rekam Shortcut";
+                                        variant: root.recording-shortcut ? "secondary" : "primary";
+                                        clicked => {
+                                            if (root.recording-shortcut) { root.cancel-recording-shortcut(); }
+                                            else { root.start-recording-shortcut(); }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ===== PROFILE =====
+                sv-profile := Flickable {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    visible: root.group == "Profile";
+                    VerticalLayout {
+                        x: 0; width: content-rect.width;
+                        // Isi rapat di atas (alignment start): tanpa ini,
+                        // konten yang lebih pendek dari viewport
+                        // direnggangkan ke tinggi penuh — lih. DESIGN_SYSTEM §17.4.
+                        alignment: start;
+                        spacing: Design.space-lg;
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        padding-top: 16px;
+                        padding-bottom: Design.space-lg;
+
+                        Text {
+                            text: "Profile";
+                            font-size: Design.font-h3;
+                            font-weight: 800;
+                            color: Design.text-primary;
+                        }
+
+                        Card {
+                            VerticalLayout {
+                                padding: Design.space-lg;
+                                spacing: Design.space-md;
+                                HorizontalLayout {
+                                    spacing: 12px;
+                                    Rectangle {
+                                        width: 44px;
+                                        height: 44px;
+                                        background: Design.card-bg;
+                                        border-color: Design.separator;
+                                        border-width: 1px;
+                                        border-radius: 22px;
+                                        SvgIcon {
+                                            x: (parent.width - self.width) / 2;
+                                            y: (parent.height - self.height) / 2;
+                                            name: "user";
+                                            size: 18px;
+                                            icon-color: Design.text-secondary;
+                                        }
+                                    }
+                                    VerticalLayout {
+                                        spacing: 2px;
+                                        alignment: center;
+                                        Text {
+                                            text: root.user-name;
+                                            font-size: Design.font-h3;
+                                            font-weight: 800;
+                                            color: Design.text-primary;
+                                        }
+                                        Text {
+                                            text: "Avatar memakai huruf pertama dari nama user";
+                                            font-size: Design.font-caption;
+                                            color: Design.text-muted;
+                                            wrap: word-wrap;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        SettingRow {
+                            title: "Nama user";
+                            desc: "Nama yang tampil di profil & log";
+                            stacked: root.stacked;
+                            TextField {
+                                // Secukupnya (260px) saat lebar, penuh saat menumpuk.
+                                width: root.stacked ? parent.width : 260px;
+                                text: root.user-name;
+                                placeholder: "Nama user";
+                                edited(text) => { root.user-name = text; }
+                                accepted(text) => { root.save-general-settings(); root.toast("Disimpan: Nama user"); }
+                            }
+                        }
+                        HorizontalLayout {
+                            alignment: end;
+                            padding-top: Design.space-md;
+                            Btn {
+                                label: "Simpan";
+                                variant: "primary";
+                                height-override: 34px;
+                                clicked => {
+                                    root.save-general-settings();
+                                    root.toast("Pengaturan Profile disimpan");
                                 }
                             }
                         }

@@ -185,19 +185,26 @@ export component TrelloDetailPanel inherits Rectangle {
     }
 
     // ================= TAMPILAN DETAIL (kartu Trello) =================
-    // Layout setinggi panel (height: 100%). Catatan: sempat dilepas
-    // saat memburu gap deskripsi, lalu dipasang lagi saat memburu
-    // tombol yang "tidak bisa diklik" — keduanya ternyata BUKAN
-    // karena height ini (gap = label Description, tombol = salah
-    // koordinat klik y). Height ini dipertahankan karena benar
-    // secara layout (panel terisi penuh); jangan jadikan kambing
-    // hitam bila ada masalah hit-test lagi — ukur dulu posisi
-    // render tombolnya sebelum menyalahkan layout.
-    card-view := VerticalLayout {
+    // Detail SELURUHNYA bisa di-scroll (Flickable luar) bila isinya
+    // lebih tinggi dari panel — judul 2–3 baris + deskripsi panjang
+    // dari API Trello (polish abeng 28 Nov 10:16: sebelumnya isi
+    // terpotong di tepi bawah panel tanpa bisa dibaca sisanya).
+    // Deskripsi sendiri tetap punya scroll-nya (maks 240px, ala C#),
+    // jadi roda mouse di area deskripsi menggulung deskripsi dulu.
+    // Catatan hit-test: layout setinggi panel (height: 100%) sempat
+    // dilepas lalu dipasang lagi saat memburu tombol yang "tidak bisa
+    // diklik" — keduanya ternyata BUKAN karena height ini (tombol =
+    // salah koordinat klik y). Jangan jadikan height kambing hitam
+    // bila ada masalah hit-test lagi — ukur dulu posisi render
+    // tombolnya sebelum menyalahkan layout.
+    card-view := Flickable {
         x: 0; y: 0; width: 100%; height: 100%;
         visible: root.sub-panel == "" && !root.is-points;
-        padding: root.panel-margin;
-        spacing: 12px;
+        viewport-height: card-content.preferred-height;
+        card-content := VerticalLayout {
+            x: 0; y: 0; width: 100%;
+            padding: root.panel-margin;
+            spacing: 12px;
 
         // Baris chip: label-1 + label-2 (11px SemiBold) + tombol X
         // tutup di kanan atas (ref trello-sidepanel-ref.jpg: X
@@ -456,9 +463,6 @@ export component TrelloDetailPanel inherits Rectangle {
         HSeparator { }
 
         // Description (13px SemiBold + isi 12px).
-        // Catatan: C# membatasi tinggi isi 240px + scroll; port
-        // menampilkan penuh (mockup 2 baris) — scroll ditambah
-        // di Fase 6 bila deskripsi asli Trello panjang.
         Text {
             text: "Description";
             font-size: 13px;
@@ -470,15 +474,30 @@ export component TrelloDetailPanel inherits Rectangle {
             // 13px selalu 18px, jadi aman dipatok.
             height: 18px;
         }
-        Text {
-            text: root.description;
-            font-size: 12px;
-            color: Design.text-secondary;
-            wrap: word-wrap;
-            vertical-alignment: top;
-            // Lebar eksplisit supaya preferred-height dihitung pada
-            // lebar benar (bukan ~0) — tanpa ini teks bisa turun.
-            width: 100%;
+        // Isi deskripsi bisa panjang (deskripsi asli dari API Trello) —
+        // C# membatasi tinggi isi 240px + scroll; port ikut (polish
+        // abeng 28 Nov 10:16: deskripsi panjang sebelumnya terpotong di
+        // tepi bawah panel tanpa bisa dibaca sisanya). Flickable
+        // setinggi isi, maks 240px — deskripsi pendek tidak menyisakan
+        // ruang kosong.
+        Rectangle {
+            height: min(240px, desc-text.preferred-height);
+            clip: true;
+            desc-flick := Flickable {
+                x: 0; y: 0; width: 100%; height: 100%;
+                viewport-height: desc-text.preferred-height;
+                desc-text := Text {
+                    text: root.description;
+                    font-size: 12px;
+                    color: Design.text-secondary;
+                    wrap: word-wrap;
+                    vertical-alignment: top;
+                    // Lebar eksplisit supaya preferred-height dihitung pada
+                    // lebar benar (bukan ~0) — tanpa ini teks bisa turun.
+                    width: 100%;
+                }
+            }
+        }
         }
     }
 

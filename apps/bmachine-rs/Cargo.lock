@@ -576,6 +576,7 @@ dependencies = [
  "sha2",
  "slint",
  "slint-build",
+ "x11rb",
 ]
 
 [[package]]

@@ -821,6 +821,10 @@ export component AppWindow inherits Window {
     // voice SAPI (Windows). Default notch, voice nyala, volume 80,
     // suara otomatis (Indonesia bila ada di sistem).
     in-out property <string> app-notch-mode: "notch";
+    // Auto-hide Dynamic Island ala layzee (DB
+    // Settings.Notch.AutoHide, default true) — berlaku live
+    // tanpa restart (timer Rust 500ms).
+    in-out property <bool> app-notch-auto-hide: true;
     // Gaya mata maskot ("nusa" | "baymax" | "bulat") — DB
     // Settings.Notch.EyeStyle, berlaku live tanpa restart.
     in-out property <string> app-notch-eye-style: "nusa";
@@ -914,12 +918,11 @@ export component AppWindow inherits Window {
     // Ada pembaruan tersedia (diisi Rust saat check-update) — item
     // "Ada pembaruan vX" muncul di flyout bila true.
     in-out property <bool> has-pending-update: false;
-    // DASHBOARD VISIBILITY (C# Settings.Dash.*): tab BATCH
-    // disembunyikan bila false; Folder Locker / Output Explorer
-    // tidak punya padanan di port — hanya disimpan/dimuat.
-    in-out property <bool> is-batch-visible: true;
-    in-out property <bool> is-folder-locker-visible: true;
-    in-out property <bool> is-output-explorer-visible: true;
+    // DASHBOARD VISIBILITY — DIHAPUS 28 Nov 2026 (abeng): seksi
+    // "Visibilitas dashboard" di Settings → General dihapus; tab
+    // BATCH + Output Explorer SELALU tampil. Key DB lama
+    // Settings.Dash.* tidak lagi dibaca/ditulis port, tapi TIDAK
+    // dihapus dari database. (Folder Locker memang tidak ada di port.)
     // FILTERS (C# Settings.Batch.Filter): filter ekstensi file
     // batch, "" = semua.
     in-out property <string> batch-file-filter: "";
@@ -936,10 +939,6 @@ export component AppWindow inherits Window {
     // Backup / restore database (Settings → General → DATA).
     callback export-database();
     callback import-database();
-    // Pindah dari BATCH ke HOME bila tab BATCH disembunyikan.
-    changed is-batch-visible => {
-        if (!root.is-batch-visible && root.current-tab == "BATCH") { root.current-tab = "HOME"; }
-    }
 
     // (restore-batch-source DIHAPUS 28 Nov 2026 — dataset contoh
     // sudah dikosongkan; pilih folder kini lewat batch-pick-folder()
@@ -1624,7 +1623,7 @@ export component AppWindow inherits Window {
                         scale: root.ui-scale;
                         clicked => { root.current-tab = "HOME"; root.show-flyout = false; root.list-category = ""; root.selected-card = ""; root.add-manual-open = false; root.detail-panel = ""; root.detail-added-count = 0; }
                     }
-                    if root.is-batch-visible : NavTab {
+                    NavTab {
                         label: "BATCH";
                         selected: root.current-tab == "BATCH";
                         scale: root.ui-scale;
@@ -1810,19 +1809,10 @@ export component AppWindow inherits Window {
                 padding-bottom: 30px;
                 spacing: Design.space-md;
 
-                // Header.
-                HorizontalLayout {
-                    height: 36px * root.ui-scale;
-                    spacing: 8px * root.ui-scale;
-                    Text {
-                        text: root.list-category == "REVISION" ? "REVISI" : root.list-category == "LATE" ? "SUSULAN" : root.list-category;
-                        font-size: Design.font-h2 * root.ui-scale;
-                        font-weight: 800;
-                        color: Design.text-primary;
-                        letter-spacing: 1px * root.ui-scale;
-                        vertical-alignment: center;
-                    }
-                }
+                // Header nama list BESAR dihapus (abeng 28 Nov 10:16):
+                // tab EDITING / REVISI / SUSULAN di bawah sudah
+                // menunjukkan list yang aktif — header ini redundan.
+                // Status bar "Dimuat N card" kini elemen pertama.
 
                 // Bar status Trello (C# UnifiedTrelloView: dot status
                 // + StatusMessage "Dimuat N card" + toolbar +/refresh).
@@ -3107,17 +3097,16 @@ export component AppWindow inherits Window {
         chrome-button-style <=> root.app-chrome-button-style;
         chrome-button-position <=> root.app-chrome-button-position;
         user-name <=> root.app-user-name;
+        user-initial <=> root.app-user-initial;
         lang <=> root.app-lang;
         anim-startup <=> root.app-anim-startup;
         anim-speed <=> root.app-anim-speed;
         trello-interval <=> root.app-trello-interval;
         batch-file-filter <=> root.batch-file-filter;
-        is-batch-visible <=> root.is-batch-visible;
-        is-folder-locker-visible <=> root.is-folder-locker-visible;
-        is-output-explorer-visible <=> root.is-output-explorer-visible;
         trello-connected <=> root.app-trello-connected;
         trello-status <=> root.app-trello-status;
         notch-mode <=> root.app-notch-mode;
+        notch-auto-hide <=> root.app-notch-auto-hide;
         notch-eye-style <=> root.app-notch-eye-style;
         notch-voice-enabled <=> root.app-notch-voice-enabled;
         notch-voice-name <=> root.app-notch-voice-name;
@@ -3127,6 +3116,9 @@ export component AppWindow inherits Window {
         notch-voice-index <=> root.app-notch-voice-index;
         notch-settings-changed() => { root.notch-settings-changed(); }
         test-notch-voice() => { root.test-notch-voice(); }
+        dynamic-bar-visible <=> root.app-dynamic-bar-visible;
+        open-dynamic-bar() => { root.open-dynamic-bar(); }
+        hide-dynamic-bar() => { root.hide-dynamic-bar(); }
         radial-style <=> root.app-radial-style;
         radial-segments <=> root.app-radial-segments;
         radial-settings-changed() => { root.radial-settings-changed(); }

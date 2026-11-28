@@ -6,6 +6,7 @@ mod db;
 mod doc_manager;
 mod executor;
 mod explorer;
+mod fullscreen;
 mod icons;
 mod local_update;
 mod petdex;
@@ -5083,6 +5084,13 @@ fn main() -> Result<(), slint::PlatformError> {
             ui.set_app_notch_voice_enabled(vcfg.enabled);
             ui.set_app_notch_voice_name(slint::SharedString::from(vcfg.voice_name.as_str()));
             ui.set_app_notch_voice_volume(slint::SharedString::from(vcfg.volume.to_string()));
+            // Auto-hide Dynamic Island ala layzee (default ON;
+            // nilai tak dikenal → ON).
+            let mut notch_auto_hide = true;
+            if let Some(v) = db_guard.get("Settings.Notch.AutoHide") {
+                notch_auto_hide = !(v == "false" || v == "0");
+            }
+            ui.set_app_notch_auto_hide(notch_auto_hide);
             voice::set_config(vcfg.clone());
             // Daftar suara SAPI (Windows saja; di Linux kosong —
             // ComboBox di Settings hanya menampilkan "Otomatis").
@@ -5166,15 +5174,6 @@ fn main() -> Result<(), slint::PlatformError> {
             }
             if let Some(v) = db_guard.get("Settings.Batch.Filter") {
                 ui.set_batch_file_filter(slint::SharedString::from(v));
-            }
-            if let Some(v) = db_guard.get("Settings.Dash.Batch") {
-                ui.set_is_batch_visible(v == "true" || v == "1");
-            }
-            if let Some(v) = db_guard.get("Settings.Dash.Lock") {
-                ui.set_is_folder_locker_visible(v == "true" || v == "1");
-            }
-            if let Some(v) = db_guard.get("Settings.Dash.Explorer") {
-                ui.set_is_output_explorer_visible(v == "true" || v == "1");
             }
             theme::load_theme_from_db(&ui, &db_guard);
         }
@@ -6202,33 +6201,6 @@ fn main() -> Result<(), slint::PlatformError> {
                             "Settings.Batch.Filter",
                             ui.get_batch_file_filter().as_str(),
                             "String",
-                        );
-                        let _ = db_guard.set(
-                            "Settings.Dash.Batch",
-                            if ui.get_is_batch_visible() {
-                                "true"
-                            } else {
-                                "false"
-                            },
-                            "Bool",
-                        );
-                        let _ = db_guard.set(
-                            "Settings.Dash.Lock",
-                            if ui.get_is_folder_locker_visible() {
-                                "true"
-                            } else {
-                                "false"
-                            },
-                            "Bool",
-                        );
-                        let _ = db_guard.set(
-                            "Settings.Dash.Explorer",
-                            if ui.get_is_output_explorer_visible() {
-                                "true"
-                            } else {
-                                "false"
-                            },
-                            "Bool",
                         );
                         // Interval auto-refresh Trello: simpan hasil
                         // clamp (min 30, default 60) + tulis balik ke
@@ -8818,6 +8790,7 @@ fn main() -> Result<(), slint::PlatformError> {
             let mode = ui.get_app_notch_mode().to_string();
             let eye_style = valid_eye_style(&ui.get_app_notch_eye_style());
             let enabled = ui.get_app_notch_voice_enabled();
+            let auto_hide = ui.get_app_notch_auto_hide();
             let vol_str = ui.get_app_notch_voice_volume().to_string();
             let volume = vol_str.parse::<i32>().unwrap_or(80).clamp(0, 100);
             let idx = ui.get_app_notch_voice_index();
@@ -8849,6 +8822,11 @@ fn main() -> Result<(), slint::PlatformError> {
                         "Settings.Notch.VoiceVolume",
                         &volume.to_string(),
                         "String",
+                    );
+                    let _ = guard.set(
+                        "Settings.Notch.AutoHide",
+                        if auto_hide { "true" } else { "false" },
+                        "Bool",
                     );
                 }
             }
@@ -11673,6 +11651,84 @@ fn main() -> Result<(), slint::PlatformError> {
                         _ => "idle".to_string(),
                     };
                     w.set_pet_mood(slint::SharedString::from(mood.as_str()));
+                }
+            }
+        },
+    );
+
+    // ---- Dynamic Island auto-hide (layzee, abeng 28 Nov
+    // 11:58–11:59): 3 tingkat — pill penuh (normal), garis tipis
+    // 4px (window lain maksimal, mis. browser), hilang total
+    // (fullscreen video/game; muncul lagi saat keluar fullscreen).
+    // Toggle Settings → Dynamic Island → Auto-hide, key DB
+    // `Settings.Notch.AutoHide` (Bool, default ON). Timer 500ms —
+    // bukan 2 detik seperti sync bar — supaya hide/show responsif
+    // saat user masuk/keluar fullscreen. Timer ini SATU-SATUNYA
+    // otoritas hide/show otomatis: tidak mengubah
+    // `Settings.DynamicBar.Visible` (tutup user) — sembunyi
+    // otomatis dilacak cell `autohidden` sendiri; `last_display`
+    // mencegah set prop / hide-show berulang tiap tick.
+    let _bar_autohide_timer = slint::Timer::default();
+    _bar_autohide_timer.start(
+        slint::TimerMode::Repeated,
+        std::time::Duration::from_millis(500),
+        {
+            let ui_weak = ui.as_weak();
+            let bar_cell = bar_win_cell.clone();
+            let bar_vis = bar_visible.clone();
+            let autohidden = std::rc::Rc::new(std::cell::Cell::new(false));
+            let last_display =
+                std::rc::Rc::new(std::cell::Cell::new(fullscreen::BarDisplay::Full));
+            move || {
+                let Some(ui) = ui_weak.upgrade() else {
+                    return;
+                };
+                if !bar_vis.get() {
+                    // Bar ditutup user — bukan urusan auto-hide.
+                    autohidden.set(false);
+                    last_display.set(fullscreen::BarDisplay::Full);
+                    return;
+                }
+                let borrow = bar_cell.borrow();
+                let Some(w) = borrow.as_ref() else {
+                    autohidden.set(false);
+                    last_display.set(fullscreen::BarDisplay::Full);
+                    return;
+                };
+                let want = fullscreen::decide_bar_display(
+                    &ui.get_app_notch_mode(),
+                    fullscreen::foreground_screen_state(),
+                    ui.get_app_notch_auto_hide(),
+                );
+                match want {
+                    fullscreen::BarDisplay::Hidden => {
+                        if !autohidden.get() {
+                            // Panel yang sedang mengembang ditutup
+                            // dulu supaya tidak membeku terbuka saat
+                            // bar muncul lagi.
+                            w.set_expanded(false);
+                            let _ = w.hide();
+                            autohidden.set(true);
+                        }
+                        last_display.set(fullscreen::BarDisplay::Hidden);
+                    }
+                    _ => {
+                        if autohidden.get() {
+                            let _ = w.show();
+                            autohidden.set(false);
+                            if ui.get_app_notch_mode() == "notch" {
+                                recenter_notch(w, &ui, false);
+                            }
+                        }
+                        if want != last_display.get() {
+                            w.set_bar_display(slint::SharedString::from(match want {
+                                fullscreen::BarDisplay::Full => "full",
+                                fullscreen::BarDisplay::ThinLine => "line",
+                                fullscreen::BarDisplay::Hidden => "full", // tak tercapai
+                            }));
+                            last_display.set(want);
+                        }
+                    }
                 }
             }
         },

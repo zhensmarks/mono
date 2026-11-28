@@ -927,11 +927,12 @@ Trello Integration**, tanpa rombak dan tanpa rebuild:
 
 ### 15.1 Daftar kartu
 
-Header: "← Kembali" + judul kategori + jumlah ("N kartu").
-Judul header memakai label tab (EDITING / REVISI / SUSULAN —
-bukan nilai internal REVISION / LATE). Di bawah header ada
-bar tab NavTab **EDITING / REVISI / SUSULAN** (tab aktif =
-kategori kini; klik tab = ganti daftar). Baris 48px (C#
+TANPA header besar nama list (dihapus 28 Nov 2026, abeng:
+redundan — tab sudah menunjukkan list aktif). Di atas
+daftar hanya bar status (di bawah) lalu bar tab NavTab
+**EDITING / REVISI / SUSULAN** (tab aktif = kategori kini;
+klik tab = ganti daftar; label tab memakai EDITING / REVISI /
+SUSULAN — bukan nilai internal REVISION / LATE). Baris 48px (C#
 EditingCardListView, diubah 26 Nov 19:20): checkbox seleksi
 16px di kiri + NAMA kartu (13px, weight 700, elide — prioritas
 utama) + badge checklist TODO/DONE di kanan (pill 62×22px, dot
@@ -1012,7 +1013,7 @@ Isi detail (C# CardDetailPanelHost): chip kategori + tanggal event
 → judul + × → meta WrapPanel (badge ID "ID: <DisplayId>" klik →
 toast spreadsheet; badge Attachments "Attachments: 0"; badge Due;
 ikon copy-link ⎘ + open-in-browser ↗ 30×30) → separator → baris
-aksi: Comment (split button C# — segmen kiri "Comment" buka panel Comments INLINE di panel samping, segmen kanan segitiga solid 9×10 lebar 16px buka CommentWindow 400×600 window OS terpisah; state komentar dibagi dengan detail pembuka, Rust isi saat dibuka + tulis balik saat ditutup) + Checklist + Move (sembunyi bila manual)
+aksi: Comment (split button C# — segmen kiri "Comment" buka panel Comments INLINE di panel samping, segmen kanan segitiga solid 9×10 lebar 16px buka CommentWindow 400×600 window OS terpisah; state komentar dibagi dengan detail pembuka, Rust isi saat dibuka + tulis balik saat ditutup; tombol × in-content di header CommentWindow HANYA tampil saat chrome = headless (28 Nov 2026 — C# sepenuhnya frameless sehingga butuh tombol close pengganti di dalam konten; di port, saat window punya titlebar (custom / wrapped / native) hanya X titlebar yang tampil — X ganda "janggal" dihilangkan) + Checklist + Move (sembunyi bila manual)
 + Unlink (HANYA bila manual) → separator → label "Description" +
 isi ("Edit pas foto sekolah — crop, centering kepala di guide,
 logo terlihat."). Kartu manual: chip tanggal "—", tanpa badge ID /
@@ -1020,6 +1021,18 @@ Due, Unlink ganti Move. Kartu tanpa prefix (REVISI/LATE, TK
 ASSALAM): tanpa badge ID. Badge Attachments selalu tampil ("0")
 supaya panelnya terjangkau — C# menyembunyikannya bila 0 (Fase 6:
 sembunyikan bila API mengembalikan 0).
+
+Detail bisa di-scroll (28 Nov 2026, polish abeng): seluruh
+detail dibungkus Flickable luar — judul 2–3 baris + deskripsi
+panjang dari API sebelumnya terpotong di tepi bawah panel
+tanpa bisa dibaca sisanya (deskripsi kartu EDITING 1 dari API
+mock mencapai ujung "TEAM EVENT" yang tadinya tidak terlihat).
+Roda mouse di luar area deskripsi menggulung seluruh detail;
+deskripsi sendiri dibatasi 240px + scroll sendiri (ala C#),
+jadi roda mouse di area deskripsi menggulung deskripsi dulu.
+Deskripsi pendek tidak menyisakan ruang kosong (tinggi =
+min(240px, isi)). Klik kanan latar detail tetap menutup ke
+daftar (Flickable luar tidak memakan klik kanan).
 
 Sub-panel menggantikan detail di kolom yang sama (header 18px
 SemiBold + nama kartu 12px + ×; klik kanan sub-panel = kembali ke
@@ -1053,22 +1066,27 @@ manual, REVISI) — ternyata koordinat klik pengujinya yang salah
 
 ### 15.3 Window Trello (dari panah widget)
 
-`overlay-view` `"TRELLO-WINDOW"` + `trello-window-cat`
-(EDITING / REVISION / LATE). Panel mengambang di tengah
-(760×600, responsif: menyusut sampai 40px dari tepi di
-window kecil) di atas dim hitam 60%. Title bar: "Trello —
-EDITING / REVISI / SUSULAN" + jumlah kartu + tombol tutup ×.
-Isi = daftar kategori itu (baris 48px, sama seperti §15.1,
-tanpa `ui-scale` — ukuran window tetap); klik baris → detail
-§15.2 varian B (TrelloDetailPanel yang sama, sub-panel
-berfungsi). Catatan: daftar window BELUM menampilkan kartu
-manual (hitung "N kartu" hanya kartu biasa) — kartu manual
-hanya ada di daftar embedded; selaraskan di Fase 6 (atau saat
-merapikan window).
-Klik kanan di window (dim, latar daftar, maupun baris) /
-tombol × / Esc = tutup window → kembali ke grid dashboard
-(bukan ke daftar embedded — window tidak memakai
-`list-category`). Klik kiri di dim TIDAK menutup.
+CardListWindow — OS window terpisah (`ui/windows.slint`,
+dibuka panah widget EDITING / REVISION / LATE; 450×600 di
+tengah layar). Titlebar kustom "Trello — EDITING (N Kartu)"
+(custom/wrapped; native = titlebar OS; headless = tanpa
+titlebar, drag via strip 28px teratas) + search bar + daftar
+kategori itu (baris 48px, sama seperti §15.1 — nama + sub +
+due di kanan, tanpa header besar nama list); klik baris →
+detail §15.2 varian B (TrelloDetailPanel yang sama, sub-panel
+berfungsi, Comment/▷ tetap terpisah). Catatan: daftar window
+BELUM menampilkan kartu manual (hitung "N kartu" hanya kartu
+biasa) — kartu manual hanya ada di daftar embedded; selaraskan
+di Fase 6 (atau saat merapikan window).
+KOREKSI 28 Nov 2026: overlay `overlay-view`
+`"TRELLO-WINDOW"` di `ui/main.slint` adalah kode mati
+(`overlay-view` tidak pernah diset ke `"TRELLO-WINDOW"` di
+main.slint maupun main.rs) — jangan pakai sebagai acuan
+tampilan window Trello.
+Tutup window: tombol × titlebar (custom/wrapped/native).
+Celah UX (28 Nov 2026, belum diperbaiki): di chrome headless
+CardListWindow tidak punya tombol tutup yang terlihat dan
+klik kanan di daftar tidak menutupnya.
 
 ### 15.4 Auto-refresh interval (28 Nov 2026 — ala C# DashboardViewModel)
 
@@ -1371,10 +1389,13 @@ Layar Settings sendiri dinilai bagus oleh abeng (panel samping
 Pola panel samping (contoh yang dikirim abeng 26 Nov 16:54):
 judul "Settings" + **search bar** di atas + **grup dengan
 header kecil** + item ber-**ikon + label**, item terpilih
-di-highlight. Grup di port (`ui/settings.slint`):
-**General, Appearance, Account, Extensions, Script Manager,
-Paths, About** — item-item BMachine sendiri di dalamnya (hanya
-polanya yang diambil dari contoh, bukan item aplikasi lain).
+di-highlight. Grup di port (`ui/settings.slint`, 10 grup —
+C# aslinya 7; Dynamic Island / Radial Menu / Profile grup
+khusus port, abeng 28 Nov 11:04/11:05/11:07):
+**General, Appearance, Profile, Account, Extensions,
+Dynamic Island, Radial Menu, Script Manager, Paths, About**
+— item-item BMachine sendiri di dalamnya (hanya polanya yang
+diambil dari contoh, bukan item aplikasi lain).
 
 **Panel konten rounded + sidebar ciut (abeng, 27 Nov 21:21):**
 konten tiap grup duduk dalam panel rounded (`card-bg`, border
@@ -1392,9 +1413,10 @@ dilewati (konten = panel window itu sendiri — anti double-wrap
 §23) dan panel window mulai x=208 (terbuka) / x=84 (ciut).
 
 **Kategori + jarak sidebar (abeng, 28 Nov 07:05) + sidebar polos
-(abeng, 28 Nov 07:09, dikonfirmasi 07:11):** 7 grup dikelompokkan
-ke 4 kategori — APLIKASI (General, Appearance), AKUN (Account,
-Extensions), SKRIP & FILE (Script Manager, Paths), INFO (About) —
+(abeng, 28 Nov 07:09, dikonfirmasi 07:11):** 10 grup dikelompokkan
+ke 5 kategori — APLIKASI (General, Appearance), AKUN (Profile,
+Account, Extensions), FITUR (Dynamic Island, Radial Menu),
+SKRIP & FILE (Script Manager, Paths), INFO (About) —
 label kategori kecil (11px/700, `text-muted`, huruf kapital) +
 garis separator tipis antar kategori (ruang 17px: 8px jarak + 1px
 garis + 8px jarak); label + separator ikut sembunyi bila kategori
@@ -1480,14 +1502,21 @@ tetap memakan ruang) — perbaikannya butuh `height: 0` kondisional.
 
 ### 17.3 Grup lain
 
-- **General**: Nama user ("abeng"), Bahasa ("Indonesia"),
+- **General**: Bahasa ("Indonesia"),
   Animasi startup, Kecepatan animasi statistik, Interval
-  refresh Trello ("30"). (Smart Orb / Floating Widget DIHAPUS
+  refresh Trello ("30"), Data (Export/Import database).
+  Visibilitas dashboard DIHAPUS 28 Nov 2026 (abeng) — BATCH +
+  Output Explorer selalu tampil; key DB `Settings.Dash.*` tidak
+  lagi dibaca/ditulis port, tapi TIDAK dihapus dari database.
+  (Smart Orb / Floating Widget DIHAPUS
   27 Nov 2026 — abeng: orb sudah dihapus penuh dari C# dan
   diganti radial menu, bukan orb lagi. Key DB lama
   `Settings.FloatingWidget` / `Settings.Orb.*` /
   `Configs.Widget.Position` tidak lagi dibaca/ditulis port,
-  tapi TIDAK dihapus dari database.)
+  tapi TIDAK dihapus dari database.) "Nama user" PINDAH ke
+  grup Profile dan "Shortcut menu" (rekam hotkey radial)
+  PINDAH ke grup Radial Menu (28 Nov 2026 — jangan tumpuk
+  semua di General/Appearance).
 - **Account**: Trello Integration — **Base URL** (default
   `https://api.trello.com/1`, key DB `Trello.BaseUrl`),
   API Key, Token, tombol Connect (= Tes koneksi ke base URL
@@ -1554,8 +1583,7 @@ dropdown di bawah label). Aturan baru, mengikat di semua grup:
   kartu preview Color mode (Terang/Gelap/Ikut sistem), kartu Font,
   blok Preview, roda radial, daftar Pet, baris multi-kolom Account
   (Worksheet/Kolom/Baris, Board sync 2-kolom, Refresh intervals
-  4-kolom — sudah ringkas horizontal), Visibilitas dashboard (3
-  baris label-kiri + toggle-kanan, sudah horizontal).
+  4-kolom — sudah ringkas horizontal).
 - **Catatan Slint:** ternary `kondisi ? 100% : Npx` TIDAK bisa
   dikompilasi ("Cannot convert length to percent") — pakai
   `kondisi ? parent.width : Npx` (keduanya length). `parent.width`
@@ -1587,6 +1615,48 @@ dropdown di bawah label). Aturan baru, mengikat di semua grup:
 - **Prinsip umum (mengikat, abeng 28 Nov 10:01):** SEMUA view/window
   harus matang tampilannya dari ukuran kecil (520) sampai besar —
   verifikasi di lebar 1280 DAN 520.
+
+### 17.5 Grup khusus per fitur (abeng, 28 Nov 11:04/11:05/11:07)
+
+Jangan tumpuk semua setting di Appearance / General — setting
+akan makin banyak (full customisasi), jadi tiap fitur besar
+punya grup sendiri di sidebar, disusun per seksi ala OpenBot
+("Dynamic Island": Behavior / Servers / Size). Aturan pindah:
+kontrol PINDAH (bukan duplikat), key DB TETAP SAMA, semua tetap
+live tanpa restart, pakai komponen `SettingRow` horizontal §17.4.
+
+- **Profile** (kategori AKUN, ikon "user"; ikon Account
+  berubah "user" → "grid" supaya tidak dobel): kartu preview
+  avatar (lingkaran 44px + ikon user, nama) + baris "Nama user"
+  (pindah dari General; `accepted` kini benar-benar menyimpan
+  via `save-general-settings()` — dulu hanya toast, simpan
+  sebenarnya lewat tombol Simpan General) + tombol Simpan
+  sendiri. Avatar = huruf pertama nama user (tidak ada foto
+  profil di port).
+- **Dynamic Island** (kategori FITUR, ikon "layers"): seksi
+  Behavior (on/off Dynamic Island — Toggle terikat
+  `dynamic-bar-visible` ↔ `app-dynamic-bar-visible`, on/off
+  lewat callback `open-dynamic-bar()` / `hide-dynamic-bar()`
+  yang sudah ada — Rust menyimpan
+  `Settings.DynamicBar.Visible` + tampil/sembunyikan window
+  bar; Mode Notch / Avatar Pet), Tampilan (Gaya mata
+  Nusa/Baymax/Bulat), Suara (Suara maskot on/off, Pilih suara,
+  Volume suara + Tes suara), Pet (ComboBox pet aktif + install
+  + daftar PetRow). Semua kontrol Notch pindah dari Appearance
+  (satu sumber kebenaran).
+- **Radial Menu** (kategori FITUR, ikon "rotate-cw"): kartu
+  RADIAL WHEEL SLOTS (pratinjau roda + 8 SlotChip) + kartu
+  GAYA & SEGMEN RADIAL (Gaya radial Kaca/HUD/Flat, Jumlah
+  segmen 2/3/4/5/6/8) + baris "Shortcut menu" (rekam hotkey
+  global, pindah dari General). Semua kontrol radial pindah
+  dari Script Manager (Script Manager kini hanya urusan
+  scripts.json / Master).
+
+Filter search sidebar (§17.1): kata kunci baru — Profile
+("profile"/"profil"/"nama"/"avatar"/"user"), Dynamic Island
+("dynamic"/"island"/"notch"/"pet"/"voice"/"suara"/"mata"),
+Radial Menu ("radial"/"menu"); kata kunci "radial" dihapus
+dari Script Manager.
 
 ## 18. Arsitektur Overlay & Navigasi
 
@@ -2467,6 +2537,7 @@ Pill 560×46 yang SELALU menampilkan angka (`fd4ade3`) DITOLAK abeng 27 Nov 20:1
 
 - **Notch minimal (mode Notch, default):** diam = pill hitam 150×32 di TENGAH ATAS LAYAR (monitor utama, y=0), isinya maskot — sepasang mata putih bercahaya. TIDAK ada angka yang terlihat langsung. Border pill mengikuti warna aksen tema aktif (di Spider: merah). **Pin layar (27 Nov 2026, abeng 22:44 + 22:57):** notch NEMPEL di tengah atas monitor ala Nusa/macOS Dynamic Island — window utama dipindah/diresize, notch TIDAK ikut bergerak; berlaku untuk mode Notch DAN mode Pet, keduanya melayang di atas semua window (window-nya sendiri sudah `always-on-top: true`). Panel mengembang (560px) juga tetap terpusat di tengah layar. Implementasi: ukuran layar dari `rdev::display_size()` (sudah dependensi, tanpa crate baru) — Windows = monitor utama (`GetSystemMetrics` SM_CXSCREEN/SM_CYSCREEN), Linux = ukuran display X; bila display tak terbaca, fallback ke tengah window utama (perilaku lama). Posisi dihitung lewat `centered_x(lebar_wadah, lebar_bar)` di `src/main.rs` + `recenter_notch` (dipakai saat mengembang/mengecil). Multi-monitor Linux: `display_size()` mengembalikan bounding box virtual, jadi "tengah layar" = tengah bounding box — per-monitor (RandR) belum dipakai.
 - **Hover mengembang:** mouse di-hover → window membesar 560×(pill + 8 + panel) dan menampilkan 4 chip angka widget dashboard (EDITING/REVISION/LATE/POINTS — sumber data SAMA dengan dashboard, disalin tiap 2 detik oleh timer sinkronisasi Rust, tidak ada angka baru) + baris kontrol volume OS + daftar notifikasi (maks 5 terbaru) + footer "Buka Dashboard". Mouse menjauh → mengecil lagi (tutup tertunda 400 ms; hover-hold counter supaya panel tidak berkedip saat kursor pindah antar elemen).
+- **Auto-hide (28 Nov 2026, ref layzee / Dynanotch, abeng 28 Nov 11:58–11:59):** tiga tingkat, timer Rust 500 ms (`_bar_autohide_timer`, satu-satunya otoritas hide/show) membaca mode notch + status layar depan + toggle tiap tick. **Normal:** pill tampil seperti biasa. **Window depan maksimal (bukan fullscreen):** notch mengecil jadi GARIS tipis 150×4 `#0d0d0d` di tengah atas — tidak menutupi tombol close tab, tidak bisa di-hover untuk mengembang (`bar-touch` disabled saat garis). **Fullscreen (video/game):** notch HILANG TOTAL (`w.hide()`) dan TIDAK muncul walau mouse ke area atas; muncul lagi saat keluar fullscreen (restore + `recenter_notch`). **Mode Avatar Pet tidak ikut mengecil/hilang saat maksimal** — pet tetap tampil penuh 84×84 (hanya fullscreen yang menyembunyikannya). Toggle "Auto-hide" di Settings → Dynamic Island → Behavior (default ON, hijau; DB `Settings.Notch.AutoHide`, Bool); saat OFF, perilaku lama (notch selalu tampil). **Batas jujur:** pemicu tingkat-2 adalah "window depan MAKSIMAL", BUKAN "video sedang diputar" — deteksi video beneran butuh Windows SMTC (`GlobalSystemMediaTransportControlsSessionManager`, WinRT/COM), belum diimplementasikan (crate `windows` tidak ada di cache offline; COM/WinRT tidak bisa dites dari VM Linux ini). Konsekuensinya: browser windowed yang memutar video tetap menampilkan pill penuh; aplikasi maksimal apa pun (bukan cuma browser) mendapat garis tipis. Deteksi fullscreen di Windows = rect foreground window menutupi seluruh monitor (bandingkan dengan work area untuk maksimal, toleransi frame tak terlihat ~8px); di Linux = x11rb `_NET_ACTIVE_WINDOW` + `_NET_WM_STATE` (FULLSCREEN / MAXIMIZED_VERT+HORZ), fallback geometri + window terbesar yang terlihat (dipakai di Xvfb tanpa WM). Logika murni di `src/fullscreen.rs` (`decide_bar_display`, `classify_rect`, `classify_coverage`) + unit test. Drag notch untuk reposisi dan hover-sengaja (bukan fly-over) dari video yang sama TIDAK dikerjakan di sini — ide terpisah.
 - **Maskot hidup:** mata berkedip (timer 3,4 detik, tutup 140 ms); pupil mengikuti kursor saat di-hover; idle 45 detik → mata tertutup (tidur); hover kembali setelah tidur → mata membesar menyapa 1,6 detik. Semua transisi mata/mulut dianimasikan 250 ms ease-in-out (Slint `animate`).
 - **Gaya mata (27 Nov 2026, abeng 21:08 — ref `~/workspace/pet-refs/eyes-ref.gif`):** bentuk mata maskot bisa dipilih di Settings → Appearance → Notch ("Gaya mata", OptionChips): **Nusa** (oval putih bercahaya + pupil hitam, bawaan), **Baymax** (dua titik putih yang dihubungkan garis horizontal — di GIF referensi titik + garisnya HITAM di atas latar terang, tapi di atas pill hitam BMachine warnanya DIBALIK jadi putih supaya terbaca), **Bulat** (lingkaran putih besar + pupil, tanpa glow). Gaya berlaku ke mata notch (pill minimal + panel mengembang) DAN mata blob pet bawaan — BUKAN sprite PetDex (sprite adalah wajahnya sendiri, gaya mata tidak memengaruhinya). Ukuran mata (eye-w/eye-h) tetap dihitung dari mood (idle/happy/surprised/tidur/kedip) sehingga SEMUA animasi yang sudah ada tetap jalan di semua gaya: kedip (mata menciut jadi garis 2px), pupil ikut kursor (gaya Nusa/Bulat: pupil bergeser ±3px; gaya Baymax: titiknya sendiri yang bergeser ±3px karena tidak ada pupil), tidur (garis 2px — di Baymax menyatu dengan garis penghubung jadi satu garis panjang), sapaan (mata membesar). Simpan di DB key `Settings.Notch.EyeStyle` (nilai tak dikenal → "nusa" via `valid_eye_style()`); berlaku live tanpa restart (bar yang sedang tampil di-set ulang lewat `open_dynamic_bar_window`, sama seperti mode notch/pet). Implementasi: komponen `MascotEyes` (sepasang mata + garis Baymax di belakang mata) di `ui/windows.slint`, menggantikan dua instans `MascotEye` yang terpisah; `MascotEye` menerima prop `eye-style` (glow hanya Nusa, pupil hanya bukan-Baymax, "bulat" memaksa lingkaran diameter = sisi terpanjang).
 - **Mode Avatar Pet (Settings → Appearance → Notch):** maskot jadi avatar bulat 84×84 yang bisa di-drag ke mana saja; bergerak sendiri (wander) dengan glide halus — timer 120 ms, tiap tick bergerak 8% dari sisa jarak, dibatasi 1–5 px/tick (ease-out, maks ~41 px/detik, BUKAN lompat); target baru tiap 4–8 detik / saat sampai, min 60 px dari posisi sekarang, selalu di dalam LAYAR (bukan window utama lagi — diubah 27 Nov 2026, pin layar); tidak wander saat di-hover, saat panel mengembang, atau 5 detik setelah di-drag. Posisi default pet (belum pernah di-drag) = tengah atas layar, y=60. Posisi pet tersimpan di SQLite (`DynamicBar.X`/`DynamicBar.Y`) dan dipulihkan saat dibuka lagi. Mode notch selalu di tengah atas layar (posisi tidak disimpan).

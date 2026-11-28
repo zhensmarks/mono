@@ -1173,7 +1173,13 @@ export component CommentWindow inherits Window {
                         root.toast(root.show-activity ? "Aktivitas ditampilkan" : "Aktivitas disembunyikan");
                     }
                 }
-                IconBtn {
+                // X in-content HANYA saat chrome headless (abeng 28 Nov
+                // 10:16 — X ganda "janggal"): saat chrome custom/wrapped
+                // titlebar sudah punya X, saat native titlebar OS yang
+                // punya X. C# sepenuhnya frameless sehingga butuh tombol
+                // close pengganti di dalam konten; di port, X in-content
+                // hanya untuk mode headless.
+                if root.chrome-style == "headless" : IconBtn {
                     glyph: "×";
                     variant: "ghost";
                     size: 28px;
@@ -1471,7 +1477,7 @@ component VolumeSlider inherits Rectangle {
 export component DynamicBarWindow inherits Window {
     title: "BMachine — Dynamic Bar";
     width: root.expanded ? 560px : (root.bar-mode == "pet" ? 84px : 150px);
-    height: root.expanded ? root.expanded-height : root.pill-h;
+    height: root.bar-display == "line" ? 4px : (root.expanded ? root.expanded-height : root.pill-h);
     background: transparent;
     no-frame: true;
     always-on-top: true;
@@ -1500,6 +1506,11 @@ export component DynamicBarWindow inherits Window {
     // Mode notch (pill atas-tengah, posisi tetap) atau pet
     // (avatar bulat bebas, bisa di-drag + wander sendiri).
     in-out property <string> bar-mode: "notch";
+    // Tampilan notch oleh auto-hide (diisi Rust, timer 500ms):
+    // "full" = pill 150×32 biasa; "line" = garis tipis 4px
+    // (window lain maksimal). "hidden" tidak ada di sini —
+    // Rust menyembunyikan window-nya (w.hide()).
+    in-out property <string> bar-display: "full";
     // Gaya mata maskot ("nusa" | "baymax" | "bulat") — dari
     // Settings → Appearance → Notch, DB Settings.Notch.EyeStyle.
     // Berlaku ke mata notch DAN mata blob pet bawaan (bukan
@@ -1625,9 +1636,12 @@ export component DynamicBarWindow inherits Window {
 
     // Latar sentuh seluruh window (paling bawah): hover →
     // mengembang; klik area kosong → buka dashboard; klik
-    // kanan → tutup bar.
+    // kanan → tutup bar. Mode garis (auto-hide): dinonaktifkan
+    // — garis tidak boleh mengembang / menelan klik, klik
+    // menembus ke aplikasi di bawahnya.
     bar-touch := TouchArea {
         x: 0; y: 0; width: 100%; height: 100%;
+        enabled: root.bar-display != "line";
         mouse-cursor: pointer;
         changed has-hover => {
             if (self.has-hover) {
@@ -1679,11 +1693,24 @@ export component DynamicBarWindow inherits Window {
         padding: 0;
         spacing: 8px;
 
+        // Garis tipis auto-hide (window lain maksimal, mis.
+        // browser — ref layzee, abeng 28 Nov 11:59): seberkas
+        // garis hitam selebar pill di tengah atas, tidak nutupin
+        // tombol close tab; hover tidak mengembang (bar-touch
+        // dinonaktifkan di mode ini).
+        if root.bar-display == "line" : Rectangle {
+            width: root.pill-w;
+            height: 4px;
+            background: #0d0d0d;
+            border-radius: 2px;
+        }
+
         // ----- Pill notch / badan pet (hitam, mata putih) -----
         // Pet PetDex aktif (mode pet): latar hitam blob hilang —
         // sprite-nya sendiri yang menentukan bentuk (latar sheet
         // transparan, seperti PetDex Desktop).
         Rectangle {
+            visible: root.bar-display != "line";
             width: root.pill-w;
             x: root.expanded ? (root.bar-mode == "pet" ? 8px : (parent.width - root.pill-w) / 2) : 0px;
             height: root.pill-h;
