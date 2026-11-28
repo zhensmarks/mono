@@ -1386,6 +1386,72 @@ menempel di samping main window, mode floating).
   teks di BATCH (tab LOG), tombol nav Explorer (tab EXPLORER).
   Penghapusan diputuskan terpisah setelah panel Tugas terbukti.
 
+### 16.10 Tear-off BATCH — lepas jadi window OS sendiri (28 Nov 2026)
+
+Pola ini dipakai ulang Panel DOC nanti (window terpisah + forward
+callback + sync dari AppWindow). Scope saat ini HANYA BATCH.
+
+- **Batas jujur Slint:** Slint TIDAK punya OS drag-drop dan event
+  pointer berhenti saat kursor keluar window — drag-out murni TIDAK
+  mungkin. Yang jalan: grip `⋮⋮` di header BATCH (kursor grab);
+  drag > 48px ke arah mana pun memicu `batch-tear-off(x, y)` dengan
+  posisi pointer (logis, `absolute-position` + mouse); Rust
+  menempatkan window baru supaya titlebar-nya mendarat di bawah
+  pointer, lalu user melanjutkan dengan menarik titlebar window baru.
+  Alternatif: tombol "⧉ Lepas" di baris Folder Reguler drop zone
+  (lepas di tengah atas main window, `center_over_main(ui, 1100, 700)`).
+  Grip/tombol disembunyikan di window terlepas (`show-tear-off: false`).
+- **Satu komponen bersama, tanpa duplikasi:** `ui/batch.slint` —
+  `export component BatchView` (header, tree SOURCE/OUTPUT, drop zone,
+  Folder Reguler, footer script, popup manage reguler, ctx menu),
+  dipakai AppWindow (embedded) DAN `BatchWindow`. Struct
+  `BatchRow`/`RegulerDirRow`/`RegulerSchoolRow` + `BatchTreeRow`/
+  `BatchCtxMenu` tinggal di sini supaya kedua window memakai tipe Rust
+  hasil generate yang SAMA. `TaskRow` tetap di main.slint (dipakai
+  TaskManagerWindow). `selected-master`, `task-rows`,
+  `task-manager-open`, `batch-file-filter` adalah prop AppWindow yang
+  TIDAK dipakai view BATCH — tidak masuk BatchView.
+- **AppWindow sumber kebenaran tunggal.** Callback BatchWindow
+  diteruskan ke handler AppWindow via `invoke_batch_*` hasil generate.
+  Setelah tiap mutasi batch AppWindow, Rust menyalin SEMUA prop batch
+  AppWindow → BatchWindow (`sync_batch_window`, ~30 prop). Popup manage
+  Folder Reguler tinggal DI DALAM BatchView (jalan saat terlepas);
+  handler Esc AppWindow untuk popup itu tetap jalan (prop two-way).
+- **Dua handler membaca state UI lewat getter — diperbaiki dengan
+  argumen dari .slint:** `batch-confirm-new-folder(string, string)` =
+  (nama, panel) — handler Rust memakai argumen, bukan
+  `ui.get_newfolder_name()/get_newfolder_panel()` (basi saat terlepas).
+  `batch-reguler-load-selected` tetap membaca
+  `ui.get_reguler_selected_row()` (AppWindow sumber kebenaran), tapi
+  jalur klik-tunggal row memanggil sync supaya highlight popup di
+  window terlepas ikut berubah.
+- **Tutup → dock, window baru tiap lepas:** titlebar × memanggil
+  `close-window()` → Rust hide + kosongkan cell + `batch-detached=false`.
+  OS × (chrome native) ditangkap `slint::Window::on_close_requested`
+  → `CloseRequestResponse::HideWindow` + dock yang sama. Re-detach
+  selalu membuat window BARU (reuse hide→show tidak andal di Linux).
+  Geometri tersimpan di DB kunci `"BatchWindow"` (pola
+  `read_window_geometry`/`save_window_geometry` yang sudah ada).
+  Placeholder saat terlepas: kartu tengah "BATCH sedang terbuka di
+  window terpisah." + tombol "Kembalikan ke Dashboard" → `batch-dock()`.
+  `ex-send-batch` saat terlepas tetap menambah folder (sync mendorongnya
+  ke window terlepas); placeholder tetap tampil.
+- **Chrome:** BatchWindow mengikuti chrome aktif via
+  `push_chrome_to_batch` (cermin `push_chrome_to_sheet`) saat dibuat +
+  via `sync_chrome_to_windows` saat setting berubah (terbukti live:
+  ganti ke Headless → titlebar window terlepas ikut hilang). WARNA tema
+  TIDAK tersinkron ke window sekunder (gap #13, sama seperti
+  Spreadsheet/Toolbox/CardList) — BatchWindow tampil default gelap.
+- **Ukuran:** BatchWindow 1100×700; `min-width` TIDAK dipakai (Slint
+  menolak `width` + `min-width` bersamaan — pola ToolboxWindow).
+  Konten rapi di lebar 520 (drop zone + tree terverifikasi).
+- **Diketahui (layout BatchView lama, bukan tear-off):** header meluber
+  (tombol "+ Tambah Folder" terpotong di 1280px; di 520px tombol
+  "Folder Reguler…"/"☰ Tugas" tak terjangkau); footer ↻/×
+  (refresh/clear) tidak terjangkau di 960×640 maupun 1280×790 karena
+  konten lebih tinggi dari window. Di chrome headless, window terlepas
+  tidak punya tombol tutup yang terlihat — dock lewat placeholder.
+
 ## 17. Settings
 
 Settings BUKAN tab nav — dibuka via flyout profil (item

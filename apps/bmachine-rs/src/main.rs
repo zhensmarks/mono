@@ -2679,6 +2679,17 @@ fn push_chrome_to_cardlist(w: &CardListWindow, ui: &AppWindow) {
     ));
 }
 
+fn push_chrome_to_batch(w: &BatchWindow, ui: &AppWindow) {
+    theme::sync_icons(&Design::get(ui), &Design::get(w));
+    w.set_chrome_style(slint::SharedString::from(ui.get_app_chrome()));
+    w.set_chrome_button_style(slint::SharedString::from(
+        ui.get_app_chrome_button_style(),
+    ));
+    w.set_chrome_button_position(slint::SharedString::from(
+        ui.get_app_chrome_button_position(),
+    ));
+}
+
 fn push_chrome_to_comment(w: &CommentWindow, ui: &AppWindow) {
     theme::sync_icons(&Design::get(ui), &Design::get(w));
     w.set_chrome_style(slint::SharedString::from(ui.get_app_chrome()));
@@ -2699,6 +2710,7 @@ fn sync_chrome_to_windows(
     toolbox_cell: &std::rc::Rc<std::cell::RefCell<Option<ToolboxWindow>>>,
     card_cell: &std::rc::Rc<std::cell::RefCell<Option<CardListWindow>>>,
     comment_cell: &std::rc::Rc<std::cell::RefCell<Option<CommentWindow>>>,
+    batch_cell: &BatchWinCell,
 ) {
     if let Some(w) = sheet_cell.borrow().as_ref() {
         push_chrome_to_sheet(w, ui);
@@ -2711,6 +2723,9 @@ fn sync_chrome_to_windows(
     }
     if let Some(w) = comment_cell.borrow().as_ref() {
         push_chrome_to_comment(w, ui);
+    }
+    if let Some(w) = batch_cell.borrow().as_ref() {
+        push_chrome_to_batch(w, ui);
     }
 }
 
@@ -3212,7 +3227,23 @@ fn batch_rows_model(rows: &[batch::FlatRow]) -> slint::ModelRc<BatchRow> {
 }
 
 /// Dorong seluruh state BATCH ke Slint (dipanggil setelah tiap perubahan).
-fn push_batch_to_ui(ui: &AppWindow, st: &batch::BatchState) {
+/// Sel BatchWindow terlepas (tear-off BATCH, 28 Nov 2026).
+type BatchWinCell = std::rc::Rc<std::cell::RefCell<Option<BatchWindow>>>;
+
+fn push_batch_to_ui(
+    ui: &AppWindow,
+    st: &batch::BatchState,
+    batch_win: &BatchWinCell,
+) {
+    push_batch_to_ui_inner(ui, st);
+    // Jendela BATCH terlepas (bila ada) ikut diperbarui dari AppWindow.
+    sync_batch_to_open_window(batch_win, ui);
+}
+
+/// Isi push_batch_to_ui tanpa sinkronisasi window terlepas — dipakai
+/// dari closure lintas-thread (Rc tidak Send; yang dikirim adalah
+/// Weak<BatchWindow>, lalu sync_batch_window dipanggil manual di sana).
+fn push_batch_to_ui_inner(ui: &AppWindow, st: &batch::BatchState) {
     ui.set_src_rows(batch_rows_model(&st.src_rows()));
     ui.set_out_rows(batch_rows_model(&st.out_rows()));
     ui.set_src_name(slint::SharedString::from(st.header_source_name()));
@@ -3239,6 +3270,49 @@ fn push_batch_to_ui(ui: &AppWindow, st: &batch::BatchState) {
     };
     ui.set_batch_reguler_idx(idx);
     push_tasks_to_ui(ui, st);
+}
+
+/// Salin SELURUH state BATCH dari AppWindow ke BatchWindow terlepas.
+/// Satu-satunya sumber kebenaran = AppWindow; window terlepas hanya
+/// cermin — callback-nya meneruskan ke AppWindow via invoke_* (Rust),
+/// jadi semua perubahan state mengalir lewat handler AppWindow.
+fn sync_batch_window(w: &BatchWindow, ui: &AppWindow) {
+    w.set_src_rows(ui.get_src_rows());
+    w.set_out_rows(ui.get_out_rows());
+    w.set_src_name(ui.get_src_name());
+    w.set_selected_output(ui.get_selected_output());
+    w.set_batch_out_pending(ui.get_batch_out_pending());
+    w.set_batch_sel_count(ui.get_batch_sel_count());
+    w.set_has_manifest(ui.get_has_manifest());
+    w.set_batch_reguler_names(ui.get_batch_reguler_names());
+    w.set_batch_reguler_idx(ui.get_batch_reguler_idx());
+    w.set_newfolder_open(ui.get_newfolder_open());
+    w.set_newfolder_panel(ui.get_newfolder_panel());
+    w.set_newfolder_parent(ui.get_newfolder_parent());
+    w.set_newfolder_name(ui.get_newfolder_name());
+    w.set_ctx_node(ui.get_ctx_node());
+    w.set_ctx_node_id(ui.get_ctx_node_id());
+    w.set_ctx_panel(ui.get_ctx_panel());
+    w.set_ctx_is_dir(ui.get_ctx_is_dir());
+    w.set_ctx_is_root(ui.get_ctx_is_root());
+    w.set_reguler_manage_open(ui.get_reguler_manage_open());
+    w.set_reguler_dirs(ui.get_reguler_dirs());
+    w.set_reguler_scan_dir_idx(ui.get_reguler_scan_dir_idx());
+    w.set_reguler_scan_rows(ui.get_reguler_scan_rows());
+    w.set_reguler_scan_status(ui.get_reguler_scan_status());
+    w.set_reguler_filter(ui.get_reguler_filter());
+    w.set_reguler_months(ui.get_reguler_months());
+    w.set_reguler_month_idx(ui.get_reguler_month_idx());
+    w.set_reguler_selected_row(ui.get_reguler_selected_row());
+    w.set_batch_scripts(ui.get_batch_scripts());
+    w.set_batch_running(ui.get_batch_running());
+}
+
+/// Sinkronkan ke BatchWindow bila sedang terlepas (no-op bila tidak).
+fn sync_batch_to_open_window(cell: &BatchWinCell, ui: &AppWindow) {
+    if let Some(w) = cell.borrow().as_ref() {
+        sync_batch_window(w, ui);
+    }
 }
 
 /// Simpan daftar Folder Reguler ke DB (JSON array RegulerDir).
@@ -3280,6 +3354,19 @@ fn spawn_reguler_scan(
 /// (status warna + kunci + konteks output) + tabel sekolah hasil scan
 /// (sudah difilter) + daftar bulan + status scan.
 fn push_reguler_popup_to_ui(
+    ui: &AppWindow,
+    st: &batch::BatchState,
+    scan: &RegulerScanState,
+    run_active: bool,
+    batch_win: &BatchWinCell,
+) {
+    push_reguler_popup_to_ui_inner(ui, st, scan, run_active);
+    sync_batch_to_open_window(batch_win, ui);
+}
+
+/// Isi push_reguler_popup_to_ui tanpa sinkronisasi window terlepas
+/// (alasan sama seperti push_batch_to_ui_inner).
+fn push_reguler_popup_to_ui_inner(
     ui: &AppWindow,
     st: &batch::BatchState,
     scan: &RegulerScanState,
@@ -3442,6 +3529,7 @@ fn open_task_manager_window(
     handle: &Arc<batch_exec::BatchRunHandle>,
     db: &Option<Arc<Mutex<DatabaseService>>>,
     pl: &Arc<Mutex<ProcessLogService>>,
+    batch_win: &BatchWinCell,
 ) {
     // Bersihkan slot bila panel ditandai tertutup — buka-ulang selalu
     // buat window baru (reuse hide→show tidak andal). Borrow dilepas
@@ -3472,6 +3560,7 @@ fn open_task_manager_window(
             let pl_f = pl.clone();
             let cell_f = cell.clone();
             let vis_f = visible.clone();
+            let batch_win_f = batch_win.clone();
             // Lanjutan (follow-up) dari panel — sama seperti tombol
             // "Lanjutkan" di kartu / BUAT MASTER di panel OUTPUT.
             w.on_followup(move |id| {
@@ -3480,6 +3569,7 @@ fn open_task_manager_window(
                 };
                 batch_task_followup_ui(
                     &ui, &st_f, &handle_f, &db_f, &pl_f, &cell_f, &vis_f, id.as_str(),
+                    &batch_win_f,
                 );
             });
             let ui_weak = ui.as_weak();
@@ -3513,6 +3603,359 @@ fn open_task_manager_window(
         ui.set_task_manager_open(true);
     }
 }
+
+/// Buat BatchWindow bila belum ada + pasang handler (sekali per instans;
+/// dibuat baru tiap lepas-ulang setelah dock — pola sama seperti
+/// TaskManagerWindow: hide->show reuse tidak andal di Linux).
+/// Semua callback BATCH diteruskan ke AppWindow via invoke_* — AppWindow
+/// tetap satu-satunya sumber kebenaran; BatchWindow hanya cermin yang
+/// disinkronkan lewat sync_batch_window. Chrome disinkronkan via
+/// push_chrome_to_batch (warna tema TIDAK ikut — celah tema #13, sama
+/// seperti Spreadsheet/Toolbox/CardList).
+fn ensure_batch_window(
+    ui: &AppWindow,
+    cell: &BatchWinCell,
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+) {
+    if cell.borrow().is_some() {
+        return;
+    }
+    if let Ok(w) = BatchWindow::new() {
+        // --- Chrome window (pola CardListWindow). ---
+        let ui_weak = ui.as_weak();
+        let cell_c = cell.clone();
+        let db_c = db.clone();
+        // x titlebar -> dock (kembali ke dashboard).
+        w.on_close_window(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                dock_batch_window(&ui, &cell_c, &db_c);
+            }
+        });
+        let w_weak_min = w.as_weak();
+        w.on_minimize_window(move || {
+            if let Some(w) = w_weak_min.upgrade() {
+                w.window().set_minimized(true);
+            }
+        });
+        let w_weak_max = w.as_weak();
+        w.on_maximize_window(move || {
+            if let Some(w) = w_weak_max.upgrade() {
+                let m = w.window().is_maximized();
+                w.window().set_maximized(!m);
+            }
+        });
+        let w_weak2 = w.as_weak();
+        w.on_move_window(move |dx, dy| {
+            if let Some(w) = w_weak2.upgrade() {
+                let scale = w.window().scale_factor();
+                let pos = w.window().position();
+                let nx = pos.x + (dx * scale) as i32;
+                let ny = pos.y + (dy * scale) as i32;
+                w.window()
+                    .set_position(slint::PhysicalPosition::new(nx, ny));
+            }
+        });
+        // Toast diteruskan ke AppWindow (toast hanya ada di dashboard).
+        let ui_weak = ui.as_weak();
+        w.on_batch_toast(move |t| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.set_toast(t);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_pick_folder(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_pick_folder();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_close_ctx(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_close_ctx();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_ctx_new_subfolder(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_ctx_new_subfolder();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_ctx_replace_auto(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_ctx_replace_auto();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_ctx_replace_manual(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_ctx_replace_manual();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_ctx_copy_path(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_ctx_copy_path();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_ctx_copy_output_path(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_ctx_copy_output_path();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_ctx_delete(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_ctx_delete();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_cancel_new_folder(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_cancel_new_folder();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_phase1(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_phase1();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_copy_master(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_copy_master();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_stop(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_stop();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_replace_auto(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_replace_auto();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_refresh(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_refresh();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_clear(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_clear();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_reguler_manage(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_reguler_manage();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_reguler_close(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_reguler_close();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_reguler_add(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_reguler_add();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_reguler_load_selected(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_reguler_load_selected();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_open_task_manager(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_open_task_manager();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_add_folder(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_add_folder(a);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_run_script(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_run_script(a);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_reguler_filter_changed(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_reguler_filter_changed(a);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_row_clicked(move |a, b| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_row_clicked(a, b);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_row_right_down(move |a, b| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_row_right_down(a, b);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_row_right_up(move |a, b| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_row_right_up(a, b);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_toggle_expand(move |a, b| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_toggle_expand(a, b);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_open_ctx(move |a, b| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_open_ctx(a, b);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_confirm_new_folder(move |a, b| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_confirm_new_folder(a, b);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_reguler_picked(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_reguler_picked(a);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_reguler_remove(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_reguler_remove(a);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_reguler_toggle_lock(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_reguler_toggle_lock(a);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_reguler_select_dir(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_reguler_select_dir(a);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_reguler_month_picked(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_reguler_month_picked(a);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_reguler_row_clicked(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_reguler_row_clicked(a);
+            }
+        });
+        // OS x (chrome native) -> dock juga, bukan tutup proses.
+        let ui_weak2 = ui.as_weak();
+        let cell_c2 = cell.clone();
+        let db_c2 = db.clone();
+        w.window().on_close_requested(move || {
+            if let Some(ui) = ui_weak2.upgrade() {
+                dock_batch_window(&ui, &cell_c2, &db_c2);
+            }
+            slint::CloseRequestResponse::HideWindow
+        });
+        // Geometri tersimpan (kunci "BatchWindow", pola Spreadsheet).
+        let scale = w.window().scale_factor();
+        if let Some((x, y, lw, lh)) = read_window_geometry(db, "BatchWindow") {
+            let x = x.max(0);
+            let y = y.max(0);
+            w.window().set_position(slint::PhysicalPosition::new(
+                (x as f32 * scale) as i32,
+                (y as f32 * scale) as i32,
+            ));
+            w.window().set_size(slint::PhysicalSize::new(
+                (lw as f32 * scale) as u32,
+                (lh as f32 * scale) as u32,
+            ));
+        }
+        push_chrome_to_batch(&w, ui);
+        sync_batch_window(&w, ui);
+        *cell.borrow_mut() = Some(w);
+    }
+}
+
+/// Lepas BATCH ke window OS sendiri. `pos` = posisi kiri-atas (physical
+/// px) bila Some; None = di tengah window utama (dari ukuran window
+/// sebenarnya). Sekali lepas, AppWindow menampilkan placeholder sampai dock.
+fn detach_batch_window(
+    ui: &AppWindow,
+    cell: &BatchWinCell,
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+    pos: Option<(i32, i32)>,
+) {
+    if ui.get_batch_detached() {
+        return;
+    }
+    ensure_batch_window(ui, cell, db);
+    let pos = match pos {
+        Some(p) => p,
+        None => {
+            let (lw, lh) = match cell.borrow().as_ref() {
+                Some(w) => {
+                    let scale = w.window().scale_factor().max(1.0);
+                    let size = w.window().size();
+                    (
+                        (size.width as f32 / scale) as i32,
+                        (size.height as f32 / scale) as i32,
+                    )
+                }
+                None => (1100, 700),
+            };
+            center_over_main(ui, lw, lh)
+        }
+    };
+    if let Some(w) = cell.borrow().as_ref() {
+        w.window()
+            .set_position(slint::PhysicalPosition::new(pos.0, pos.1));
+        let _ = w.hide();
+        let _ = w.show();
+    }
+    ui.set_batch_detached(true);
+}
+
+/// Kembalikan BATCH ke dashboard: sembunyikan + buang window terlepas
+/// (lepas-ulang selalu buat window baru), simpan geometrinya.
+fn dock_batch_window(
+    ui: &AppWindow,
+    cell: &BatchWinCell,
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+) {
+    if let Some(w) = cell.borrow().as_ref() {
+        save_window_geometry(w.window(), db, "BatchWindow");
+        let _ = w.hide();
+    }
+    *cell.borrow_mut() = None;
+    ui.set_batch_detached(false);
+}
+
 
 /// Batalkan tugas Task Manager — dipakai tombol Batalkan di kartu tugas
 /// (window utama + panel terpisah). Tugas yang sedang berjalan = bunuh
@@ -3570,6 +4013,7 @@ fn batch_task_followup_ui(
     task_cell: &std::rc::Rc<std::cell::RefCell<Option<TaskManagerWindow>>>,
     task_visible: &std::rc::Rc<std::cell::Cell<bool>>,
     id: &str,
+    batch_win: &BatchWinCell,
 ) {
     let followup = {
         let s = st.lock().unwrap();
@@ -3598,6 +4042,7 @@ fn batch_task_followup_ui(
             task_cell,
             task_visible,
             "buat_master_duplikat.py",
+            batch_win,
         ) {
             ui.set_toast(slint::SharedString::from(msg));
         }
@@ -3792,6 +4237,7 @@ fn batch_handle_double_click(
     _pl: &Arc<Mutex<ProcessLogService>>,
     panel: batch::BatchPanel,
     id: &str,
+    batch_win: &BatchWinCell,
 ) {
     let (is_dir, path, _name) = {
         let s = st.lock().unwrap();
@@ -3806,7 +4252,7 @@ fn batch_handle_double_click(
             batch::toggle_expand(&mut s.roots, panel, id);
         }
         if let Some(ui) = ui_weak.upgrade() {
-            push_batch_to_ui(&ui, &st.lock().unwrap());
+            push_batch_to_ui(&ui, &st.lock().unwrap(), batch_win);
         }
         return;
     }
@@ -3870,6 +4316,7 @@ fn batch_start_run(
     task_cell: &std::rc::Rc<std::cell::RefCell<Option<TaskManagerWindow>>>,
     task_visible: &std::rc::Rc<std::cell::Cell<bool>>,
     script_file: &str,
+    batch_win: &BatchWinCell,
 ) -> Result<(), String> {
     if handle.is_running() {
         return Err("Proses sedang berjalan — tekan Stop dulu.".to_string());
@@ -3992,7 +4439,7 @@ fn batch_start_run(
     // Task Manager tampil otomatis saat run dimulai (window terpisah
     // di samping window utama, ala master_creator) — user menutupnya
     // via × di panel atau tombol "☰ Tugas".
-    open_task_manager_window(ui, task_cell, task_visible, st, handle, db, pl);
+    open_task_manager_window(ui, task_cell, task_visible, st, handle, db, pl, batch_win);
     batch_exec::start_batch_run(
         Arc::clone(handle),
         wrapper,
@@ -4006,6 +4453,7 @@ fn batch_start_run(
         user_name,
     );
     ui.set_batch_running(true);
+    sync_batch_to_open_window(batch_win, ui);
     Ok(())
 }
 
@@ -4807,6 +5255,10 @@ fn main() -> Result<(), slint::PlatformError> {
     // 1 = CardListWindow.
     let comment_source: std::rc::Rc<std::cell::Cell<u8>> =
         std::rc::Rc::new(std::cell::Cell::new(0));
+    // BatchWindow terlepas (tear-off BATCH, 28 Nov 2026) — dibuat saat
+    // tab BATCH diseret keluar; None = BATCH masih embedded di dashboard.
+    let batch_win_cell: BatchWinCell =
+        std::rc::Rc::new(std::cell::RefCell::new(None));
     // Waktu drag terakhir mode pet (wander tidak jalan 5 detik
     // setelah user selesai men-drag avatar).
     let pet_last_drag: Arc<Mutex<Instant>> =
@@ -4873,7 +5325,7 @@ fn main() -> Result<(), slint::PlatformError> {
         }
     }
     // Dorong state BATCH awal ke UI (drop zone kosong sampai folder dipilih).
-    push_batch_to_ui(&ui, &batch_state.lock().unwrap());
+    push_batch_to_ui(&ui, &batch_state.lock().unwrap(), &batch_win_cell);
 
     // BATCH executor (tahap 3): handle run + daftar script master dari
     // Scripts/Master/*.py (nama/urutan dari scripts.json bila ada).
@@ -5943,6 +6395,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let toolbox_cell_sync = toolbox_win_cell.clone();
         let card_cell_sync = card_win_cell.clone();
         let comment_cell_sync = comment_win_cell.clone();
+        let batch_cell_sync = batch_win_cell.clone();
         ui.on_apply_appearance(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 match theme::apply_appearance(&ui) {
@@ -5961,6 +6414,7 @@ fn main() -> Result<(), slint::PlatformError> {
                             &toolbox_cell_sync,
                             &card_cell_sync,
                             &comment_cell_sync,
+                            &batch_cell_sync,
                         );
                     }
                     Err(msg) => {
@@ -5980,6 +6434,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let toolbox_cell_sync = toolbox_win_cell.clone();
         let card_cell_sync = card_win_cell.clone();
         let comment_cell_sync = comment_win_cell.clone();
+        let batch_cell_sync = batch_win_cell.clone();
         ui.on_reset_appearance(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 ui.set_app_color_mode(slint::SharedString::from("dark"));
@@ -6019,6 +6474,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     &toolbox_cell_sync,
                     &card_cell_sync,
                     &comment_cell_sync,
+                    &batch_cell_sync,
                 );
                 if let Some(ref db_mutex) = db_clone {
                     if let Ok(mut db_guard) = db_mutex.lock() {
@@ -6432,10 +6888,13 @@ fn main() -> Result<(), slint::PlatformError> {
     {
         // -- Tambah folder: dialog folder (thread, blocking) --
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         ui.on_batch_pick_folder(move || {
             let ui_w = ui_weak.clone();
             let st_c = st.clone();
+            // Weak (Send) — Rc di BatchWinCell tidak boleh masuk thread.
+            let batch_w = batch_c.borrow().as_ref().map(|w| w.as_weak());
             std::thread::spawn(move || {
                 match platform::pick_folder("Pilih Folder Sumber") {
                     platform::PickResult::Picked(path) => {
@@ -6463,7 +6922,12 @@ fn main() -> Result<(), slint::PlatformError> {
                         let _ = ui_w.upgrade_in_event_loop(move |ui| {
                             {
                                 let s = st_c.lock().unwrap();
-                                push_batch_to_ui(&ui, &s);
+                                push_batch_to_ui_inner(&ui, &s);
+                                if let Some(w) =
+                                    batch_w.as_ref().and_then(|w| w.upgrade())
+                                {
+                                    sync_batch_window(&w, &ui);
+                                }
                             }
                             ui.set_toast(slint::SharedString::from(msg));
                         });
@@ -6484,6 +6948,7 @@ fn main() -> Result<(), slint::PlatformError> {
     {
         // -- Dari Explorer: kirim folder ke BATCH (satu argumen = full path) --
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         ui.on_batch_add_folder(move |path| {
             let p = std::path::PathBuf::from(path.to_string());
@@ -6502,7 +6967,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 }
             };
             if let Some(ui) = ui_weak.upgrade() {
-                push_batch_to_ui(&ui, &st.lock().unwrap());
+                push_batch_to_ui(&ui, &st.lock().unwrap(), &batch_c);
                 ui.set_toast(slint::SharedString::from(msg));
             }
         });
@@ -6512,6 +6977,7 @@ fn main() -> Result<(), slint::PlatformError> {
         // Klik ganda dideteksi di sini (bukan lewat Slint
         // `double-clicked` — lihat batch_handle_double_click).
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         let pl = proc_log.clone();
         ui.on_batch_row_clicked(move |panel_s, id| {
@@ -6527,7 +6993,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 std::time::Instant::now(),
             );
             if is_dbl {
-                batch_handle_double_click(&ui_weak, &st, &pl, panel, &id);
+                batch_handle_double_click(&ui_weak, &st, &pl, panel, &id, &batch_c);
                 return;
             }
             let shift = BATCH_SHIFT_HELD.load(Ordering::SeqCst);
@@ -6558,7 +7024,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 if !master_name.is_empty() {
                     ui.set_selected_master(slint::SharedString::from(master_name));
                 }
-                push_batch_to_ui(&ui, &st.lock().unwrap());
+                push_batch_to_ui(&ui, &st.lock().unwrap(), &batch_c);
                 if !toast.is_empty() {
                     ui.set_toast(slint::SharedString::from(toast));
                 }
@@ -6568,6 +7034,7 @@ fn main() -> Result<(), slint::PlatformError> {
     {
         // -- Klik kanan DOWN pada nama: simpan seleksi, lalu expand/collapse. --
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         ui.on_batch_row_right_down(move |panel_s, id| {
             let panel = if panel_s == "OUTPUT" {
@@ -6585,13 +7052,14 @@ fn main() -> Result<(), slint::PlatformError> {
                 }
             }
             if let Some(ui) = ui_weak.upgrade() {
-                push_batch_to_ui(&ui, &st.lock().unwrap());
+                push_batch_to_ui(&ui, &st.lock().unwrap(), &batch_c);
             }
         });
     }
     {
         // -- Klik kanan UP: snapshot seleksi, siapkan target menu konteks. --
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         let ctx = batch_ctx.clone();
         ui.on_batch_row_right_up(move |panel_s, id| {
@@ -6630,18 +7098,20 @@ fn main() -> Result<(), slint::PlatformError> {
                 newfolder_parent: String::new(),
             };
             if let Some(ui) = ui_weak.upgrade() {
-                push_batch_to_ui(&ui, &st.lock().unwrap());
+                push_batch_to_ui(&ui, &st.lock().unwrap(), &batch_c);
                 ui.set_ctx_node(slint::SharedString::from(name));
                 ui.set_ctx_node_id(slint::SharedString::from(id.to_string()));
                 ui.set_ctx_panel(slint::SharedString::from(panel_s.to_string()));
                 ui.set_ctx_is_dir(is_dir);
                 ui.set_ctx_is_root(is_root);
+                sync_batch_to_open_window(&batch_c, &ui);
             }
         });
     }
     {
         // -- Menu konteks dibuka dari tombol ⋯ (tidak mengganggu seleksi). --
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         let ctx = batch_ctx.clone();
         ui.on_batch_open_ctx(move |panel_s, id| {
@@ -6677,24 +7147,28 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.set_ctx_panel(slint::SharedString::from(panel_s.to_string()));
                 ui.set_ctx_is_dir(is_dir);
                 ui.set_ctx_is_root(is_root);
+                sync_batch_to_open_window(&batch_c, &ui);
             }
         });
     }
     {
         // -- Tutup menu konteks (klik di luar / Esc / klik kanan). --
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let ctx = batch_ctx.clone();
         ui.on_batch_close_ctx(move || {
             *ctx.lock().unwrap() = BatchCtxTarget::default();
             if let Some(ui) = ui_weak.upgrade() {
                 ui.set_ctx_node(slint::SharedString::from(""));
                 ui.set_ctx_node_id(slint::SharedString::from(""));
+                sync_batch_to_open_window(&batch_c, &ui);
             }
         });
     }
     {
         // -- Expand/collapse via chevron. --
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         ui.on_batch_toggle_expand(move |panel_s, id| {
             let panel = if panel_s == "OUTPUT" {
@@ -6707,13 +7181,14 @@ fn main() -> Result<(), slint::PlatformError> {
                 batch::toggle_expand(&mut s.roots, panel, &id);
             }
             if let Some(ui) = ui_weak.upgrade() {
-                push_batch_to_ui(&ui, &st.lock().unwrap());
+                push_batch_to_ui(&ui, &st.lock().unwrap(), &batch_c);
             }
         });
     }
     {
         // -- Menu konteks: Subfolder baru (buka input inline). --
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let ctx = batch_ctx.clone();
         let st = batch_state.clone();
         ui.on_batch_ctx_new_subfolder(move || {
@@ -6744,25 +7219,23 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.set_newfolder_parent(slint::SharedString::from(parent_path.display().to_string()));
                 ui.set_newfolder_name(slint::SharedString::from(""));
                 ui.set_ctx_node(slint::SharedString::from(""));
+                sync_batch_to_open_window(&batch_c, &ui);
             }
         });
     }
     {
         // -- Konfirmasi subfolder baru (Enter / tombol Buat). --
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         let ctx = batch_ctx.clone();
-        ui.on_batch_confirm_new_folder(move || {
-            let (name, panel_s, parent) = {
-                let Some(ui) = ui_weak.upgrade() else {
-                    return;
-                };
-                (
-                    ui.get_newfolder_name().to_string(),
-                    ui.get_newfolder_panel().to_string(),
-                    ctx.lock().unwrap().newfolder_parent.clone(),
-                )
-            };
+        // Nama + panel diterima sebagai argumen dari BatchView — saat
+        // terlepas, nilainya hidup di BatchWindow, bukan AppWindow
+        // (membaca ui.get_newfolder_name() di sini akan kosong).
+        ui.on_batch_confirm_new_folder(move |name, panel_s| {
+            let name = name.to_string();
+            let panel_s = panel_s.to_string();
+            let parent = ctx.lock().unwrap().newfolder_parent.clone();
             let name = name.trim().to_string();
             let toast: String = if name.is_empty() {
                 "Nama folder tidak boleh kosong.".to_string()
@@ -6789,7 +7262,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     ui.set_newfolder_open(false);
                     ui.set_newfolder_name(slint::SharedString::from(""));
                 }
-                push_batch_to_ui(&ui, &st.lock().unwrap());
+                push_batch_to_ui(&ui, &st.lock().unwrap(), &batch_c);
                 ui.set_toast(slint::SharedString::from(toast));
             }
         });
@@ -6797,10 +7270,12 @@ fn main() -> Result<(), slint::PlatformError> {
     {
         // -- Batal subfolder baru (Esc / tombol Batal). --
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         ui.on_batch_cancel_new_folder(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 ui.set_newfolder_open(false);
                 ui.set_newfolder_name(slint::SharedString::from(""));
+                sync_batch_to_open_window(&batch_c, &ui);
             }
         });
     }
@@ -6848,6 +7323,7 @@ fn main() -> Result<(), slint::PlatformError> {
     {
         // -- Menu konteks: Hapus dari disk + dari tree. --
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let ctx = batch_ctx.clone();
         let st = batch_state.clone();
         ui.on_batch_ctx_delete(move || {
@@ -6874,7 +7350,7 @@ fn main() -> Result<(), slint::PlatformError> {
             };
             if let Some(ui) = ui_weak.upgrade() {
                 ui.set_ctx_node(slint::SharedString::from(""));
-                push_batch_to_ui(&ui, &st.lock().unwrap());
+                push_batch_to_ui(&ui, &st.lock().unwrap(), &batch_c);
                 ui.set_toast(slint::SharedString::from(msg));
             }
         });
@@ -7007,6 +7483,7 @@ fn main() -> Result<(), slint::PlatformError> {
     {
         // -- Refresh: muat ulang SOURCE & OUTPUT dari disk. --
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         ui.on_batch_refresh(move || {
             {
@@ -7014,7 +7491,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 batch::rescan_all(&mut s.roots);
             }
             if let Some(ui) = ui_weak.upgrade() {
-                push_batch_to_ui(&ui, &st.lock().unwrap());
+                push_batch_to_ui(&ui, &st.lock().unwrap(), &batch_c);
                 ui.set_toast(slint::SharedString::from("Memuat ulang SOURCE & OUTPUT…"));
             }
         });
@@ -7022,6 +7499,7 @@ fn main() -> Result<(), slint::PlatformError> {
     {
         // -- Bersihkan SOURCE (file tetap ada di disk). --
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         ui.on_batch_clear(move || {
             {
@@ -7029,7 +7507,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 s.clear();
             }
             if let Some(ui) = ui_weak.upgrade() {
-                push_batch_to_ui(&ui, &st.lock().unwrap());
+                push_batch_to_ui(&ui, &st.lock().unwrap(), &batch_c);
                 ui.set_toast(slint::SharedString::from(
                     "SOURCE dibersihkan (file tetap ada di disk).",
                 ));
@@ -7039,6 +7517,7 @@ fn main() -> Result<(), slint::PlatformError> {
     {
         // -- Folder Reguler: pilih dari dropdown → jadi SOURCE aktif. --
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         let db_c = db.clone();
         ui.on_batch_reguler_picked(move |idx| {
@@ -7087,7 +7566,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 }
             }
             if let Some(ui) = ui_weak.upgrade() {
-                push_batch_to_ui(&ui, &st.lock().unwrap());
+                push_batch_to_ui(&ui, &st.lock().unwrap(), &batch_c);
                 ui.set_toast(slint::SharedString::from(msg));
             }
         });
@@ -7097,6 +7576,7 @@ fn main() -> Result<(), slint::PlatformError> {
         // aktif (atau pertama) di thread latar; daftar + tabel sekolah
         // didorong ke UI oleh push_reguler_popup_to_ui.
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         let scan = reguler_scan_state.clone();
         let rxh = reguler_scan_rx.clone();
@@ -7128,23 +7608,27 @@ fn main() -> Result<(), slint::PlatformError> {
                 spawn_reguler_scan(&dir, &rxh);
             }
             let run_active = handle.is_running();
-            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active);
+            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active, &batch_c);
             ui.set_reguler_manage_open(true);
+            sync_batch_to_open_window(&batch_c, &ui);
         });
     }
     {
         // -- Folder Reguler: tutup popup Kelola (×, Tutup, klik di luar,
         // klik kanan, Esc).
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         ui.on_batch_reguler_close(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 ui.set_reguler_manage_open(false);
+                sync_batch_to_open_window(&batch_c, &ui);
             }
         });
     }
     {
         // -- Folder Reguler: tambah direktori (dialog pilih folder).
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         let db_c = db.clone();
         let scan = reguler_scan_state.clone();
@@ -7155,6 +7639,8 @@ fn main() -> Result<(), slint::PlatformError> {
             let db_cc = db_c.clone();
             let scan_c = scan.clone();
             let handle_c = handle.clone();
+            // Weak (Send) — Rc di BatchWinCell tidak boleh masuk thread.
+            let batch_w = batch_c.borrow().as_ref().map(|w| w.as_weak());
             std::thread::spawn(move || {
                 match platform::pick_folder("Pilih Folder Reguler") {
                     platform::PickResult::Picked(path) => {
@@ -7177,13 +7663,18 @@ fn main() -> Result<(), slint::PlatformError> {
                         };
                         let _ = ui_w.upgrade_in_event_loop(move |ui| {
                             let run_active = handle_c.is_running();
-                            push_reguler_popup_to_ui(
+                            push_reguler_popup_to_ui_inner(
                                 &ui,
                                 &st_c.lock().unwrap(),
                                 &scan_c.lock().unwrap(),
                                 run_active,
                             );
-                            push_batch_to_ui(&ui, &st_c.lock().unwrap());
+                            push_batch_to_ui_inner(&ui, &st_c.lock().unwrap());
+                            if let Some(w) =
+                                batch_w.as_ref().and_then(|w| w.upgrade())
+                            {
+                                sync_batch_window(&w, &ui);
+                            }
                             ui.set_toast(slint::SharedString::from(msg));
                         });
                     }
@@ -7195,6 +7686,7 @@ fn main() -> Result<(), slint::PlatformError> {
     {
         // -- Folder Reguler: hapus direktori (terkunci = tolak).
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         let db_c = db.clone();
         let scan = reguler_scan_state.clone();
@@ -7224,14 +7716,15 @@ fn main() -> Result<(), slint::PlatformError> {
                 }
             };
             let run_active = handle.is_running();
-            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active);
-            push_batch_to_ui(&ui, &st.lock().unwrap());
+            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active, &batch_c);
+            push_batch_to_ui(&ui, &st.lock().unwrap(), &batch_c);
             ui.set_toast(slint::SharedString::from(msg));
         });
     }
     {
         // -- Folder Reguler: kunci/buka kunci direktori.
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         let db_c = db.clone();
         let scan = reguler_scan_state.clone();
@@ -7248,12 +7741,13 @@ fn main() -> Result<(), slint::PlatformError> {
                 persist_reguler_dirs(&db_c, &s.reguler_dirs);
             }
             let run_active = handle.is_running();
-            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active);
+            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active, &batch_c);
         });
     }
     {
         // -- Folder Reguler: pilih direktori → scan ulang latar.
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         let scan = reguler_scan_state.clone();
         let rxh = reguler_scan_rx.clone();
@@ -7280,12 +7774,13 @@ fn main() -> Result<(), slint::PlatformError> {
             }
             spawn_reguler_scan(&dir, &rxh);
             let run_active = handle.is_running();
-            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active);
+            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active, &batch_c);
         });
     }
     {
         // -- Folder Reguler: ketik di kolom cari → filter tabel.
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         let scan = reguler_scan_state.clone();
         let handle = batch_run_handle.clone();
@@ -7298,12 +7793,13 @@ fn main() -> Result<(), slint::PlatformError> {
                 sc.filter = text.to_string();
             }
             let run_active = handle.is_running();
-            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active);
+            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active, &batch_c);
         });
     }
     {
         // -- Folder Reguler: filter bulan (dipersisten ke DB).
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         let db_c = db.clone();
         let scan = reguler_scan_state.clone();
@@ -7332,13 +7828,14 @@ fn main() -> Result<(), slint::PlatformError> {
                 }
             }
             let run_active = handle.is_running();
-            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active);
+            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active, &batch_c);
         });
     }
     {
         // -- Folder Reguler: klik baris sekolah (klik ganda = jadikan
         // SOURCE). Klik tunggal hanya menandai baris.
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         let db_c = db.clone();
         let scan = reguler_scan_state.clone();
@@ -7378,11 +7875,13 @@ fn main() -> Result<(), slint::PlatformError> {
                         let _ = g.set("Batch.FolderReguler.Active", &dir, "String");
                     }
                 }
-                push_batch_to_ui(&ui, &st.lock().unwrap());
+                push_batch_to_ui(&ui, &st.lock().unwrap(), &batch_c);
                 ui.set_reguler_manage_open(false);
+                sync_batch_to_open_window(&batch_c, &ui);
                 ui.set_toast(slint::SharedString::from(msg));
             } else {
                 ui.set_reguler_selected_row(idx);
+                sync_batch_to_open_window(&batch_c, &ui);
             }
         });
     }
@@ -7390,6 +7889,7 @@ fn main() -> Result<(), slint::PlatformError> {
         // -- Folder Reguler: tombol "Jadikan Source" — baris sekolah
         // terpilih jadi SOURCE BATCH, popup tertutup.
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         let db_c = db.clone();
         let scan = reguler_scan_state.clone();
@@ -7429,8 +7929,9 @@ fn main() -> Result<(), slint::PlatformError> {
                     let _ = g.set("Batch.FolderReguler.Active", &dir, "String");
                 }
             }
-            push_batch_to_ui(&ui, &st.lock().unwrap());
+            push_batch_to_ui(&ui, &st.lock().unwrap(), &batch_c);
             ui.set_reguler_manage_open(false);
+            sync_batch_to_open_window(&batch_c, &ui);
             ui.set_toast(slint::SharedString::from(msg));
         });
     }
@@ -7439,6 +7940,7 @@ fn main() -> Result<(), slint::PlatformError> {
         // berurutan via batch_wrapper.py; log mengalir live; Stop = bunuh
         // tree proses. Nama tampil (alias scripts.json) -> nama file. --
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let handle = batch_run_handle.clone();
         let st = batch_state.clone();
         let db_c = db.clone();
@@ -7474,7 +7976,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     })
             };
             if let Err(msg) = batch_start_run(
-                &ui, &handle, &db_c, &st, &pl, &task_cell, &task_visible, &filename,
+                &ui, &handle, &db_c, &st, &pl, &task_cell, &task_visible, &filename, &batch_c,
             ) {
                 ui.set_toast(slint::SharedString::from(msg));
             }
@@ -7484,6 +7986,7 @@ fn main() -> Result<(), slint::PlatformError> {
         // -- Fase 1 (DESIGN_SYSTEM.md §16.4): buat_master.py -> has-manifest.
         // Sukses semua root = "Manifest: ada". --
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let handle = batch_run_handle.clone();
         let st = batch_state.clone();
         let db_c = db.clone();
@@ -7503,6 +8006,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 &task_cell,
                 &task_visible,
                 "buat_master.py",
+                &batch_c,
             ) {
                 ui.set_toast(slint::SharedString::from(msg));
             }
@@ -7529,6 +8033,7 @@ fn main() -> Result<(), slint::PlatformError> {
         // buat_master_duplikat.py): BUTUH manifest (Fase 1 dulu); tanpa
         // manifest = toast error dan berhenti. --
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let handle = batch_run_handle.clone();
         let st = batch_state.clone();
         let db_c = db.clone();
@@ -7555,6 +8060,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 &task_cell,
                 &task_visible,
                 "buat_master_duplikat.py",
+                &batch_c,
             ) {
                 ui.set_toast(slint::SharedString::from(msg));
             }
@@ -7565,6 +8071,7 @@ fn main() -> Result<(), slint::PlatformError> {
         // (window OS di samping window utama). Panel tampil otomatis
         // saat run dimulai.
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         let handle = batch_run_handle.clone();
         let db_c = db.clone();
@@ -7590,6 +8097,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     &handle,
                     &db_c,
                     &pl,
+                    &batch_c,
                 );
             }
         });
@@ -7614,6 +8122,7 @@ fn main() -> Result<(), slint::PlatformError> {
         // (Fase 2 = buat_master_duplikat.py — logika bersama, lihat
         // batch_task_followup_ui; panel terpisah memanggil yang sama).
         let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
         let handle = batch_run_handle.clone();
         let st = batch_state.clone();
         let db_c = db.clone();
@@ -7633,7 +8142,62 @@ fn main() -> Result<(), slint::PlatformError> {
                 &task_cell,
                 &task_visible,
                 id.as_str(),
+                &batch_c,
             );
+        });
+    }
+
+    {
+        // -- Tear-off BATCH (28 Nov 2026): seret grip tab BATCH keluar
+        // -> window OS sendiri; tutup window itu -> kembali ke dashboard.
+        // Jujur soal batas Slint: pointer event berhenti saat kursor
+        // keluar window (tidak ada grab pointer OS), jadi lepas terjadi
+        // saat grip digeser > 48px DI DALAM window; window baru terbit
+        // dengan titlebar di bawah pointer supaya drag bisa dilanjutkan
+        // dari titlebar-nya (lihat DESIGN_SYSTEM.md §16.10).
+        let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
+        let db_c = db.clone();
+        ui.on_batch_tear_off(move |x, y| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            // Posisi pointer (logis, relatif window utama) -> fisik.
+            let win = ui.window();
+            let pos = win.position();
+            let scale = win.scale_factor();
+            let px = pos.x + (x * scale) as i32;
+            let py = pos.y + (y * scale) as i32;
+            // Titlebar window baru di bawah pointer (240px dari kiri,
+            // 14px dari atas) supaya drag bisa dilanjutkan; clamp >= 0.
+            let nx = (px - (240.0 * scale) as i32).max(0);
+            let ny = (py - (14.0 * scale) as i32).max(0);
+            detach_batch_window(&ui, &batch_c, &db_c, Some((nx, ny)));
+        });
+    }
+    {
+        // -- Tear-off via tombol "Lepas" (drop zone): window di tengah
+        // window utama (posisi dihitung dari ukuran window sebenarnya).
+        let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
+        let db_c = db.clone();
+        ui.on_batch_tear_off_center(move || {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            detach_batch_window(&ui, &batch_c, &db_c, None);
+        });
+    }
+    {
+        // -- Dock: placeholder "Kembalikan ke Dashboard".
+        let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
+        let db_c = db.clone();
+        ui.on_batch_dock(move || {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            dock_batch_window(&ui, &batch_c, &db_c);
         });
     }
 
@@ -9243,6 +9807,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let toolbox_cell = toolbox_win_cell.clone();
         let card_cell = card_win_cell.clone();
         let comment_cell = comment_win_cell.clone();
+        let batch_cell = batch_win_cell.clone();
         let ui_weak = ui.as_weak();
         let db_clone = db.clone();
         ui.on_icon_pack_settings_changed(move || {
@@ -9260,7 +9825,7 @@ fn main() -> Result<(), slint::PlatformError> {
             sync_bar_theme(&ui, &bar_cell);
             sync_radial_theme(&ui, &radial_cell);
             sync_task_theme(&ui, &task_cell);
-            sync_chrome_to_windows(&ui, &sheet_cell, &toolbox_cell, &card_cell, &comment_cell);
+            sync_chrome_to_windows(&ui, &sheet_cell, &toolbox_cell, &card_cell, &comment_cell, &batch_cell);
         });
     }
 
@@ -12387,6 +12952,7 @@ fn main() -> Result<(), slint::PlatformError> {
             let st = batch_state.clone();
             let pl = proc_log.clone();
             let task_cell = task_win.clone();
+            let batch_c = batch_win_cell.clone();
             move || {
                 let Some(ui) = ui_weak.upgrade() else {
                     return;
@@ -12565,9 +13131,10 @@ fn main() -> Result<(), slint::PlatformError> {
                             }
                         }
                     }
-                    push_batch_to_ui(&ui, &st.lock().unwrap());
+                    push_batch_to_ui(&ui, &st.lock().unwrap(), &batch_c);
                     push_tasks_to_panel(&task_cell, &st.lock().unwrap());
                     ui.set_batch_running(false);
+                    sync_batch_to_open_window(&batch_c, &ui);
                     let toast = if ok {
                         if handle.failed.load(Ordering::SeqCst) {
                             "[SUCCESS] Batch Selesai (ada folder yang gagal — cek log)."
@@ -12598,6 +13165,7 @@ fn main() -> Result<(), slint::PlatformError> {
             let scan = reguler_scan_state.clone();
             let rxh = reguler_scan_rx.clone();
             let handle = batch_run_handle.clone();
+            let batch_c = batch_win_cell.clone();
             move || {
                 let Some(ui) = ui_weak.upgrade() else {
                     return;
@@ -12624,7 +13192,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     sc.all = rows;
                     sc.scanning = false;
                     let run_active = handle.is_running();
-                    push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &sc, run_active);
+                    push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &sc, run_active, &batch_c);
                 }
             }
         },

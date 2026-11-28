@@ -1,0 +1,1241 @@
+// BATCH — tampilan tab BATCH (dipakai DUA host: AppWindow embedded
+// dan BatchWindow terlepas, ui/windows.slint). Dipindah dari
+// ui/main.slint 28 Nov 2026 (tear-off BATCH): SATU komponen, dua
+// host — jangan duplikasi tampilan ini. Semua state BATCH hidup di
+// Rust (src/batch.rs); host hanya mengikat prop dua arah + meneruskan
+// callback ke Rust. Jendela terlepas disinkronkan Rust dari AppWindow
+// (sync_batch_window di src/main.rs) tiap kali state berubah.
+
+import { Design, Card, HSeparator, Btn, IconBtn, TextField, ComboBox } from "design.slint";
+
+// ===== BATCH — baris tree + menu konteks (model beneran, Rust) =====
+// Satu baris tree BATCH (flat row dari src/batch.rs): indentasi dari
+// depth, chevron ▸/▾ untuk folder, ikon ▤ untuk file, nama tebal
+// untuk folder. Klik kiri = pilih + salin path (Rust); klik kanan =
+// expand/collapse + buka menu konteks (Rust, LANJUTKAN §10).
+export struct BatchRow {
+    id: string,
+    name: string,
+    path: string,
+    depth: int,
+    is-dir: bool,
+    expanded: bool,
+    has-kids: bool,
+    selected: bool,
+    is-root: bool,
+}
+
+// Satu direktori Folder Reguler tersimpan (popup Kelola, tahap 4).
+// status: "ready" | "empty" | "missing" | "locked" | "inuse".
+export struct RegulerDirRow {
+    path: string,
+    name: string,
+    status: string,
+    status-label: string,
+    locked: bool,
+    last-output: string,
+}
+
+// Satu baris sekolah hasil scan Folder Reguler (tahap 4).
+export struct RegulerSchoolRow {
+    bulan: string,
+    marketing: string,
+    sekolah: string,
+    path: string,
+}
+
+component BatchTreeRow inherits Rectangle {
+    in property <string> row-id: "";
+    in property <string> row-name: "";
+    in property <int> row-depth: 0;
+    in property <bool> row-is-dir: true;
+    in property <bool> row-expanded: false;
+    in property <bool> row-has-kids: false;
+    in property <bool> row-selected: false;
+    in property <string> panel: "SOURCE";
+    callback row-clicked(string, string);
+    callback row-right-down(string, string);
+    callback row-right-up(string, string);
+    callback row-toggle-expand(string, string);
+    callback row-more(string, string);
+
+    // Baris folder 36px, baris anak (file) 26px — tree padat C#,
+    // tidak ikut ui-scale.
+    height: row-is-dir ? 36px : 26px;
+    background: row-selected ? Design.accent-subtle : (row-touch.has-hover ? Design.bg-hover : transparent);
+    border-radius: Design.radius-sm;
+
+    row-touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.row-clicked(panel, row-id); }
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                root.row-right-down(panel, row-id);
+            } else if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.right) {
+                root.row-right-up(panel, row-id);
+            }
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: 10px + row-depth * 16px;
+        padding-right: 10px;
+        spacing: 8px;
+
+        // Chevron (folder beranak) / ikon file ▤ / spasi kosong.
+        Rectangle {
+            width: 20px;
+            height: 100%;
+            chev-touch := TouchArea {
+                mouse-cursor: pointer;
+                enabled: row-is-dir && row-has-kids;
+                clicked => { root.row-toggle-expand(panel, row-id); }
+            }
+            Text {
+                text: row-is-dir ? (row-has-kids ? (row-expanded ? "▾" : "▸") : "") : "▤";
+                font-size: 12px;
+                font-weight: 700;
+                color: row-is-dir ? Design.text-secondary : Design.text-muted;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                width: 100%;
+                height: 100%;
+            }
+        }
+
+        Text {
+            text: row-name;
+            font-size: 12px;
+            font-weight: row-is-dir ? 700 : 400;
+            color: row-selected ? Design.accent : (row-is-dir ? Design.text-primary : Design.text-secondary);
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+
+        IconBtn {
+            glyph: "⋯";
+            variant: "ghost";
+            scale: 1;
+            size: 24px;
+            clicked => { root.row-more(panel, row-id); }
+        }
+    }
+}
+
+// Menu konteks BATCH — satu komponen dipakai panel SOURCE + OUTPUT.
+// Isi menyesuaikan panel + jenis node (C# DashboardView.axaml):
+// root + item = New Subfolder… / Replace (Auto) / Copy Path / Delete;
+// child direktori = Replace (Auto) / Copy Path; OUTPUT tanpa Replace.
+// Replace (Manual) hanya SOURCE + direktori.
+component BatchCtxMenu inherits Card {
+    in property <string> menu-title: "";
+    in property <bool> show-replace: false;
+    in property <bool> show-copy-output: false;
+    callback new-subfolder();
+    callback replace-auto();
+    callback replace-manual();
+    callback copy-path();
+    callback copy-output-path();
+    callback delete();
+    callback close-menu();
+
+    background: Design.surface-elevated;
+    border-color: Design.border-hover;
+    border-width: 1px;
+    border-radius: Design.radius-md;
+
+    ctx-layout := VerticalLayout {
+        padding: Design.space-sm;
+        spacing: 2px;
+
+        Text {
+            text: "⋯ " + root.menu-title;
+            font-size: 12px;
+            font-weight: 700;
+            color: Design.text-primary;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+        HSeparator { }
+
+        Rectangle {
+            height: 32px;
+            background: ctx-new.has-hover ? Design.bg-hover : transparent;
+            border-radius: Design.radius-sm;
+            ctx-new := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.new-subfolder(); }
+            }
+            Text {
+                text: "New Subfolder…";
+                font-size: 12px;
+                color: Design.text-primary;
+                vertical-alignment: center;
+                x: 10px;
+                height: 100%;
+            }
+        }
+
+        Rectangle {
+            height: root.show-replace ? 32px : 0px;
+            visible: root.show-replace;
+            background: ctx-rep.has-hover ? Design.bg-hover : transparent;
+            border-radius: Design.radius-sm;
+            ctx-rep := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.replace-auto(); }
+            }
+            Text {
+                text: "Replace (Auto)";
+                font-size: 12px;
+                color: Design.text-primary;
+                vertical-alignment: center;
+                x: 10px;
+                height: 100%;
+            }
+        }
+
+        Rectangle {
+            height: root.show-replace ? 32px : 0px;
+            visible: root.show-replace;
+            background: ctx-repm.has-hover ? Design.bg-hover : transparent;
+            border-radius: Design.radius-sm;
+            ctx-repm := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.replace-manual(); }
+            }
+            Text {
+                text: "Replace (Manual)";
+                font-size: 12px;
+                color: Design.text-primary;
+                vertical-alignment: center;
+                x: 10px;
+                height: 100%;
+            }
+        }
+
+        Rectangle {
+            height: 32px;
+            background: ctx-copy.has-hover ? Design.bg-hover : transparent;
+            border-radius: Design.radius-sm;
+            ctx-copy := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.copy-path(); }
+            }
+            Text {
+                text: "Copy Path";
+                font-size: 12px;
+                color: Design.text-primary;
+                vertical-alignment: center;
+                x: 10px;
+                height: 100%;
+            }
+        }
+
+        Rectangle {
+            height: root.show-copy-output ? 32px : 0px;
+            visible: root.show-copy-output;
+            background: ctx-copyout.has-hover ? Design.bg-hover : transparent;
+            border-radius: Design.radius-sm;
+            ctx-copyout := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.copy-output-path(); }
+            }
+            Text {
+                text: "Copy Output Path";
+                font-size: 12px;
+                color: Design.text-primary;
+                vertical-alignment: center;
+                x: 10px;
+                height: 100%;
+            }
+        }
+
+        Rectangle {
+            height: 32px;
+            background: ctx-del.has-hover ? Design.bg-hover : transparent;
+            border-radius: Design.radius-sm;
+            ctx-del := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.delete(); }
+            }
+            Text {
+                text: "Delete";
+                font-size: 12px;
+                font-weight: 700;
+                color: Design.status-danger;
+                vertical-alignment: center;
+                x: 10px;
+                height: 100%;
+            }
+        }
+
+        HSeparator { }
+
+        Rectangle {
+            height: 28px;
+            background: ctx-close.has-hover ? Design.bg-hover : transparent;
+            border-radius: Design.radius-sm;
+            ctx-close := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.close-menu(); }
+            }
+            Text {
+                text: "✕ Tutup";
+                font-size: 11px;
+                color: Design.text-muted;
+                vertical-alignment: center;
+                x: 10px;
+                height: 100%;
+            }
+        }
+    }
+}
+
+export component BatchView inherits Rectangle {
+    // Host: skala UI + tinggi panel + lebar konten (dihitung host
+    // — AppWindow: tinggi window − nav; BatchWindow: tinggi window
+    // − titlebar).
+    in property <float> ui-scale: 1;
+    in property <length> panels-height: 400px;
+    in property <length> content-width: 960px;
+
+    // Data BATCH beneran (Rust, src/batch.rs) — model flat rows.
+    // SOURCE/OUTPUT dirender sebagai DAFTAR DATAR (parallel arrays):
+    // Rust meratakan tree terlihat (hormat expand) ke FlatRow; Slint
+    // hanya menampilkan baris + indentasi dari depth.
+    in-out property <[BatchRow]> src-rows: [];
+    in-out property <[BatchRow]> out-rows: [];
+    in-out property <string> src-name: "";
+    in-out property <string> selected-output: "";
+    // Folder output belum ada di disk -> chip "(pending)" oranye.
+    in-out property <bool> batch-out-pending: true;
+    // Dua fase master: Fase 1 (buat_master.py) membuat manifest;
+    // Fase 2 (BUAT MASTER = buat_master_duplikat.py) BUTUH manifest.
+    in-out property <bool> has-manifest: false;
+    // Jumlah node terpilih (tampil di header SOURCE: "N dipilih").
+    in-out property <int> batch-sel-count: 0;
+    // Context menu BATCH (dibuka dari ⋯ / klik kanan; ditutup setelah
+    // satu aksi dipilih atau klik di luar menu).
+    in-out property <string> ctx-node: "";
+    in-out property <string> ctx-node-id: "";
+    in-out property <string> ctx-panel: "SOURCE";
+    in-out property <bool> ctx-is-dir: false;
+    in-out property <bool> ctx-is-root: false;
+    // Input inline subfolder baru (C# CancelNewFolderInput di
+    // BatchFolderRoot): newfolder-open false = tidak ada input.
+    in-out property <bool> newfolder-open: false;
+    in-out property <string> newfolder-panel: "";
+    in-out property <string> newfolder-parent: "";
+    in-out property <string> newfolder-name: "";
+    // Folder Reguler (ala master_creator): dropdown direktori kerja
+    // tersimpan + popup kelola (tabel bulan/marketing/sekolah).
+    in-out property <[string]> batch-reguler-names: [];
+    in-out property <int> batch-reguler-idx: -1;
+    // Popup Kelola Folder Reguler (tahap 4) — overlay di tab BATCH.
+    in-out property <bool> reguler-manage-open: false;
+    in-out property <[RegulerDirRow]> reguler-dirs: [];
+    // Direktori yang sedang di-scan tabel sekolahnya (-1 = belum ada).
+    in-out property <int> reguler-scan-dir-idx: -1;
+    in-out property <[RegulerSchoolRow]> reguler-scan-rows: [];
+    in-out property <string> reguler-scan-status: "";
+    in-out property <string> reguler-filter: "";
+    in-out property <[string]> reguler-months: ["Semua bulan"];
+    in-out property <int> reguler-month-idx: 0;
+    in-out property <int> reguler-selected-row: -1;
+    // Footer: tombol script dari scripts.json (atau default 5).
+    in-out property <[string]> batch-scripts: ["buat_master", "manasik", "wisuda", "pasfoto", "profesi"];
+    in-out property <bool> batch-running: false;
+    // SOURCE kosong = belum ada folder (drop zone tampil);
+    // OUTPUT kosong = tree output belum ada (teks "Output akan
+    // muncul di sini." tampil).
+    property <bool> src-empty: root.src-rows.length == 0;
+    property <bool> out-empty: root.out-rows.length == 0;
+
+    // Callbacks BATCH -> host (AppWindow / BatchWindow teruskan ke
+    // Rust, src/batch.rs + src/batch_exec.rs). confirm-new-folder
+    // menerima (nama, panel) sebagai argumen — handler Rust TIDAK
+    // boleh membaca newfolder-name dari AppWindow, karena saat
+    // terlepas nilainya hidup di BatchWindow (bukan AppWindow).
+    callback batch-pick-folder();
+    callback batch-add-folder(string);
+    callback batch-row-clicked(string, string);
+    callback batch-row-right-down(string, string);
+    callback batch-row-right-up(string, string);
+    callback batch-toggle-expand(string, string);
+    callback batch-open-ctx(string, string);
+    callback batch-close-ctx();
+    callback batch-ctx-new-subfolder();
+    callback batch-ctx-replace-auto();
+    callback batch-ctx-replace-manual();
+    callback batch-ctx-copy-path();
+    callback batch-ctx-copy-output-path();
+    callback batch-ctx-delete();
+    callback batch-confirm-new-folder(string, string);
+    callback batch-cancel-new-folder();
+    callback batch-run-script(string);
+    callback batch-phase1();
+    callback batch-copy-master();
+    callback batch-stop();
+    callback batch-replace-auto();
+    callback batch-refresh();
+    callback batch-clear();
+    callback batch-reguler-picked(int);
+    callback batch-reguler-manage();
+    callback batch-reguler-close();
+    callback batch-reguler-add();
+    callback batch-reguler-remove(int);
+    callback batch-reguler-toggle-lock(int);
+    callback batch-reguler-select-dir(int);
+    callback batch-reguler-filter-changed(string);
+    callback batch-reguler-month-picked(int);
+    callback batch-reguler-row-clicked(int);
+    callback batch-reguler-load-selected();
+    callback batch-open-task-manager();
+    // Tear-off: seret grip melewati 48px -> lepas jadi window OS
+    // (argumen = posisi pointer relatif window utama, logis);
+    // tear-off-center = lepas via tombol (window di tengah main).
+    // show-tear-off false = sudah terlepas (grip + tombol Lepas
+    // disembunyikan — tidak bisa lepas dua kali).
+    in property <bool> show-tear-off: true;
+    callback batch-tear-off(length, length);
+    callback batch-tear-off-center();
+    // Toast: host yang menampilkan (AppWindow = toast dashboard;
+    // BatchWindow teruskan ke AppWindow).
+    callback show-toast(string);
+
+            // ----- BATCH: tree filesystem beneran (Rust, src/batch.rs)
+            // + dua fase master + Replace. SOURCE = ISI folder sekolah
+            // (tree, expand lazy, scan disk); BUAT MASTER = fase 2
+            // (butuh manifest fase 1); Replace single + multiple;
+            // toolbar = launcher skrip. Tampilan awal HANYA drop zone;
+            // tree muncul setelah folder dipilih (abeng 28 Nov 00:42).
+            // Task Manager (tahap 5) dock di kanan tab — panel progres
+            // terpisah ala master_creator, bukan log panel.
+            HorizontalLayout {
+                x: 0; y: 0;
+                width: 100%; height: 100%;
+                visible: !root.src-empty;
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    height: 100%;
+                    padding-left: Design.space-xl;
+                    padding-right: Design.space-xl;
+                padding-top: Design.space-md;
+                padding-bottom: Design.space-xl;
+                spacing: Design.space-md;
+
+                // Header: judul + deskripsi + Folder Reguler + tambah.
+                // TANPA height tetap: ComboBox di baris ini harus bisa
+                // tumbuh saat terbuka (preferred-height) dan mendorong
+                // tree ke bawah — height tetap 36px membuat daftarnya
+                // meluber menumpuk tree di bawah dan klik item ditelan
+                // kartu SOURCE/OUTPUT (defect 28 Nov 2026).
+                HorizontalLayout {
+                    spacing: 8px * root.ui-scale;
+                    // Grip tear-off: seret tab BATCH keluar
+                    // (geser > 48px ke arah mana pun) -> BATCH lepas
+                    // jadi window OS sendiri; tutup window itu ->
+                    // kembali ke dashboard (lihat DESIGN_SYSTEM §16.10).
+                    tear-grip := TouchArea {
+                        width: 22px;
+                        height: 32px * root.ui-scale;
+                        visible: root.show-tear-off;
+                        mouse-cursor: grab;
+                        property <length> grip-start-x: 0px;
+                        property <length> grip-start-y: 0px;
+                        property <bool> grip-dragging: false;
+                        pointer-event(ev) => {
+                            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                                self.grip-start-x = self.mouse-x;
+                                self.grip-start-y = self.mouse-y;
+                                self.grip-dragging = true;
+                            } else if (ev.kind == PointerEventKind.up) {
+                                self.grip-dragging = false;
+                            } else if (ev.kind == PointerEventKind.move && self.grip-dragging) {
+                                if (self.mouse-x - self.grip-start-x > 48px || self.grip-start-x - self.mouse-x > 48px || self.mouse-y - self.grip-start-y > 48px || self.grip-start-y - self.mouse-y > 48px) {
+                                    self.grip-dragging = false;
+                                    root.batch-tear-off(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+                                }
+                            }
+                        }
+                        Text {
+                            text: "⋮⋮";
+                            font-size: 14px * root.ui-scale;
+                            font-weight: 800;
+                            color: Design.text-muted;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            width: 100%;
+                            height: 100%;
+                        }
+                    }
+                    Text {
+                        text: "BATCH";
+                        font-size: 14px * root.ui-scale;
+                        font-weight: 800;
+                        color: Design.text-primary;
+                        letter-spacing: 1px * root.ui-scale;
+                        vertical-alignment: center;
+                    }
+                    Text {
+                        text: "Pilih folder sumber, lalu jalankan master.";
+                        font-size: 12px * root.ui-scale;
+                        color: Design.text-muted;
+                        vertical-alignment: center;
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    // Folder Reguler (ala master_creator): dropdown
+                    // direktori kerja tersimpan — pindah folder tanpa
+                    // drag lagi. Kosong = belum ada yang disimpan.
+                    ComboBox {
+                        width: 200px;
+                        model: root.batch-reguler-names;
+                        current-index: root.batch-reguler-idx;
+                        selected(index) => { root.batch-reguler-picked(index); }
+                    }
+                    Btn {
+                        label: "Folder Reguler…";
+                        variant: "ghost";
+                        scale: root.ui-scale;
+                        clicked => { root.batch-reguler-manage(); }
+                    }
+                    Btn {
+                        label: "☰ Tugas";
+                        variant: "ghost";
+                        scale: root.ui-scale;
+                        clicked => { root.batch-open-task-manager(); }
+                    }
+                    Btn {
+                        label: "+ Tambah Folder";
+                        variant: "secondary";
+                        scale: root.ui-scale;
+                        clicked => { root.batch-pick-folder(); }
+                    }
+                }
+
+                // Dua panel explorer (SOURCE kiri, OUTPUT kanan).
+                // Tinggi eksplisit: window − nav (68*scale) − header
+                // (36) − baris aksi A (36) − toolbar (56) −
+                // 3 celah (36px) − padding (32px).
+                HorizontalLayout {
+                    height: root.panels-height;
+                    spacing: Design.space-md;
+
+                    // Panel SOURCE — TREE isi folder sekolah (flat rows
+                    // dari Rust; klik nama = pilih + salin path).
+                    src-card := Card {
+                        width: (root.content-width - 52px) / 2;
+                        VerticalLayout {
+                            padding: Design.space-md;
+                            spacing: Design.space-sm;
+
+                            HorizontalLayout {
+                                height: 24px * root.ui-scale;
+                                spacing: 8px * root.ui-scale;
+                                Text {
+                                    text: "SOURCE";
+                                    font-size: 11px * root.ui-scale;
+                                    font-weight: 800;
+                                    color: Design.text-muted;
+                                    letter-spacing: 1px * root.ui-scale;
+                                    vertical-alignment: center;
+                                }
+                                Text {
+                                    text: root.src-name;
+                                    font-size: 12px * root.ui-scale;
+                                    font-weight: 700;
+                                    color: Design.text-primary;
+                                    vertical-alignment: center;
+                                    horizontal-stretch: 1;
+                                    overflow: elide;
+                                }
+                                Text {
+                                    text: root.batch-out-pending ? "(pending)" : "";
+                                    font-size: 11px * root.ui-scale;
+                                    font-weight: 700;
+                                    color: Design.cat-revision;
+                                    vertical-alignment: center;
+                                }
+                                Text {
+                                    text: root.batch-sel-count > 0 ? root.batch-sel-count + " dipilih" : "";
+                                    font-size: 11px * root.ui-scale;
+                                    font-weight: 700;
+                                    color: Design.accent;
+                                    vertical-alignment: center;
+                                }
+                            }
+                            HSeparator { }
+
+                            // Input inline subfolder baru (C#
+                            // CancelNewFolderInput di BatchFolderRoot).
+                            Rectangle {
+                                height: (root.newfolder-open && root.newfolder-panel == "SOURCE") ? 36px : 0px;
+                                visible: root.newfolder-open && root.newfolder-panel == "SOURCE";
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    Text {
+                                        text: root.newfolder-parent;
+                                        font-size: 11px;
+                                        color: Design.text-muted;
+                                        vertical-alignment: center;
+                                        overflow: elide;
+                                        horizontal-stretch: 1;
+                                    }
+                                    TextField {
+                                        placeholder: "Nama subfolder baru…";
+                                        text: root.newfolder-name;
+                                        edited(name) => { root.newfolder-name = name; }
+                                        accepted(name) => { root.newfolder-name = name; root.batch-confirm-new-folder(root.newfolder-name, root.newfolder-panel); }
+                                        min-width: 180px;
+                                        horizontal-stretch: 1;
+                                    }
+                                    IconBtn {
+                                        glyph: "✓";
+                                        variant: "secondary";
+                                        scale: 1;
+                                        size: 36px;
+                                        clicked => { root.batch-confirm-new-folder(root.newfolder-name, root.newfolder-panel); }
+                                    }
+                                    IconBtn {
+                                        glyph: "×";
+                                        variant: "ghost";
+                                        scale: 1;
+                                        size: 36px;
+                                        clicked => { root.batch-cancel-new-folder(); }
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                vertical-stretch: 1;
+                                clip: true;
+                                Flickable {
+                                    x: 0; y: 0; width: 100%; height: 100%;
+                                    VerticalLayout {
+                                        x: 0;
+                                        width: src-card.width - 2 * Design.space-md;
+                                        spacing: 2px;
+                                        for row in root.src-rows:
+                                            BatchTreeRow {
+                                                row-id: row.id;
+                                                row-name: row.name;
+                                                row-depth: row.depth;
+                                                row-is-dir: row.is-dir;
+                                                row-expanded: row.expanded;
+                                                row-has-kids: row.has-kids;
+                                                row-selected: row.selected;
+                                                panel: "SOURCE";
+                                                row-clicked(panel, id) => { root.batch-row-clicked(panel, id); }
+                                                row-right-down(panel, id) => { root.batch-row-right-down(panel, id); }
+                                                row-right-up(panel, id) => { root.batch-row-right-up(panel, id); }
+                                                row-toggle-expand(panel, id) => { root.batch-toggle-expand(panel, id); }
+                                                row-more(panel, id) => { root.batch-open-ctx(panel, id); }
+                                            }
+                                    }
+                                }
+
+                                // Lapisan penutup menu: klik di luar menu
+                                // = tutup menu (C# menutup otomatis).
+                                ctx-dismiss-src := TouchArea {
+                                    x: 0; y: 0; width: 100%; height: 100%;
+                                    visible: root.ctx-node != "" && root.ctx-panel == "SOURCE";
+                                    clicked => { root.batch-close-ctx(); }
+                                }
+
+                                // Context menu SOURCE (popup di bawah panel).
+                                BatchCtxMenu {
+                                    x: 8px;
+                                    y: parent.height - self.height - 8px;
+                                    width: 230px;
+                                    visible: root.ctx-node != "" && root.ctx-panel == "SOURCE";
+                                    menu-title: root.ctx-node;
+                                    show-replace: root.ctx-is-dir;
+                                    show-copy-output: false;
+                                    new-subfolder => { root.batch-ctx-new-subfolder(); }
+                                    replace-auto => { root.batch-ctx-replace-auto(); }
+                                    replace-manual => { root.batch-ctx-replace-manual(); }
+                                    copy-path => { root.batch-ctx-copy-path(); }
+                                    copy-output-path => { root.batch-ctx-copy-output-path(); }
+                                    delete => { root.batch-ctx-delete(); }
+                                    close-menu => { root.batch-close-ctx(); }
+                                }
+                            }
+                        }
+                    }
+
+                    // Panel OUTPUT: tree SENDIRI dari folder output di
+                    // disk (bukan cermin live SOURCE). "(pending)" bila
+                    // folder belum ada; terisi setelah script jalan.
+                    out-card := Card {
+                        width: (root.content-width - 52px) / 2;
+                        VerticalLayout {
+                            padding: Design.space-md;
+                            spacing: Design.space-sm;
+
+                            HorizontalLayout {
+                                height: 24px * root.ui-scale;
+                                spacing: 8px * root.ui-scale;
+                                Text {
+                                    text: "OUTPUT";
+                                    font-size: 11px * root.ui-scale;
+                                    font-weight: 800;
+                                    color: Design.text-muted;
+                                    letter-spacing: 1px * root.ui-scale;
+                                    vertical-alignment: center;
+                                }
+                                Text {
+                                    text: root.selected-output;
+                                    font-size: 12px * root.ui-scale;
+                                    font-weight: 700;
+                                    color: Design.text-primary;
+                                    vertical-alignment: center;
+                                    horizontal-stretch: 1;
+                                    overflow: elide;
+                                }
+                                Text {
+                                    text: root.batch-out-pending ? "(pending)" : "";
+                                    font-size: 11px * root.ui-scale;
+                                    font-weight: 700;
+                                    color: Design.cat-revision;
+                                    vertical-alignment: center;
+                                }
+                            }
+                            HSeparator { }
+
+                            // Input inline subfolder baru (OUTPUT).
+                            Rectangle {
+                                height: (root.newfolder-open && root.newfolder-panel == "OUTPUT") ? 36px : 0px;
+                                visible: root.newfolder-open && root.newfolder-panel == "OUTPUT";
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    Text {
+                                        text: root.newfolder-parent;
+                                        font-size: 11px;
+                                        color: Design.text-muted;
+                                        vertical-alignment: center;
+                                        overflow: elide;
+                                        horizontal-stretch: 1;
+                                    }
+                                    TextField {
+                                        placeholder: "Nama subfolder baru…";
+                                        text: root.newfolder-name;
+                                        edited(name) => { root.newfolder-name = name; }
+                                        accepted(name) => { root.newfolder-name = name; root.batch-confirm-new-folder(root.newfolder-name, root.newfolder-panel); }
+                                        min-width: 180px;
+                                        horizontal-stretch: 1;
+                                    }
+                                    IconBtn {
+                                        glyph: "✓";
+                                        variant: "secondary";
+                                        scale: 1;
+                                        size: 36px;
+                                        clicked => { root.batch-confirm-new-folder(root.newfolder-name, root.newfolder-panel); }
+                                    }
+                                    IconBtn {
+                                        glyph: "×";
+                                        variant: "ghost";
+                                        scale: 1;
+                                        size: 36px;
+                                        clicked => { root.batch-cancel-new-folder(); }
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                vertical-stretch: 1;
+                                clip: true;
+                                // Teks kosong (tengah).
+                                Text {
+                                    x: 0; y: 0; width: 100%; height: 100%;
+                                    visible: root.out-empty;
+                                    text: "Output akan muncul di sini.";
+                                    font-size: 12px * root.ui-scale;
+                                    color: Design.text-muted;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                                Flickable {
+                                    x: 0; y: 0; width: 100%; height: 100%;
+                                    visible: !root.out-empty;
+                                    VerticalLayout {
+                                        x: 0;
+                                        width: out-card.width - 2 * Design.space-md;
+                                        spacing: 2px;
+                                        for row in root.out-rows:
+                                            BatchTreeRow {
+                                                row-id: row.id;
+                                                row-name: row.name;
+                                                row-depth: row.depth;
+                                                row-is-dir: row.is-dir;
+                                                row-expanded: row.expanded;
+                                                row-has-kids: row.has-kids;
+                                                row-selected: row.selected;
+                                                panel: "OUTPUT";
+                                                row-clicked(panel, id) => { root.batch-row-clicked(panel, id); }
+                                                row-right-down(panel, id) => { root.batch-row-right-down(panel, id); }
+                                                row-right-up(panel, id) => { root.batch-row-right-up(panel, id); }
+                                                row-toggle-expand(panel, id) => { root.batch-toggle-expand(panel, id); }
+                                                row-more(panel, id) => { root.batch-open-ctx(panel, id); }
+                                            }
+                                    }
+                                }
+
+                                ctx-dismiss-out := TouchArea {
+                                    x: 0; y: 0; width: 100%; height: 100%;
+                                    visible: root.ctx-node != "" && root.ctx-panel == "OUTPUT";
+                                    clicked => { root.batch-close-ctx(); }
+                                }
+
+                                // Context menu OUTPUT (tanpa Replace).
+                                BatchCtxMenu {
+                                    x: 8px;
+                                    y: parent.height - self.height - 8px;
+                                    width: 230px;
+                                    visible: root.ctx-node != "" && root.ctx-panel == "OUTPUT";
+                                    menu-title: root.ctx-node;
+                                    show-replace: false;
+                                    show-copy-output: true;
+                                    new-subfolder => { root.batch-ctx-new-subfolder(); }
+                                    replace-auto => { root.batch-ctx-replace-auto(); }
+                                    replace-manual => { root.batch-ctx-replace-manual(); }
+                                    copy-path => { root.batch-ctx-copy-path(); }
+                                    copy-output-path => { root.batch-ctx-copy-output-path(); }
+                                    delete => { root.batch-ctx-delete(); }
+                                    close-menu => { root.batch-close-ctx(); }
+                                }
+                            }
+                            // Baris aksi OUTPUT: BUAT MASTER (fase 2) +
+                            // tombol dokumen (▤, placeholder — Master
+                            // File Browser DITUNDA, bertahap, lokasinya
+                            // di side panel / log panel navigasi button).
+                            // Di DALAM panel OUTPUT (dokumen §3.5/§9).
+                            HorizontalLayout {
+                                height: 36px * root.ui-scale;
+                                spacing: 8px * root.ui-scale;
+                                Rectangle { horizontal-stretch: 1; }
+                                Btn {
+                                    label: "⧉ BUAT MASTER";
+                                    variant: "secondary";
+                                    scale: root.ui-scale;
+                                    enabled: !root.batch-running;
+                                    clicked => { root.batch-copy-master(); }
+                                }
+                                IconBtn {
+                                    glyph: "▤";
+                                    variant: "secondary";
+                                    scale: root.ui-scale;
+                                    size: 36px;
+                                    clicked => { root.show-toast("Master File Browser akan hadir di side panel (bertahap)."); }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Baris A: indikator manifest + Fase 1 + Replace.
+                // Manifest: dot hijau = ada (Fase 1 sudah jalan),
+                // merah = belum ada (BUAT MASTER akan error).
+                HorizontalLayout {
+                    height: 36px * root.ui-scale;
+                    spacing: 8px * root.ui-scale;
+                    HorizontalLayout {
+                        spacing: 6px * root.ui-scale;
+                        Text {
+                            text: "●";
+                            font-size: 10px * root.ui-scale;
+                            color: root.has-manifest ? Design.status-success : Design.status-danger;
+                            vertical-alignment: center;
+                        }
+                        Text {
+                            text: root.has-manifest ? "Manifest: ada" : "Manifest: belum ada";
+                            font-size: 12px * root.ui-scale;
+                            color: Design.text-secondary;
+                            vertical-alignment: center;
+                        }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    Btn {
+                        label: "▶ Fase 1";
+                        variant: "ghost";
+                        scale: root.ui-scale;
+                        enabled: !root.batch-running;
+                        clicked => { root.batch-phase1(); }
+                    }
+                    Btn {
+                        label: "Replace";
+                        variant: "secondary";
+                        scale: root.ui-scale;
+                        clicked => { root.batch-replace-auto(); }
+                    }
+                }
+
+                // Footer (dokumen §3.5): TOMBOL SCRIPT MASTER BERNAMA
+                // — satu tombol per file .py di Scripts/Master/
+                // (nama/urutan dari scripts.json; file "_" dan
+                // enabled:false tidak tampil). Klik = ExecuteMaster:
+                // proses SEMUA folder SOURCE, OUTPUT terisi, log
+                // "[SUCCESS] Batch Selesai.". Kanan: refresh (re-scan
+                // SOURCE & OUTPUT) + clear merah (kosongkan daftar).
+                Card {
+                    height: 56px * root.ui-scale;
+                    HorizontalLayout {
+                        x: 0;
+                        y: 10px * root.ui-scale;
+                        width: 100%;
+                        height: 36px * root.ui-scale;
+                        padding-left: Design.space-sm * root.ui-scale;
+                        padding-right: Design.space-sm * root.ui-scale;
+                        spacing: 6px * root.ui-scale;
+                        for s in root.batch-scripts:
+                            Btn {
+                                label: s;
+                                variant: "secondary";
+                                scale: root.ui-scale;
+                                small: true;
+                                enabled: !root.batch-running;
+                                clicked => { root.batch-run-script(s); }
+                            }
+                        Rectangle { horizontal-stretch: 1; }
+                        if root.batch-running : Btn {
+                            label: "■ Stop";
+                            variant: "danger";
+                            scale: root.ui-scale;
+                            small: true;
+                            clicked => { root.batch-stop(); }
+                        }
+                        IconBtn {
+                            glyph: "↻";
+                            variant: "ghost";
+                            scale: root.ui-scale;
+                            size: 36px;
+                            clicked => { root.batch-refresh(); }
+                        }
+                        IconBtn {
+                            glyph: "×";
+                            variant: "danger";
+                            scale: root.ui-scale;
+                            size: 36px;
+                            clicked => { root.batch-clear(); }
+                        }
+                    }
+                }
+            }
+
+            }
+
+            // ----- BATCH kosong: SELURUH tab = satu drop zone (C#
+            // DashboardView.axaml:345-361, tampil bila ShowDropZone).
+            // Slint belum mendukung drag-drop OS — klik "Pilih Folder"
+            // = pilih folder lewat dialog (Windows) / zenity (Linux);
+            // Folder Reguler di bawahnya = jalan pintas tanpa drag.
+            Rectangle {
+                x: 0; y: 0;
+                width: 100%; height: 100%;
+                visible: root.src-empty;
+                border-color: Design.border-hover;
+                border-width: 2px;
+                border-radius: Design.radius-md;
+                VerticalLayout {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    alignment: center;
+                    spacing: 12px * root.ui-scale;
+                    HorizontalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 64px * root.ui-scale;
+                            height: 64px * root.ui-scale;
+                            border-color: Design.text-muted;
+                            border-width: 2px;
+                            border-radius: 32px * root.ui-scale;
+                            opacity: 0.5;
+                            Text {
+                                text: "+";
+                                font-size: 36px * root.ui-scale;
+                                font-weight: 300;
+                                color: Design.text-muted;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                                width: 100%;
+                                height: 100%;
+                            }
+                        }
+                    }
+                    Text {
+                        text: "DRAG FOLDERS HERE";
+                        font-size: 16px * root.ui-scale;
+                        font-weight: 800;
+                        color: Design.text-primary;
+                        horizontal-alignment: center;
+                    }
+                    Text {
+                        text: "Drop source folders to begin batch processing";
+                        font-size: 12px * root.ui-scale;
+                        color: Design.text-secondary;
+                        horizontal-alignment: center;
+                    }
+                    HorizontalLayout {
+                        alignment: center;
+                        padding-top: 8px * root.ui-scale;
+                        Btn {
+                            label: "Pilih Folder";
+                            variant: "secondary";
+                            scale: root.ui-scale;
+                            clicked => { root.batch-pick-folder(); }
+                        }
+                    }
+                    HorizontalLayout {
+                        alignment: center;
+                        spacing: 8px * root.ui-scale;
+                        padding-top: 8px * root.ui-scale;
+                        Text {
+                            text: "Folder Reguler:";
+                            font-size: 12px * root.ui-scale;
+                            color: Design.text-muted;
+                            vertical-alignment: center;
+                        }
+                        ComboBox {
+                            width: 220px;
+                            model: root.batch-reguler-names;
+                            current-index: root.batch-reguler-idx;
+                            selected(index) => { root.batch-reguler-picked(index); }
+                        }
+                        Btn {
+                            label: "Kelola…";
+                            variant: "ghost";
+                            scale: root.ui-scale;
+                            clicked => { root.batch-reguler-manage(); }
+                        }
+                        Btn {
+                            label: "⧉ Lepas";
+                            variant: "ghost";
+                            scale: root.ui-scale;
+                            visible: root.show-tear-off;
+                            clicked => { root.batch-tear-off-center(); }
+                        }
+                    }
+                }
+            }
+
+    if root.reguler-manage-open : Rectangle {
+        x: 0; y: 0;
+        width: 100%; height: 100%;
+        background: #80000000;
+        reguler-dim-touch := TouchArea {
+            clicked => { root.batch-reguler-close(); }
+            pointer-event(ev) => {
+                if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.right) {
+                    root.batch-reguler-close();
+                }
+            }
+        }
+        Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: min(760px * root.ui-scale, parent.width - 32px);
+            height: min(560px * root.ui-scale, parent.height - 32px);
+            background: Design.surface-elevated;
+            border-color: Design.border-hover;
+            border-width: 1px;
+            border-radius: Design.radius-md;
+            VerticalLayout {
+                padding: Design.space-md;
+                spacing: Design.space-sm;
+                HorizontalLayout {
+                    height: 28px * root.ui-scale;
+                    spacing: 8px * root.ui-scale;
+                    Text {
+                        text: "Folder Reguler";
+                        font-size: 14px * root.ui-scale;
+                        font-weight: 800;
+                        color: Design.text-primary;
+                        vertical-alignment: center;
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    IconBtn {
+                        glyph: "×";
+                        variant: "ghost";
+                        scale: root.ui-scale;
+                        size: 28px;
+                        clicked => { root.batch-reguler-close(); }
+                    }
+                }
+                HSeparator { }
+                Text {
+                    text: "Direktori tersimpan";
+                    font-size: 11px * root.ui-scale;
+                    font-weight: 800;
+                    color: Design.text-muted;
+                    letter-spacing: 1px * root.ui-scale;
+                }
+                reguler-dirs-scroll := Flickable {
+                    height: 132px;
+                    reguler-dirs-layout := VerticalLayout {
+                        spacing: 2px;
+                        for d[idx] in root.reguler-dirs : Rectangle {
+                            height: 32px;
+                            background: root.reguler-scan-dir-idx == idx ? Design.accent-subtle : (dir-touch.has-hover ? Design.bg-hover : transparent);
+                            border-radius: Design.radius-sm;
+                            dir-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.batch-reguler-select-dir(idx); }
+                            }
+                            HorizontalLayout {
+                                padding-left: 8px;
+                                padding-right: 8px;
+                                spacing: 8px;
+                                Text {
+                                    text: "●";
+                                    font-size: 10px;
+                                    color: d.status == "ready" ? Design.status-success : d.status == "empty" ? Design.status-warning : d.status == "missing" ? Design.status-danger : d.status == "inuse" ? Design.accent : Design.text-muted;
+                                    vertical-alignment: center;
+                                }
+                                VerticalLayout {
+                                    spacing: 0px;
+                                    horizontal-stretch: 1;
+                                    Text {
+                                        text: d.name + "  ·  " + d.status-label;
+                                        font-size: 12px;
+                                        font-weight: 700;
+                                        color: Design.text-primary;
+                                        vertical-alignment: center;
+                                        overflow: elide;
+                                    }
+                                    Text {
+                                        text: d.last-output != "" ? d.path + "  →  " + d.last-output : d.path;
+                                        font-size: 11px;
+                                        color: Design.text-muted;
+                                        vertical-alignment: center;
+                                        overflow: elide;
+                                    }
+                                }
+                                IconBtn {
+                                    glyph: d.locked ? "🔒" : "🔓";
+                                    variant: "ghost";
+                                    scale: 1;
+                                    size: 28px;
+                                    clicked => { root.batch-reguler-toggle-lock(idx); }
+                                }
+                                IconBtn {
+                                    glyph: "×";
+                                    variant: "ghost";
+                                    scale: 1;
+                                    size: 28px;
+                                    opacity: d.locked ? 0.35 : 1;
+                                    clicked => { root.batch-reguler-remove(idx); }
+                                }
+                            }
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    height: 32px * root.ui-scale;
+                    spacing: 8px * root.ui-scale;
+                    Btn {
+                        label: "+ Tambah…";
+                        variant: "secondary";
+                        scale: root.ui-scale;
+                        small: true;
+                        clicked => { root.batch-reguler-add(); }
+                    }
+                    Text {
+                        text: "Klik direktori untuk melihat sekolah di dalamnya. Kunci = tidak bisa dihapus.";
+                        font-size: 11px * root.ui-scale;
+                        color: Design.text-muted;
+                        vertical-alignment: center;
+                        horizontal-stretch: 1;
+                        wrap: word-wrap;
+                    }
+                }
+                HSeparator { }
+                HorizontalLayout {
+                    height: 28px * root.ui-scale;
+                    spacing: 8px * root.ui-scale;
+                    Text {
+                        text: "Sekolah";
+                        font-size: 11px * root.ui-scale;
+                        font-weight: 800;
+                        color: Design.text-muted;
+                        letter-spacing: 1px * root.ui-scale;
+                        vertical-alignment: center;
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    Text {
+                        text: root.reguler-scan-status;
+                        font-size: 11px * root.ui-scale;
+                        color: Design.text-muted;
+                        vertical-alignment: center;
+                    }
+                }
+                // TANPA height tetap: ComboBox bulan harus bisa tumbuh
+                // saat terbuka (preferred-height) dan mendorong tabel
+                // ke bawah — height tetap 32px membuat daftarnya
+                // meluber menumpuk tabel sekolah dan klik item ditelan
+                // baris tabel di bawahnya (defect 28 Nov 2026).
+                HorizontalLayout {
+                    spacing: 8px * root.ui-scale;
+                    TextField {
+                        placeholder: "Cari nama sekolah atau marketing…";
+                        text: root.reguler-filter;
+                        edited(text) => { root.reguler-filter = text; root.batch-reguler-filter-changed(text); }
+                        horizontal-stretch: 1;
+                    }
+                    ComboBox {
+                        width: 160px;
+                        model: root.reguler-months;
+                        current-index: root.reguler-month-idx;
+                        selected(index) => { root.batch-reguler-month-picked(index); }
+                    }
+                }
+                HorizontalLayout {
+                    height: 22px;
+                    spacing: 8px;
+                    Text { text: "BULAN"; font-size: 11px; font-weight: 800; color: Design.text-muted; width: 130px; vertical-alignment: center; }
+                    Text { text: "MARKETING"; font-size: 11px; font-weight: 800; color: Design.text-muted; width: 120px; vertical-alignment: center; }
+                    Text { text: "SEKOLAH"; font-size: 11px; font-weight: 800; color: Design.text-muted; horizontal-stretch: 1; vertical-alignment: center; }
+                }
+                reguler-schools-scroll := Flickable {
+                    vertical-stretch: 1;
+                    reguler-schools-layout := VerticalLayout {
+                        spacing: 1px;
+                        for r[idx] in root.reguler-scan-rows : Rectangle {
+                            height: 28px;
+                            background: root.reguler-selected-row == idx ? Design.accent-subtle : (row-touch.has-hover ? Design.bg-hover : transparent);
+                            border-radius: Design.radius-sm;
+                            row-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => { root.batch-reguler-row-clicked(idx); }
+                            }
+                            HorizontalLayout {
+                                padding-left: 8px;
+                                padding-right: 8px;
+                                spacing: 8px;
+                                Text { text: r.bulan; font-size: 12px; color: Design.text-secondary; width: 130px; vertical-alignment: center; overflow: elide; }
+                                Text { text: r.marketing; font-size: 12px; color: Design.text-secondary; width: 120px; vertical-alignment: center; overflow: elide; }
+                                Text { text: r.sekolah; font-size: 12px; font-weight: 700; color: Design.text-primary; horizontal-stretch: 1; vertical-alignment: center; overflow: elide; }
+                            }
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    height: 36px * root.ui-scale;
+                    spacing: 8px * root.ui-scale;
+                    Btn {
+                        label: "Jadikan Source";
+                        variant: "secondary";
+                        scale: root.ui-scale;
+                        clicked => { root.batch-reguler-load-selected(); }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    Btn {
+                        label: "Tutup";
+                        variant: "ghost";
+                        scale: root.ui-scale;
+                        clicked => { root.batch-reguler-close(); }
+                    }
+                }
+            }
+        }
+    }
+}

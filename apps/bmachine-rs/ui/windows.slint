@@ -7,6 +7,7 @@ import { SpreadsheetComponent } from "spreadsheet.slint";
 import { TrelloDetailPanel, CommentRow } from "trello-detail.slint";
 import { RadialMenuView } from "radial.slint";
 import { ToolboxView } from "modul.slint";
+import { BatchView, BatchRow, RegulerDirRow, RegulerSchoolRow } from "batch.slint";
 
 // ============================================================
 // RADIAL MENU WINDOW — 320×320 transparent, topmost, cursor-centered.
@@ -2332,6 +2333,294 @@ export component DynamicBarWindow inherits Window {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+// ============================================================
+// BATCH WINDOW — tab BATCH yang dilepas (tear-off, 28 Nov 2026).
+// Isinya BatchView yang SAMA dengan tab embedded di AppWindow
+// (ui/batch.slint) — jangan duplikasi tampilan. State BATCH hidup
+// di Rust; window ini disinkronkan dari AppWindow
+// (sync_batch_window di src/main.rs) tiap kali state berubah.
+// Tutup window ini (× titlebar / OS × / Esc tidak) -> BATCH kembali
+// ke dashboard (dock, Rust). Chrome mengikuti pengaturan aktif
+// (push_chrome_to_batch) seperti window sekunder lain.
+// ============================================================
+export component BatchWindow inherits Window {
+    title: "BMachine — BATCH";
+    width: 1100px;
+    height: 700px;
+    // Lebar minimum 520px (seperti AppWindow) tidak bisa dipasang
+    // bersama width/height di Slint — lantai resize tidak ditegakkan
+    // (pola sama seperti ToolboxWindow); konten tetap rapi di 520px.
+    background: Design.app-bg;
+    default-font-family: Design.font-family;
+    // Chrome window (lihat DESIGN_SYSTEM.md §23): "native" = chrome
+    // bawaan OS, lainnya frameless + titlebar kustom di bawah.
+    // Didorong Rust saat window dibuat / pengaturan berubah.
+    no-frame: root.chrome-style != "native";
+    in-out property <string> chrome-style: "custom";
+    in-out property <string> chrome-button-style: "icons";
+    in-out property <string> chrome-button-position: "right";
+
+    // Skala UI dari ukuran window sendiri (rumus sama seperti AppWindow).
+    property <float> ui-scale: max(1, min(min(((self.width - 40px) / 1px) / 600, ((self.height - 98px) / 1px) / 400), 1.8));
+    property <length> titlebar-height: (root.chrome-style == "custom" || root.chrome-style == "wrapped") ? 38px : 0px;
+    property <length> batch-panels-height: root.height - root.titlebar-height - 128px * root.ui-scale - 68px;
+
+    // --- State BATCH (pass-through ke BatchView; semua diisi Rust) ---
+    in-out property <[BatchRow]> src-rows: [];
+    in-out property <[BatchRow]> out-rows: [];
+    in-out property <string> src-name: "";
+    in-out property <string> selected-output: "";
+    in-out property <bool> batch-out-pending: true;
+    in-out property <bool> has-manifest: false;
+    in-out property <int> batch-sel-count: 0;
+    in-out property <string> ctx-node: "";
+    in-out property <string> ctx-node-id: "";
+    in-out property <string> ctx-panel: "SOURCE";
+    in-out property <bool> ctx-is-dir: false;
+    in-out property <bool> ctx-is-root: false;
+    in-out property <bool> newfolder-open: false;
+    in-out property <string> newfolder-panel: "";
+    in-out property <string> newfolder-parent: "";
+    in-out property <string> newfolder-name: "";
+    in-out property <[string]> batch-reguler-names: [];
+    in-out property <int> batch-reguler-idx: -1;
+    in-out property <bool> reguler-manage-open: false;
+    in-out property <[RegulerDirRow]> reguler-dirs: [];
+    in-out property <int> reguler-scan-dir-idx: -1;
+    in-out property <[RegulerSchoolRow]> reguler-scan-rows: [];
+    in-out property <string> reguler-scan-status: "";
+    in-out property <string> reguler-filter: "";
+    in-out property <[string]> reguler-months: ["Semua bulan"];
+    in-out property <int> reguler-month-idx: 0;
+    in-out property <int> reguler-selected-row: -1;
+    in-out property <[string]> batch-scripts: ["buat_master", "manasik", "wisuda", "pasfoto", "profesi"];
+    in-out property <bool> batch-running: false;
+
+    callback close-window();
+    callback minimize-window();
+    callback maximize-window();
+    callback move-window(length, length);
+    // Toast diteruskan ke AppWindow (toast hanya ada di dashboard).
+    callback batch-toast(string);
+    // Callbacks BATCH -> Rust (diteruskan ke AppWindow via invoke_*).
+    callback batch-pick-folder();
+    callback batch-add-folder(string);
+    callback batch-row-clicked(string, string);
+    callback batch-row-right-down(string, string);
+    callback batch-row-right-up(string, string);
+    callback batch-toggle-expand(string, string);
+    callback batch-open-ctx(string, string);
+    callback batch-close-ctx();
+    callback batch-ctx-new-subfolder();
+    callback batch-ctx-replace-auto();
+    callback batch-ctx-replace-manual();
+    callback batch-ctx-copy-path();
+    callback batch-ctx-copy-output-path();
+    callback batch-ctx-delete();
+    callback batch-confirm-new-folder(string, string);
+    callback batch-cancel-new-folder();
+    callback batch-run-script(string);
+    callback batch-phase1();
+    callback batch-copy-master();
+    callback batch-stop();
+    callback batch-replace-auto();
+    callback batch-refresh();
+    callback batch-clear();
+    callback batch-reguler-picked(int);
+    callback batch-reguler-manage();
+    callback batch-reguler-close();
+    callback batch-reguler-add();
+    callback batch-reguler-remove(int);
+    callback batch-reguler-toggle-lock(int);
+    callback batch-reguler-select-dir(int);
+    callback batch-reguler-filter-changed(string);
+    callback batch-reguler-month-picked(int);
+    callback batch-reguler-row-clicked(int);
+    callback batch-reguler-load-selected();
+    callback batch-open-task-manager();
+
+    // Drag strip mode headless (tanpa titlebar): seret 28px teratas
+    // konten (pola sama seperti CardListWindow).
+    if root.chrome-style == "headless" : TouchArea {
+        x: 0; y: 0;
+        width: 100%;
+        height: 28px;
+        property <length> press-x: 0px;
+        property <length> press-y: 0px;
+        property <bool> dragging: false;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                self.press-x = self.mouse-x;
+                self.press-y = self.mouse-y;
+                self.dragging = true;
+            } else if (ev.kind == PointerEventKind.up) {
+                self.dragging = false;
+            } else if (ev.kind == PointerEventKind.move && self.dragging) {
+                root.move-window(self.mouse-x - self.press-x, self.mouse-y - self.press-y);
+            }
+        }
+    }
+
+    forward-focus: batch-keys-scope;
+    batch-keys-scope := FocusScope {
+        width: 100%; height: 100%;
+        focus-on-click: false;
+        KeyBinding {
+            keys: @keys(Escape);
+            activated => {
+                if (root.reguler-manage-open) {
+                    root.batch-reguler-close();
+                } else if (root.ctx-node != "") {
+                    root.batch-close-ctx();
+                }
+            }
+        }
+
+        VerticalLayout {
+            width: 100%; height: 100%;
+            padding: 0;
+            spacing: 0;
+
+            // Custom Titlebar Batch Window (hanya saat chrome "custom" /
+            // "wrapped"; saat "native" titlebar OS yang tampil, saat
+            // "headless" tidak ada titlebar sama sekali).
+            if root.chrome-style == "custom" || root.chrome-style == "wrapped" : Rectangle {
+                height: 38px;
+                background: Design.surface-elevated;
+                border-color: Design.separator;
+                border-width: 0.5px;
+
+                batch-drag := TouchArea {
+                    x: root.chrome-button-position == "left" ? 130px : 0px;
+                    y: 0;
+                    width: parent.width - (root.chrome-button-position == "left" ? 130px : 108px);
+                    height: 100%;
+                    property <length> press-x: 0px;
+                    property <length> press-y: 0px;
+                    property <bool> dragging: false;
+                    pointer-event(ev) => {
+                        if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                            self.press-x = self.mouse-x;
+                            self.press-y = self.mouse-y;
+                            self.dragging = true;
+                        } else if (ev.kind == PointerEventKind.up) {
+                            self.dragging = false;
+                        } else if (ev.kind == PointerEventKind.move && self.dragging) {
+                            root.move-window(self.mouse-x - self.press-x, self.mouse-y - self.press-y);
+                        }
+                    }
+                    double-clicked => { root.maximize-window(); }
+                }
+
+                HorizontalLayout {
+                    padding-left: 14px;
+                    padding-right: 14px;
+                    spacing: 8px;
+
+                    if root.chrome-button-position == "left" : WindowControls {
+                        y: (parent.height - self.height) / 2;
+                        button-style: root.chrome-button-style;
+                        minimize() => { root.minimize-window(); }
+                        maximize() => { root.maximize-window(); }
+                        close() => { root.close-window(); }
+                    }
+
+                    Text {
+                        text: "BATCH" + (root.src-name != "" ? " — " + root.src-name : "");
+                        font-size: Design.font-body;
+                        font-weight: 800;
+                        color: Design.text-primary;
+                        vertical-alignment: center;
+                    }
+
+                    Rectangle { horizontal-stretch: 1; }
+
+                    if root.chrome-button-position == "right" : WindowControls {
+                        y: (parent.height - self.height) / 2;
+                        button-style: root.chrome-button-style;
+                        minimize() => { root.minimize-window(); }
+                        maximize() => { root.maximize-window(); }
+                        close() => { root.close-window(); }
+                    }
+                }
+            }
+
+            BatchView {
+                vertical-stretch: 1;
+                ui-scale: root.ui-scale;
+                panels-height: root.batch-panels-height;
+                content-width: root.width - 16px;
+                show-tear-off: false;
+                src-rows <=> root.src-rows;
+                out-rows <=> root.out-rows;
+                src-name <=> root.src-name;
+                selected-output <=> root.selected-output;
+                batch-out-pending <=> root.batch-out-pending;
+                has-manifest <=> root.has-manifest;
+                batch-sel-count <=> root.batch-sel-count;
+                ctx-node <=> root.ctx-node;
+                ctx-node-id <=> root.ctx-node-id;
+                ctx-panel <=> root.ctx-panel;
+                ctx-is-dir <=> root.ctx-is-dir;
+                ctx-is-root <=> root.ctx-is-root;
+                newfolder-open <=> root.newfolder-open;
+                newfolder-panel <=> root.newfolder-panel;
+                newfolder-parent <=> root.newfolder-parent;
+                newfolder-name <=> root.newfolder-name;
+                batch-reguler-names <=> root.batch-reguler-names;
+                batch-reguler-idx <=> root.batch-reguler-idx;
+                reguler-manage-open <=> root.reguler-manage-open;
+                reguler-dirs <=> root.reguler-dirs;
+                reguler-scan-dir-idx <=> root.reguler-scan-dir-idx;
+                reguler-scan-rows <=> root.reguler-scan-rows;
+                reguler-scan-status <=> root.reguler-scan-status;
+                reguler-filter <=> root.reguler-filter;
+                reguler-months <=> root.reguler-months;
+                reguler-month-idx <=> root.reguler-month-idx;
+                reguler-selected-row <=> root.reguler-selected-row;
+                batch-scripts <=> root.batch-scripts;
+                batch-running <=> root.batch-running;
+                batch-pick-folder() => { root.batch-pick-folder(); }
+                batch-add-folder(path) => { root.batch-add-folder(path); }
+                batch-row-clicked(panel, id) => { root.batch-row-clicked(panel, id); }
+                batch-row-right-down(panel, id) => { root.batch-row-right-down(panel, id); }
+                batch-row-right-up(panel, id) => { root.batch-row-right-up(panel, id); }
+                batch-toggle-expand(panel, id) => { root.batch-toggle-expand(panel, id); }
+                batch-open-ctx(panel, id) => { root.batch-open-ctx(panel, id); }
+                batch-close-ctx() => { root.batch-close-ctx(); }
+                batch-ctx-new-subfolder() => { root.batch-ctx-new-subfolder(); }
+                batch-ctx-replace-auto() => { root.batch-ctx-replace-auto(); }
+                batch-ctx-replace-manual() => { root.batch-ctx-replace-manual(); }
+                batch-ctx-copy-path() => { root.batch-ctx-copy-path(); }
+                batch-ctx-copy-output-path() => { root.batch-ctx-copy-output-path(); }
+                batch-ctx-delete() => { root.batch-ctx-delete(); }
+                batch-confirm-new-folder(name, panel) => { root.batch-confirm-new-folder(name, panel); }
+                batch-cancel-new-folder() => { root.batch-cancel-new-folder(); }
+                batch-run-script(name) => { root.batch-run-script(name); }
+                batch-phase1() => { root.batch-phase1(); }
+                batch-copy-master() => { root.batch-copy-master(); }
+                batch-stop() => { root.batch-stop(); }
+                batch-replace-auto() => { root.batch-replace-auto(); }
+                batch-refresh() => { root.batch-refresh(); }
+                batch-clear() => { root.batch-clear(); }
+                batch-reguler-picked(idx) => { root.batch-reguler-picked(idx); }
+                batch-reguler-manage() => { root.batch-reguler-manage(); }
+                batch-reguler-close() => { root.batch-reguler-close(); }
+                batch-reguler-add() => { root.batch-reguler-add(); }
+                batch-reguler-remove(idx) => { root.batch-reguler-remove(idx); }
+                batch-reguler-toggle-lock(idx) => { root.batch-reguler-toggle-lock(idx); }
+                batch-reguler-select-dir(idx) => { root.batch-reguler-select-dir(idx); }
+                batch-reguler-filter-changed(text) => { root.batch-reguler-filter-changed(text); }
+                batch-reguler-month-picked(idx) => { root.batch-reguler-month-picked(idx); }
+                batch-reguler-row-clicked(idx) => { root.batch-reguler-row-clicked(idx); }
+                batch-reguler-load-selected() => { root.batch-reguler-load-selected(); }
+                batch-open-task-manager() => { root.batch-open-task-manager(); }
+                show-toast(t) => { root.batch-toast(t); }
             }
         }
     }
