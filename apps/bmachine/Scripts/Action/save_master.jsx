@@ -1185,11 +1185,13 @@ function main() {
                 }
             }
 
-            // SAVE ORIGINAL (AUTO): kalau folder 2x3 / 4x6 sudah ada, berarti skema
-            // output pas foto memakai versi crop. Dalam skema itu JPG ukuran asli
-            // (3x4) TIDAK dibuat lagi walau <base>.jpg belum ada — yang dibuat tetap
+
+            // SAVE ORIGINAL (AUTO) + folder 2x3 / 4x6 (skema output pas foto):
+            // JPG 3x4 <base>.jpg di base dibuat HANYA kalau sudah ada sebelumnya
+            // (mirror isi base, mis. dulu dibuat tombol JPG / Advanced centang JPG).
+            // Kalau belum ada (mis. hasil Advanced crop saja), yang dibuat hanya
             // versi crop 2x3/4x6. PSD tetap disave seperti biasa.
-            var skipBaseJpg = (MODE_SMART && MODE_PAS);
+            var skipBaseJpg = (MODE_SMART && MODE_PAS && !new File(docPath + "/" + baseName + ".jpg").exists);
 
             // A. Save Master (PSD/PSB) - Skip if Only JPG/Folder mode
             if (!MODE_ONLY_JPG && !MODE_JPG_FOLDER && !MODE_PNG_FOLDER) {
@@ -1198,8 +1200,9 @@ function main() {
 
             // B. Export Sesuai Mode
             if (MODE_JPG || MODE_PAS) {
-                // JPG ukuran asli dibuat kalau memang diminta. Di skema crop
-                // (SAVE ORIGINAL AUTO + folder 2x3/4x6) bagian ini dilewati.
+                // JPG ukuran asli (3x4) dibuat kalau memang diminta / sudah ada
+                // di base. Di skema crop SAVE ORIGINAL AUTO (folder 2x3/4x6 tanpa
+                // <base>.jpg) bagian ini dilewati — yang dibuat hanya versi crop.
                 if (!skipBaseJpg) {
                     // Duplicate & Flatten
                     var dupDoc = doc.duplicate(baseName + "_temp");
@@ -1223,7 +1226,7 @@ function main() {
                         saveJPG(dupDoc, docPath + "/" + baseName + ".jpg", JPG_QUALITY);
                         successList.push(baseName + (MODE_JPG_FOLDER ? " (JPG Folder)" : " (PSD+JPG)"));
                         dupDoc.close(SaveOptions.DONOTSAVECHANGES);
-                        
+                    
                         app.activeDocument = doc;
                         if (choice == 9) {
                             try {
