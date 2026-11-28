@@ -1173,7 +1173,13 @@ export component CommentWindow inherits Window {
                         root.toast(root.show-activity ? "Aktivitas ditampilkan" : "Aktivitas disembunyikan");
                     }
                 }
-                IconBtn {
+                // X in-content HANYA saat chrome headless (abeng 28 Nov
+                // 10:16 — X ganda "janggal"): saat chrome custom/wrapped
+                // titlebar sudah punya X, saat native titlebar OS yang
+                // punya X. C# sepenuhnya frameless sehingga butuh tombol
+                // close pengganti di dalam konten; di port, X in-content
+                // hanya untuk mode headless.
+                if root.chrome-style == "headless" : IconBtn {
                     glyph: "×";
                     variant: "ghost";
                     size: 28px;

@@ -927,11 +927,12 @@ Trello Integration**, tanpa rombak dan tanpa rebuild:
 
 ### 15.1 Daftar kartu
 
-Header: "← Kembali" + judul kategori + jumlah ("N kartu").
-Judul header memakai label tab (EDITING / REVISI / SUSULAN —
-bukan nilai internal REVISION / LATE). Di bawah header ada
-bar tab NavTab **EDITING / REVISI / SUSULAN** (tab aktif =
-kategori kini; klik tab = ganti daftar). Baris 48px (C#
+TANPA header besar nama list (dihapus 28 Nov 2026, abeng:
+redundan — tab sudah menunjukkan list aktif). Di atas
+daftar hanya bar status (di bawah) lalu bar tab NavTab
+**EDITING / REVISI / SUSULAN** (tab aktif = kategori kini;
+klik tab = ganti daftar; label tab memakai EDITING / REVISI /
+SUSULAN — bukan nilai internal REVISION / LATE). Baris 48px (C#
 EditingCardListView, diubah 26 Nov 19:20): checkbox seleksi
 16px di kiri + NAMA kartu (13px, weight 700, elide — prioritas
 utama) + badge checklist TODO/DONE di kanan (pill 62×22px, dot
@@ -1012,7 +1013,7 @@ Isi detail (C# CardDetailPanelHost): chip kategori + tanggal event
 → judul + × → meta WrapPanel (badge ID "ID: <DisplayId>" klik →
 toast spreadsheet; badge Attachments "Attachments: 0"; badge Due;
 ikon copy-link ⎘ + open-in-browser ↗ 30×30) → separator → baris
-aksi: Comment (split button C# — segmen kiri "Comment" buka panel Comments INLINE di panel samping, segmen kanan segitiga solid 9×10 lebar 16px buka CommentWindow 400×600 window OS terpisah; state komentar dibagi dengan detail pembuka, Rust isi saat dibuka + tulis balik saat ditutup) + Checklist + Move (sembunyi bila manual)
+aksi: Comment (split button C# — segmen kiri "Comment" buka panel Comments INLINE di panel samping, segmen kanan segitiga solid 9×10 lebar 16px buka CommentWindow 400×600 window OS terpisah; state komentar dibagi dengan detail pembuka, Rust isi saat dibuka + tulis balik saat ditutup; tombol × in-content di header CommentWindow HANYA tampil saat chrome = headless (28 Nov 2026 — C# sepenuhnya frameless sehingga butuh tombol close pengganti di dalam konten; di port, saat window punya titlebar (custom / wrapped / native) hanya X titlebar yang tampil — X ganda "janggal" dihilangkan) + Checklist + Move (sembunyi bila manual)
 + Unlink (HANYA bila manual) → separator → label "Description" +
 isi ("Edit pas foto sekolah — crop, centering kepala di guide,
 logo terlihat."). Kartu manual: chip tanggal "—", tanpa badge ID /
@@ -1020,6 +1021,18 @@ Due, Unlink ganti Move. Kartu tanpa prefix (REVISI/LATE, TK
 ASSALAM): tanpa badge ID. Badge Attachments selalu tampil ("0")
 supaya panelnya terjangkau — C# menyembunyikannya bila 0 (Fase 6:
 sembunyikan bila API mengembalikan 0).
+
+Detail bisa di-scroll (28 Nov 2026, polish abeng): seluruh
+detail dibungkus Flickable luar — judul 2–3 baris + deskripsi
+panjang dari API sebelumnya terpotong di tepi bawah panel
+tanpa bisa dibaca sisanya (deskripsi kartu EDITING 1 dari API
+mock mencapai ujung "TEAM EVENT" yang tadinya tidak terlihat).
+Roda mouse di luar area deskripsi menggulung seluruh detail;
+deskripsi sendiri dibatasi 240px + scroll sendiri (ala C#),
+jadi roda mouse di area deskripsi menggulung deskripsi dulu.
+Deskripsi pendek tidak menyisakan ruang kosong (tinggi =
+min(240px, isi)). Klik kanan latar detail tetap menutup ke
+daftar (Flickable luar tidak memakan klik kanan).
 
 Sub-panel menggantikan detail di kolom yang sama (header 18px
 SemiBold + nama kartu 12px + ×; klik kanan sub-panel = kembali ke
@@ -1053,22 +1066,27 @@ manual, REVISI) — ternyata koordinat klik pengujinya yang salah
 
 ### 15.3 Window Trello (dari panah widget)
 
-`overlay-view` `"TRELLO-WINDOW"` + `trello-window-cat`
-(EDITING / REVISION / LATE). Panel mengambang di tengah
-(760×600, responsif: menyusut sampai 40px dari tepi di
-window kecil) di atas dim hitam 60%. Title bar: "Trello —
-EDITING / REVISI / SUSULAN" + jumlah kartu + tombol tutup ×.
-Isi = daftar kategori itu (baris 48px, sama seperti §15.1,
-tanpa `ui-scale` — ukuran window tetap); klik baris → detail
-§15.2 varian B (TrelloDetailPanel yang sama, sub-panel
-berfungsi). Catatan: daftar window BELUM menampilkan kartu
-manual (hitung "N kartu" hanya kartu biasa) — kartu manual
-hanya ada di daftar embedded; selaraskan di Fase 6 (atau saat
-merapikan window).
-Klik kanan di window (dim, latar daftar, maupun baris) /
-tombol × / Esc = tutup window → kembali ke grid dashboard
-(bukan ke daftar embedded — window tidak memakai
-`list-category`). Klik kiri di dim TIDAK menutup.
+CardListWindow — OS window terpisah (`ui/windows.slint`,
+dibuka panah widget EDITING / REVISION / LATE; 450×600 di
+tengah layar). Titlebar kustom "Trello — EDITING (N Kartu)"
+(custom/wrapped; native = titlebar OS; headless = tanpa
+titlebar, drag via strip 28px teratas) + search bar + daftar
+kategori itu (baris 48px, sama seperti §15.1 — nama + sub +
+due di kanan, tanpa header besar nama list); klik baris →
+detail §15.2 varian B (TrelloDetailPanel yang sama, sub-panel
+berfungsi, Comment/▷ tetap terpisah). Catatan: daftar window
+BELUM menampilkan kartu manual (hitung "N kartu" hanya kartu
+biasa) — kartu manual hanya ada di daftar embedded; selaraskan
+di Fase 6 (atau saat merapikan window).
+KOREKSI 28 Nov 2026: overlay `overlay-view`
+`"TRELLO-WINDOW"` di `ui/main.slint` adalah kode mati
+(`overlay-view` tidak pernah diset ke `"TRELLO-WINDOW"` di
+main.slint maupun main.rs) — jangan pakai sebagai acuan
+tampilan window Trello.
+Tutup window: tombol × titlebar (custom/wrapped/native).
+Celah UX (28 Nov 2026, belum diperbaiki): di chrome headless
+CardListWindow tidak punya tombol tutup yang terlihat dan
+klik kanan di daftar tidak menutupnya.
 
 ### 15.4 Auto-refresh interval (28 Nov 2026 — ala C# DashboardViewModel)
 

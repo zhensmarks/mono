@@ -1805,19 +1805,10 @@ export component AppWindow inherits Window {
                 padding-bottom: 30px;
                 spacing: Design.space-md;
 
-                // Header.
-                HorizontalLayout {
-                    height: 36px * root.ui-scale;
-                    spacing: 8px * root.ui-scale;
-                    Text {
-                        text: root.list-category == "REVISION" ? "REVISI" : root.list-category == "LATE" ? "SUSULAN" : root.list-category;
-                        font-size: Design.font-h2 * root.ui-scale;
-                        font-weight: 800;
-                        color: Design.text-primary;
-                        letter-spacing: 1px * root.ui-scale;
-                        vertical-alignment: center;
-                    }
-                }
+                // Header nama list BESAR dihapus (abeng 28 Nov 10:16):
+                // tab EDITING / REVISI / SUSULAN di bawah sudah
+                // menunjukkan list yang aktif — header ini redundan.
+                // Status bar "Dimuat N card" kini elemen pertama.
 
                 // Bar status Trello (C# UnifiedTrelloView: dot status
                 // + StatusMessage "Dimuat N card" + toolbar +/refresh).
