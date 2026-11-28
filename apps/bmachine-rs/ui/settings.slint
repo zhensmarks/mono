@@ -1860,7 +1860,7 @@ export component SettingsView inherits Rectangle {
                         // gayanya; ubah manual → preset jadi "custom").
                         SettingRow {
                             title: "Gaya latar widget";
-                            desc: "Permukaan kartu statistik di dashboard — Solid datar, Gradien tinta aksen, Kaca terangkat, Outline border aksen, atau Gauge arc bercahaya + angka besar + badge status";
+                            desc: "Permukaan kartu statistik di dashboard — Solid datar, Gradien tinta aksen, Kaca terangkat, Outline border aksen, atau Gauge arc bercahaya + angka besar";
                             stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: 6px;
@@ -2322,6 +2322,9 @@ export component SettingsView inherits Rectangle {
                                             bg-style: root.widget-style;
                                             // Nilai demo supaya arc gauge terisi di pratinjau.
                                             gauge-ratio: 0.72;
+                                            // Busur parsial untuk 0,72 (dihitung dari rumus
+                                            // yang sama dengan gauge_arc_commands di Rust).
+                                            gauge-arc-cmds: "M 6 40 A 44 28 0 0 1 78.05 18.43";
                                             scale: 1;
                                             clicked => { root.toast("Preview StatWidget — pola: " + root.widget-bg + ", gaya: " + root.widget-style); }
                                         }

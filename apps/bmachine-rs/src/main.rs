@@ -615,6 +615,22 @@ fn parse_stat_num(s: &str) -> f64 {
     t.parse::<f64>().unwrap_or(0.0)
 }
 
+/// Perintah Path busur gauge TERISI (DESIGN_SYSTEM.md §22): busur elips
+/// parsial dari (6,40) ke titik ujung rasio — SAMA persis dengan busur
+/// track penuh ("M 6 40 A 44 28 0 0 1 94 40"), hanya titik akhirnya
+/// mengikuti rasio. Dihitung di Rust (bukan di .slint) karena .slint
+/// tidak bisa mengubah angka jadi string untuk `commands`.
+/// Geometri SAMA dengan properti .slint gauge-theta/gauge-end-x/
+/// gauge-end-y di StatWidget (dot memakai rumus yang sama) — keduanya
+/// harus tetap sinkron. Rasio di-clamp 0..1.
+fn gauge_arc_commands(ratio: f32) -> String {
+    let r = ratio.clamp(0.0, 1.0);
+    let theta = (1.0 - r) * std::f32::consts::PI;
+    let end_x = 50.0 + 44.0 * theta.cos();
+    let end_y = 40.0 - 28.0 * theta.sin();
+    format!("M 6 40 A 44 28 0 0 1 {end_x:.2} {end_y:.2}")
+}
+
 /// Rasio gauge template widget (DESIGN_SYSTEM.md §22): tiap nilai
 /// dibagi nilai TERBESAR keempat widget (EDITING/REVISION/LATE/
 /// POINTS) → 0..1. Dipanggil timer sinkronisasi bar tiap 2 detik,
@@ -631,6 +647,10 @@ fn update_gauge_ratios(ui: &AppWindow) {
     ui.set_gauge_revision(ratio(r));
     ui.set_gauge_late(ratio(l));
     ui.set_gauge_points(ratio(p));
+    ui.set_gauge_arc_editing(slint::SharedString::from(gauge_arc_commands(ratio(e))));
+    ui.set_gauge_arc_revision(slint::SharedString::from(gauge_arc_commands(ratio(r))));
+    ui.set_gauge_arc_late(slint::SharedString::from(gauge_arc_commands(ratio(l))));
+    ui.set_gauge_arc_points(slint::SharedString::from(gauge_arc_commands(ratio(p))));
 }
 
 /// Dorong daftar notifikasi ke window bar (wholesale replace —
@@ -12636,6 +12656,20 @@ mod tests {
         assert_eq!(parse_stat_num("-"), 0.0);
         assert_eq!(parse_stat_num(""), 0.0);
         assert_eq!(parse_stat_num(" 12 "), 12.0);
+    }
+
+    #[test]
+    fn gauge_arc_commands_follows_ellipse() {
+        // Ujung busur = titik pada elips (50+44cos, 40-28sin), sudut
+        // theta = (1-rasio)*180 derajat — rumus SAMA dengan .slint
+        // (gauge-theta/gauge-end-x/gauge-end-y di StatWidget).
+        assert_eq!(gauge_arc_commands(0.0), "M 6 40 A 44 28 0 0 1 6.00 40.00");
+        assert_eq!(gauge_arc_commands(1.0), "M 6 40 A 44 28 0 0 1 94.00 40.00");
+        assert_eq!(gauge_arc_commands(0.4), "M 6 40 A 44 28 0 0 1 36.40 13.37");
+        assert_eq!(gauge_arc_commands(0.72), "M 6 40 A 44 28 0 0 1 78.05 18.43");
+        // Clamp di luar 0..1.
+        assert_eq!(gauge_arc_commands(-0.5), gauge_arc_commands(0.0));
+        assert_eq!(gauge_arc_commands(1.5), gauge_arc_commands(1.0));
     }
 
     #[test]
