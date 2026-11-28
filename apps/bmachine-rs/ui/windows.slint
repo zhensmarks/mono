@@ -4,7 +4,7 @@
 
 import { Design, Btn, IconBtn, SvgIcon, TextField, WindowControls, HSeparator } from "design.slint";
 import { SpreadsheetComponent } from "spreadsheet.slint";
-import { TrelloDetailPanel, CommentRow, MdLine, MdToolbar, MarkdownView } from "trello-detail.slint";
+import { TrelloDetailPanel, CommentRow, MdLine, MdToolbar, MarkdownView, ApiComment } from "trello-detail.slint";
 import { RadialMenuView } from "radial.slint";
 import { ToolboxView } from "modul.slint";
 import { BatchView, BatchRow, RegulerDirRow, RegulerSchoolRow } from "batch.slint";
@@ -708,6 +708,10 @@ export component CardListWindow inherits Window {
     in-out property <string> detail-draft-1: "";
     in-out property <string> detail-draft-2: "";
     in-out property <string> detail-draft-3: "";
+    // Komentar API kartu aktif (trello2, item 4) — diikat dua arah
+    // ke panel detail; diisi Rust saat sub-panel "comments" dibuka.
+    in-out property <[ApiComment]> detail-api-comments: [];
+    in-out property <string> detail-comments-note: "";
     // Buka komentar kartu terpilih di CommentWindow (dari segmen
     // panah split button Comment di detail).
     callback open-comment-window();
@@ -748,6 +752,10 @@ export component CardListWindow inherits Window {
     pure callback parse-md(string, length) -> [MdLine];
     callback md-insert(string, string, int, int) -> string;
     callback save-desc(string);
+    // Komentar Trello nyata (trello2, item 4): muat komentar API
+    // kartu (panel → Rust) + kirim komentar baru ke API.
+    callback load-comments(string);
+    callback comment-posted(string);
 
     // Latar window membulat (§23, 28 Nov 2026): Window transparan +
     // Rectangle ini yang memberi warna latar + radius sudut luar
@@ -1108,6 +1116,10 @@ export component CardListWindow inherits Window {
                     draft-1 <=> root.detail-draft-1;
                     draft-2 <=> root.detail-draft-2;
                     draft-3 <=> root.detail-draft-3;
+                    api-comments <=> root.detail-api-comments;
+                    comments-note <=> root.detail-comments-note;
+                    load-comments(id) => { root.load-comments(id); }
+                    comment-posted(t) => { root.comment-posted(t); }
                     open-comment-window => { root.open-comment-window(); }
                     close() => { root.selected-idx = -1; root.toast("Detail ditutup"); }
                     show-toast(t) => { root.toast(t); }
@@ -1164,6 +1176,12 @@ export component CommentWindow inherits Window {
     // Tampilkan aktivitas (C#: ToggleShowActivityCommand — di port
     // hanya toggle + toast, belum ada data aktivitas).
     in-out property <bool> show-activity: true;
+    // Kartu yang komentarnya dibuka (trello2, item 4): id API asli
+    // (c.id) + komentar dari API + catatan muat. Diisi Rust saat
+    // window dibuka.
+    in-out property <string> card-id: "";
+    in-out property <[ApiComment]> api-comments: [];
+    in-out property <string> comments-note: "";
 
     callback close-window();
     callback minimize-window();
@@ -1171,6 +1189,9 @@ export component CommentWindow inherits Window {
     callback move-window(length, length);
     callback toast(string);
     callback send-comment();
+    // Komentar baru dikirim (dipicu send-comment setelah slot lokal
+    // terisi) — Rust POST ke API Trello (trello2, item 4).
+    callback comment-posted(string);
     callback open-url(string);
     // Markdown (komentar): parsing di Rust (src/markdown.rs) —
     // pure supaya bisa dipanggil dari binding; toolbar editor
@@ -1186,14 +1207,17 @@ export component CommentWindow inherits Window {
         } else if (root.added-count == 0) {
             root.draft-1 = root.comment-draft;
             root.added-count = 1;
+            root.comment-posted(root.comment-draft);
             root.comment-draft = "";
         } else if (root.added-count == 1) {
             root.draft-2 = root.comment-draft;
             root.added-count = 2;
+            root.comment-posted(root.comment-draft);
             root.comment-draft = "";
         } else if (root.added-count == 2) {
             root.draft-3 = root.comment-draft;
             root.added-count = 3;
+            root.comment-posted(root.comment-draft);
             root.comment-draft = "";
         } else {
             root.toast("Maks 3 komentar tambahan (mockup)");
@@ -1395,6 +1419,23 @@ export component CommentWindow inherits Window {
                     VerticalLayout {
                         x: 0; width: parent.width;
                         spacing: 12px;
+                        // Komentar dari API Trello (trello2, item 4) —
+                        // di atas komentar sesi ini (yang masih lokal).
+                        if root.comments-note != "" : Text {
+                            text: root.comments-note;
+                            font-size: 12px;
+                            color: Design.text-muted;
+                            wrap: word-wrap;
+                        }
+                        for c in root.api-comments : CommentRow {
+                            author: c.author;
+                            time: c.time;
+                            body: c.body;
+                            initial: c.initial;
+                            parse-md(s, w) => { root.parse-md(s, w) }
+                            open-url(u) => { root.open-url(u); }
+                            show-toast(t) => { root.toast(t); }
+                        }
                         if root.added-count >= 1 : CommentRow {
                             author: root.user-name;
                             time: "baru saja";

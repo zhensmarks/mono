@@ -11,7 +11,7 @@ import { ExplorerSettingsView } from "explorer-settings.slint";
 import { ToolboxView, SheetsView, LeaderboardView } from "modul.slint";
 import { LogPanelView } from "logpanel.slint";
 import { ExplorerView } from "explorer.slint";
-import { TrelloDetailPanel, MdLine } from "trello-detail.slint";
+import { TrelloDetailPanel, MdLine, ApiComment } from "trello-detail.slint";
 import { RadialMenuView } from "radial.slint";
 import { BatchView, BatchRow, RegulerDirRow, RegulerSchoolRow } from "batch.slint";
 import { SplashView } from "splash.slint";
@@ -659,6 +659,10 @@ export component AppWindow inherits Window {
     pure callback parse-md(string, length) -> [MdLine];
     callback md-insert(string, string, int, int) -> string;
     callback save-desc(string);
+    // Komentar Trello nyata (trello2, item 4): muat komentar API
+    // kartu (panel → Rust) + kirim komentar baru ke API.
+    callback load-comments(string);
+    callback comment-posted(string);
     callback refresh-leaderboard();
     // Dynamic Bar (floating mini-bar): buka/tutup dari flyout profil.
     callback open-dynamic-bar();
@@ -1153,6 +1157,11 @@ export component AppWindow inherits Window {
     in-out property <string> detail-draft-1: "";
     in-out property <string> detail-draft-2: "";
     in-out property <string> detail-draft-3: "";
+    // Komentar API kartu aktif (trello2, item 4) — diikat dua arah
+    // ke panel detail (embedded + overlay); diisi Rust saat
+    // sub-panel "comments" dibuka.
+    in-out property <[ApiComment]> detail-api-comments: [];
+    in-out property <string> detail-comments-note: "";
     // Lebar kolom detail Trello (C# UnifiedTrelloView: 400,
     // MinWidth 320, MaxWidth 650 — port: 400, clamp 320 saat sempit).
     property <length> trello-detail-w: root.content-width >= 726px ? 400px : 320px;
@@ -2354,6 +2363,10 @@ export component AppWindow inherits Window {
                     draft-1 <=> root.detail-draft-1;
                     draft-2 <=> root.detail-draft-2;
                     draft-3 <=> root.detail-draft-3;
+                    api-comments <=> root.detail-api-comments;
+                    comments-note <=> root.detail-comments-note;
+                    load-comments(id) => { root.load-comments(id); }
+                    comment-posted(t) => { root.comment-posted(t); }
                     user-name: root.app-user-name;
                     user-initial: root.app-user-initial;
                     close => { root.selected-card = ""; root.detail-panel = ""; root.detail-added-count = 0; }
@@ -3216,6 +3229,10 @@ export component AppWindow inherits Window {
                             draft-1 <=> root.detail-draft-1;
                             draft-2 <=> root.detail-draft-2;
                             draft-3 <=> root.detail-draft-3;
+                            api-comments <=> root.detail-api-comments;
+                            comments-note <=> root.detail-comments-note;
+                            load-comments(id) => { root.load-comments(id); }
+                            comment-posted(t) => { root.comment-posted(t); }
                             user-name: root.app-user-name;
                             user-initial: root.app-user-initial;
                             close => { root.selected-card = ""; root.detail-panel = ""; root.detail-added-count = 0; }

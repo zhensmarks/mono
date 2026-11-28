@@ -1165,7 +1165,24 @@ tempat: detail embedded, detail CardListWindow, CommentWindow
 window dibuka dari model AppWindow kategori aktif). Subtitle
 daftar kartu = `plain_first_line` (baris pertama deskripsi
 tanpa sintaks Markdown — `#`, `**`, link, `@`, dsb. di-strip).
-Komentar tetap mock lokal maks 3 (GET comments = Fase 6).
+Komentar nyata dari API Trello (28 Nov 2026, polish ronde 2
+item 4): buka sub-panel "comments" → Rust GET
+`/cards/{id}/actions?filter=commentCard` (hanya `commentCard`,
+author = nama lengkap, tanggal saja YYYY-MM-DD) di thread,
+render di atas komentar sesi (struct Slint `ApiComment`);
+gagal (404 — di luar 5 endpoint spek kantor — / offline) →
+catatan "Komentar Trello tidak bisa dimuat (server tidak
+mendukung)", komentar sesi tetap tampil. Kirim komentar →
+slot lokal dulu (maks 3 sesi) + POST
+`/cards/{id}/actions/comments` di thread: sukses toast
+"Komentar terkirim ke Trello", gagal toast "Komentar tersimpan
+lokal (Trello tidak mendukung)". Sama di CommentWindow
+(`card-id` + `api-comments` diisi Rust saat dibuka; komentar
+yang baru di-POST muncul lagi saat window dibuka ulang karena
+GET mengembalikannya). Catatan: instans detail embedded +
+overlay sama-sama memicu `load-comments` (sub-panel di-bind dua
+arah di keduanya) — fetch idempotent, hasil sama, hanya 2×
+request tiap buka panel.
 Batasan Slint 1.19: callback biasa impure — `parse-md` harus
 `pure callback` supaya bisa dipanggil dari binding/`for`;
 `MdLine` di-flatten (maks 6 segmen/baris, baris lebih dari itu

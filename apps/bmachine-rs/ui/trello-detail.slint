@@ -271,6 +271,18 @@ export component CommentRow inherits HorizontalLayout {
     }
 }
 
+// Satu komentar dari API Trello (trello2, item 4): dipetakan Rust
+// dari TrelloComment (GET /cards/{id}/actions?filter=commentCard)
+// — author = nama lengkap (fallback username), time = tanggal
+// saja (YYYY-MM-DD), body = data.text, initial = huruf pertama
+// nama (kapital).
+export struct ApiComment {
+    author: string,
+    time: string,
+    body: string,
+    initial: string,
+}
+
 export component TrelloDetailPanel inherits Rectangle {
     // --- Input dari AppWindow ---
     in property <string> card-title;
@@ -280,6 +292,12 @@ export component TrelloDetailPanel inherits Rectangle {
     // ke API; "" bila kartu manual / tanpa id). Diisi pemakai panel
     // dari list-card-ids / card-api-ids (trello2, item 3/4).
     in property <string> card-id: "";
+    // Komentar dari API Trello (trello2, item 4): dimuat Rust saat
+    // sub-panel "comments" dibuka (GET /cards/{id}/actions).
+    in property <[ApiComment]> api-comments: [];
+    // Catatan di atas daftar komentar ("Memuat komentar…" / pesan
+    // bila server tidak mendukung / "" bila tidak ada catatan).
+    in property <string> comments-note: "";
     in property <string> due-text;
     in property <bool> is-manual;
     in property <string> manual-url;
@@ -330,6 +348,11 @@ export component TrelloDetailPanel inherits Rectangle {
     pure callback parse-md(string, length) -> [MdLine];
     callback md-insert(string, string, int, int) -> string;
     callback save-description(string);
+    // Minta Rust memuat komentar API kartu ini (dipicu saat
+    // sub-panel "comments" dibuka); kirim komentar baru ke API
+    // (dipicu send-comment setelah slot lokal terisi).
+    callback load-comments(string);
+    callback comment-posted(string);
 
     property <string> comment-draft: "";
     // Mode edit deskripsi (tombol "Edit" di samping label
@@ -362,17 +385,30 @@ export component TrelloDetailPanel inherits Rectangle {
         } else if (root.added-count == 0) {
             root.draft-1 = root.comment-draft;
             root.added-count = 1;
+            root.comment-posted(root.comment-draft);
             root.comment-draft = "";
         } else if (root.added-count == 1) {
             root.draft-2 = root.comment-draft;
             root.added-count = 2;
+            root.comment-posted(root.comment-draft);
             root.comment-draft = "";
         } else if (root.added-count == 2) {
             root.draft-3 = root.comment-draft;
             root.added-count = 3;
+            root.comment-posted(root.comment-draft);
             root.comment-draft = "";
         } else {
             root.show-toast("Maks 3 komentar tambahan (mockup)");
+        }
+    }
+
+    // Buka sub-panel Comments → minta Rust memuat komentar API
+    // kartu ini (trello2, item 4). Instans embedded + overlay
+    // sama-sama memicu (sub-panel di-bind dua arah di keduanya) —
+    // fetch idempotent, hasil sama.
+    changed sub-panel => {
+        if (root.sub-panel == "comments" && root.card-id != "") {
+            root.load-comments(root.card-id);
         }
     }
 
@@ -914,6 +950,23 @@ export component TrelloDetailPanel inherits Rectangle {
                     VerticalLayout {
                         x: 0; width: parent.width;
                         spacing: 12px;
+                        // Komentar dari API Trello (trello2, item 4) —
+                        // di atas komentar sesi ini (yang masih lokal).
+                        if root.comments-note != "" : Text {
+                            text: root.comments-note;
+                            font-size: 12px;
+                            color: Design.text-muted;
+                            wrap: word-wrap;
+                        }
+                        for c in root.api-comments : CommentRow {
+                            author: c.author;
+                            time: c.time;
+                            body: c.body;
+                            initial: c.initial;
+                            parse-md(s, w) => { root.parse-md(s, w) }
+                            open-url(u) => { root.open-url(u); }
+                            show-toast(t) => { root.show-toast(t); }
+                        }
                         // Komentar contoh DIHAPUS 27 Nov 2026 (keputusan
                         // abeng: default publish harus bersih) — komentar
                         // diisi dari API Trello / yang user tambah.

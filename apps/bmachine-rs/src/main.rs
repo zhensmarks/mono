@@ -2970,6 +2970,163 @@ fn spawn_trello_desc_put(
     });
 }
 
+/// Id API (`c.id`) kartu Trello yang sedang dipilih di AppWindow
+/// (None bila kartu manual / belum ada yang dipilih / model belum
+/// terisi). Kategori aktif = trello-window-cat bila tidak kosong
+/// else list-category (cermin derived prop list-card-ids — plain
+/// property, getter-nya privat di Rust, jadi baca model kategori
+/// yang sesuai).
+fn trello_active_card_id(ui: &AppWindow) -> Option<String> {
+    if ui.get_selected_is_manual() {
+        return None;
+    }
+    let cat = {
+        let tw = ui.get_trello_window_cat();
+        if !tw.is_empty() {
+            tw.to_string()
+        } else {
+            ui.get_list_category().to_string()
+        }
+    };
+    let model = match cat.as_str() {
+        "REVISION" => ui.get_revision_card_ids(),
+        "LATE" => ui.get_late_card_ids(),
+        _ => ui.get_editing_card_ids(),
+    };
+    let idx = ui.get_selected_index() as usize;
+    if idx >= model.row_count() {
+        return None;
+    }
+    model
+        .row_data(idx)
+        .map(|s| s.to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// Satu komentar Trello API -> struct Slint `ApiComment`
+/// (ui/trello-detail.slint): author = nama lengkap (fallback
+/// username, lalu "USER"), time = tanggal saja (YYYY-MM-DD dari
+/// ISO-8601), initial = huruf pertama nama (kapital).
+fn api_comment_to_slint(c: &trello_api::TrelloComment) -> ApiComment {
+    let author = c
+        .member_creator
+        .full_name
+        .clone()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or_else(|| {
+            if c.member_creator.username.is_empty() {
+                "USER".to_string()
+            } else {
+                c.member_creator.username.clone()
+            }
+        });
+    let initial = author
+        .chars()
+        .next()
+        .map(|ch| ch.to_uppercase().collect::<String>())
+        .unwrap_or_else(|| "U".to_string());
+    let time = c.date.get(..10).unwrap_or(c.date.as_str()).to_string();
+    let mut out = ApiComment::default();
+    out.author = slint::SharedString::from(author);
+    out.time = slint::SharedString::from(time);
+    out.body = slint::SharedString::from(c.data.text.clone());
+    out.initial = slint::SharedString::from(initial);
+    out
+}
+
+/// Muat komentar API kartu (trello2, item 4): GET actions +
+/// saring hanya `commentCard` + petakan ke model Slint. Err bila
+/// server tidak mendukung (404 — GET actions di luar 5 endpoint
+/// spek kantor) / offline.
+fn fetch_trello_comments_mapped(
+    base_url: &str,
+    api_key: &str,
+    token: &str,
+    card_id: &str,
+) -> Result<Vec<ApiComment>, String> {
+    let comments =
+        trello_api::TrelloApiService::fetch_comments(base_url, api_key, token, card_id)?;
+    Ok(comments
+        .iter()
+        .filter(|c| c.action_type == "commentCard")
+        .map(api_comment_to_slint)
+        .collect())
+}
+
+/// Kirim komentar baru ke API Trello di thread latar (trello2,
+/// item 4): POST `/cards/{id}/actions/comments`.
+/// Sukses -> toast "Komentar terkirim ke Trello"; gagal (server
+/// tidak mendukung / token tanpa tulis / offline) -> toast
+/// "Komentar tersimpan lokal (Trello tidak mendukung)" — komentar
+/// tetap tampil lokal di slot draft sesi ini.
+fn spawn_trello_comment_post(
+    ui_weak: slint::Weak<AppWindow>,
+    base_url: String,
+    api_key: String,
+    token: String,
+    card_id: String,
+    text: String,
+) {
+    std::thread::spawn(move || {
+        let res = trello_api::TrelloApiService::add_comment(
+            &base_url, &api_key, &token, &card_id, &text,
+        );
+        let _ = ui_weak.upgrade_in_event_loop(move |u| match res {
+            Ok(()) => {
+                u.set_toast(slint::SharedString::from("Komentar terkirim ke Trello"));
+            }
+            Err(e) => {
+                eprintln!("[trello] add_comment gagal: {}", e);
+                u.set_toast(slint::SharedString::from(
+                    "Komentar tersimpan lokal (Trello tidak mendukung)",
+                ));
+            }
+        });
+    });
+}
+
+/// Muat komentar API ke CommentWindow (trello2, item 4): dipanggil
+/// saat window dibuka (dari `show_comment_window`); hasil basi
+/// (window sudah dibuka untuk kartu lain) dibuang via `card-id`.
+fn load_comments_into_comment_window(
+    w_weak: slint::Weak<CommentWindow>,
+    base_url: String,
+    api_key: String,
+    token: String,
+    card_id: String,
+) {
+    if card_id.is_empty() {
+        return;
+    }
+    if let Some(w) = w_weak.upgrade() {
+        w.set_comments_note(slint::SharedString::from("Memuat komentar…"));
+        w.set_api_comments(slint::ModelRc::new(slint::VecModel::from(
+            Vec::<ApiComment>::new(),
+        )));
+    }
+    std::thread::spawn(move || {
+        let res = fetch_trello_comments_mapped(&base_url, &api_key, &token, &card_id);
+        let card_id_check = card_id.clone();
+        let _ = w_weak.upgrade_in_event_loop(move |w| {
+            if w.get_card_id().to_string() != card_id_check {
+                return;
+            }
+            match res {
+                Ok(list) => {
+                    w.set_api_comments(slint::ModelRc::new(slint::VecModel::from(list)));
+                    w.set_comments_note(slint::SharedString::from(""));
+                }
+                Err(e) => {
+                    eprintln!("[trello] fetch_comments gagal: {}", e);
+                    w.set_comments_note(slint::SharedString::from(
+                        "Komentar Trello tidak bisa dimuat (server tidak mendukung)",
+                    ));
+                }
+            }
+        });
+    });
+}
+
 /// VM yang sama untuk CommentWindow + CardDetailPanelHost).
 fn ensure_comment_window(
     cell: &std::rc::Rc<std::cell::RefCell<Option<CommentWindow>>>,
@@ -3069,6 +3226,30 @@ fn ensure_comment_window(
                 ));
             }
         });
+        // Komentar baru dikirim dari CommentWindow (trello2, item 4):
+        // POST ke API Trello (id dari `card-id` window).
+        let ui_weak_post = ui_weak.clone();
+        let w_weak_post = w.as_weak();
+        w.on_comment_posted(move |text| {
+            let Some(ui) = ui_weak_post.upgrade() else {
+                return;
+            };
+            let Some(w) = w_weak_post.upgrade() else {
+                return;
+            };
+            let card_id = w.get_card_id().to_string();
+            if card_id.is_empty() {
+                return;
+            }
+            spawn_trello_comment_post(
+                ui_weak_post.clone(),
+                ui.get_trello_base_url().to_string(),
+                ui.get_trello_api_key().to_string(),
+                ui.get_trello_token().to_string(),
+                card_id,
+                text.to_string(),
+            );
+        });
         if let Some(ui) = ui_weak.upgrade() {
             push_chrome_to_comment(&w, &ui);
         }
@@ -3091,6 +3272,7 @@ fn show_comment_window(
     d1: slint::SharedString,
     d2: slint::SharedString,
     d3: slint::SharedString,
+    card_id: slint::SharedString,
 ) {
     if let Some(w) = cell.borrow().as_ref() {
         push_chrome_to_comment(w, ui);
@@ -3102,6 +3284,15 @@ fn show_comment_window(
         w.set_draft_1(d1);
         w.set_draft_2(d2);
         w.set_draft_3(d3);
+        w.set_card_id(card_id.clone());
+        // Komentar API kartu ini (trello2, item 4).
+        load_comments_into_comment_window(
+            w.as_weak(),
+            ui.get_trello_base_url().to_string(),
+            ui.get_trello_api_key().to_string(),
+            ui.get_trello_token().to_string(),
+            card_id.to_string(),
+        );
         // Tengah window utama (C# CenterScreen; 400x600 sesuai
         // ukuran CommentWindow di .slint).
         let (cx, cy) = center_over_main(ui, 400, 600);
@@ -9505,6 +9696,73 @@ fn main() -> Result<(), slint::PlatformError> {
             }
         });
     }
+    // ---- Komentar Trello nyata (trello2, item 4): muat komentar
+    // API saat sub-panel "comments" dibuka (panel -> Rust) + kirim
+    // komentar baru ke API.
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_load_comments(move |card_id| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            // Muat ulang tiap buka sub-panel (komentar bisa
+            // bertambah dari Trello lain); kosongkan dulu supaya
+            // komentar kartu sebelumnya tidak sekilas tampil.
+            ui.set_detail_comments_note(slint::SharedString::from("Memuat komentar…"));
+            ui.set_detail_api_comments(slint::ModelRc::new(slint::VecModel::from(
+                Vec::<ApiComment>::new(),
+            )));
+            let base_url = ui.get_trello_base_url().to_string();
+            let api_key = ui.get_trello_api_key().to_string();
+            let token = ui.get_trello_token().to_string();
+            let card_id = card_id.to_string();
+            let ui_weak_load = ui_weak.clone();
+            std::thread::spawn(move || {
+                let res = fetch_trello_comments_mapped(&base_url, &api_key, &token, &card_id);
+                let card_id_check = card_id.clone();
+                let _ = ui_weak_load.upgrade_in_event_loop(move |u| {
+                    // Kartu sudah berganti selagi fetch jalan ->
+                    // buang hasil basi (panel kini milik kartu lain).
+                    if trello_active_card_id(&u).as_deref() != Some(card_id_check.as_str()) {
+                        return;
+                    }
+                    match res {
+                        Ok(list) => {
+                            u.set_detail_api_comments(slint::ModelRc::new(
+                                slint::VecModel::from(list),
+                            ));
+                            u.set_detail_comments_note(slint::SharedString::from(""));
+                        }
+                        Err(e) => {
+                            eprintln!("[trello] fetch_comments gagal: {}", e);
+                            u.set_detail_comments_note(slint::SharedString::from(
+                                "Komentar Trello tidak bisa dimuat (server tidak mendukung)",
+                            ));
+                        }
+                    }
+                });
+            });
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_comment_posted(move |text| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let Some(card_id) = trello_active_card_id(&ui) else {
+                return;
+            };
+            spawn_trello_comment_post(
+                ui_weak.clone(),
+                ui.get_trello_base_url().to_string(),
+                ui.get_trello_api_key().to_string(),
+                ui.get_trello_token().to_string(),
+                card_id,
+                text.to_string(),
+            );
+        });
+    }
     {
         let ui_weak = ui.as_weak();
         let bar_store_refresh = bar_store.clone();
@@ -10463,6 +10721,100 @@ fn main() -> Result<(), slint::PlatformError> {
                             card.set_card_subs(subs_model);
                         });
                     }
+                    // ---- Komentar Trello nyata (trello2, item 4) —
+                    // sama seperti AppWindow, tapi target model milik
+                    // window ini (detail-api-comments).
+                    {
+                        let ui_weak_load = ui_weak.clone();
+                        let w_weak_load = w.as_weak();
+                        w.on_load_comments(move |card_id| {
+                            let Some(ui) = ui_weak_load.upgrade() else {
+                                return;
+                            };
+                            let Some(card) = w_weak_load.upgrade() else {
+                                return;
+                            };
+                            card.set_detail_comments_note(slint::SharedString::from(
+                                "Memuat komentar…",
+                            ));
+                            card.set_detail_api_comments(slint::ModelRc::new(
+                                slint::VecModel::from(Vec::<ApiComment>::new()),
+                            ));
+                            let base_url = ui.get_trello_base_url().to_string();
+                            let api_key = ui.get_trello_api_key().to_string();
+                            let token = ui.get_trello_token().to_string();
+                            let card_id = card_id.to_string();
+                            let w_weak_fetch = w_weak_load.clone();
+                            std::thread::spawn(move || {
+                                let res = fetch_trello_comments_mapped(
+                                    &base_url, &api_key, &token, &card_id,
+                                );
+                                let card_id_check = card_id.clone();
+                                let _ = w_weak_fetch.upgrade_in_event_loop(move |w| {
+                                    let idx = w.get_selected_idx() as usize;
+                                    let ids = w.get_card_api_ids();
+                                    let cur = if idx < ids.row_count() {
+                                        ids.row_data(idx).unwrap_or_default().to_string()
+                                    } else {
+                                        String::new()
+                                    };
+                                    if cur != card_id_check {
+                                        return;
+                                    }
+                                    match res {
+                                        Ok(list) => {
+                                            w.set_detail_api_comments(slint::ModelRc::new(
+                                                slint::VecModel::from(list),
+                                            ));
+                                            w.set_detail_comments_note(
+                                                slint::SharedString::from(""),
+                                            );
+                                        }
+                                        Err(e) => {
+                                            eprintln!("[trello] fetch_comments gagal: {}", e);
+                                            w.set_detail_comments_note(
+                                                slint::SharedString::from(
+                                                    "Komentar Trello tidak bisa dimuat (server tidak mendukung)",
+                                                ),
+                                            );
+                                        }
+                                    }
+                                });
+                            });
+                        });
+                    }
+                    {
+                        let ui_weak_post = ui_weak.clone();
+                        let w_weak_post = w.as_weak();
+                        w.on_comment_posted(move |text| {
+                            let Some(ui) = ui_weak_post.upgrade() else {
+                                return;
+                            };
+                            let Some(card) = w_weak_post.upgrade() else {
+                                return;
+                            };
+                            let idx = card.get_selected_idx() as usize;
+                            let ids = card.get_card_api_ids();
+                            if idx >= ids.row_count() {
+                                return;
+                            }
+                            let Some(card_id) = ids
+                                .row_data(idx)
+                                .map(|s| s.to_string())
+                                .filter(|s| !s.is_empty())
+                            else {
+                                return;
+                            };
+                            spawn_trello_comment_post(
+                                ui_weak_post.clone(),
+                                ui.get_trello_base_url().to_string(),
+                                ui.get_trello_api_key().to_string(),
+                                ui.get_trello_token().to_string(),
+                                card_id,
+                                text.to_string(),
+                            );
+                        });
+                    }
                     // Tombol kontrol chrome (min/max) + drag (titlebar
                     // kustom / strip headless) + gaya chrome awal dari
                     // AppWindow (lihat DESIGN_SYSTEM.md §23).
@@ -10530,6 +10882,12 @@ fn main() -> Result<(), slint::PlatformError> {
                         } else {
                             slint::SharedString::from("")
                         };
+                        let api_ids = card.get_card_api_ids();
+                        let card_id = if idx < api_ids.row_count() {
+                            api_ids.row_data(idx).unwrap_or_default()
+                        } else {
+                            slint::SharedString::from("")
+                        };
                         show_comment_window(
                             &comment_cell_cw,
                             &comment_vis_cw,
@@ -10542,6 +10900,7 @@ fn main() -> Result<(), slint::PlatformError> {
                             card.get_detail_draft_1(),
                             card.get_detail_draft_2(),
                             card.get_detail_draft_3(),
+                            card_id,
                         );
                     });
                     *opt = Some(w);
@@ -10660,6 +11019,9 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.get_detail_draft_1(),
                 ui.get_detail_draft_2(),
                 ui.get_detail_draft_3(),
+                trello_active_card_id(&ui)
+                    .map(slint::SharedString::from)
+                    .unwrap_or_default(),
             );
             // C#: tutup panel Comments inline saat window dibuka.
             if ui.get_detail_panel() == "comments" {
