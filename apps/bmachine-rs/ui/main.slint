@@ -4,7 +4,7 @@
 // window lewat ui-scale. Tab HOME/BATCH benar-benar berpindah.
 // Klik StatWidget menampilkan toast. Tombol profil membuka flyout.
 
-import { Design, Card, HSeparator, NavTab, StatWidget, Btn, IconBtn, Toggle, TextField, SvgIcon, FlyoutItem, WindowControls, ComboBox } from "design.slint";
+import { Design, Card, HSeparator, NavTab, StatWidget, Btn, IconBtn, Toggle, TextField, SvgIcon, FlyoutItem, WindowControls, ComboBox, SakugaBurst } from "design.slint";
 export { Design }
 import { SettingsView } from "settings.slint";
 import { ExplorerSettingsView } from "explorer-settings.slint";
@@ -497,6 +497,14 @@ export component AppWindow inherits Window {
     callback batch-dock();
     in-out property <bool> show-flyout: false;
     in-out property <string> toast: "";
+    // Burst Sakuga (tema Sakuga, §22.1): overlay asap/kristal +
+    // onomatopoeia. Digerakkan Rust via `theme::trigger_sakuga_burst`
+    // (hanya saat preset Sakuga aktif). Komponen `SakugaBurst`
+    // (ui/design.slint) ditaruh paling akhir supaya paling atas.
+    in-out property <bool> sakuga-burst-active: false;
+    in-out property <string> sakuga-burst-text: "SAKUGA!";
+    in-out property <float> sakuga-burst-x: 0.5;
+    in-out property <float> sakuga-burst-y: 0.42;
 
     // State Fase 5: Splash & Dialog Modal
     in-out property <string> app-stage: "splash";
@@ -3796,6 +3804,22 @@ export component AppWindow inherits Window {
     // bulan). Klik baris sekolah = pilih, klik ganda / tombol
     // "Jadikan Source" = jadikan SOURCE BATCH. Tutup via ×,
     // "Tutup", klik di luar kartu, klik kanan, atau Esc.
+
+    // ===== Burst Sakuga (tema Sakuga, §22.1) — PALING AKHIR supaya
+    // paling atas: overlay seluruh window, non-interaktif (klik
+    // tembus). Menyala saat ganti tema ke Sakuga, saat tugas
+    // Task Monitor selesai, dan saat Batch selesai (hanya bila
+    // preset Sakuga aktif — lihat theme::trigger_sakuga_burst).
+    SakugaBurst {
+        x: 0; y: 0; width: 100%; height: 100%;
+        // `<=>` WAJIB: Timer di dalam SakugaBurst menulis
+        // burst-active=false saat animasi selesai; binding satu arah
+        // akan putus saat komponen menulis (jebakan Slint).
+        burst-active <=> root.sakuga-burst-active;
+        burst-text: root.sakuga-burst-text;
+        burst-x: root.sakuga-burst-x;
+        burst-y: root.sakuga-burst-y;
+    }
 
     } // tutup keys-scope FocusScope
 }

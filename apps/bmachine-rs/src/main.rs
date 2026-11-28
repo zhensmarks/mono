@@ -7561,6 +7561,11 @@ fn main() -> Result<(), slint::PlatformError> {
                         sync_bar_theme(&ui, &bar_cell_sync);
                         sync_radial_theme(&ui, &radial_cell_sync);
                         sync_task_theme(&ui, &task_cell_sync);
+                        // Sakuga (§22.1): ganti ke preset Sakuga =
+                        // burst "SAKUGA!" di tengah window.
+                        if id.as_str() == "sakuga" {
+                            theme::trigger_sakuga_burst(&ui, "SAKUGA!", 0.5, 0.42);
+                        }
                         let name = theme::palette_for(id.as_str())
                             .map(|p| p.name)
                             .unwrap_or_else(|| id.to_string());
@@ -13217,6 +13222,7 @@ fn main() -> Result<(), slint::PlatformError> {
             let mut need_reload = false;
             let mut clear_cut = false;
             let mut msgs: Vec<String> = Vec::new();
+            let mut done_count = 0;
             for t in st.tasks.iter_mut() {
                 // Status terminal HANYA done/failed/cancelled — "merging"
                 // dan "cancelling" masih berjalan; kalau dianggap terminal
@@ -13228,6 +13234,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     match t.status().as_str() {
                         "done" => {
                             msgs.push(format!("Selesai: {}", t.name));
+                            done_count += 1;
                             need_reload = true;
                             if t.is_cut {
                                 clear_cut = true;
@@ -13258,6 +13265,12 @@ fn main() -> Result<(), slint::PlatformError> {
             ex_push_tasks(&ui, &st);
             if !msgs.is_empty() {
                 ui.set_toast(slint::SharedString::from(msgs.join(" | ")));
+            }
+            // Sakuga (§22.1): tugas selesai = burst "SELESAI!" di
+            // tengah window (hanya saat preset Sakuga aktif; helper
+            // yang mengecek). `notified` memastikan sekali per tugas.
+            if done_count > 0 {
+                theme::trigger_sakuga_burst(&ui, "SELESAI!", 0.5, 0.5);
             }
         });
     }
@@ -14978,6 +14991,12 @@ fn main() -> Result<(), slint::PlatformError> {
                         "[WARNING] Proses dihentikan oleh User."
                     };
                     ui.set_toast(slint::SharedString::from(toast));
+                    // Sakuga (§22.1): Batch selesai = burst "SELESAI!"
+                    // (hanya saat preset Sakuga aktif; helper yang
+                    // mengecek). Gagal/dihentikan user = tanpa burst.
+                    if ok {
+                        theme::trigger_sakuga_burst(&ui, "SELESAI!", 0.5, 0.5);
+                    }
                     pl.lock().unwrap().add_log(toast.to_string());
                     push_log_lines(&ui, &pl);
                 }

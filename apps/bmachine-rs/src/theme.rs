@@ -1,7 +1,7 @@
 use crate::db::DatabaseService;
 use crate::{AppWindow, Design, DynamicBarWindow, RadialMenuWindow, TaskManagerWindow};
 use serde::{Deserialize, Serialize};
-use slint::{Color, Global, SharedString, VecModel};
+use slint::{Color, ComponentHandle, Global, SharedString, VecModel};
 
 /// Satu tema = satu palet warna penuh (mode + aksen + background +
 /// foreground + warna 4 widget + gaya latar widget). Inilah unit
@@ -141,12 +141,13 @@ impl ThemePalette {
     }
 }
 
-/// 8 preset terkurasi (opinionated, bukan color-picker bebas).
+/// 9 preset terkurasi (opinionated, bukan color-picker bebas).
 /// 5 dari port (BMachine Dark/Light, Midnight OLED, Catppuccin Mocha,
 /// Emerald Studio) + 3 dari C# `AppearancePalette` (Spider Red, Gwen
 /// Pink, Armor Red — nilai diambil persis dari
 /// `AppearancePalette.cs`; Classic ≈ BMachine Dark, Midnight Black ≈
-/// Midnight OLED, Symbiote ≈ monokrom — tidak diduplikasi).
+/// Midnight OLED, Symbiote ≈ monokrom — tidak diduplikasi) + 1 tema
+/// spesial Sakuga (28 Nov 2026).
 /// Catppuccin Mocha memakai nilai palet Catppuccin (mauve/peach/red/
 /// green) — hex palet publik, bukan aset berlisensi.
 /// Gaya latar widget tiap preset (opinionated): BMachine Dark/Light
@@ -257,6 +258,26 @@ pub fn builtin_presets() -> Vec<ThemePalette> {
             "#EF4444",
             "#10B981",
         ),
+        // Sakuga (28 Nov 2026, abeng "gas" 27 Nov 19:45): tema ala
+        // animasi sakuga — tinta hitam, aksen pink panas, kuning
+        // impact, cyan kristal. Gaya latar widget "gradient" (tinta
+        // aksen memudar, terasa bergerak). Efeknya (burst asap/kristal
+        // + onomatopoeia + spring) hidup di `SakugaBurst`
+        // (ui/design.slint) dan hanya menyala saat preset ini aktif —
+        // lihat DESIGN_SYSTEM.md §22.1.
+        ThemePalette::new(
+            "sakuga",
+            "Sakuga",
+            "dark",
+            "#FF2E63",
+            "#0E0E13",
+            "#F5F5F0",
+            "#FF2E63",
+            "#FFC700",
+            "#FF3B30",
+            "#22D3EE",
+        )
+        .with_widget_style("gradient"),
     ]
 }
 
@@ -894,6 +915,36 @@ pub fn apply_user_theme(ui: &AppWindow, theme: &ThemePalette) -> Result<(), Stri
 
 pub const USER_THEMES_KEY: &str = "Settings.Theme.UserThemes";
 
+/// Picu burst Sakuga (asap/kristal + onomatopoeia, komponen
+/// `SakugaBurst` di ui/design.slint) — HANYA saat preset Sakuga
+/// aktif; tema lain tetap tenang (tanpa efek). `x`/`y` relatif 0..1
+/// dari ukuran window. Bila burst sedang jalan, matikan dulu lalu
+/// nyalakan lagi 120ms kemudian supaya animasi spring mulai dari
+/// awal (bukan menumpuk di tengah jalan).
+pub fn trigger_sakuga_burst(ui: &AppWindow, text: &str, x: f32, y: f32) {
+    if ui.get_app_theme_preset().as_str() != "sakuga" {
+        return;
+    }
+    if ui.get_sakuga_burst_active() {
+        ui.set_sakuga_burst_active(false);
+        let weak = ui.as_weak();
+        let text = text.to_string();
+        slint::Timer::single_shot(std::time::Duration::from_millis(120), move || {
+            if let Some(ui) = weak.upgrade() {
+                ui.set_sakuga_burst_text(SharedString::from(text));
+                ui.set_sakuga_burst_x(x);
+                ui.set_sakuga_burst_y(y);
+                ui.set_sakuga_burst_active(true);
+            }
+        });
+        return;
+    }
+    ui.set_sakuga_burst_text(SharedString::from(text));
+    ui.set_sakuga_burst_x(x);
+    ui.set_sakuga_burst_y(y);
+    ui.set_sakuga_burst_active(true);
+}
+
 /// Muat tema user dari SQLite (satu key JSON array). Rusak / kosong →
 /// daftar kosong (jangan crash startup).
 pub fn load_user_themes(db: &DatabaseService) -> Vec<ThemePalette> {
@@ -1203,13 +1254,13 @@ mod tests {
     }
 
     #[test]
-    fn builtin_presets_are_eight_valid_palettes() {
+    fn builtin_presets_are_nine_valid_palettes() {
         let presets = builtin_presets();
-        assert_eq!(presets.len(), 8);
+        assert_eq!(presets.len(), 9);
         let mut ids: Vec<&str> = presets.iter().map(|p| p.id.as_str()).collect();
         ids.sort_unstable();
         ids.dedup();
-        assert_eq!(ids.len(), 8, "id preset harus unik");
+        assert_eq!(ids.len(), 9, "id preset harus unik");
         for p in &presets {
             for hex in [
                 &p.accent, &p.bg, &p.fg, &p.editing, &p.revision, &p.late, &p.points,
@@ -1228,6 +1279,7 @@ mod tests {
         assert!(palette_for("spider").is_some());
         assert!(palette_for("gwen").is_some());
         assert!(palette_for("armor").is_some());
+        assert!(palette_for("sakuga").is_some());
         assert!(palette_for("tidak-ada").is_none());
     }
 

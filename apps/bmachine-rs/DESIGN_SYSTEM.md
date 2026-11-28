@@ -1872,7 +1872,7 @@ dropdown di bawah label). Aturan baru, mengikat di semua grup:
 - **Theme jadi dropdown** (in-flow, pola sama seperti ComboBox
   `ui/design.slint` — BUKAN popup overlay): tertutup menampilkan
   nama preset aktif + 4 dot warna (accent, revision, bg, fg) +
-  chevron-down; terbuka menampilkan daftar in-flow berisi 8 preset
+  chevron-down; terbuka menampilkan daftar in-flow berisi 9 preset
   + Custom + tema user (tetap bisa dihapus ×). Pilih → handler
   `apply-theme-preset` / `apply-user-theme` yang sudah ada (live +
   tersimpan DB, tanpa perubahan Rust). Tinggi eksplisit **dan**
@@ -3037,17 +3037,17 @@ ringan, sekali klik ubah seluruh aplikasi secara konsisten.
 
 - **Satu tema = satu palet penuh.** `src/theme.rs::ThemePalette`
   (id, nama, mode, accent, bg, fg, editing, revision, late,
-  points, widget-style) + `builtin_presets()` — 8 preset
+  points, widget-style) + `builtin_presets()` — 9 preset
   terkurasi: `bmachine-dark`, `bmachine-light`, `midnight-oled`,
   `catppuccin-mocha`, `emerald-studio`, `spider`, `gwen`,
-  `armor`. Palet C# (`AppearancePalette.cs`) dipakai apa adanya
+  `armor`, `sakuga` (§22.1). Palet C# (`AppearancePalette.cs`) dipakai apa adanya
   untuk spider/gwen/armor/midnight; sisanya palet port.
   Definisi palet SATU tempat di Rust — Slint hanya memanggil id.
   **Gaya latar widget per preset** (bagian dari palet, 27 Nov
   2026 — C# tidak punya padanan, invensi port): solid =
   `bmachine-dark`, `bmachine-light`, `armor`; outline =
-  `midnight-oled`; gradient = `catppuccin-mocha`, `spider`;
-  glass = `emerald-studio`, `gwen`. Lihat §8 untuk arti
+  `midnight-oled`; gradient = `catppuccin-mocha`, `spider`,
+  `sakuga`; glass = `emerald-studio`, `gwen`. Lihat §8 untuk arti
   keempat gaya (solid/gradient/glass/outline) dan bedanya
   dengan pola latar widget (`widget-bg`: doodle/dots/impulse/
   none — motif dekorasi, BUKAN permukaan).
@@ -3130,6 +3130,58 @@ header (avatar 48px + nama + sapaan jam), grup APLIKASI
 `Terbaru` / `Pembaruan tersedia`). Item = komponen `FlyoutItem`
 (`ui/design.slint`): ikon + label + ekor (hint/Toggle), hover
 `bg-hover`, ikut aturan ikon+teks §7.
+
+## 22.1. Tema spesial Sakuga — preset ke-9 + burst (abeng, 27 Nov 19:45 "gas")
+
+Preset `sakuga` (mode dark, widget-style gradient): aksen
+`#FF2E63` (pink), bg `#0E0E13`, fg `#F5F5F0`, EDITING `#FF2E63`,
+REVISION `#FFC700` (kuning), LATE `#FF3B30`, POINTS `#22D3EE`
+(cyan). Dipilih seperti preset lain (Settings → Appearance →
+dropdown tema), berlaku langsung tanpa restart, tersimpan di
+`Settings.ThemePreset` + `Appearance.Palette` dan bertahan setelah
+restart (terverifikasi GUI 28 Nov 2026).
+
+**Burst asap/kristal + onomatopoeia** — komponen `SakugaBurst`
+(`ui/design.slint`), overlay seluruh window, PALING AKHIR di
+`keys-scope` supaya paling atas, TANPA TouchArea (klik tembus ke
+UI di bawahnya). Isi: 12 serpih kristal (terbang radial tiap 30°,
+warna berputar aksen/kuning/cyan, `transform-rotation` mengikuti
+arah), 6 kepul asap (lingkaran putih, jarak ×0.55, opacity ×0.4),
+teks onomatopoeia dua lapis (bayangan hitam offset +4px + depan
+kuning `cat-revision`, miring −4°, ukuran 30→76px). Pemicu
+(`src/theme.rs::trigger_sakuga_burst`, HANYA bila preset aktif =
+`sakuga`): ganti tema ke Sakuga → `"SAKUGA!"` di tengah
+(0.5, 0.42); tugas Task Monitor selesai → `"SELESAI!"` di tengah
+(0.5, 0.5); Batch selesai (sukses saja, bukan batal/gagal) →
+`"SELESAI!"`. Kata Indonesia `"SELESAI!"` dipilih atas
+`"BAM!"/"ドン!"` — keputusan Dex, menunggu koreksi abeng.
+**Spring HANYA di burst** (bukan di retrofit ke transisi panel/
+hover lain). Durasi: animasi 800ms, Timer internal mematikan
+950ms setelah menyala — burst sengaja singkat (~0,5 dtk terlihat
+jelas), ringan, tidak menutupi kerja.
+
+**Pelajaran Slint (bug burst tak terlihat, 28 Nov 2026 —
+TIGA jebakan, ketiganya terbukti lewat scratch crate
+`~/tmp-gaugetest` + debug Text sementara di komponen):**
+(1) Opacity JANGAN diikat ke progres spring — `spring()`
+ber-overshoot melewati 1 dalam ~200ms sehingga `1 - burst-t`
+langsung 0 dan burst hanya berkedip. Opacity memakai
+`burst-fade` terpisah (1→0, ease-out 800ms, monoton).
+(2) Progres animasi JANGAN berupa binding
+`root.burst-active ? … : …` + `animate` — di Slint 1.19 nilai
+itu tidak menganimasikan (lahir langsung di nilai akhir).
+`burst-t`/`burst-fade` di-assign dari callback
+`changed burst-active` (assignment itulah yang dianimasikan).
+(3) Verifikasi animasi singkat JANGAN pakai frame video tiap
+0,3 dtk — jendela terlihat burst hanya ~0,5 dtk dan timing klik
+di Xvfb bervariasi; pakai tangkapan cepat beruntun tepat setelah
+klik, atau debug Text sementara yang menampilkan nilai progres.
+**Aturan umum (baru):** opacity TIDAK PERNAH digerakkan oleh
+progres spring; spring hanya untuk gerak (posisi/ukuran).
+Binding `<=>` WAJIB di situs AppWindow (`burst-active` ditulis
+Timer internal komponen saat animasi selesai — binding satu arah
+akan putus saat komponen menulis, jebakan Slint yang sama seperti
+kasus Trello `sub-panel`/`added-count`).
 
 ## 23. Window Chrome — gaya chrome + tombol kontrol + "wrapped" (abeng, 27 Nov 20:28, 20:34, 21:08, 22:03)
 

@@ -918,7 +918,7 @@ export component SettingsView inherits Rectangle {
     // di bawah. Prinsip umum: semua view matang dari 520 ke besar.
     property <bool> stacked: content-rect.width < 560px;
 
-    // Dropdown preset tema (abeng, 28 Nov 09:57): daftar 8+ baris
+    // Dropdown preset tema (abeng, 28 Nov 09:57): daftar 9+ baris
     // boros tempat → satu field dropdown; keadaan tertutup
     // menampilkan nama preset aktif + 4 dot paletnya.
     property <bool> theme-dropdown-open: false;
@@ -932,6 +932,7 @@ export component SettingsView inherits Rectangle {
         : root.theme-preset == "spider" ? "Spider Red"
         : root.theme-preset == "gwen" ? "Gwen Pink"
         : root.theme-preset == "armor" ? "Armor Red"
+        : root.theme-preset == "sakuga" ? "Sakuga"
         : root.theme-preset == "custom" ? "Custom" : "";
 
     // --- General ---
@@ -1342,7 +1343,7 @@ export component SettingsView inherits Rectangle {
                         }
 
                         // Theme preset — DROPDOWN (abeng, 28 Nov 09:57:
-                        // daftar 8+ baris boros tempat). Palet penuh
+                        // daftar 9+ baris boros tempat). Palet penuh
                         // (mode + aksen + bg + fg + 4 warna widget)
                         // didefinisikan SATU tempat di Rust
                         // (`theme.rs::builtin_presets`) — klik di sini
@@ -1361,14 +1362,14 @@ export component SettingsView inherits Rectangle {
                                 spacing: 4px;
                                 // Lebar: 360px saat lebar, penuh saat
                                 // menumpuk. Tinggi = field 36px +
-                                // daftar bila terbuka (9 baris bawaan +
+                                // daftar bila terbuka (10 baris bawaan +
                                 // tema user). `preferred-height` WAJIB
                                 // sama dengan `height` (pola ComboBox —
                                 // layout Slint tidak memakai binding
                                 // `height` untuk mengukur baris induk).
                                 width: root.stacked ? parent.width : 360px;
-                                height: 36px + (root.theme-dropdown-open ? 4px + (9 + root.user-theme-ids.length) * 36px : 0px);
-                                preferred-height: 36px + (root.theme-dropdown-open ? 4px + (9 + root.user-theme-ids.length) * 36px : 0px);
+                                height: 36px + (root.theme-dropdown-open ? 4px + (10 + root.user-theme-ids.length) * 36px : 0px);
+                                preferred-height: 36px + (root.theme-dropdown-open ? 4px + (10 + root.user-theme-ids.length) * 36px : 0px);
                                 // Field tertutup.
                                 Rectangle {
                                     height: 36px;
@@ -1428,7 +1429,7 @@ export component SettingsView inherits Rectangle {
                                     border-width: 1px;
                                     border-radius: Design.radius-sm;
                                     clip: true;
-                                    height: (9 + root.user-theme-ids.length) * 36px;
+                                    height: (10 + root.user-theme-ids.length) * 36px;
                                     VerticalLayout {
                                         ThemeRow {
                                             label: "BMachine Dark";
@@ -1477,6 +1478,12 @@ export component SettingsView inherits Rectangle {
                                             sw1: #A71930; sw2: #D9A52E; sw3: #252525; sw4: #FFFFFF;
                                             selected: root.theme-preset == "armor";
                                             clicked => { root.theme-dropdown-open = false; root.apply-theme-preset("armor"); }
+                                        }
+                                        ThemeRow {
+                                            label: "Sakuga";
+                                            sw1: #FF2E63; sw2: #FFC700; sw3: #0E0E13; sw4: #F5F5F0;
+                                            selected: root.theme-preset == "sakuga";
+                                            clicked => { root.theme-dropdown-open = false; root.apply-theme-preset("sakuga"); }
                                         }
                                         ThemeRow {
                                             label: "Custom";

@@ -450,6 +450,131 @@ export component WindowControls inherits Rectangle {
     }
 }
 
+// Burst asap/kristal + onomatopoeia visual tema Sakuga (§22.1).
+// Overlay SELURUH window, NON-INTERAKTIF (tanpa TouchArea — klik
+// tembus ke elemen di bawahnya, jadi tidak pernah menghalangi kerja).
+// Dipicu Rust via `burst-active` (hanya saat preset Sakuga aktif —
+// lihat `theme::trigger_sakuga_burst`); saat tidak aktif semua anak
+// opacity 0 sehingga overlay tidak terlihat sama sekali.
+// `burst-t` 0→1 dianimasikan easing `spring(0.5)`: nilainya
+// berosilasi lalu menetap — itulah rasa memantul (spring) pada teks
+// yang membesar + partikel yang terbang keluar. Opacity memakai
+// `burst-fade` terpisah (1→0, ease-out) karena spring ber-overshoot
+// melewati 1 — opacity dari burst-t akan langsung 0. Warna memakai token
+// Design (aksen = pink, revision = kuning impact, points = cyan)
+// sehingga burst mengikuti palet Sakuga yang sedang aktif.
+export component SakugaBurst inherits Rectangle {
+    in-out property <bool> burst-active: false;
+    in-out property <string> burst-text: "SAKUGA!";
+    // Titik asal burst, relatif 0..1 dari ukuran overlay.
+    in-out property <float> burst-x: 0.5;
+    in-out property <float> burst-y: 0.42;
+    // Progres 0→1; saat burst-active false kembali ke 0. Opacity
+    // anak-anak diikat ke burst-active (bukan ke burst-t) supaya
+    // partikel tidak "terbang kembali" dan muncul lagi saat burst-t
+    // turun.
+    //
+    // PENTING: burst-t / burst-fade TIDAK boleh berupa binding
+    // `root.burst-active ? … : …` + `animate` — di Slint 1.19 pola
+    // itu tidak menganimasikan nilai (burst lahir langsung di nilai
+    // akhir, opacity langsung 0, burst tidak pernah terlihat —
+    // terbukti saat verifikasi GUI 28 Nov 2026). Nilainya di-assign
+    // dari callback `changed burst-active` di bawah; assignment
+    // itulah yang dianimasikan `animate`.
+    in-out property <float> burst-t: 0;
+
+    animate burst-t { duration: 800ms; easing: spring(0.5); }
+
+    // Progres pudar 1→0 (MONOTON, ease-out) — dipakai opacity.
+    // TIDAK boleh memakai burst-t untuk opacity: easing spring
+    // ber-overshoot melewati 1 dalam ~200ms, sehingga `1 - burst-t`
+    // langsung 0 dan burst hanya berkedip lalu hilang sebelum
+    // sempat terlihat (bug yang ditemukan saat verifikasi GUI
+    // 28 Nov 2026). Gerak (posisi/ukuran) tetap memakai burst-t
+    // supaya rasa spring-nya terasa.
+    in-out property <float> burst-fade: 1;
+
+    animate burst-fade { duration: 800ms; easing: ease-out; }
+
+    changed burst-active => {
+        if (root.burst-active) {
+            root.burst-t = 1;
+            root.burst-fade = 0;
+        } else {
+            root.burst-t = 0;
+            root.burst-fade = 1;
+        }
+    }
+
+    // Matikan 950ms setelah menyala (animasi 800ms + jeda baca).
+    burst-off := Timer {
+        interval: 950ms;
+        running: root.burst-active;
+        triggered => { root.burst-active = false; }
+    }
+
+    property <length> ox: root.burst-x * root.width;
+    property <length> oy: root.burst-y * root.height;
+    // Memudar seiring burst-fade (monoton 1→0, bukan burst-t yang
+    // ber-overshoot karena spring — lihat komentar di atas).
+    property <float> op: root.burst-active ? root.burst-fade : 0;
+
+    // --- Kristal: 12 serpih terbang radial (tiap 30°), warna
+    // berputar aksen / kuning / cyan, berotasi mengikuti arahnya.
+    for shard[i] in 12 : Rectangle {
+        property <angle> a: i * 30deg;
+        property <float> dist: 48 + Math.mod(i, 3) * 28;
+        x: root.ox + cos(a) * dist * root.burst-t * 1px - self.width / 2;
+        y: root.oy + sin(a) * dist * root.burst-t * 1px - self.height / 2;
+        width: 15px;
+        height: 5px;
+        background: Math.mod(i, 3) == 0 ? Design.accent : Math.mod(i, 3) == 1 ? Design.cat-revision : Design.cat-points;
+        border-radius: 2px;
+        transform-rotation: a;
+        opacity: root.op;
+    }
+
+    // --- Asap: 6 kepul bulat, lebih lambat (jarak × 0.55) dan
+    // lebih redup, tetap di dekat titik asal.
+    for puff[j] in 6 : Rectangle {
+        property <angle> a: j * 60deg + 30deg;
+        property <float> dist: (34 + Math.mod(j, 2) * 22) * 0.55;
+        property <length> s: 20px + Math.mod(j, 2) * 10px;
+        x: root.ox + cos(a) * dist * root.burst-t * 1px - self.width / 2;
+        y: root.oy + sin(a) * dist * root.burst-t * 1px - self.height / 2;
+        width: s;
+        height: s;
+        background: #FFFFFF;
+        border-radius: 999px;
+        opacity: root.op * 0.4;
+    }
+
+    // --- Teks onomatopoeia gaya manga: kuning impact + bayangan
+    // hitam offset (Slint Text tanpa stroke, jadi dua lapis).
+    // Ukuran 30→76px mengikuti burst-t — overshoot spring membuat
+    // teks "meledak" melewati ukuran akhir lalu menetap. Miring -4°.
+    Text {
+        x: root.ox - self.width / 2 + 4px;
+        y: root.oy - self.height / 2 + 4px;
+        text: root.burst-text;
+        font-size: (30 + 46 * root.burst-t) * 1px;
+        font-weight: 900;
+        color: #000000;
+        opacity: root.op;
+        transform-rotation: -4deg;
+    }
+    Text {
+        x: root.ox - self.width / 2;
+        y: root.oy - self.height / 2;
+        text: root.burst-text;
+        font-size: (30 + 46 * root.burst-t) * 1px;
+        font-weight: 900;
+        color: Design.cat-revision;
+        opacity: root.op;
+        transform-rotation: -4deg;
+    }
+}
+
 // ============================================================
 // Card / Bento — bg card, border separator 1px, radius 10.
 // Isi diberi padding oleh pemakai (VerticalLayout padding 16).
