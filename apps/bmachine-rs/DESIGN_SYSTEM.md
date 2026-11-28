@@ -606,8 +606,13 @@ di aplikasi C#, dan gesture ini HARUS ada di port:
    (contoh: `list-back-touch` di `ui/main.slint`, `modul-back-touch`
    / `toolbox-back-touch` di `ui/modul.slint`).
 2. **CardListWindow** — klik kanan GANDA (2× dalam 500ms) =
-   tutup window. Di port: berlaku di daftar kartu Fase 3
-   (klik kanan ganda = kembali ke dashboard).
+   tutup window (C#). Di port (28 Nov 2026, ronde perbaikan Windows
+   — diputuskan: SATU klik kanan, bukan ganda, supaya sama dengan
+   daftar embedded): klik kanan di detail = kembali ke daftar
+   (`selected-idx = -1`), klik kanan di daftar = tutup window
+   (`close-window()`). Implementasi: `cardlist-back-touch`
+   (TouchArea latar di belakang isi, area kosong) +
+   `pointer-event` di `row-touch`/`chk-touch` (tiap baris).
 3. **CardDetailPanelHost** — klik kanan di panel detail =
    tutup detail + batal pilih kartu (kembali ke daftar);
    klik kanan di sub-panel (komentar / checklist / pindah /
@@ -629,6 +634,25 @@ di aplikasi C#, dan gesture ini HARUS ada di port:
    tutup overlay (`explorer-back-touch`, TouchArea anak
    pertama root). BATCH dikecualikan (klik kanan di BATCH
    membuka menu konteks, bukan menutup).
+
+**Window sekunder lain (28 Nov 2026, ronde perbaikan Windows):**
+CommentWindow dan DocWindow — klik kanan di area kosong = tutup
+window (`comment-back-touch` / `doc-back-touch`, cermin panel
+komentar inline yang menutup saat klik kanan). Toolbox sudah
+benar sejak awal (`toolbox-back-touch` → `back()` →
+`close-window()`, terverifikasi GUI). Spreadsheet + BATCH
+dikecualikan — C# klik kanan = menu konteks (Copy Row ID /
+Open in Trello), bukan tutup.
+
+**Aturan TouchArea bertumpuk (temuan 28 Nov 2026, dibaca dari
+i-slint-core 1.19.1 `TouchArea::input_event`):** TouchArea mana
+pun — walau tanpa handler `pointer-event` — men-grab SEMUA Pressed
+termasuk klik kanan (`GrabMouse`), dan event TIDAK diteruskan ke
+TouchArea di belakangnya. Jadi TouchArea latar SAJA tidak cukup:
+klik kanan tepat di baris/tombol/input harus ditangani elemen itu
+sendiri (`pointer-event` per baris). Ini yang membuat `row-touch` /
+`chk-touch` CardList butuh handler sendiri; tanpa itu klik kanan
+di baris tidak menutup window.
 
 **TIDAK ADA tombol kembali (abeng, 26 Nov 19:48 — MENGIKAT):**
 karena gesture klik kanan ini sudah ada, tombol "← Kembali ke

@@ -882,6 +882,26 @@ export component CardListWindow inherits Window {
                 border-width: root.chrome-style == "wrapped" ? 1px : 0px;
                 border-radius: root.chrome-style == "wrapped" ? 12px : 0px;
                 clip: true;
+                // Klik kanan = kembali/close (§10.11, 28 Nov 2026): di
+                // detail → kembali ke daftar (selected-idx = -1), di
+                // daftar → tutup window. TouchArea latar di belakang
+                // isi; klik kanan di BARIS ditangani row-touch sendiri
+                // (TouchArea men-grab semua Pressed termasuk kanan —
+                // i-slint-core TouchArea::input_event), klik kanan di
+                // area kosong sampai ke sini.
+                cardlist-back-touch := TouchArea {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    pointer-event(ev) => {
+                        if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                            if (root.selected-idx >= 0) {
+                                root.selected-idx = -1;
+                                root.toast("Detail ditutup");
+                            } else {
+                                root.close-window();
+                            }
+                        }
+                    }
+                }
         HorizontalLayout {
             x: root.chrome-style == "wrapped" ? 8px : 0px;
             y: root.chrome-style == "wrapped" ? 8px : 0px;
@@ -948,6 +968,15 @@ export component CardListWindow inherits Window {
                             row-touch := TouchArea {
                                 mouse-cursor: pointer;
                                 clicked => { root.selected-idx = idx; }
+                                // Klik kanan di baris = tutup window
+                                // (daftar tidak punya detail terbuka;
+                                // TouchArea men-grab Pressed kanan jadi
+                                // back-touch di belakang takkan kena).
+                                pointer-event(ev) => {
+                                    if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                                        root.close-window();
+                                    }
+                                }
                             }
 
                             HorizontalLayout {
@@ -969,6 +998,13 @@ export component CardListWindow inherits Window {
                                         clicked => {
                                             root.card-done[idx] = !root.card-done[idx];
                                             root.toggle-done(idx);
+                                        }
+                                        // Klik kanan di checkbox = tutup
+                                        // window (sama seperti baris).
+                                        pointer-event(ev) => {
+                                            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                                                root.close-window();
+                                            }
                                         }
                                     }
 
@@ -1169,6 +1205,19 @@ export component CommentWindow inherits Window {
         x: 0; y: 0; width: 100%; height: 100%;
         background: Design.app-bg;
         border-radius: root.chrome-style == "native" ? 0px : Design.radius-xl;
+    }
+
+    // Klik kanan di area kosong = tutup window (§10.11, 28 Nov 2026 —
+    // cermin panel komentar inline yang menutup saat klik kanan).
+    // TouchArea latar di belakang isi; klik kanan di tombol/input
+    // ditangani elemen itu sendiri (TouchArea men-grab Pressed).
+    comment-back-touch := TouchArea {
+        x: 0; y: 0; width: 100%; height: 100%;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                root.close-window();
+            }
+        }
     }
 
     VerticalLayout {
@@ -2925,6 +2974,18 @@ export component DocWindow inherits Window {
         KeyBinding {
             keys: @keys(Escape);
             activated => { root.close-window(); }
+        }
+
+        // Klik kanan di area kosong = tutup window (§10.11, 28 Nov 2026).
+        // TouchArea latar di belakang isi; klik kanan di tombol/slot
+        // DocView ditangani elemen itu sendiri (TouchArea men-grab Pressed).
+        doc-back-touch := TouchArea {
+            x: 0; y: 0; width: 100%; height: 100%;
+            pointer-event(ev) => {
+                if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                    root.close-window();
+                }
+            }
         }
 
         VerticalLayout {
