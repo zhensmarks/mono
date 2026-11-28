@@ -926,21 +926,22 @@ export component StatWidget inherits Rectangle {
     // Rasio gauge 0..1 — diisi Rust (nilai widget / nilai terbesar
     // keempat widget, lihat update_gauge_ratios di main.rs).
     in property <float> gauge-ratio: 0;
-    // Perintah Path busur TERISI (busur elips parsial dari (6,40) ke
+    // Perintah Path busur TERISI (busur elips parsial dari (0,40) ke
     // titik ujung rasio — dihitung Rust, gauge_arc_commands di
     // main.rs; .slint tidak bisa mengubah angka jadi string).
-    // Default = busur penuh (rasio 1).
-    in property <string> gauge-arc-cmds: "M 6 40 A 44 28 0 0 1 94 40";
+    // Default = busur penuh (rasio 1). Ujung-ke-ujung (koreksi abeng
+    // 28 Nov 13:07, ref Stress): x=0 tepi kiri .. x=100 tepi kanan.
+    in property <string> gauge-arc-cmds: "M 0 40 A 50 28 0 0 1 100 40";
     property <bool> is-gauge: root.bg-style == "gauge";
-    // Geometri busur (viewbox 100×42): busur elips dari (6,40) ke
-    // (94,40) lewat puncak (50,12). Sudut theta = 180° saat rasio
-    // 0 (ujung kiri) → 0° saat rasio 1 (ujung kanan).
+    // Geometri busur (viewbox 100×42): busur elips dari (0,40) ke
+    // (100,40) lewat puncak (50,12), rx=50. Sudut theta = 180° saat
+    // rasio 0 (ujung kiri) → 0° saat rasio 1 (ujung kanan).
     property <float> gauge-ratio-c: min(max(root.gauge-ratio, 0), 1);
     property <angle> gauge-theta: (1 - root.gauge-ratio-c) * 180deg;
-    property <float> gauge-end-x: 50 + 44 * cos(root.gauge-theta);
+    property <float> gauge-end-x: 50 + 50 * cos(root.gauge-theta);
     property <float> gauge-end-y: 40 - 28 * sin(root.gauge-theta);
     // Angka gauge lebih kecil dari angka mode biasa (ruang dipakai
-    // arc + caption + badge): 62% dari val-size.
+    // arc + caption): 62% dari val-size.
     property <length> gauge-val-size: root.val-size * 0.62;
     property <length> gauge-suffix-size: root.gauge-val-size * 0.25;
     // Tinggi gelombang "impulse" (0..1) — 14 titik.
@@ -1169,12 +1170,28 @@ export component StatWidget inherits Rectangle {
         // Warna mengikuti aksen widget + token tema (card-bg /
         // text-*), jadi gelap/terang ikut tema aktif — bukan kartu
         // gelap tetap seperti ref.
+        // Glow ambient DI BACKGROUND (koreksi abeng 28 Nov 13:07,
+        // ref Stress): gradien radial aksen menyebar di background
+        // area atas card dan memudar ke card-bg — BUKAN pita tipis
+        // di bawah arc. Dilukis di belakang konten gauge.
+        Rectangle {
+            visible: root.is-gauge;
+            x: 0; y: 0; width: 100%; height: 80%;
+            background: @radial-gradient(circle, accent.with-alpha(0.20) 0%, transparent 70%);
+        }
         VerticalLayout {
             x: 0;
             y: 0;
             width: 100%;
             height: 100%;
-            padding: 16px * scale;
+            // Padding kiri-kanan NOL — supaya arc selebar penuh
+            // card, ujungnya menyentuh tepi (ref Stress). Padding
+            // atas/bawah tetap 16px; header diberi padding sendiri
+            // di bawah supaya label/panah tetap menjorok.
+            padding-top: 16px * scale;
+            padding-bottom: 16px * scale;
+            padding-left: 0;
+            padding-right: 0;
             spacing: 4px * scale;
             visible: root.is-gauge;
 
@@ -1182,6 +1199,8 @@ export component StatWidget inherits Rectangle {
             HorizontalLayout {
                 height: 20px * scale;
                 spacing: 8px * scale;
+                padding-left: 16px * scale;
+                padding-right: 16px * scale;
                 Text {
                     text: "●";
                     font-size: 8px * scale;
@@ -1212,20 +1231,24 @@ export component StatWidget inherits Rectangle {
                 }
             }
 
-            // Arc: viewbox 100×42, busur elips (6,40) → (94,40)
-            // lewat puncak (50,12). Bagian terisi = busur elips
+            // Arc: viewbox 100×42, busur elips (0,40) → (100,40)
+            // lewat puncak (50,12) — UJUNG-KE-UJUNG selebar penuh
+            // card, ujung menyentuh tepi kiri-kanan (koreksi abeng
+            // 28 Nov 13:07, ref Stress). Bagian terisi = busur elips
             // PARSIAL yang titik akhirnya mengikuti rasio
             // (commands dari Rust, gauge-arc-cmds) — BUKAN busur
             // penuh yang di-clip: clip + Path di Slint merender
             // busur terisi sebagai GARIS LURUS saat rasio < 1
             // (bug 28 Nov 2026, terbukti di scratch crate).
-            // Glow = 3 lapis stroke + wash radial.
+            // CATATAN: `clip: true` di sini HANYA memotong
+            // kelebihan stroke di tepi card (ujung busur persis di
+            // x=0/100) — Path terisi tetap busur parsial penuh dari
+            // Rust, bukan busur yang dipotong rasio. Glow = 3 lapis
+            // stroke; wash pita lama DIHAPUS — glow kini hidup di
+            // background (Rectangle radial di atas layout ini).
             Rectangle {
                 vertical-stretch: 1;
-                Rectangle {
-                    x: 0; y: 0; width: 100%; height: 100%;
-                    background: @radial-gradient(circle, accent.with-alpha(0.16) 0%, transparent 70%);
-                }
+                clip: true;
                 Path {
                     width: 100%; height: 100%;
                     viewbox-x: 0; viewbox-y: 0; viewbox-width: 100; viewbox-height: 42;
@@ -1238,7 +1261,7 @@ export component StatWidget inherits Rectangle {
                     stroke: accent.with-alpha(0.20);
                     stroke-width: 3px;
                     stroke-line-cap: round;
-                    commands: "M 6 40 A 44 28 0 0 1 94 40";
+                    commands: "M 0 40 A 50 28 0 0 1 100 40";
                 }
                 Path {
                     width: 100%; height: 100%;
@@ -1278,7 +1301,13 @@ export component StatWidget inherits Rectangle {
                     width: 9px * scale; height: 9px * scale;
                     border-radius: 999px * scale;
                     background: accent;
-                    x: root.gauge-end-x / 100 * parent.width - self.width / 2;
+                    // Dot DIJEPIT di dalam card: ujung busur kini di
+                    // x=0/100 (tepi persis), jadi pada rasio 0/1 dot
+                    // yang berpusat di ujung akan terpotong clip
+                    // setengah. Jepit pusat dot sejauh jari-jarinya
+                    // (dalam satuan viewbox) dari tepi.
+                    property <float> dot-r-vb: (self.width / 2 / parent.width) * 100;
+                    x: min(max(root.gauge-end-x, dot-r-vb), 100 - dot-r-vb) / 100 * parent.width - self.width / 2;
                     y: root.gauge-end-y / 42 * parent.height - self.height / 2;
                 }
             }

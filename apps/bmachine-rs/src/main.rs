@@ -617,18 +617,22 @@ fn parse_stat_num(s: &str) -> f64 {
 
 /// Perintah Path busur gauge TERISI (DESIGN_SYSTEM.md §22): busur elips
 /// parsial dari (6,40) ke titik ujung rasio — SAMA persis dengan busur
-/// track penuh ("M 6 40 A 44 28 0 0 1 94 40"), hanya titik akhirnya
+/// track penuh ("M 0 40 A 50 28 0 0 1 100 40"), hanya titik akhirnya
 /// mengikuti rasio. Dihitung di Rust (bukan di .slint) karena .slint
 /// tidak bisa mengubah angka jadi string untuk `commands`.
 /// Geometri SAMA dengan properti .slint gauge-theta/gauge-end-x/
 /// gauge-end-y di StatWidget (dot memakai rumus yang sama) — keduanya
 /// harus tetap sinkron. Rasio di-clamp 0..1.
+/// Geometri ujung-ke-ujung (koreksi abeng 28 Nov 13:07, ref Stress):
+/// busur dari x=0 (tepi kiri card) ke x=100 (tepi kanan card), rx=50,
+/// tanpa margin garis — dulu (6,40)→(94,40), rx=44, arc hanya ~80%
+/// lebar card. Puncak tetap (50,12), baseline y=40.
 fn gauge_arc_commands(ratio: f32) -> String {
     let r = ratio.clamp(0.0, 1.0);
     let theta = (1.0 - r) * std::f32::consts::PI;
-    let end_x = 50.0 + 44.0 * theta.cos();
+    let end_x = 50.0 + 50.0 * theta.cos();
     let end_y = 40.0 - 28.0 * theta.sin();
-    format!("M 6 40 A 44 28 0 0 1 {end_x:.2} {end_y:.2}")
+    format!("M 0 40 A 50 28 0 0 1 {end_x:.2} {end_y:.2}")
 }
 
 /// Rasio gauge template widget (DESIGN_SYSTEM.md §22): tiap nilai
@@ -13228,13 +13232,14 @@ mod tests {
 
     #[test]
     fn gauge_arc_commands_follows_ellipse() {
-        // Ujung busur = titik pada elips (50+44cos, 40-28sin), sudut
+        // Ujung busur = titik pada elips (50+50cos, 40-28sin), sudut
         // theta = (1-rasio)*180 derajat — rumus SAMA dengan .slint
         // (gauge-theta/gauge-end-x/gauge-end-y di StatWidget).
-        assert_eq!(gauge_arc_commands(0.0), "M 6 40 A 44 28 0 0 1 6.00 40.00");
-        assert_eq!(gauge_arc_commands(1.0), "M 6 40 A 44 28 0 0 1 94.00 40.00");
-        assert_eq!(gauge_arc_commands(0.4), "M 6 40 A 44 28 0 0 1 36.40 13.37");
-        assert_eq!(gauge_arc_commands(0.72), "M 6 40 A 44 28 0 0 1 78.05 18.43");
+        // Ujung-ke-ujung: x=0 (tepi kiri) .. x=100 (tepi kanan).
+        assert_eq!(gauge_arc_commands(0.0), "M 0 40 A 50 28 0 0 1 0.00 40.00");
+        assert_eq!(gauge_arc_commands(1.0), "M 0 40 A 50 28 0 0 1 100.00 40.00");
+        assert_eq!(gauge_arc_commands(0.4), "M 0 40 A 50 28 0 0 1 34.55 13.37");
+        assert_eq!(gauge_arc_commands(0.72), "M 0 40 A 50 28 0 0 1 81.87 18.43");
         // Clamp di luar 0..1.
         assert_eq!(gauge_arc_commands(-0.5), gauge_arc_commands(0.0));
         assert_eq!(gauge_arc_commands(1.5), gauge_arc_commands(1.0));

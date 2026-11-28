@@ -419,39 +419,53 @@ gaya ini murni invensi port, konsisten dengan design system.
 - `"gauge"` (template tambahan, abeng 27 Nov 21:15, ref
   `widget-template-ref.jpg`): layout kartu BERUBAH — bukan
   cuma permukaan. Atas: dot + label + panah (sama). Tengah:
-  arc elips bercahaya (viewbox 100×42, dari (6,40) ke (94,40)
-  lewat puncak (50,12)) + dot di ujung busur terisi. Bawah:
-  caption ("Jumlah card" / "Total poin") + angka besar di
-  TENGAH (62% dari ukuran angka biasa). Badge pill status
-  "Tinggi/Sedang/Rendah" DIHAPUS 28 Nov 2026 (abeng 07:50 —
-  "ya hapus saja yang sedang rendah atau tinggi itu deh").
-  Arc = nilai widget / nilai TERBESAR keempat widget (0..1,
-  `gauge-ratio`, dihitung Rust `update_gauge_ratios` di
-  `main.rs` tiap 2 detik lewat timer sinkronisasi bar — sama
-  seperti salinan stat ke bar). Busur terisi = busur elips
-  PARSIAL yang titik akhirnya mengikuti rasio (`commands`
-  dihitung Rust `gauge_arc_commands` di `main.rs` → prop
-  `gauge-arc-cmds` di StatWidget) — BUKAN busur penuh yang
-  di-clip: clip + Path di Slint merender busur terisi sebagai
-  GARIS LURUS saat rasio < 1 (bug 28 Nov 2026 — busur lurus
-  di EDITING/REVISION/LATE, hanya POINTS rasio 1,0 yang
-  melengkung; dibuktikan di scratch crate `~/tmp-gaugetest`:
-  konstruksi clip melengkung benar hanya saat rasio 1,0,
-  busur parsial mengikuti track di semua rasio). Pola latar
-  (doodle/dots/impulse) disembunyikan di mode gauge (arc
-  adalah dekorasinya); garis aksen atas juga hilang (border
-  aksen alpha 0,35, hover → aksen penuh). Warna mengikuti
-  aksen widget + token tema (`card-bg` / `text-*`) —
-  gelap/terang ikut tema aktif, BUKAN kartu gelap tetap
-  seperti ref. Glow = 3 lapis stroke (9px alpha 0,12 + 5px
-  alpha 0,22 + 2,5px aksen) + wash `@radial-gradient` aksen
-  alpha 0,16. GOTCHA Slint: `Path` default `fit: contain`
-  (letterbox — busur menyusut ke tengah, dot tidak sejajar);
-  keempat Path gauge WAJIB `fit: fill`. Pratinjau di Settings
-  memakai `gauge-ratio: 0,72` tetap (+ `gauge-arc-cmds`
-  harfiah untuk 0,72). Pilih manual di Settings → Appearance
-  → "Gaya latar widget" (chip ke-5, "Gauge"); validator
-  `valid_widget_style` di `theme.rs` menerima "gauge".
+  arc elips bercahaya (viewbox 100×42, dari (0,40) ke (100,40)
+  lewat puncak (50,12) — UJUNG-KE-UJUNG selebar penuh card,
+  ujung menyentuh tepi kiri-kanan TANPA margin garis; koreksi
+  abeng 28 Nov 13:07 dari contoh Stress — dulu (6,40)→(94,40),
+  rx 44, arc hanya ~80% lebar card) + dot di ujung busur
+  terisi (dijepit sejauh jari-jarinya dari tepi supaya tidak
+  terpotong saat rasio 0/1). Bawah: caption ("Jumlah card" /
+  "Total poin") + angka besar di TENGAH (62% dari ukuran angka
+  biasa). Badge pill status "Tinggi/Sedang/Rendah" DIHAPUS
+  28 Nov 2026 (abeng 07:50 — "ya hapus saja yang sedang rendah
+  atau tinggi itu deh") dan TIDAK dipasang lagi saat koreksi
+  contoh (abeng 28 Nov 13:07). Glow warna aksen hidup DI
+  BACKGROUND: gradien radial aksen (alpha 0,20 → transparan
+  70%) menyebar di background area atas card di belakang
+  arc/teks dan memudar ke card-bg — BUKAN pita tipis di bawah
+  arc (wash pita lama dihapus 28 Nov 13:07). Arc = nilai widget
+  / nilai TERBESAR keempat widget (0..1, `gauge-ratio`,
+  dihitung Rust `update_gauge_ratios` di `main.rs` tiap 2 detik
+  lewat timer sinkronisasi bar — sama seperti salinan stat ke
+  bar). Busur terisi = busur elips PARSIAL yang titik akhirnya
+  mengikuti rasio (`commands` dihitung Rust `gauge_arc_commands`
+  di `main.rs` → prop `gauge-arc-cmds` di StatWidget) — BUKAN
+  busur penuh yang di-clip: clip + Path di Slint merender busur
+  terisi sebagai GARIS LURUS saat rasio < 1 (bug 28 Nov 2026 —
+  busur lurus di EDITING/REVISION/LATE, hanya POINTS rasio 1,0
+  yang melengkung; dibuktikan di scratch crate
+  `~/tmp-gaugetest`: konstruksi clip melengkung benar hanya saat
+  rasio 1,0, busur parsial mengikuti track di semua rasio).
+  CATATAN: `clip: true` pada wadah arc HANYA memotong kelebihan
+  stroke di tepi card (ujung busur persis di x=0/100) — Path
+  terisi tetap busur parsial dari Rust, jadi TIDAK memicu bug
+  garis lurus (terverifikasi GUI 28 Nov 13:07 — semua rasio
+  tetap melengkung). Pola latar (doodle/dots/impulse)
+  disembunyikan di mode gauge (arc adalah dekorasinya); garis
+  aksen atas juga hilang (border aksen alpha 0,35, hover →
+  aksen penuh). Warna mengikuti aksen widget + token tema
+  (`card-bg` / `text-*`) — gelap/terang ikut tema aktif, BUKAN
+  kartu gelap tetap seperti ref. Glow garis = 3 lapis stroke
+  (9px alpha 0,12 + 5px alpha 0,22 + 2,5px aksen) + glow
+  background radial aksen alpha 0,20. GOTCHA Slint: `Path`
+  default `fit: contain` (letterbox — busur menyusut ke tengah,
+  dot tidak sejajar); keempat Path gauge WAJIB `fit: fill`.
+  Pratinjau di Settings memakai `gauge-ratio: 0,72` tetap (+
+  `gauge-arc-cmds` harfiah untuk 0,72). Pilih manual di
+  Settings → Appearance → "Gaya latar widget" (chip ke-5,
+  "Gauge"); validator `valid_widget_style` di `theme.rs`
+  menerima "gauge".
 
 **Hover**: border dalam jadi warna aksen. **Klik**: callback
 `clicked()` — membuka daftar kartu Fase 3 (lihat §15).
