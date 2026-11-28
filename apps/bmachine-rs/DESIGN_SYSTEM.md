@@ -1371,10 +1371,13 @@ Layar Settings sendiri dinilai bagus oleh abeng (panel samping
 Pola panel samping (contoh yang dikirim abeng 26 Nov 16:54):
 judul "Settings" + **search bar** di atas + **grup dengan
 header kecil** + item ber-**ikon + label**, item terpilih
-di-highlight. Grup di port (`ui/settings.slint`):
-**General, Appearance, Account, Extensions, Script Manager,
-Paths, About** — item-item BMachine sendiri di dalamnya (hanya
-polanya yang diambil dari contoh, bukan item aplikasi lain).
+di-highlight. Grup di port (`ui/settings.slint`, 10 grup —
+C# aslinya 7; Dynamic Island / Radial Menu / Profile grup
+khusus port, abeng 28 Nov 11:04/11:05/11:07):
+**General, Appearance, Profile, Account, Extensions,
+Dynamic Island, Radial Menu, Script Manager, Paths, About**
+— item-item BMachine sendiri di dalamnya (hanya polanya yang
+diambil dari contoh, bukan item aplikasi lain).
 
 **Panel konten rounded + sidebar ciut (abeng, 27 Nov 21:21):**
 konten tiap grup duduk dalam panel rounded (`card-bg`, border
@@ -1392,9 +1395,10 @@ dilewati (konten = panel window itu sendiri — anti double-wrap
 §23) dan panel window mulai x=208 (terbuka) / x=84 (ciut).
 
 **Kategori + jarak sidebar (abeng, 28 Nov 07:05) + sidebar polos
-(abeng, 28 Nov 07:09, dikonfirmasi 07:11):** 7 grup dikelompokkan
-ke 4 kategori — APLIKASI (General, Appearance), AKUN (Account,
-Extensions), SKRIP & FILE (Script Manager, Paths), INFO (About) —
+(abeng, 28 Nov 07:09, dikonfirmasi 07:11):** 10 grup dikelompokkan
+ke 5 kategori — APLIKASI (General, Appearance), AKUN (Profile,
+Account, Extensions), FITUR (Dynamic Island, Radial Menu),
+SKRIP & FILE (Script Manager, Paths), INFO (About) —
 label kategori kecil (11px/700, `text-muted`, huruf kapital) +
 garis separator tipis antar kategori (ruang 17px: 8px jarak + 1px
 garis + 8px jarak); label + separator ikut sembunyi bila kategori
@@ -1480,14 +1484,21 @@ tetap memakan ruang) — perbaikannya butuh `height: 0` kondisional.
 
 ### 17.3 Grup lain
 
-- **General**: Nama user ("abeng"), Bahasa ("Indonesia"),
+- **General**: Bahasa ("Indonesia"),
   Animasi startup, Kecepatan animasi statistik, Interval
-  refresh Trello ("30"). (Smart Orb / Floating Widget DIHAPUS
+  refresh Trello ("30"), Data (Export/Import database).
+  Visibilitas dashboard DIHAPUS 28 Nov 2026 (abeng) — BATCH +
+  Output Explorer selalu tampil; key DB `Settings.Dash.*` tidak
+  lagi dibaca/ditulis port, tapi TIDAK dihapus dari database.
+  (Smart Orb / Floating Widget DIHAPUS
   27 Nov 2026 — abeng: orb sudah dihapus penuh dari C# dan
   diganti radial menu, bukan orb lagi. Key DB lama
   `Settings.FloatingWidget` / `Settings.Orb.*` /
   `Configs.Widget.Position` tidak lagi dibaca/ditulis port,
-  tapi TIDAK dihapus dari database.)
+  tapi TIDAK dihapus dari database.) "Nama user" PINDAH ke
+  grup Profile dan "Shortcut menu" (rekam hotkey radial)
+  PINDAH ke grup Radial Menu (28 Nov 2026 — jangan tumpuk
+  semua di General/Appearance).
 - **Account**: Trello Integration — **Base URL** (default
   `https://api.trello.com/1`, key DB `Trello.BaseUrl`),
   API Key, Token, tombol Connect (= Tes koneksi ke base URL
@@ -1554,8 +1565,7 @@ dropdown di bawah label). Aturan baru, mengikat di semua grup:
   kartu preview Color mode (Terang/Gelap/Ikut sistem), kartu Font,
   blok Preview, roda radial, daftar Pet, baris multi-kolom Account
   (Worksheet/Kolom/Baris, Board sync 2-kolom, Refresh intervals
-  4-kolom — sudah ringkas horizontal), Visibilitas dashboard (3
-  baris label-kiri + toggle-kanan, sudah horizontal).
+  4-kolom — sudah ringkas horizontal).
 - **Catatan Slint:** ternary `kondisi ? 100% : Npx` TIDAK bisa
   dikompilasi ("Cannot convert length to percent") — pakai
   `kondisi ? parent.width : Npx` (keduanya length). `parent.width`
@@ -1587,6 +1597,48 @@ dropdown di bawah label). Aturan baru, mengikat di semua grup:
 - **Prinsip umum (mengikat, abeng 28 Nov 10:01):** SEMUA view/window
   harus matang tampilannya dari ukuran kecil (520) sampai besar —
   verifikasi di lebar 1280 DAN 520.
+
+### 17.5 Grup khusus per fitur (abeng, 28 Nov 11:04/11:05/11:07)
+
+Jangan tumpuk semua setting di Appearance / General — setting
+akan makin banyak (full customisasi), jadi tiap fitur besar
+punya grup sendiri di sidebar, disusun per seksi ala OpenBot
+("Dynamic Island": Behavior / Servers / Size). Aturan pindah:
+kontrol PINDAH (bukan duplikat), key DB TETAP SAMA, semua tetap
+live tanpa restart, pakai komponen `SettingRow` horizontal §17.4.
+
+- **Profile** (kategori AKUN, ikon "user"; ikon Account
+  berubah "user" → "grid" supaya tidak dobel): kartu preview
+  avatar (lingkaran 44px + ikon user, nama) + baris "Nama user"
+  (pindah dari General; `accepted` kini benar-benar menyimpan
+  via `save-general-settings()` — dulu hanya toast, simpan
+  sebenarnya lewat tombol Simpan General) + tombol Simpan
+  sendiri. Avatar = huruf pertama nama user (tidak ada foto
+  profil di port).
+- **Dynamic Island** (kategori FITUR, ikon "layers"): seksi
+  Behavior (on/off Dynamic Island — Toggle terikat
+  `dynamic-bar-visible` ↔ `app-dynamic-bar-visible`, on/off
+  lewat callback `open-dynamic-bar()` / `hide-dynamic-bar()`
+  yang sudah ada — Rust menyimpan
+  `Settings.DynamicBar.Visible` + tampil/sembunyikan window
+  bar; Mode Notch / Avatar Pet), Tampilan (Gaya mata
+  Nusa/Baymax/Bulat), Suara (Suara maskot on/off, Pilih suara,
+  Volume suara + Tes suara), Pet (ComboBox pet aktif + install
+  + daftar PetRow). Semua kontrol Notch pindah dari Appearance
+  (satu sumber kebenaran).
+- **Radial Menu** (kategori FITUR, ikon "rotate-cw"): kartu
+  RADIAL WHEEL SLOTS (pratinjau roda + 8 SlotChip) + kartu
+  GAYA & SEGMEN RADIAL (Gaya radial Kaca/HUD/Flat, Jumlah
+  segmen 2/3/4/5/6/8) + baris "Shortcut menu" (rekam hotkey
+  global, pindah dari General). Semua kontrol radial pindah
+  dari Script Manager (Script Manager kini hanya urusan
+  scripts.json / Master).
+
+Filter search sidebar (§17.1): kata kunci baru — Profile
+("profile"/"profil"/"nama"/"avatar"/"user"), Dynamic Island
+("dynamic"/"island"/"notch"/"pet"/"voice"/"suara"/"mata"),
+Radial Menu ("radial"/"menu"); kata kunci "radial" dihapus
+dari Script Manager.
 
 ## 18. Arsitektur Overlay & Navigasi
 

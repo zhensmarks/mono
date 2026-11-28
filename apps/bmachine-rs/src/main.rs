@@ -5167,15 +5167,6 @@ fn main() -> Result<(), slint::PlatformError> {
             if let Some(v) = db_guard.get("Settings.Batch.Filter") {
                 ui.set_batch_file_filter(slint::SharedString::from(v));
             }
-            if let Some(v) = db_guard.get("Settings.Dash.Batch") {
-                ui.set_is_batch_visible(v == "true" || v == "1");
-            }
-            if let Some(v) = db_guard.get("Settings.Dash.Lock") {
-                ui.set_is_folder_locker_visible(v == "true" || v == "1");
-            }
-            if let Some(v) = db_guard.get("Settings.Dash.Explorer") {
-                ui.set_is_output_explorer_visible(v == "true" || v == "1");
-            }
             theme::load_theme_from_db(&ui, &db_guard);
         }
     }
@@ -6202,33 +6193,6 @@ fn main() -> Result<(), slint::PlatformError> {
                             "Settings.Batch.Filter",
                             ui.get_batch_file_filter().as_str(),
                             "String",
-                        );
-                        let _ = db_guard.set(
-                            "Settings.Dash.Batch",
-                            if ui.get_is_batch_visible() {
-                                "true"
-                            } else {
-                                "false"
-                            },
-                            "Bool",
-                        );
-                        let _ = db_guard.set(
-                            "Settings.Dash.Lock",
-                            if ui.get_is_folder_locker_visible() {
-                                "true"
-                            } else {
-                                "false"
-                            },
-                            "Bool",
-                        );
-                        let _ = db_guard.set(
-                            "Settings.Dash.Explorer",
-                            if ui.get_is_output_explorer_visible() {
-                                "true"
-                            } else {
-                                "false"
-                            },
-                            "Bool",
                         );
                         // Interval auto-refresh Trello: simpan hasil
                         // clamp (min 30, default 60) + tulis balik ke
