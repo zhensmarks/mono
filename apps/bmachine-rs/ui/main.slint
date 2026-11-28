@@ -787,6 +787,34 @@ export component AppWindow inherits Window {
     in-out property <[string]> ex-tm-error: [];
     in-out property <bool> ex-tm-visible: false;
     in-out property <string> ex-view-sort: "Name";
+
+    // ----- Panel Samping: grup TAMBAHAN MASTER + DOKUMEN (28 Nov 2026) -----
+    // Array sejajar (didorong Rust): am-* = daftar master tambahan yang
+    // tampil (sudah terfilter `master-search`); doc-* = daftar dokumen.
+    in-out property <[string]> am-names: [];
+    in-out property <[string]> am-paths: [];
+    in-out property <[color]> am-colors: [];
+    in-out property <[string]> am-icons: [];
+    in-out property <[string]> doc-names: [];
+    in-out property <[string]> doc-paths: [];
+    in-out property <[bool]> doc-exists: [];
+    // Search tab MASTER — two-way dengan LogPanelView; berubah -> Rust
+    // memfilter ulang daftar master (callback am-search-changed).
+    in-out property <string> master-search: "";
+    changed master-search => { root.am-search-changed(); }
+    // Callback Rust — indeks am-* = indeks TAMPILAN (terfilter).
+    callback am-add();
+    callback am-delete(int);
+    callback am-move(int, int);
+    callback am-set-name(int, string);
+    callback am-set-path(int, string);
+    callback am-cycle-color(int);
+    callback am-cycle-icon(int);
+    callback am-pick-path(int);
+    callback am-search-changed();
+    callback doc-add();
+    callback doc-open(int);
+    callback doc-remove(int);
     in-out property <bool> ex-view-desc: false;
     in-out property <string> ex-view-group: "Date";
     in-out property <string> ex-view-layout: "Vertical";
@@ -2291,6 +2319,25 @@ export component AppWindow inherits Window {
                 visible: root.show-logpanel;
                 flat: root.chrome-wrapped;
                 panel-tab: root.logpanel-tab;
+                master-search <=> root.master-search;
+                am-names: root.am-names;
+                am-paths: root.am-paths;
+                am-colors: root.am-colors;
+                am-icons: root.am-icons;
+                doc-names: root.doc-names;
+                doc-paths: root.doc-paths;
+                doc-exists: root.doc-exists;
+                am-add() => { root.am-add(); }
+                am-delete(idx) => { root.am-delete(idx); }
+                am-move(idx, dir) => { root.am-move(idx, dir); }
+                am-set-name(idx, name) => { root.am-set-name(idx, name); }
+                am-set-path(idx, path) => { root.am-set-path(idx, path); }
+                am-cycle-color(idx) => { root.am-cycle-color(idx); }
+                am-cycle-icon(idx) => { root.am-cycle-icon(idx); }
+                am-pick-path(idx) => { root.am-pick-path(idx); }
+                doc-add() => { root.doc-add(); }
+                doc-open(idx) => { root.doc-open(idx); }
+                doc-remove(idx) => { root.doc-remove(idx); }
                 ex-cur-path: root.ex-cur-path;
                 ex-it-names: root.ex-it-names;
                 ex-it-kinds: root.ex-it-kinds;

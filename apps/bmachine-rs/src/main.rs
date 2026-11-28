@@ -9,6 +9,7 @@ mod explorer;
 mod fullscreen;
 mod icons;
 mod local_update;
+mod panel_extra;
 mod petdex;
 mod platform;
 mod process_log;
@@ -3319,6 +3320,102 @@ fn sync_batch_to_open_window(cell: &BatchWinCell, ui: &AppWindow) {
     }
 }
 
+/// Simpan daftar TAMBAHAN MASTER ke DB (key port `Paths.AdditionalMaster`,
+/// JSON array `StoredPathEntry` — bentuk sama dengan C#).
+fn persist_additional_master(
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+    entries: &[panel_extra::AdditionalMasterEntry],
+) {
+    let Some(dbm) = db else { return };
+    if let Ok(mut g) = dbm.lock() {
+        if let Ok(json) = serde_json::to_string(entries) {
+            let _ = g.set("Paths.AdditionalMaster", &json, "String");
+        }
+    }
+}
+
+/// Simpan daftar DOKUMEN panel ke DB (key port `Panel.Dokumen`).
+fn persist_panel_docs(db: &Option<Arc<Mutex<DatabaseService>>>, docs: &[panel_extra::DokumenEntry]) {
+    let Some(dbm) = db else { return };
+    if let Ok(mut g) = dbm.lock() {
+        if let Ok(json) = serde_json::to_string(docs) {
+            let _ = g.set("Panel.Dokumen", &json, "String");
+        }
+    }
+}
+
+/// Dorong grup TAMBAHAN MASTER + DOKUMEN Panel Samping ke UI.
+/// `search` = isi `master-search` saat ini (filter nama/path,
+/// case-insensitive, ala C# `MasterSearchText`); `view_map` diisi peta
+/// indeks tampilan -> indeks asli supaya callback am-* (yang menerima
+/// indeks tampilan) menyentuh entri yang benar.
+fn push_panel_extra_to_ui(
+    ui: &AppWindow,
+    master: &[panel_extra::AdditionalMasterEntry],
+    docs: &[panel_extra::DokumenEntry],
+    search: &str,
+    view_map: &Arc<Mutex<Vec<usize>>>,
+) {
+    let q = search.trim().to_lowercase();
+    let mut names: Vec<slint::SharedString> = Vec::new();
+    let mut paths: Vec<slint::SharedString> = Vec::new();
+    let mut colors: Vec<slint::Color> = Vec::new();
+    let mut icons: Vec<slint::SharedString> = Vec::new();
+    let mut map: Vec<usize> = Vec::new();
+    for (i, e) in master.iter().enumerate() {
+        if !q.is_empty() {
+            let hay = format!("{} {}", e.display_name(), e.path).to_lowercase();
+            if !hay.contains(&q) {
+                continue;
+            }
+        }
+        names.push(slint::SharedString::from(e.display_name()));
+        paths.push(slint::SharedString::from(e.path.clone()));
+        let (r, g, b) =
+            panel_extra::parse_hex_color(&e.effective_color()).unwrap_or((0x4A, 0x9E, 0xFF));
+        colors.push(slint::Color::from_rgb_u8(r, g, b));
+        icons.push(slint::SharedString::from(e.effective_icon()));
+        map.push(i);
+    }
+    *view_map.lock().unwrap() = map;
+    ui.set_am_names(slint::ModelRc::new(slint::VecModel::from_slice(&names)));
+    ui.set_am_paths(slint::ModelRc::new(slint::VecModel::from_slice(&paths)));
+    ui.set_am_colors(slint::ModelRc::new(slint::VecModel::from_slice(&colors)));
+    ui.set_am_icons(slint::ModelRc::new(slint::VecModel::from_slice(&icons)));
+    ui.set_doc_names(sheet_model(
+        docs.iter().map(|d| d.file_name()).collect(),
+    ));
+    ui.set_doc_paths(sheet_model(docs.iter().map(|d| d.path.clone()).collect()));
+    ui.set_doc_exists(sheet_model_bool(
+        docs.iter().map(|d| Path::new(&d.path).exists()).collect(),
+    ));
+}
+
+/// Dorong ulang grup panel dari state + `master-search` UI saat ini.
+fn repush_panel_extra(
+    ui: &AppWindow,
+    master: &Arc<Mutex<Vec<panel_extra::AdditionalMasterEntry>>>,
+    docs: &Arc<Mutex<Vec<panel_extra::DokumenEntry>>>,
+    view_map: &Arc<Mutex<Vec<usize>>>,
+) {
+    let search = ui.get_master_search().to_string();
+    push_panel_extra_to_ui(
+        ui,
+        &master.lock().unwrap(),
+        &docs.lock().unwrap(),
+        &search,
+        view_map,
+    );
+}
+
+/// Petakan indeks tampilan (hasil filter search) ke indeks asli daftar master.
+fn panel_master_real_idx(view_map: &Arc<Mutex<Vec<usize>>>, view_idx: i32) -> Option<usize> {
+    if view_idx < 0 {
+        return None;
+    }
+    view_map.lock().unwrap().get(view_idx as usize).copied()
+}
+
 /// Simpan daftar Folder Reguler ke DB (JSON array RegulerDir).
 fn persist_reguler_dirs(db: &Option<Arc<Mutex<DatabaseService>>>, dirs: &[batch::RegulerDir]) {
     let Some(dbm) = db else { return };
@@ -5330,6 +5427,36 @@ fn main() -> Result<(), slint::PlatformError> {
     }
     // Dorong state BATCH awal ke UI (drop zone kosong sampai folder dipilih).
     push_batch_to_ui(&ui, &batch_state.lock().unwrap(), &batch_win_cell);
+
+    // Panel Samping — grup TAMBAHAN MASTER + DOKUMEN (28 Nov 2026).
+    // Master: key port `Paths.AdditionalMaster`, baca jatuh ke C#
+    // `Configs.Master.AdditionalPaths`; dokumen: `Panel.Dokumen`.
+    let panel_master = Arc::new(Mutex::new(Vec::<panel_extra::AdditionalMasterEntry>::new()));
+    let panel_docs = Arc::new(Mutex::new(Vec::<panel_extra::DokumenEntry>::new()));
+    // Peta indeks tampilan (hasil filter `master-search`) -> indeks asli;
+    // callback am-* menerima indeks tampilan (lihat push_panel_extra_to_ui).
+    let panel_master_view = Arc::new(Mutex::new(Vec::<usize>::new()));
+    {
+        if let Some(ref dbm) = db {
+            if let Ok(g) = dbm.lock() {
+                let raw = g
+                    .get("Paths.AdditionalMaster")
+                    .or_else(|| g.get("Configs.Master.AdditionalPaths"))
+                    .unwrap_or_default();
+                *panel_master.lock().unwrap() = panel_extra::parse_additional_master(&raw);
+                if let Some(v) = g.get("Panel.Dokumen") {
+                    *panel_docs.lock().unwrap() = panel_extra::parse_panel_docs(&v);
+                }
+            }
+        }
+    }
+    push_panel_extra_to_ui(
+        &ui,
+        &panel_master.lock().unwrap(),
+        &panel_docs.lock().unwrap(),
+        "",
+        &panel_master_view,
+    );
 
     // BATCH executor (tahap 3): handle run + daftar script master dari
     // Scripts/Master/*.py (nama/urutan dari scripts.json bila ada).
@@ -11160,6 +11287,333 @@ fn main() -> Result<(), slint::PlatformError> {
                     false
                 }
             }
+        });
+    }
+
+    // ---- Panel Samping: grup TAMBAHAN MASTER + DOKUMEN (28 Nov 2026) ----
+    // Indeks callback am-* = indeks TAMPILAN (hasil filter master-search);
+    // dipetakan ke indeks asli lewat panel_master_view.
+    {
+        let ui_weak = ui.as_weak();
+        let db_c = db.clone();
+        let master_c = panel_master.clone();
+        let docs_c = panel_docs.clone();
+        let view_c = panel_master_view.clone();
+        ui.on_am_add(move || {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            match platform::pick_folder("Pilih folder master tambahan") {
+                platform::PickResult::Cancelled => {}
+                platform::PickResult::Unavailable(msg) => {
+                    ui.set_toast(slint::SharedString::from(msg));
+                }
+                platform::PickResult::Picked(path) => {
+                    let mut list = master_c.lock().unwrap();
+                    if list.iter().any(|e| e.path.eq_ignore_ascii_case(&path)) {
+                        ui.set_toast(slint::SharedString::from(
+                            "Folder itu sudah ada di daftar master tambahan.",
+                        ));
+                        return;
+                    }
+                    let name = panel_extra::AdditionalMasterEntry::new(&path).display_name();
+                    list.push(panel_extra::AdditionalMasterEntry::new(&path));
+                    persist_additional_master(&db_c, &list);
+                    drop(list);
+                    repush_panel_extra(&ui, &master_c, &docs_c, &view_c);
+                    ui.set_toast(slint::SharedString::from(format!(
+                        "Master tambahan ditambahkan: {}",
+                        name
+                    )));
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_c = db.clone();
+        let master_c = panel_master.clone();
+        let docs_c = panel_docs.clone();
+        let view_c = panel_master_view.clone();
+        ui.on_am_delete(move |view_idx| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            let Some(real) = panel_master_real_idx(&view_c, view_idx) else { return };
+            let mut list = master_c.lock().unwrap();
+            if real >= list.len() {
+                return;
+            }
+            let name = list[real].display_name();
+            list.remove(real);
+            persist_additional_master(&db_c, &list);
+            drop(list);
+            repush_panel_extra(&ui, &master_c, &docs_c, &view_c);
+            ui.set_toast(slint::SharedString::from(format!(
+                "Master tambahan dihapus: {}",
+                name
+            )));
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_c = db.clone();
+        let master_c = panel_master.clone();
+        let docs_c = panel_docs.clone();
+        let view_c = panel_master_view.clone();
+        ui.on_am_move(move |view_idx, dir| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            // Tukar posisi dua entri ASLI yang bersebelahan di tampilan
+            // (tetap benar saat search memfilter — yang ditukar adalah
+            // tetangga yang terlihat, bukan tetangga di daftar penuh).
+            let (a, b) = {
+                let map = view_c.lock().unwrap();
+                let Some(&ra) = map.get(view_idx as usize) else { return };
+                let Some(&rb) = map.get((view_idx + dir) as usize) else {
+                    return;
+                };
+                (ra, rb)
+            };
+            if a == b {
+                return;
+            }
+            let mut list = master_c.lock().unwrap();
+            if a < list.len() && b < list.len() {
+                list.swap(a, b);
+                persist_additional_master(&db_c, &list);
+                drop(list);
+                repush_panel_extra(&ui, &master_c, &docs_c, &view_c);
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_c = db.clone();
+        let master_c = panel_master.clone();
+        let docs_c = panel_docs.clone();
+        let view_c = panel_master_view.clone();
+        ui.on_am_set_name(move |view_idx, name| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            let name = name.trim().to_string();
+            if name.is_empty() {
+                ui.set_toast(slint::SharedString::from("Nama tidak boleh kosong."));
+                return;
+            }
+            let Some(real) = panel_master_real_idx(&view_c, view_idx) else { return };
+            let mut list = master_c.lock().unwrap();
+            if real >= list.len() {
+                return;
+            }
+            list[real].name = name;
+            persist_additional_master(&db_c, &list);
+            drop(list);
+            repush_panel_extra(&ui, &master_c, &docs_c, &view_c);
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_c = db.clone();
+        let master_c = panel_master.clone();
+        let docs_c = panel_docs.clone();
+        let view_c = panel_master_view.clone();
+        ui.on_am_set_path(move |view_idx, path| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            let path = path.trim().to_string();
+            if path.is_empty() {
+                ui.set_toast(slint::SharedString::from("Path tidak boleh kosong."));
+                return;
+            }
+            let Some(real) = panel_master_real_idx(&view_c, view_idx) else { return };
+            let mut list = master_c.lock().unwrap();
+            if real >= list.len() {
+                return;
+            }
+            // Ala C#: bila nama lama adalah nama folder otomatis, nama ikut
+            // path baru.
+            let old_auto = panel_extra::folder_name(&list[real].path);
+            if list[real].name.trim().is_empty() || list[real].name == old_auto {
+                list[real].name = panel_extra::folder_name(&path);
+            }
+            list[real].path = path.clone();
+            persist_additional_master(&db_c, &list);
+            drop(list);
+            repush_panel_extra(&ui, &master_c, &docs_c, &view_c);
+            if !Path::new(&path).exists() {
+                ui.set_toast(slint::SharedString::from(
+                    "Path disimpan, tapi folder itu tidak ada di disk.",
+                ));
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_c = db.clone();
+        let master_c = panel_master.clone();
+        let docs_c = panel_docs.clone();
+        let view_c = panel_master_view.clone();
+        ui.on_am_cycle_color(move |view_idx| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            let Some(real) = panel_master_real_idx(&view_c, view_idx) else { return };
+            let mut list = master_c.lock().unwrap();
+            if real >= list.len() {
+                return;
+            }
+            let cur = list[real].effective_color();
+            list[real].color = panel_extra::next_color(&cur);
+            persist_additional_master(&db_c, &list);
+            drop(list);
+            repush_panel_extra(&ui, &master_c, &docs_c, &view_c);
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_c = db.clone();
+        let master_c = panel_master.clone();
+        let docs_c = panel_docs.clone();
+        let view_c = panel_master_view.clone();
+        ui.on_am_cycle_icon(move |view_idx| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            let Some(real) = panel_master_real_idx(&view_c, view_idx) else { return };
+            let mut list = master_c.lock().unwrap();
+            if real >= list.len() {
+                return;
+            }
+            let cur = list[real].effective_icon();
+            list[real].icon = panel_extra::next_icon(&cur);
+            persist_additional_master(&db_c, &list);
+            drop(list);
+            repush_panel_extra(&ui, &master_c, &docs_c, &view_c);
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_c = db.clone();
+        let master_c = panel_master.clone();
+        let docs_c = panel_docs.clone();
+        let view_c = panel_master_view.clone();
+        ui.on_am_pick_path(move |view_idx| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            let Some(real) = panel_master_real_idx(&view_c, view_idx) else { return };
+            match platform::pick_folder("Pilih folder master") {
+                platform::PickResult::Cancelled => {}
+                platform::PickResult::Unavailable(msg) => {
+                    ui.set_toast(slint::SharedString::from(msg));
+                }
+                platform::PickResult::Picked(path) => {
+                    let mut list = master_c.lock().unwrap();
+                    if real >= list.len() {
+                        return;
+                    }
+                    let old_auto = panel_extra::folder_name(&list[real].path);
+                    if list[real].name.trim().is_empty() || list[real].name == old_auto {
+                        list[real].name = panel_extra::folder_name(&path);
+                    }
+                    list[real].path = path;
+                    persist_additional_master(&db_c, &list);
+                    drop(list);
+                    repush_panel_extra(&ui, &master_c, &docs_c, &view_c);
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let master_c = panel_master.clone();
+        let docs_c = panel_docs.clone();
+        let view_c = panel_master_view.clone();
+        ui.on_am_search_changed(move || {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            repush_panel_extra(&ui, &master_c, &docs_c, &view_c);
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_c = db.clone();
+        let master_c = panel_master.clone();
+        let docs_c = panel_docs.clone();
+        let view_c = panel_master_view.clone();
+        ui.on_doc_add(move || {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            match platform::pick_file(
+                "Pilih dokumen",
+                "Dokumen (*.doc;*.docx;*.pdf)|*.doc;*.docx;*.pdf",
+            ) {
+                platform::PickResult::Cancelled => {}
+                platform::PickResult::Unavailable(msg) => {
+                    ui.set_toast(slint::SharedString::from(msg));
+                }
+                platform::PickResult::Picked(path) => {
+                    if !panel_extra::is_document_path(&path) {
+                        ui.set_toast(slint::SharedString::from(
+                            "Bukan dokumen (.doc / .docx / .pdf).",
+                        ));
+                        return;
+                    }
+                    let mut list = docs_c.lock().unwrap();
+                    if list.iter().any(|d| d.path.eq_ignore_ascii_case(&path)) {
+                        ui.set_toast(slint::SharedString::from(
+                            "Dokumen itu sudah ada di daftar.",
+                        ));
+                        return;
+                    }
+                    let name = panel_extra::DokumenEntry { path: path.clone() }.file_name();
+                    list.push(panel_extra::DokumenEntry { path });
+                    persist_panel_docs(&db_c, &list);
+                    drop(list);
+                    repush_panel_extra(&ui, &master_c, &docs_c, &view_c);
+                    ui.set_toast(slint::SharedString::from(format!(
+                        "Dokumen ditambahkan: {}",
+                        name
+                    )));
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let docs_c = panel_docs.clone();
+        ui.on_doc_open(move |idx| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            let Some(entry) = docs_c.lock().unwrap().get(idx as usize).cloned() else {
+                return;
+            };
+            if !Path::new(&entry.path).exists() {
+                ui.set_toast(slint::SharedString::from(format!(
+                    "File tidak ditemukan: {}",
+                    entry.file_name()
+                )));
+                return;
+            }
+            match platform::open_path(&entry.path) {
+                Ok(()) => {
+                    ui.set_toast(slint::SharedString::from(format!(
+                        "Dibuka di aplikasi default: {}",
+                        entry.file_name()
+                    )));
+                }
+                Err(e) => {
+                    ui.set_toast(slint::SharedString::from(format!("Gagal membuka: {}", e)));
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let db_c = db.clone();
+        let master_c = panel_master.clone();
+        let docs_c = panel_docs.clone();
+        let view_c = panel_master_view.clone();
+        ui.on_doc_remove(move |idx| {
+            let Some(ui) = ui_weak.upgrade() else { return };
+            let mut list = docs_c.lock().unwrap();
+            if idx < 0 || (idx as usize) >= list.len() {
+                return;
+            }
+            let name = list[idx as usize].file_name();
+            list.remove(idx as usize);
+            persist_panel_docs(&db_c, &list);
+            drop(list);
+            repush_panel_extra(&ui, &master_c, &docs_c, &view_c);
+            ui.set_toast(slint::SharedString::from(format!(
+                "Dokumen dihapus dari daftar: {}",
+                name
+            )));
         });
     }
 

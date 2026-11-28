@@ -135,6 +135,413 @@ export component ExplorerRow inherits Rectangle {
 }
 
 
+// Tombol kecil 24px di header grup panel (ala chip Tab 1/2 di tab DOC).
+component MiniBtn inherits Rectangle {
+    in property <string> label;
+    in property <string> icon-name: "";
+    callback clicked();
+
+    height: 24px;
+    background: btn-touch.has-hover ? Design.bg-hover : Design.surface-elevated;
+    border-color: Design.separator;
+    border-width: 1px;
+    border-radius: Design.radius-sm;
+
+    btn-touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    HorizontalLayout {
+        spacing: 4px;
+        padding-left: 8px;
+        padding-right: 8px;
+        alignment: center;
+
+        if root.icon-name != "" : VerticalLayout {
+            alignment: center;
+            SvgIcon {
+                name: root.icon-name;
+                size: 11px;
+                icon-color: Design.text-secondary;
+            }
+        }
+
+        Text {
+            text: root.label;
+            font-size: 11px;
+            font-weight: 700;
+            color: Design.text-secondary;
+            vertical-alignment: center;
+        }
+    }
+}
+
+
+// Tombol ikon 22px di baris panel (aksi baris: edit, naik/turun, hapus).
+component RowBtn inherits Rectangle {
+    in property <string> icon-name: "";
+    in property <string> glyph: "";
+    in property <bool> enabled: true;
+    callback clicked();
+
+    width: 22px;
+    height: 22px;
+    background: btn-touch.has-hover ? Design.bg-hover : transparent;
+    border-radius: 4px;
+    opacity: root.enabled ? 1 : 0.35;
+
+    btn-touch := TouchArea {
+        mouse-cursor: pointer;
+        enabled: root.enabled;
+        clicked => { root.clicked(); }
+    }
+
+    if root.icon-name != "" : SvgIcon {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        name: root.icon-name;
+        size: 13px;
+        icon-color: Design.text-secondary;
+    }
+    if root.icon-name == "" : Text {
+        text: root.glyph;
+        font-size: 12px;
+        font-weight: 700;
+        color: Design.text-secondary;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+
+// Satu baris TAMBAHAN MASTER (C# EditablePathItem).
+// Baris 1: dot warna (klik = gilir palet) + ikon (klik = gilir ikon) +
+// nama (pensil = edit inline) + aksi (↑/↓/×). Baris 2: path (klik teks
+// = edit inline, tombol folder = browse). Edit inline meniru pola
+// rename Explorer (TextInput <=> edit-text, Enter = commit).
+component MasterExtraRow inherits Rectangle {
+    in property <string> name;
+    in property <string> path;
+    in property <color> dot-color;
+    in property <string> icon-name;
+    in property <bool> can-up;
+    in property <bool> can-down;
+    // Mode edit inline (diatur parent): "" | "name" | "path".
+    in property <string> edit-kind;
+    in-out property <string> edit-text;
+    callback edit-start(string);
+    callback edit-commit(string, string);
+    callback edit-cancel();
+    callback cycle-color();
+    callback cycle-icon();
+    callback pick-path();
+    callback move-up();
+    callback move-down();
+    callback delete();
+
+    height: 56px;
+    background: row-touch.has-hover ? Design.bg-hover : transparent;
+    border-radius: Design.radius-sm;
+
+    row-touch := TouchArea { mouse-cursor: pointer; }
+
+    // Fokus input saat masuk mode edit (pola rename Explorer: focus
+    // langsung + timer 50ms karena input baru muncul sering gagal fokus).
+    property <bool> focus-pending: false;
+    focus-timer := Timer {
+        interval: 50ms;
+        running: root.focus-pending;
+        triggered => {
+            root.focus-pending = false;
+            if (root.edit-kind == "name") {
+                name-input.focus();
+            } else if (root.edit-kind == "path") {
+                path-input.focus();
+            }
+        }
+    }
+    changed edit-kind => {
+        if (self.edit-kind == "name") {
+            name-input.focus();
+        } else if (self.edit-kind == "path") {
+            path-input.focus();
+        }
+        if (self.edit-kind != "") {
+            root.focus-pending = true;
+        }
+    }
+
+    VerticalLayout {
+        spacing: 2px;
+        padding-top: 4px;
+        padding-bottom: 4px;
+
+        // Baris 1: dot + ikon + nama/editor + aksi.
+        HorizontalLayout {
+            spacing: 6px;
+
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 12px;
+                    height: 12px;
+                    background: root.dot-color;
+                    border-radius: 6px;
+                    dot-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.cycle-color(); }
+                    }
+                }
+            }
+
+            Rectangle {
+                width: 22px;
+                height: 22px;
+                background: icon-touch.has-hover ? Design.bg-hover : transparent;
+                border-radius: 4px;
+                icon-touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { root.cycle-icon(); }
+                }
+                SvgIcon {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    name: root.icon-name;
+                    size: 14px;
+                    icon-color: root.dot-color;
+                }
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+                height: 24px;
+                Text {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    visible: root.edit-kind != "name";
+                    text: root.name;
+                    font-size: 13px;
+                    font-weight: 700;
+                    color: Design.text-primary;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+                Rectangle {
+                    x: 0; y: 1px; width: 100%; height: 22px;
+                    visible: root.edit-kind == "name";
+                    background: Design.bg-input;
+                    border-color: Design.border-focus;
+                    border-width: 1px;
+                    border-radius: Design.radius-sm;
+                    clip: true;
+                    name-input := TextInput {
+                        x: 6px;
+                        width: parent.width - 12px;
+                        height: 100%;
+                        text <=> root.edit-text;
+                        font-size: 13px;
+                        color: Design.text-primary;
+                        selection-foreground-color: white;
+                        selection-background-color: Design.accent;
+                        vertical-alignment: center;
+                        accepted => { root.edit-commit("name", self.text); }
+                    }
+                }
+            }
+
+            if root.edit-kind == "name" : RowBtn {
+                icon-name: "check";
+                clicked => { root.edit-commit("name", root.edit-text); }
+            }
+            if root.edit-kind == "name" : RowBtn {
+                icon-name: "x";
+                clicked => { root.edit-cancel(); }
+            }
+            if root.edit-kind == "" : RowBtn {
+                icon-name: "edit-3";
+                clicked => { root.edit-start("name"); }
+            }
+            if root.edit-kind == "" : RowBtn {
+                glyph: "↑";
+                enabled: root.can-up;
+                clicked => { root.move-up(); }
+            }
+            if root.edit-kind == "" : RowBtn {
+                glyph: "↓";
+                enabled: root.can-down;
+                clicked => { root.move-down(); }
+            }
+            if root.edit-kind == "" : RowBtn {
+                icon-name: "x";
+                clicked => { root.delete(); }
+            }
+        }
+
+        // Baris 2: path/editor + browse. Indent 46px = dot 12 + ikon 22
+        // + 2× spacing 6, supaya path sejajar dengan nama.
+        HorizontalLayout {
+            spacing: 6px;
+            Rectangle { width: 46px; height: 1px; }
+
+            Rectangle {
+                horizontal-stretch: 1;
+                height: 20px;
+                Text {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    visible: root.edit-kind != "path";
+                    text: root.path;
+                    font-size: 11px;
+                    font-family: "JetBrains Mono";
+                    color: Design.text-muted;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+                Rectangle {
+                    x: 0; y: 0; width: 100%; height: 20px;
+                    visible: root.edit-kind == "path";
+                    background: Design.bg-input;
+                    border-color: Design.border-focus;
+                    border-width: 1px;
+                    border-radius: Design.radius-sm;
+                    clip: true;
+                    path-input := TextInput {
+                        x: 6px;
+                        width: parent.width - 12px;
+                        height: 100%;
+                        text <=> root.edit-text;
+                        font-size: 11px;
+                        font-family: "JetBrains Mono";
+                        color: Design.text-primary;
+                        selection-foreground-color: white;
+                        selection-background-color: Design.accent;
+                        vertical-alignment: center;
+                        accepted => { root.edit-commit("path", self.text); }
+                    }
+                }
+                if root.edit-kind != "path" : TouchArea {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    mouse-cursor: pointer;
+                    clicked => { root.edit-start("path"); }
+                }
+            }
+
+            if root.edit-kind == "path" : RowBtn {
+                icon-name: "check";
+                clicked => { root.edit-commit("path", root.edit-text); }
+            }
+            if root.edit-kind == "path" : RowBtn {
+                icon-name: "x";
+                clicked => { root.edit-cancel(); }
+            }
+            if root.edit-kind != "path" : RowBtn {
+                icon-name: "folder-open";
+                clicked => { root.pick-path(); }
+            }
+        }
+    }
+
+    // Separator tipis antar baris (ala ExplorerRow).
+    Rectangle {
+        x: 0; y: parent.height - 1px; width: 100%; height: 1px;
+        background: Design.separator;
+    }
+}
+
+
+// Satu baris DOKUMEN (daftar dokumen kerja): klik = pilih, dobel-klik =
+// buka di aplikasi default; tombol kanan = buka / hapus dari daftar.
+// File yang tidak ada di disk tampil redup.
+component DokumenRow inherits Rectangle {
+    in property <string> name;
+    in property <string> path;
+    in property <bool> exists;
+    in property <bool> selected;
+    callback clicked();
+    callback double-clicked();
+    callback open();
+    callback remove();
+
+    height: 44px;
+    background: root.selected ? Design.accent-subtle : (row-touch.has-hover ? Design.bg-hover : transparent);
+    border-radius: Design.radius-sm;
+
+    // row-touch HANYA hover (tanpa clicked/double-clicked): TouchArea
+    // baris yang punya handler clicked menelan klik tombol RowBtn di
+    // bawahnya — terbukti di verifikasi GUI 28 Nov (klik ×/buka hanya
+    // menyeleksi baris). Pola yang sama dipakai MasterExtraRow (tombol
+    // jalan karena row-touch-nya tanpa clicked). Klik pilih + dobel-klik
+    // buka ditangani text-touch di kolom teks (di luar area tombol).
+    row-touch := TouchArea { mouse-cursor: pointer; }
+
+    HorizontalLayout {
+        padding-left: Design.space-sm;
+        padding-right: Design.space-sm;
+        spacing: Design.space-sm;
+
+        VerticalLayout {
+            alignment: center;
+            SvgIcon {
+                name: "file-text";
+                size: 14px;
+                icon-color: root.exists ? Design.accent : Design.text-muted;
+            }
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+            text-touch := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.clicked(); }
+                double-clicked => { root.double-clicked(); }
+            }
+            VerticalLayout {
+                x: 0; y: 0; width: 100%; height: 100%;
+                alignment: center;
+                spacing: 1px;
+                Text {
+                    text: root.name;
+                    font-size: Design.font-body;
+                    font-weight: 700;
+                    color: root.exists ? Design.text-primary : Design.text-muted;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                }
+                Text {
+                    text: root.path;
+                    font-size: Design.font-caption;
+                    font-family: "JetBrains Mono";
+                    color: Design.text-muted;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                }
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            RowBtn {
+                icon-name: "external-link";
+                clicked => { root.open(); }
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            RowBtn {
+                icon-name: "x";
+                clicked => { root.remove(); }
+            }
+        }
+    }
+
+    Rectangle {
+        x: 0; y: parent.height - 1px; width: 100%; height: 1px;
+        background: Design.separator;
+    }
+}
+
+
 export component LogPanelView inherits Rectangle {
     callback toast(string);
     callback close();
@@ -171,6 +578,33 @@ export component LogPanelView inherits Rectangle {
     in-out property <string> doc-school: "";
     in-out property <string> doc-address: "";
     in-out property <string> doc-tab: "1";
+
+    // Grup TAMBAHAN MASTER + DOKUMEN (28 Nov 2026) — array sejajar dari
+    // AppWindow (didorong Rust); am-* sudah terfilter `master-search`.
+    in property <[string]> am-names: [];
+    in property <[string]> am-paths: [];
+    in property <[color]> am-colors: [];
+    in property <[string]> am-icons: [];
+    in property <[string]> doc-names: [];
+    in property <[string]> doc-paths: [];
+    in property <[bool]> doc-exists: [];
+    callback am-add();
+    callback am-delete(int);
+    callback am-move(int, int);
+    callback am-set-name(int, string);
+    callback am-set-path(int, string);
+    callback am-cycle-color(int);
+    callback am-cycle-icon(int);
+    callback am-pick-path(int);
+    callback doc-add();
+    callback doc-open(int);
+    callback doc-remove(int);
+    // State edit inline baris master (satu baris dalam satu waktu).
+    in-out property <int> am-edit-idx: -1;
+    in-out property <string> am-edit-kind: "";
+    in-out property <string> am-edit-text: "";
+    // Baris dokumen terpilih.
+    in-out property <int> doc-sel-idx: -1;
 
     // (Tab LOG dihapus 28 Nov 2026 — props log-* + callback
     // clear/copy/stop-log ikut dihapus; data log subprocess tetap
@@ -407,6 +841,80 @@ export component LogPanelView inherits Rectangle {
                     }
                 }
 
+                // ----- Grup TAMBAHAN MASTER (C# AdditionalMasterPaths) -----
+                // Folder root master tambahan: sumber file .psd/.psb yang
+                // nanti dibaca Master Browser (EXPLORER_SPEC §6, masih
+                // deferred). Search di atas memfilter grup ini juga.
+                HorizontalLayout {
+                    height: 24px;
+                    spacing: 6px;
+
+                    Text {
+                        text: "TAMBAHAN MASTER";
+                        font-size: 11px;
+                        font-weight: 800;
+                        letter-spacing: 0.5px;
+                        color: Design.text-muted;
+                        vertical-alignment: center;
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    MiniBtn {
+                        label: "+ Tambah";
+                        clicked => { root.am-add(); }
+                    }
+                }
+
+                Flickable {
+                    vertical-stretch: 1;
+                    VerticalLayout {
+                        spacing: 2px;
+
+                        if root.am-names.length == 0 : Text {
+                            text: "Belum ada folder master tambahan.\nTambah folder berisi file .psd/.psb.";
+                            font-size: Design.font-body;
+                            color: Design.text-muted;
+                            wrap: word-wrap;
+                        }
+
+                        for item[i] in root.am-names : MasterExtraRow {
+                            name: item;
+                            path: root.am-paths[i];
+                            dot-color: root.am-colors[i];
+                            icon-name: root.am-icons[i];
+                            can-up: i > 0;
+                            can-down: i < root.am-names.length - 1;
+                            edit-kind: root.am-edit-idx == i ? root.am-edit-kind : "";
+                            edit-text <=> root.am-edit-text;
+                            edit-start(kind) => {
+                                root.am-edit-idx = i;
+                                root.am-edit-kind = kind;
+                                root.am-edit-text = kind == "name" ? item : root.am-paths[i];
+                            }
+                            edit-commit(kind, text) => {
+                                if (kind == "name") {
+                                    root.am-set-name(i, text);
+                                } else {
+                                    root.am-set-path(i, text);
+                                }
+                                root.am-edit-idx = -1;
+                                root.am-edit-kind = "";
+                            }
+                            edit-cancel() => {
+                                root.am-edit-idx = -1;
+                                root.am-edit-kind = "";
+                            }
+                            cycle-color() => { root.am-cycle-color(i); }
+                            cycle-icon() => { root.am-cycle-icon(i); }
+                            pick-path() => { root.am-pick-path(i); }
+                            move-up() => { root.am-move(i, -1); }
+                            move-down() => { root.am-move(i, 1); }
+                            delete() => { root.am-delete(i); }
+                        }
+                    }
+                }
+
+                HSeparator { }
+
                 // Master Browser (C# BatchVM.MasterNodes) — belum
                 // dibangun: lokasi Master File Browser masih pertanyaan
                 // terbuka (EXPLORER_SPEC §6). Tidak ada template contoh
@@ -417,8 +925,6 @@ export component LogPanelView inherits Rectangle {
                     color: Design.text-muted;
                     horizontal-alignment: center;
                 }
-
-                Rectangle { vertical-stretch: 1; }
             }
 
             // ===== 4. Tab DOC: Instan Redaksi =====
@@ -525,7 +1031,56 @@ export component LogPanelView inherits Rectangle {
                     clicked => { root.toast("Redaksi tersinkronisasi ke Photoshop (doc_info.json)"); }
                 }
 
-                Rectangle { vertical-stretch: 1; }
+                // ----- Grup DOKUMEN (28 Nov 2026, interpretasi port) -----
+                // Daftar dokumen kerja (.doc/.docx/.pdf) yang dikurasi user:
+                // tambah lewat pemilih file, klik = pilih, dobel-klik /
+                // tombol panah = buka di aplikasi default, × = hapus dari
+                // daftar (file di disk TIDAK dihapus). TIDAK ada padanan
+                // grup ini di C# maupun di dokumen port — lihat PERUBAHAN.md.
+                HorizontalLayout {
+                    height: 24px;
+                    spacing: 6px;
+
+                    Text {
+                        text: "DOKUMEN";
+                        font-size: 11px;
+                        font-weight: 800;
+                        letter-spacing: 0.5px;
+                        color: Design.text-muted;
+                        vertical-alignment: center;
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    MiniBtn {
+                        label: "+ Tambah";
+                        clicked => { root.doc-add(); }
+                    }
+                }
+
+                Flickable {
+                    vertical-stretch: 1;
+                    min-height: 80px;
+                    VerticalLayout {
+                        spacing: 0px;
+
+                        if root.doc-names.length == 0 : Text {
+                            text: "Belum ada dokumen — tambah file .doc / .docx / .pdf.";
+                            font-size: Design.font-body;
+                            color: Design.text-muted;
+                            wrap: word-wrap;
+                        }
+
+                        for item[i] in root.doc-names : DokumenRow {
+                            name: item;
+                            path: root.doc-paths[i];
+                            exists: root.doc-exists[i];
+                            selected: root.doc-sel-idx == i;
+                            clicked => { root.doc-sel-idx = i; }
+                            double-clicked => { root.doc-open(i); }
+                            open() => { root.doc-open(i); }
+                            remove() => { root.doc-remove(i); }
+                        }
+                    }
+                }
             }
         }
     }

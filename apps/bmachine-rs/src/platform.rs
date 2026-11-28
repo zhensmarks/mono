@@ -144,11 +144,99 @@ pub fn pick_file(title: &str, filter: &str) -> PickResult {
     }
     #[cfg(not(target_os = "windows"))]
     {
-        let _ = (title, filter);
+        // Linux: zenity dulu, lalu kdialog — cermin pick_folder, supaya
+        // "Tambah dokumen" bisa dites di Xvfb dan port Linux tidak buta.
+        // Filter gaya Windows "Label (*.doc;*.docx)|*.doc;*.docx"
+        // diterjemahkan ke glob zenity/kdialog (lihat win_filter_parts).
+        let (label, globs) = win_filter_parts(filter);
+        let zenity_filter = if globs.is_empty() {
+            None
+        } else {
+            Some(format!("--file-filter={} | {}", label, globs))
+        };
+        // zenity (exit 1 = user batal -> langsung Cancelled, jangan buka
+        // dialog kedua; error lain / biner tidak ada -> coba kdialog).
+        {
+            let mut args: Vec<&str> = vec!["--file-selection", "--title", title];
+            if let Some(f) = &zenity_filter {
+                args.push(f.as_str());
+            }
+            match Command::new("zenity").args(&args).output() {
+                Ok(o) if o.status.success() => {
+                    let s = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                    if !s.is_empty() {
+                        return PickResult::Picked(s);
+                    }
+                    return PickResult::Cancelled;
+                }
+                Ok(o) if o.status.code() == Some(1) => {
+                    return PickResult::Cancelled;
+                }
+                _ => {}
+            }
+        }
+        // kdialog (fallback bila zenity tidak ada / tidak jalan).
+        if which_exists("kdialog") {
+            let kfilter = if globs.is_empty() {
+                String::new()
+            } else {
+                format!("{}|{}", globs, label)
+            };
+            let out = Command::new("kdialog")
+                .args(["--getopenfilename", ".", kfilter.as_str()])
+                .output();
+            if let Ok(o) = out {
+                if o.status.success() {
+                    let s = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                    if !s.is_empty() {
+                        return PickResult::Picked(s);
+                    }
+                    return PickResult::Cancelled;
+                }
+            }
+        }
         PickResult::Unavailable(
-            "Pemilih file hanya tersedia di Windows.".to_string(),
+            "Pemilih file butuh zenity atau kdialog (tidak terpasang).".to_string(),
         )
     }
+}
+
+/// Terjemahkan filter gaya Windows `"Label (*.doc;*.docx)|*.doc;*.docx"`
+/// jadi (label, "glob1 glob2"). Tanpa `|` → label "File", seluruh filter
+/// dianggap daftar glob dipisah `;`.
+fn win_filter_parts(filter: &str) -> (String, String) {
+    let (label_raw, pats_raw) = match filter.split_once('|') {
+        Some((l, p)) => (l, p),
+        None => ("File", filter),
+    };
+    let label = label_raw
+        .split('(')
+        .next()
+        .unwrap_or("File")
+        .trim()
+        .to_string();
+    let globs = pats_raw
+        .split(';')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+    (
+        if label.is_empty() {
+            "File".to_string()
+        } else {
+            label
+        },
+        globs,
+    )
+}
+
+fn which_exists(prog: &str) -> bool {
+    std::process::Command::new("which")
+        .arg(prog)
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
 }
 
 /// Salin teks ke clipboard sistem (BATCH: klik nama folder = salin
@@ -399,5 +487,32 @@ pub fn move_to_trash(path: &str) -> Result<(), String> {
         let content = format!("[Trash Info]\nPath={}\nDeletionDate={}\n", orig_abs.display(), now);
         let _ = std::fs::write(trash_info.join(info_name), content);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn win_filter_parts_windows_style() {
+        let (label, globs) =
+            win_filter_parts("Dokumen (*.doc;*.docx;*.pdf)|*.doc;*.docx;*.pdf");
+        assert_eq!(label, "Dokumen");
+        assert_eq!(globs, "*.doc *.docx *.pdf");
+    }
+
+    #[test]
+    fn win_filter_parts_plain_globs() {
+        let (label, globs) = win_filter_parts("*.pdf;*.doc");
+        assert_eq!(label, "File");
+        assert_eq!(globs, "*.pdf *.doc");
+    }
+
+    #[test]
+    fn win_filter_parts_empty() {
+        let (label, globs) = win_filter_parts("");
+        assert_eq!(label, "File");
+        assert_eq!(globs, "");
     }
 }

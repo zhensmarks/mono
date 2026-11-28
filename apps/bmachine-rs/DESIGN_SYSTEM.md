@@ -1798,6 +1798,30 @@ Flyout TIDAK ikut `ui-scale` (hanya pill nav yang ikut).
 Klik item → toast (mockup) kecuali Settings (buka overlay)
 dan Terminal (buka Log Panel).
 
+### 18.4 Panel Samping — grup TAMBAHAN MASTER + DOKUMEN (28 Nov 2026)
+
+- Tab MASTER: grup "TAMBAHAN MASTER" di atas placeholder "Belum ada template
+  master" (placeholder tetap — Master Browser beneran = C# BatchVM.MasterNodes,
+  deferred §6 EXPLORER_SPEC). Tiap baris 56px: dot warna (klik = ganti warna,
+  palet 8 warna pin), ikon (klik = ganti ikon, 8 ikon Lucide), nama (pensil =
+  edit inline), ↑/↓ (reorder), × (hapus), path (klik = edit inline, Enter =
+  simpan, × = batal), tombol folder (browse). Search di atas memfilter grup
+  ini juga. Simpan: DB `Paths.AdditionalMaster` (JSON array `StoredPathEntry`
+  {Path, Name, Color, Icon} — bentuk C# `Configs.Master.AdditionalPaths`).
+- Tab DOC: grup "DOKUMEN" di bawah INSTAN REDAKSI — daftar dokumen kerja
+  kurasi user (.doc/.docx/.pdf): + Tambah (file picker), klik teks = pilih,
+  double-click / tombol buka = buka di aplikasi default, × = hapus dari
+  daftar saja (file di disk TIDAK dihapus). File hilang ditampilkan redup.
+  Simpan: DB `Panel.Dokumen`. Interpretasi grup ini dari Dex (tidak ada
+  spesifikasi di C#) — abeng boleh koreksi.
+- **Aturan TouchArea baris (pelajaran 28 Nov, TERBUKTI GUI):** TouchArea
+  baris yang punya handler `clicked` MENELAN klik tombol anak di dalam
+  baris itu. Pola yang benar: `row-touch` HANYA hover (tanpa `clicked`),
+  tombol anak (RowBtn) punya TouchArea sendiri, dan pilih/double-click
+  tinggal di TouchArea terpisah yang HANYA menutupi kolom teks
+  (MasterExtraRow sudah benar sejak awal; DokumenRow diperbaiki 28 Nov
+  dengan pola yang sama).
+
 ## 19. Fase 4 — Toolbox, Spreadsheet, Leaderboard (BUKAN "Modul")
 
 [rekonstruksi — dari kode `ui/modul.slint` + `BMACHINE_ALUR_APLIKASI.md`
