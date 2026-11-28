@@ -821,6 +821,10 @@ export component AppWindow inherits Window {
     // voice SAPI (Windows). Default notch, voice nyala, volume 80,
     // suara otomatis (Indonesia bila ada di sistem).
     in-out property <string> app-notch-mode: "notch";
+    // Auto-hide Dynamic Island ala layzee (DB
+    // Settings.Notch.AutoHide, default true) — berlaku live
+    // tanpa restart (timer Rust 500ms).
+    in-out property <bool> app-notch-auto-hide: true;
     // Gaya mata maskot ("nusa" | "baymax" | "bulat") — DB
     // Settings.Notch.EyeStyle, berlaku live tanpa restart.
     in-out property <string> app-notch-eye-style: "nusa";
@@ -3102,6 +3106,7 @@ export component AppWindow inherits Window {
         trello-connected <=> root.app-trello-connected;
         trello-status <=> root.app-trello-status;
         notch-mode <=> root.app-notch-mode;
+        notch-auto-hide <=> root.app-notch-auto-hide;
         notch-eye-style <=> root.app-notch-eye-style;
         notch-voice-enabled <=> root.app-notch-voice-enabled;
         notch-voice-name <=> root.app-notch-voice-name;

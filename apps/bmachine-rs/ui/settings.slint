@@ -720,6 +720,12 @@ export component SettingsView inherits Rectangle {
     // menyimpan `Settings.DynamicBar.Visible` + tampil/sembunyikan
     // window bar).
     in-out property <bool> dynamic-bar-visible: true;
+    // Auto-hide Dynamic Island ala layzee (abeng 28 Nov 11:58):
+    // ON = notch mengecil jadi garis tipis saat window lain
+    // maksimal, hilang total saat fullscreen; OFF = selalu tampil.
+    // Terikat dua arah ke AppWindow, tersimpan di DB
+    // `Settings.Notch.AutoHide` (Bool, default true).
+    in-out property <bool> notch-auto-hide: true;
     callback open-dynamic-bar();
     callback hide-dynamic-bar();
     callback radial-settings-changed();
@@ -798,7 +804,7 @@ export component SettingsView inherits Rectangle {
     property <bool> show-paths: root.search-q == "" || "paths".replace-all(root.search-q.to-lowercase(), "") != "paths";
     property <bool> show-about: root.search-q == "" || "about".replace-all(root.search-q.to-lowercase(), "") != "about";
     property <bool> show-profile: root.search-q == "" || "profile".replace-all(root.search-q.to-lowercase(), "") != "profile" || "profil".replace-all(root.search-q.to-lowercase(), "") != "profil" || "nama".replace-all(root.search-q.to-lowercase(), "") != "nama" || "avatar".replace-all(root.search-q.to-lowercase(), "") != "avatar" || "user".replace-all(root.search-q.to-lowercase(), "") != "user";
-    property <bool> show-dynamic-island: root.search-q == "" || "dynamic".replace-all(root.search-q.to-lowercase(), "") != "dynamic" || "island".replace-all(root.search-q.to-lowercase(), "") != "island" || "notch".replace-all(root.search-q.to-lowercase(), "") != "notch" || "pet".replace-all(root.search-q.to-lowercase(), "") != "pet" || "voice".replace-all(root.search-q.to-lowercase(), "") != "voice" || "suara".replace-all(root.search-q.to-lowercase(), "") != "suara" || "mata".replace-all(root.search-q.to-lowercase(), "") != "mata";
+    property <bool> show-dynamic-island: root.search-q == "" || "dynamic".replace-all(root.search-q.to-lowercase(), "") != "dynamic" || "island".replace-all(root.search-q.to-lowercase(), "") != "island" || "notch".replace-all(root.search-q.to-lowercase(), "") != "notch" || "pet".replace-all(root.search-q.to-lowercase(), "") != "pet" || "voice".replace-all(root.search-q.to-lowercase(), "") != "voice" || "suara".replace-all(root.search-q.to-lowercase(), "") != "suara" || "mata".replace-all(root.search-q.to-lowercase(), "") != "mata" || "auto-hide".replace-all(root.search-q.to-lowercase(), "") != "auto-hide" || "sembunyi".replace-all(root.search-q.to-lowercase(), "") != "sembunyi";
     property <bool> show-radial: root.search-q == "" || "radial".replace-all(root.search-q.to-lowercase(), "") != "radial" || "menu".replace-all(root.search-q.to-lowercase(), "") != "menu";
 
     // Kategori sidebar (abeng, 28 Nov 07:05) — kategori tampil bila
@@ -3410,6 +3416,25 @@ export component SettingsView inherits Rectangle {
                                 toggled(checked) => {
                                     if (checked) { root.open-dynamic-bar(); root.toast("Dynamic Island nyala"); }
                                     else { root.hide-dynamic-bar(); root.toast("Dynamic Island mati"); }
+                                }
+                            }
+                        }
+
+                        // Auto-hide ala layzee (abeng 28 Nov 11:58,
+                        // video TikTok @mr.deeal + frame screenshot):
+                        // window lain maksimal → garis tipis 4px;
+                        // fullscreen (video/game) → hilang total.
+                        SettingRow {
+                            title: "Auto-hide";
+                            desc: "Notch mengecil jadi garis tipis saat ada window maksimal, dan hilang total saat fullscreen (video / game) — seperti layzee; matikan untuk selalu tampil";
+                            stacked: root.stacked;
+                            Toggle {
+                                toggle-style: root.toggle-style;
+                                checked: root.notch-auto-hide;
+                                toggled(checked) => {
+                                    root.notch-auto-hide = checked;
+                                    root.notch-settings-changed();
+                                    root.toast(checked ? "Auto-hide nyala" : "Auto-hide mati");
                                 }
                             }
                         }
