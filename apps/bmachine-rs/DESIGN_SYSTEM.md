@@ -1372,9 +1372,9 @@ Pola panel samping (contoh yang dikirim abeng 26 Nov 16:54):
 judul "Settings" + **search bar** di atas + **grup dengan
 header kecil** + item ber-**ikon + label**, item terpilih
 di-highlight. Grup di port (`ui/settings.slint`):
-**General, Appearance, Explorer, Paths, About** — item-item
-BMachine sendiri di dalamnya (hanya polanya yang diambil
-dari contoh, bukan item aplikasi lain).
+**General, Appearance, Account, Extensions, Script Manager,
+Paths, About** — item-item BMachine sendiri di dalamnya (hanya
+polanya yang diambil dari contoh, bukan item aplikasi lain).
 
 **Panel konten rounded + sidebar ciut (abeng, 27 Nov 21:21):**
 konten tiap grup duduk dalam panel rounded (`card-bg`, border
@@ -1390,6 +1390,19 @@ DB `Settings.SidebarCollapsed` (Bool, default false), live tanpa
 restart, dimuat saat startup. Saat chrome `wrapped`, panel konten
 dilewati (konten = panel window itu sendiri — anti double-wrap
 §23) dan panel window mulai x=208 (terbuka) / x=84 (ciut).
+
+**Kategori + jarak sidebar (abeng, 28 Nov 07:05) + sidebar polos
+(abeng, 28 Nov 07:09, dikonfirmasi 07:11):** 7 grup dikelompokkan
+ke 4 kategori — APLIKASI (General, Appearance), AKUN (Account,
+Extensions), SKRIP & FILE (Script Manager, Paths), INFO (About) —
+label kategori kecil (11px/700, `text-muted`, huruf kapital) +
+garis separator tipis antar kategori (ruang 17px: 8px jarak + 1px
+garis + 8px jarak); label + separator ikut sembunyi bila kategori
+kosong (filter search). Di rail ciut label hilang, garis separator
+tetap tampil sebagai pemisah ikon. Sidebar POLOS tanpa panel
+sendiri di semua mode chrome — HANYA konten yang dapat panel
+rounded (build 4f0696f salah memberi sidebar kartu rounded sendiri
+sehingga tampil dua panel berdampingan; diperbaiki 28 Nov).
 
 ### 17.2 Appearance — kustomisasi penuh [MENGIKAT — abeng, 26 Nov 16:09]
 

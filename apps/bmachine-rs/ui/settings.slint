@@ -5,9 +5,12 @@
 // (ui/explorer-settings.slint, dibuka dari tombol "⚙ Explorer" di
 // sidebar Explorer), sesuai C# ExplorerSettingsView terpisah.
 // Side panel pola gambar referensi (26 Nov 16:54): judul "Settings" +
-// search bar (filter substring) + item berikon (7 grup polos TANPA header
-// grup kecil — C# nav Settings polos, tanpa "App"/"Data"/"Tentang"),
-// item terpilih highlight accent-subtle.
+// search bar (filter substring) + item berikon, item terpilih
+// highlight accent-subtle. 7 grup dikelompokkan ke 4 kategori
+// berlabel kecil + separator tipis (abeng, 28 Nov 07:05: sidebar
+// jangan dempet, kustomisasi akan makin banyak dan panel makin rame).
+// Sidebar POLOS tanpa panel sendiri di semua mode chrome — HANYA
+// konten yang dapat panel rounded (abeng, 28 Nov 07:09/07:11).
 // Pola "Visual style" dari gambar referensi (kartu preview color mode,
 // preset tema, swatch + hex, font, widget background, window chrome).
 // State lokal mockup yang fungsional; perubahan tampil di area PREVIEW
@@ -62,6 +65,43 @@ component GroupRow inherits Rectangle {
             vertical-alignment: center;
             horizontal-stretch: 1;
         }
+    }
+}
+
+// Label kategori kecil di sidebar Settings (11px/700, text-muted,
+// huruf kapital) — mengelompokkan 7 grup ke 4 kategori (abeng,
+// 28 Nov 07:05) supaya tidak dempet dan tetap rapi saat kustomisasi
+// makin banyak. Hilang total (tinggi 0) saat rail ciut atau saat
+// tidak ada item kategori yang lolos filter search.
+component SidebarCategoryLabel inherits Rectangle {
+    in property <string> label;
+    in property <bool> shown: true;
+    in property <bool> collapsed: false;
+    height: shown && !collapsed ? 16px : 0px;
+    visible: shown && !collapsed;
+    Text {
+        text: label;
+        font-size: Design.font-caption;
+        font-weight: 700;
+        color: Design.text-muted;
+        vertical-alignment: center;
+        x: 12px;
+        height: 100%;
+    }
+}
+
+// Garis pemisah tipis antar kategori di sidebar Settings — 1px
+// di tengah ruang 17px (jarak 8px atas + bawah). Hilang total
+// (tinggi 0) bila salah satu kategori di sisinya kosong (filter
+// search); di rail ciut garis tetap tampil sebagai pemisah ikon.
+component SidebarSeparator inherits Rectangle {
+    in property <bool> shown: true;
+    height: shown ? 17px : 0px;
+    visible: shown;
+    Rectangle {
+        y: 8px;
+        height: 1px;
+        background: Design.separator;
     }
 }
 
@@ -550,6 +590,18 @@ export component SettingsView inherits Rectangle {
     property <bool> show-paths: root.search-q == "" || "paths".replace-all(root.search-q.to-lowercase(), "") != "paths";
     property <bool> show-about: root.search-q == "" || "about".replace-all(root.search-q.to-lowercase(), "") != "about";
 
+    // Kategori sidebar (abeng, 28 Nov 07:05) — kategori tampil bila
+    // minimal satu itemnya lolos filter search; label + separator
+    // kategori ikut sembunyi bila kosong.
+    //   APLIKASI: General, Appearance
+    //   AKUN: Account, Extensions
+    //   SKRIP & FILE: Script Manager, Paths
+    //   INFO: About
+    property <bool> cat-app-shown: root.show-general || root.show-appearance;
+    property <bool> cat-akun-shown: root.show-account || root.show-extensions;
+    property <bool> cat-skrip-shown: root.show-scripts || root.show-paths;
+    property <bool> cat-info-shown: root.show-about;
+
     // --- Account Integration (Trello & Google Spreadsheet) ---
     in-out property <string> trello-api-key: "";
     in-out property <string> trello-token: "";
@@ -698,18 +750,20 @@ export component SettingsView inherits Rectangle {
             spacing: Design.space-md;
 
             // ----- Side panel grup -----
+            // Sidebar POLOS tanpa panel sendiri di semua mode chrome
+            // (abeng, 28 Nov 07:09, dikonfirmasi 07:11 "yq mungkin
+            // gitu"): HANYA konten yang dapat panel rounded, seperti
+            // referensi (settings-rounded-content-ref.jpg). Saat
+            // chrome "wrapped" sidebar duduk di area frame; saat
+            // bukan wrapped sidebar duduk di atas background window
+            // — keduanya transparan, tanpa kartu/border. (Build
+            // 4f0696f salah memberi sidebar kartu rounded sendiri
+            // sehingga tampil dua panel berdampingan.)
             Rectangle {
                 width: root.sidebar-w;
                 height: root.body-h;
-                // Saat chrome "wrapped", sidebar duduk di area frame
-                // (di luar panel rounded) — tanpa kartu/border supaya
-                // menyatu dengan frame, seperti referensi
-                // (settings-rounded-content-ref.jpg). Bukan panel
-                // kedua: konten Settings = panel window itu sendiri.
-                background: root.chrome == "wrapped" ? transparent : Design.card-bg;
-                border-color: Design.separator;
-                border-width: root.chrome == "wrapped" ? 0px : 1px;
-                border-radius: Design.radius-lg;
+                background: transparent;
+                border-width: 0px;
                 clip: true;
                 VerticalLayout {
                     padding: Design.space-md;
@@ -776,6 +830,12 @@ export component SettingsView inherits Rectangle {
                         }
                     }
                     Rectangle { height: root.sidebar-collapsed ? 0px : 8px; }
+                    // Kategori APLIKASI.
+                    SidebarCategoryLabel {
+                        label: "APLIKASI";
+                        shown: root.cat-app-shown;
+                        collapsed: root.sidebar-collapsed;
+                    }
                     GroupRow {
                         icon: "settings";
                         label: "General";
@@ -791,6 +851,13 @@ export component SettingsView inherits Rectangle {
                         shown: root.show-appearance;
                         collapsed: root.sidebar-collapsed;
                         clicked => { root.group = "Appearance"; }
+                    }
+                    // Kategori AKUN.
+                    SidebarSeparator { shown: root.cat-app-shown && root.cat-akun-shown; }
+                    SidebarCategoryLabel {
+                        label: "AKUN";
+                        shown: root.cat-akun-shown;
+                        collapsed: root.sidebar-collapsed;
                     }
                     GroupRow {
                         icon: "user";
@@ -808,6 +875,13 @@ export component SettingsView inherits Rectangle {
                         collapsed: root.sidebar-collapsed;
                         clicked => { root.group = "Extensions"; }
                     }
+                    // Kategori SKRIP & FILE.
+                    SidebarSeparator { shown: root.cat-akun-shown && root.cat-skrip-shown; }
+                    SidebarCategoryLabel {
+                        label: "SKRIP & FILE";
+                        shown: root.cat-skrip-shown;
+                        collapsed: root.sidebar-collapsed;
+                    }
                     GroupRow {
                         icon: "zap";
                         label: "Script Manager";
@@ -823,6 +897,13 @@ export component SettingsView inherits Rectangle {
                         shown: root.show-paths;
                         collapsed: root.sidebar-collapsed;
                         clicked => { root.group = "Paths"; }
+                    }
+                    // Kategori INFO.
+                    SidebarSeparator { shown: root.cat-skrip-shown && root.cat-info-shown; }
+                    SidebarCategoryLabel {
+                        label: "INFO";
+                        shown: root.cat-info-shown;
+                        collapsed: root.sidebar-collapsed;
                     }
                     GroupRow {
                         icon: "info";
