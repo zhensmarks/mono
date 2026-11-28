@@ -917,8 +917,8 @@ export component StatWidget inherits Rectangle {
     // "gradient" (tinta aksen memudar dari atas) | "glass"
     // (permukaan terangkat + border tinta aksen) | "outline"
     // (transparan, border aksen penuh, tanpa garis atas) | "gauge"
-    // (template arc gauge bercahaya + angka besar tengah + badge
-    // status, ref widget-template-ref.jpg). C# TIDAK punya
+    // (template arc gauge bercahaya + angka besar tengah,
+    // ref widget-template-ref.jpg). C# TIDAK punya
     // padanan (kartu C# selalu solid CardBackgroundBrush + bar
     // aksen) — ini tambahan port yang konsisten dengan design
     // system. Diatur AppWindow via properti `widget-style`.
@@ -926,6 +926,11 @@ export component StatWidget inherits Rectangle {
     // Rasio gauge 0..1 — diisi Rust (nilai widget / nilai terbesar
     // keempat widget, lihat update_gauge_ratios di main.rs).
     in property <float> gauge-ratio: 0;
+    // Perintah Path busur TERISI (busur elips parsial dari (6,40) ke
+    // titik ujung rasio — dihitung Rust, gauge_arc_commands di
+    // main.rs; .slint tidak bisa mengubah angka jadi string).
+    // Default = busur penuh (rasio 1).
+    in property <string> gauge-arc-cmds: "M 6 40 A 44 28 0 0 1 94 40";
     property <bool> is-gauge: root.bg-style == "gauge";
     // Geometri busur (viewbox 100×42): busur elips dari (6,40) ke
     // (94,40) lewat puncak (50,12). Sudut theta = 180° saat rasio
@@ -934,8 +939,6 @@ export component StatWidget inherits Rectangle {
     property <angle> gauge-theta: (1 - root.gauge-ratio-c) * 180deg;
     property <float> gauge-end-x: 50 + 44 * cos(root.gauge-theta);
     property <float> gauge-end-y: 40 - 28 * sin(root.gauge-theta);
-    // Status dari rasio: >=0.75 Tinggi, >=0.35 Sedang, else Rendah.
-    property <string> gauge-status: root.gauge-ratio-c >= 0.75 ? "Tinggi" : root.gauge-ratio-c >= 0.35 ? "Sedang" : "Rendah";
     // Angka gauge lebih kecil dari angka mode biasa (ruang dipakai
     // arc + caption + badge): 62% dari val-size.
     property <length> gauge-val-size: root.val-size * 0.62;
@@ -1160,7 +1163,7 @@ export component StatWidget inherits Rectangle {
 
         // --- Template "Gauge" (abeng 27 Nov 21:15, ref
         // widget-template-ref.jpg): arc bercahaya + angka besar di
-        // tengah + badge status. Arc = nilai widget relatif terhadap
+        // tengah. Arc = nilai widget relatif terhadap
         // nilai TERBESAR keempat widget (gauge-ratio 0..1, dihitung
         // Rust tiap 2 detik — update_gauge_ratios di main.rs).
         // Warna mengikuti aksen widget + token tema (card-bg /
@@ -1210,11 +1213,14 @@ export component StatWidget inherits Rectangle {
             }
 
             // Arc: viewbox 100×42, busur elips (6,40) → (94,40)
-            // lewat puncak (50,12). Bagian terisi = busur penuh
-            // yang di-clip selebar titik ujung (x monoton sepanjang
-            // busur, jadi potongan vertikal = busur sampai sudut
-            // rasio). Glow = 3 lapis stroke + wash radial.
-            gauge-arc-area := Rectangle {
+            // lewat puncak (50,12). Bagian terisi = busur elips
+            // PARSIAL yang titik akhirnya mengikuti rasio
+            // (commands dari Rust, gauge-arc-cmds) — BUKAN busur
+            // penuh yang di-clip: clip + Path di Slint merender
+            // busur terisi sebagai GARIS LURUS saat rasio < 1
+            // (bug 28 Nov 2026, terbukti di scratch crate).
+            // Glow = 3 lapis stroke + wash radial.
+            Rectangle {
                 vertical-stretch: 1;
                 Rectangle {
                     x: 0; y: 0; width: 100%; height: 100%;
@@ -1225,7 +1231,7 @@ export component StatWidget inherits Rectangle {
                     viewbox-x: 0; viewbox-y: 0; viewbox-width: 100; viewbox-height: 42;
                     // fit: fill — WAJIB: default Path = contain
                     // (letterbox, aspek dipertahankan) sehingga busur
-                    // menyusut ke tengah dan dot/clip (yang memakai
+                    // menyusut ke tengah dan dot (yang memakai
                     // koordinat elemen penuh) tidak sejajar.
                     fit: fill;
                     fill: transparent;
@@ -1234,42 +1240,38 @@ export component StatWidget inherits Rectangle {
                     stroke-line-cap: round;
                     commands: "M 6 40 A 44 28 0 0 1 94 40";
                 }
-                Rectangle {
-                    x: 0; y: 0;
-                    width: parent.width * root.gauge-end-x / 100;
-                    height: 100%;
-                    clip: true;
+                Path {
+                    width: 100%; height: 100%;
+                    viewbox-x: 0; viewbox-y: 0; viewbox-width: 100; viewbox-height: 42;
+                    fit: fill;
+                    fill: transparent;
+                    stroke: accent.with-alpha(0.12);
+                    stroke-width: 9px;
+                    stroke-line-cap: round;
                     visible: root.gauge-ratio-c > 0.001;
-                    Path {
-                        width: gauge-arc-area.width; height: gauge-arc-area.height;
-                        viewbox-x: 0; viewbox-y: 0; viewbox-width: 100; viewbox-height: 42;
-                        fit: fill;
-                        fill: transparent;
-                        stroke: accent.with-alpha(0.12);
-                        stroke-width: 9px;
-                        stroke-line-cap: round;
-                        commands: "M 6 40 A 44 28 0 0 1 94 40";
-                    }
-                    Path {
-                        width: gauge-arc-area.width; height: gauge-arc-area.height;
-                        viewbox-x: 0; viewbox-y: 0; viewbox-width: 100; viewbox-height: 42;
-                        fit: fill;
-                        fill: transparent;
-                        stroke: accent.with-alpha(0.22);
-                        stroke-width: 5px;
-                        stroke-line-cap: round;
-                        commands: "M 6 40 A 44 28 0 0 1 94 40";
-                    }
-                    Path {
-                        width: gauge-arc-area.width; height: gauge-arc-area.height;
-                        viewbox-x: 0; viewbox-y: 0; viewbox-width: 100; viewbox-height: 42;
-                        fit: fill;
-                        fill: transparent;
-                        stroke: accent;
-                        stroke-width: 2.5px;
-                        stroke-line-cap: round;
-                        commands: "M 6 40 A 44 28 0 0 1 94 40";
-                    }
+                    commands: root.gauge-arc-cmds;
+                }
+                Path {
+                    width: 100%; height: 100%;
+                    viewbox-x: 0; viewbox-y: 0; viewbox-width: 100; viewbox-height: 42;
+                    fit: fill;
+                    fill: transparent;
+                    stroke: accent.with-alpha(0.22);
+                    stroke-width: 5px;
+                    stroke-line-cap: round;
+                    visible: root.gauge-ratio-c > 0.001;
+                    commands: root.gauge-arc-cmds;
+                }
+                Path {
+                    width: 100%; height: 100%;
+                    viewbox-x: 0; viewbox-y: 0; viewbox-width: 100; viewbox-height: 42;
+                    fit: fill;
+                    fill: transparent;
+                    stroke: accent;
+                    stroke-width: 2.5px;
+                    stroke-line-cap: round;
+                    visible: root.gauge-ratio-c > 0.001;
+                    commands: root.gauge-arc-cmds;
                 }
                 Rectangle {
                     visible: root.gauge-ratio-c > 0.001;
@@ -1281,7 +1283,7 @@ export component StatWidget inherits Rectangle {
                 }
             }
 
-            // Bawah: caption + angka besar + badge status — tengah.
+            // Bawah: caption + angka besar — tengah.
             Text {
                 text: root.suffix == "POIN" ? "Total poin" : "Jumlah card";
                 font-size: 11px * scale;
@@ -1306,27 +1308,6 @@ export component StatWidget inherits Rectangle {
                     font-weight: 800;
                     color: accent;
                     letter-spacing: 1px * scale;
-                }
-            }
-            HorizontalLayout {
-                alignment: center;
-                Rectangle {
-                    height: 22px * scale;
-                    width: gauge-badge-text.width + 20px * scale;
-                    background: accent.with-alpha(0.14);
-                    border-color: accent.with-alpha(0.45);
-                    border-width: 1px;
-                    border-radius: 999px * scale;
-                    gauge-badge-text := Text {
-                        x: 10px * scale;
-                        y: 0;
-                        height: 100%;
-                        text: root.gauge-status;
-                        font-size: 11px * scale;
-                        font-weight: 700;
-                        color: accent;
-                        vertical-alignment: center;
-                    }
                 }
             }
         }
