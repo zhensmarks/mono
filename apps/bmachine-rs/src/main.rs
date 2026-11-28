@@ -6397,6 +6397,13 @@ fn main() -> Result<(), slint::PlatformError> {
             }
             ui.set_app_icon_pack(slint::SharedString::from(icon_pack.as_str()));
             theme::push_icons(&Design::get(&ui), &icon_pack);
+            // Gaya flyout profil (default "standard"; nilai tak
+            // dikenal → "standard" via valid_flyout_style).
+            let mut flyout_style = "standard".to_string();
+            if let Some(v) = db_guard.get("Settings.ProfileFlyoutStyle") {
+                flyout_style = theme::valid_flyout_style(&v);
+            }
+            ui.set_app_flyout_style(slint::SharedString::from(flyout_style.as_str()));
             // Sidebar Settings ciut/lebarkan (default terbuka;
             // nilai tak dikenal → terbuka).
             let mut sidebar_collapsed = false;
@@ -10641,6 +10648,26 @@ fn main() -> Result<(), slint::PlatformError> {
             sync_radial_theme(&ui, &radial_cell);
             sync_task_theme(&ui, &task_cell);
             sync_chrome_to_windows(&ui, &sheet_cell, &toolbox_cell, &card_cell, &comment_cell, &batch_cell, &doc_cell);
+        });
+    }
+
+    // Gaya flyout profil (Settings → Profile) — DB
+    // `Settings.ProfileFlyoutStyle`, berlaku live tanpa restart
+    // (flyout ada di main window, cukup ganti properti).
+    {
+        let ui_weak = ui.as_weak();
+        let db_clone = db.clone();
+        ui.on_flyout_style_settings_changed(move || {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let style = theme::valid_flyout_style(&ui.get_app_flyout_style());
+            ui.set_app_flyout_style(slint::SharedString::from(style.as_str()));
+            if let Some(ref db_mutex) = db_clone {
+                if let Ok(mut guard) = db_mutex.lock() {
+                    let _ = guard.set("Settings.ProfileFlyoutStyle", &style, "String");
+                }
+            }
         });
     }
 

@@ -1989,6 +1989,69 @@ Flyout TIDAK ikut `ui-scale` (hanya pill nav yang ikut).
 Klik item → toast (mockup) kecuali Settings (buka overlay)
 dan Terminal (buka Log Panel).
 
+#### 18.3.1 Gaya flyout profil (28 Nov 2026 — keputusan abeng 27 Nov 21:03: polish dulu, sync BMachine bertahap nanti)
+
+Pemilih gaya: Settings → Profile → "Gaya flyout profil"
+(ComboBox Standar / Blob / Nav melebar / Isi profil).
+Disimpan di DB `Settings.ProfileFlyoutStyle`
+(`"standard" | "blob" | "nav-expand" | "profile-fill"`,
+default `"standard"`; nilai tak dikenal/kosong → `standard`),
+berlaku langsung tanpa restart, bertahan setelah restart.
+Validasi di Rust `theme::valid_flyout_style` (case-insensitive,
+unquote). Isi/menu SAMA di keempat gaya — hanya wadahnya yang
+berbeda (komponen `FlyoutMenu` dipakai bersama: header nama +
+sapaan, grup APLIKASI [Terminal, Dynamic Bar, Settings],
+LAINNYA [Laporkan Bug, Log Out], footer versi + "Terbaru").
+
+- **(a) Standar** — kartu 256px seperti di atas. Penjajaran
+  terukur dari screenshot (28 Nov): Terminal ikon/label/toggle
+  semua di tengah 227.5 (Δ0px); Dynamic Bar ikon 267.5, toggle
+  267.5, label 269.0 (selisih 1.5px = artefak descender 'y');
+  Settings 307.0/309.0/308.0 ('g' descender); dot sapaan 165.5
+  vs teks 166.5 (Δ1px); footer 452.0/452.0; label grup Δ1px.
+- **(b) Blob** (ref `radial-refs/10-flyout.jpg`) — wadah
+  transparan 280px, 3 lingkaran `surface-elevated` bertumpuk
+  (utama 380px di (-50,60), satelit 150px di (110,-10),
+  satelit 160px di (-40, `parent.height-120`)); baris avatar
+  88px (huruf pertama nama user, di atas aksen) + nama/sapaan;
+  menu tetap baris lengkap (bukan 3 ikon seperti ref — ada 5
+  item + 2 saklar). Geometri diukur dari screenshot: lingkaran
+  utama 340px memotong baris footer ("Terbaru" di luar blob)
+  dan satelit x 150px memotong nama user — diperbesar/digeser
+  sampai nama + footer sepenuhnya di atas blob.
+- **(c) Nav melebar** — pill nav itu sendiri melebar ke bawah:
+  x = tepi kiri avatar, y = bawah avatar + 4px·scale, lebar =
+  44px·scale + nav-gap + `pill-content.preferred-width`
+  (±281px), bg/border token pill nav, overlay (tanpa reflow).
+  Radius dibatasi `min(nav-pill-radius, 22px·scale)` — radius
+  999px di panel ±350px jadi stadion yang memakan header
+  (nama di luar panel) dan footer ("Terbaru" di luar panel).
+  Tutup via klik-di-luar (TouchArea penangkap di bawah nav),
+  klik-kanan (di baris/padding/toggle), Esc. Klik-kanan di
+  baris HANYA menutup di gaya ini (`FlyoutMenu.close-on-right-click`;
+  standar/blob/profile-fill tidak terpengaruh — terverifikasi:
+  klik-kanan di standar tidak menutup). Pelajaran Slint:
+  TouchArea baris menelan klik-kanan, jadi `FlyoutItem` +
+  `Toggle` meneruskan `right-clicked` secara eksplisit.
+- **(d) Isi profil** (ref `pet-refs/profile-theme-ref.jpg`) —
+  kartu 256px; blok header diisi warna aksen profil
+  (`Settings.Accent` / preset aktif) dengan avatar bulat 48px
+  putih (huruf pertama warna aksen) + nama + sapaan putih
+  (sapaan alpha 0.85); `clip: true` agar blok aksen mengikuti
+  radius kartu. Blok aksen x 340-593, y 124-194 (71px);
+  avatar 48px, tengah 158.5 vs blok teks ±160.5 (Δ2px =
+  leading font, tampak seimbang).
+
+Terverifikasi GUI 28 Nov (Xvfb :98, APPDATA terisolasi):
+keempat gaya tampil; ganti gaya tersimpan + langsung berlaku;
+semua item berfungsi (Terminal → panel samping, Dynamic Bar →
+notch hilang/muncul, Settings → overlay, Laporkan Bug →
+dialog, Log Out → konfirmasi); nav-expand tertutup via
+klik-di-luar/klik-kanan/Esc; penjajaran sama di lebar 520px
+dan 960px; gaya bertahan setelah restart. Celah kecil yang
+sudah ada sebelumnya (bukan dari tugas ini): klik di celah
+4px antar-baris flyout tembus ke widget di belakangnya.
+
 ### 18.4 Panel Samping — grup TAMBAHAN MASTER + DOKUMEN (28 Nov 2026)
 
 - Tab MASTER: grup "TAMBAHAN MASTER" di atas placeholder "Belum ada template

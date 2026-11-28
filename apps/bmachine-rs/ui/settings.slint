@@ -766,6 +766,12 @@ export component SettingsView inherits Rectangle {
     // berlaku ke semua SvgIcon app-wide, live tanpa restart.
     in-out property <string> icon-pack: "lucide";
     callback icon-pack-settings-changed();
+    // Gaya flyout profil ("standard" | "blob" | "nav-expand" |
+    // "profile-fill") — terikat dua arah ke AppWindow; berlaku
+    // live tanpa restart; tersimpan di DB
+    // `Settings.ProfileFlyoutStyle`.
+    in-out property <string> flyout-style: "standard";
+    callback flyout-style-settings-changed();
     // Sidebar Settings ciut (rail ikon saja) — terikat dua arah ke
     // AppWindow; tersimpan di DB `Settings.SidebarCollapsed`
     // (Bool), default false (terbuka). Live tanpa restart.
@@ -3983,6 +3989,21 @@ export component SettingsView inherits Rectangle {
                                 placeholder: "Nama user";
                                 edited(text) => { root.user-name = text; }
                                 accepted(text) => { root.save-general-settings(); root.toast("Disimpan: Nama user"); }
+                            }
+                        }
+                        SettingRow {
+                            title: "Gaya flyout profil";
+                            desc: "Tampilan menu profil saat klik avatar — Standar (kartu biasa), Blob (gumpalan + avatar besar), Nav melebar (pill nav memanjang ke bawah), atau Isi profil (header warna aksen). Berlaku langsung.";
+                            stacked: root.stacked;
+                            ComboBox {
+                                width: root.stacked ? parent.width : 260px;
+                                model: ["Standar", "Blob", "Nav melebar", "Isi profil"];
+                                current-index: root.flyout-style == "blob" ? 1 : root.flyout-style == "nav-expand" ? 2 : root.flyout-style == "profile-fill" ? 3 : 0;
+                                selected(index) => {
+                                    root.flyout-style = index == 1 ? "blob" : index == 2 ? "nav-expand" : index == 3 ? "profile-fill" : "standard";
+                                    root.flyout-style-settings-changed();
+                                    root.toast("Gaya flyout profil: " + ["Standar", "Blob", "Nav melebar", "Isi profil"][index]);
+                                }
                             }
                         }
                         HorizontalLayout {

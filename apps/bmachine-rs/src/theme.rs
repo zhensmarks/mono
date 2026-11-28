@@ -92,6 +92,19 @@ pub fn valid_toggle_style(raw: &str) -> String {
     }
 }
 
+/// Validasi gaya flyout profil — nilai tak dikenal → "standard".
+/// "standard" = kartu 256px biasa (bawaan); "blob" = blob metaball +
+/// avatar besar; "nav-expand" = pill nav melebar ke bawah;
+/// "profile-fill" = header diisi warna aksen profil.
+pub fn valid_flyout_style(raw: &str) -> String {
+    match unquote(raw).to_lowercase().as_str() {
+        "blob" => "blob".to_string(),
+        "nav-expand" => "nav-expand".to_string(),
+        "profile-fill" => "profile-fill".to_string(),
+        _ => "standard".to_string(),
+    }
+}
+
 impl ThemePalette {
     fn new(
         id: &str,
@@ -1251,6 +1264,18 @@ mod tests {
         assert_eq!(valid_toggle_style("\"outline\""), "outline");
         assert_eq!(valid_toggle_style("aneh"), "classic");
         assert_eq!(valid_toggle_style(""), "classic");
+    }
+
+    #[test]
+    fn valid_flyout_style_accepts_known_and_defaults_unknown() {
+        assert_eq!(valid_flyout_style("standard"), "standard");
+        assert_eq!(valid_flyout_style("blob"), "blob");
+        assert_eq!(valid_flyout_style("nav-expand"), "nav-expand");
+        assert_eq!(valid_flyout_style("profile-fill"), "profile-fill");
+        assert_eq!(valid_flyout_style("BLOB"), "blob");
+        assert_eq!(valid_flyout_style("\"nav-expand\""), "nav-expand");
+        assert_eq!(valid_flyout_style("aneh"), "standard");
+        assert_eq!(valid_flyout_style(""), "standard");
     }
 
     #[test]

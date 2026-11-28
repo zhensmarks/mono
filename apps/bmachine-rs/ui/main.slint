@@ -209,6 +209,194 @@ component TrelloTab inherits Rectangle {
     }
 }
 
+// ============================================================
+// FlyoutMenu — isi flyout profil (dipakai keempat gaya flyout:
+// standard / blob / nav-expand / profile-fill — lihat §18.3).
+// Header (nama + sapaan) opsional: gaya blob & profile-fill
+// menggambar header sendiri di atas komponen ini. Semua aksi
+// diteruskan ke AppWindow via callback; `close()` = tutup flyout.
+// Isi/menu TIDAK berubah antar gaya — hanya wadahnya.
+// ============================================================
+component FlyoutMenu inherits Rectangle {
+    in property <bool> show-header: true;
+    in property <string> user-name;
+    in property <string> greeting-text;
+    in property <bool> has-pending-update;
+    in property <string> update-latest-version;
+    in property <string> app-version;
+    in-out property <bool> logpanel-visible;
+    in-out property <bool> dynamic-bar-visible;
+    in property <string> toggle-style;
+    // Hanya gaya nav-expand yang menutup lewat klik-kanan di baris:
+    // TouchArea baris menelan klik-kanan, jadi FlyoutItem
+    // meneruskannya lewat callback right-clicked dan properti ini
+    // yang memutuskan apakah itu menutup flyout.
+    in property <bool> close-on-right-click: false;
+    callback close();
+    callback open-settings();
+    callback open-report-bug();
+    callback open-update();
+    callback open-exit();
+    callback terminal-toggled(bool);
+    callback dynamic-bar-toggled(bool);
+
+    background: transparent;
+
+    VerticalLayout {
+        width: 100%;
+        padding: Design.space-md;
+        spacing: 4px;
+
+        // Header profil: nama + status/sapaan saja, TANPA avatar
+        // (abeng 27 Nov 19:37 — avatar redundan: pemanggil flyout
+        // ini sendiri sudah ikon user). Dot status berupa Rectangle
+        // 8px, bukan Text "●" — Text "●" lebarnya ~31px padahal
+        // glyph cuma 7px, sehingga jarak dot-teks jadi 30px padahal
+        // spacing yang ditulis 6px.
+        if root.show-header : VerticalLayout {
+            spacing: 4px;
+            VerticalLayout {
+                spacing: 2px;
+                Text {
+                    text: root.user-name;
+                    font-size: Design.font-h3;
+                    font-weight: 700;
+                    color: Design.text-primary;
+                }
+                HorizontalLayout {
+                    height: 18px;
+                    spacing: 6px;
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 8px;
+                            height: 8px;
+                            background: Design.status-success;
+                            border-radius: 4px;
+                        }
+                    }
+                    Text {
+                        text: root.greeting-text;
+                        font-size: Design.font-caption;
+                        color: Design.text-secondary;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+            HSeparator { }
+        }
+
+        // [C#] Item pembaruan — hanya bila ada update tersedia.
+        if root.has-pending-update : FlyoutItem {
+            icon-name: "refresh";
+            label: "Ada pembaruan " + root.update-latest-version;
+            label-color: Design.accent;
+            clicked => {
+                root.close();
+                root.open-update();
+            }
+            right-clicked() => { if (root.close-on-right-click) { root.close(); } }
+        }
+
+        Text {
+            text: "APLIKASI";
+            font-size: 10px;
+            font-weight: 700;
+            color: Design.text-muted;
+            height: 22px;
+            vertical-alignment: center;
+        }
+
+        // Saklar Terminal = buka/tutup Log Panel (EXPLORER_SPEC.md
+        // §3.1; Ctrl+L BUKAN toggle panel ini). Klik baris tidak
+        // mengubah apa pun — Toggle sendiri yang mengubah.
+        FlyoutItem {
+            icon-name: "terminal";
+            label: "Terminal";
+            show-toggle: true;
+            toggle-style: root.toggle-style;
+            toggle-checked: root.logpanel-visible;
+            toggled(checked) => { root.terminal-toggled(checked); }
+            clicked => { }
+            right-clicked() => { if (root.close-on-right-click) { root.close(); } }
+        }
+        // Saklar Dynamic Bar = tampil/sembunyi floating mini-bar
+        // (angka widget + notifikasi tanpa buka window utama).
+        // Klik kanan di bar juga menutupnya; toggle ini yang
+        // membukanya lagi.
+        FlyoutItem {
+            icon-name: "layers";
+            label: "Dynamic Bar";
+            show-toggle: true;
+            toggle-style: root.toggle-style;
+            toggle-checked: root.dynamic-bar-visible;
+            toggled(checked) => { root.dynamic-bar-toggled(checked); }
+            clicked => { }
+            right-clicked() => { if (root.close-on-right-click) { root.close(); } }
+        }
+        FlyoutItem {
+            icon-name: "settings";
+            label: "Settings";
+            hint: "Ctrl+,";
+            clicked => {
+                root.close();
+                root.open-settings();
+            }
+            right-clicked() => { if (root.close-on-right-click) { root.close(); } }
+        }
+
+        Text {
+            text: "LAINNYA";
+            font-size: 10px;
+            font-weight: 700;
+            color: Design.text-muted;
+            height: 22px;
+            vertical-alignment: center;
+        }
+
+        FlyoutItem {
+            icon-name: "info";
+            label: "Laporkan Bug";
+            clicked => {
+                root.close();
+                root.open-report-bug();
+            }
+            right-clicked() => { if (root.close-on-right-click) { root.close(); } }
+        }
+        FlyoutItem {
+            icon-name: "arrow-right";
+            label: "Log Out";
+            label-color: Design.status-danger;
+            clicked => {
+                root.close();
+                root.open-exit();
+            }
+            right-clicked() => { if (root.close-on-right-click) { root.close(); } }
+        }
+
+        HSeparator { }
+
+        // Footer: versi + status update.
+        HorizontalLayout {
+            height: 24px;
+            Text {
+                text: "BMACHINE · " + root.app-version;
+                font-size: 9px;
+                color: Design.text-muted;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+            Text {
+                text: root.has-pending-update ? "Pembaruan tersedia" : "Terbaru";
+                font-size: 9px;
+                font-weight: 700;
+                color: root.has-pending-update ? Design.accent : Design.status-success;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
+
 export component TaskManagerWindow inherits Window {
     title: "Tugas — BATCH";
     width: 340px;
@@ -469,6 +657,10 @@ export component AppWindow inherits Window {
     callback toggle-settings-changed();
     // Paket ikon (Settings > Appearance) — DB Settings.IconPack.
     callback icon-pack-settings-changed();
+    // Gaya flyout profil (Settings > Profile) — DB
+    // Settings.ProfileFlyoutStyle ("standard" | "blob" |
+    // "nav-expand" | "profile-fill").
+    callback flyout-style-settings-changed();
     // Sidebar Settings ciut/lebarkan — DB Settings.SidebarCollapsed.
     callback sidebar-collapsed-changed();
     callback pet-active-changed(int);
@@ -525,6 +717,10 @@ export component AppWindow inherits Window {
     // "feather" | "material") — DB Settings.IconPack, berlaku ke
     // semua SvgIcon app-wide, live tanpa restart.
     in-out property <string> app-icon-pack: "lucide";
+    // Gaya flyout profil ("standard" | "blob" | "nav-expand" |
+    // "profile-fill") — DB Settings.ProfileFlyoutStyle, berlaku
+    // live tanpa restart (lihat DESIGN_SYSTEM.md §18.3).
+    in-out property <string> app-flyout-style: "standard";
     // Sidebar Settings ciut (rail ikon) — DB
     // Settings.SidebarCollapsed (Bool), default false (terbuka).
     in-out property <bool> app-settings-sidebar-collapsed: false;
@@ -2510,6 +2706,8 @@ export component AppWindow inherits Window {
         toggle-settings-changed() => { root.toggle-settings-changed(); }
         icon-pack <=> root.app-icon-pack;
         icon-pack-settings-changed() => { root.icon-pack-settings-changed(); }
+        flyout-style <=> root.app-flyout-style;
+        flyout-style-settings-changed() => { root.flyout-style-settings-changed(); }
         sidebar-collapsed-changed() => { root.sidebar-collapsed-changed(); }
         pet-names <=> root.app-pet-names;
         pet-authors <=> root.app-pet-authors;
@@ -3099,173 +3297,306 @@ export component AppWindow inherits Window {
     // hardcode lagi). DULU: x di tengah layar + y 60px — SALAH (abeng,
     // 27 Nov 18:48: flyout muncul di tengah, harusnya di posisi
     // tombol yang memanggilnya).
-    Rectangle {
-        visible: root.show-flyout && root.overlay-view == "";
+    // ===== Flyout profil — 4 gaya (Settings → Profile, DB
+    // Settings.ProfileFlyoutStyle; lihat DESIGN_SYSTEM.md §18.3).
+    // Semua gaya menempel tombol pemanggil (C#: Button.Flyout di
+    // tombol akun — bawah tombol, rata kiri): x = tepi kiri tombol
+    // avatar dan y = bawah tombol avatar + jarak 8px*scale — dari
+    // absolute-position avatar (jangan hardcode — abeng 27 Nov
+    // 18:48: flyout muncul di tengah, harusnya di posisi tombol
+    // yang memanggilnya). Isi/menu SAMA di semua gaya (komponen
+    // FlyoutMenu di atas) — hanya wadahnya yang berubah.
+    // --- Penangkap klik-di-luar (hanya gaya nav-expand): menutup
+    // flyout saat klik kiri/kanan di area konten di bawah nav.
+    // Dinyatakan SEBELUM panel nav-expand supaya panel (z-order
+    // lebih tinggi) tetap menerima kliknya sendiri; nav bar berada
+    // di atas area ini sehingga avatar + tab HOME/BATCH tetap
+    // bisa diklik.
+    if root.show-flyout && root.overlay-view == "" && root.app-flyout-style == "nav-expand" : TouchArea {
+        x: 0;
+        y: avatar-btn.absolute-position.y + avatar-btn.height;
+        width: 100%;
+        height: root.height - (avatar-btn.absolute-position.y + avatar-btn.height);
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && (ev.button == PointerEventButton.left || ev.button == PointerEventButton.right)) {
+                root.show-flyout = false;
+            }
+        }
+    }
+
+    // --- (a) Standar: kartu 256px seperti semula (bawaan). ---
+    if root.show-flyout && root.overlay-view == "" && root.app-flyout-style == "standard" : Rectangle {
         x: avatar-btn.absolute-position.x;
         y: avatar-btn.absolute-position.y + avatar-btn.height + 8px * root.ui-scale;
         width: 256px;
-        height: flyout-layout.preferred-height;
+        height: flyout-std.preferred-height;
         background: Design.surface-elevated;
         border-color: Design.separator;
         border-width: 1px;
         border-radius: Design.radius-md;
 
-        // Redesain 27 Nov 19:04 (abeng: "1000x lebih bagus") — posisi
-        // TETAP menempel avatar (di bawah bar atas, x mengikuti avatar,
-        // jangan hardcode): header profil (nama + sapaan, TANPA avatar
-        // — 27 Nov 19:37), item dikelompokkan (APLIKASI / LAINNYA)
-        // dengan ikon + label + shortcut yang konsisten + hover jelas,
-        // footer rapi (versi + status update). Semua warna dari token
-        // Design → ikut tema aktif.
-        flyout-layout := VerticalLayout {
+        flyout-std := FlyoutMenu {
+            width: 100%;
+            show-header: true;
+            user-name: root.app-user-name;
+            greeting-text: root.greeting-text;
+            has-pending-update: root.has-pending-update;
+            update-latest-version: root.update-latest-version;
+            app-version: root.app-version;
+            logpanel-visible <=> root.show-logpanel;
+            dynamic-bar-visible <=> root.app-dynamic-bar-visible;
+            toggle-style: root.app-toggle-style;
+            close() => { root.show-flyout = false; }
+            open-settings() => { root.overlay-view = "SETTINGS"; root.list-category = ""; root.selected-card = ""; }
+            open-report-bug() => { root.open-report-bug(); }
+            open-update() => { root.dialog-open = "UPDATE"; }
+            open-exit() => { root.dialog-open = "EXIT"; }
+            terminal-toggled(checked) => { root.show-logpanel = checked; }
+            dynamic-bar-toggled(checked) => { if (checked) { root.open-dynamic-bar(); } else { root.hide-dynamic-bar(); } }
+        }
+    }
+
+    // --- (b) Blob: gumpalan metaball (ref radial-refs/10-flyout.jpg)
+    // — lingkaran-lingkaran besar bertumpuk dengan warna isi yang
+    // sama sehingga siluetnya menyatu seperti satu blob; avatar
+    // besar (huruf pertama nama user, di atas aksen) menumpang di
+    // kiri atas. Menu tetap baris lengkap (ikon + label + saklar),
+    // bukan ikon saja — isi flyout ada 5 item + 2 saklar, tidak
+    // muat jadi 3 ikon seperti ref.
+    if root.show-flyout && root.overlay-view == "" && root.app-flyout-style == "blob" : Rectangle {
+        x: avatar-btn.absolute-position.x;
+        y: avatar-btn.absolute-position.y + avatar-btn.height + 8px * root.ui-scale;
+        width: 280px;
+        height: blob-content.preferred-height;
+        background: transparent;
+
+        // Gumpalan: lingkaran utama + 2 satelit (isi sama, tanpa
+        // border — di mana bertumpuk, siluet menyatu). Geometri
+        // diukur dari screenshot: lingkaran utama 380px agar
+        // baris footer ("Terbaru") tidak terpotong tepinya, dan
+        // satelit atas digeser ke kiri (x 110px) agar nama user
+        // sepenuhnya di atas blob, bukan separuh di latar
+        // dashboard.
+        Rectangle {
+            x: -50px; y: 60px; width: 380px; height: 380px;
+            background: Design.surface-elevated;
+            border-radius: 190px;
+        }
+        Rectangle {
+            x: 110px; y: -10px; width: 150px; height: 150px;
+            background: Design.surface-elevated;
+            border-radius: 75px;
+        }
+        Rectangle {
+            x: -40px; y: parent.height - 120px; width: 160px; height: 160px;
+            background: Design.surface-elevated;
+            border-radius: 80px;
+        }
+
+        blob-content := VerticalLayout {
+            width: 100%;
             padding: Design.space-md;
             spacing: 4px;
 
-            // Header profil: nama + status/sapaan saja, TANPA avatar
-            // (abeng 27 Nov 19:37 — avatar redundan: pemanggil flyout
-            // ini sendiri sudah ikon user). Dot status berupa Rectangle
-            // 8px, bukan Text "●" — Text "●" lebarnya ~31px padahal
-            // glyph cuma 7px, sehingga jarak dot-teks jadi 30px padahal
-            // spacing yang ditulis 6px.
-            VerticalLayout {
-                spacing: 2px;
-                Text {
-                    text: root.app-user-name;
-                    font-size: Design.font-h3;
-                    font-weight: 700;
-                    color: Design.text-primary;
-                }
-                HorizontalLayout {
-                    height: 18px;
-                    spacing: 6px;
-                    VerticalLayout {
-                        alignment: center;
-                        Rectangle {
-                            width: 8px;
-                            height: 8px;
-                            background: Design.status-success;
-                            border-radius: 4px;
-                        }
-                    }
+            // Baris avatar besar + nama/sapaan.
+            HorizontalLayout {
+                height: 88px;
+                spacing: 12px;
+                Rectangle {
+                    width: 88px;
+                    height: 88px;
+                    background: Design.accent;
+                    border-radius: 44px;
                     Text {
-                        text: root.greeting-text;
-                        font-size: Design.font-caption;
-                        color: Design.text-secondary;
+                        text: root.app-user-initial;
+                        font-size: 34px;
+                        font-weight: 800;
+                        color: #ffffff;
+                        horizontal-alignment: center;
                         vertical-alignment: center;
                     }
                 }
-            }
-
-            HSeparator { }
-
-            // [C#] Item pembaruan — hanya bila ada update tersedia.
-            if root.has-pending-update : FlyoutItem {
-                icon-name: "refresh";
-                label: "Ada pembaruan " + root.update-latest-version;
-                label-color: Design.accent;
-                clicked => {
-                    root.show-flyout = false;
-                    root.dialog-open = "UPDATE";
-                }
-            }
-
-            Text {
-                text: "APLIKASI";
-                font-size: 10px;
-                font-weight: 700;
-                color: Design.text-muted;
-                height: 22px;
-                vertical-alignment: center;
-            }
-
-            // Saklar Terminal = buka/tutup Log Panel (EXPLORER_SPEC.md
-            // §3.1; Ctrl+L BUKAN toggle panel ini). Klik baris tidak
-            // mengubah apa pun — Toggle sendiri yang mengubah.
-            FlyoutItem {
-                icon-name: "terminal";
-                label: "Terminal";
-                show-toggle: true;
-                toggle-style: root.app-toggle-style;
-                toggle-checked: root.show-logpanel;
-                toggled(checked) => { root.show-logpanel = checked; }
-                clicked => { }
-            }
-            // Saklar Dynamic Bar = tampil/sembunyi floating mini-bar
-            // (angka widget + notifikasi tanpa buka window utama).
-            // Klik kanan di bar juga menutupnya; toggle ini yang
-            // membukanya lagi.
-            FlyoutItem {
-                icon-name: "layers";
-                label: "Dynamic Bar";
-                show-toggle: true;
-                toggle-style: root.app-toggle-style;
-                toggle-checked: root.app-dynamic-bar-visible;
-                toggled(checked) => {
-                    if (checked) {
-                        root.open-dynamic-bar();
-                    } else {
-                        root.hide-dynamic-bar();
+                VerticalLayout {
+                    spacing: 2px;
+                    alignment: center;
+                    Text {
+                        text: root.app-user-name;
+                        font-size: Design.font-h3;
+                        font-weight: 700;
+                        color: Design.text-primary;
+                    }
+                    HorizontalLayout {
+                        height: 18px;
+                        spacing: 6px;
+                        VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: 8px;
+                                height: 8px;
+                                background: Design.status-success;
+                                border-radius: 4px;
+                            }
+                        }
+                        Text {
+                            text: root.greeting-text;
+                            font-size: Design.font-caption;
+                            color: Design.text-secondary;
+                            vertical-alignment: center;
+                        }
                     }
                 }
-                clicked => { }
-            }
-            FlyoutItem {
-                icon-name: "settings";
-                label: "Settings";
-                hint: "Ctrl+,";
-                clicked => { root.show-flyout = false; root.overlay-view = "SETTINGS"; root.list-category = ""; root.selected-card = ""; }
             }
 
-            Text {
-                text: "LAINNYA";
-                font-size: 10px;
-                font-weight: 700;
-                color: Design.text-muted;
-                height: 22px;
-                vertical-alignment: center;
-            }
-
-            FlyoutItem {
-                icon-name: "info";
-                label: "Laporkan Bug";
-                clicked => {
-                    root.show-flyout = false;
-                    root.open-report-bug();
-                }
-            }
-            FlyoutItem {
-                icon-name: "arrow-right";
-                label: "Log Out";
-                label-color: Design.status-danger;
-                clicked => {
-                    root.show-flyout = false;
-                    root.dialog-open = "EXIT";
-                }
-            }
-
-            HSeparator { }
-
-            // Footer: versi + status update.
-            HorizontalLayout {
-                height: 24px;
-                Text {
-                    text: "BMACHINE · " + root.app-version;
-                    font-size: 9px;
-                    color: Design.text-muted;
-                    vertical-alignment: center;
-                    horizontal-stretch: 1;
-                }
-                Text {
-                    text: root.has-pending-update ? "Pembaruan tersedia" : "Terbaru";
-                    font-size: 9px;
-                    font-weight: 700;
-                    color: root.has-pending-update ? Design.accent : Design.status-success;
-                    vertical-alignment: center;
-                }
+            flyout-blob-menu := FlyoutMenu {
+                width: 100%;
+                show-header: false;
+                user-name: root.app-user-name;
+                greeting-text: root.greeting-text;
+                has-pending-update: root.has-pending-update;
+                update-latest-version: root.update-latest-version;
+                app-version: root.app-version;
+                logpanel-visible <=> root.show-logpanel;
+                dynamic-bar-visible <=> root.app-dynamic-bar-visible;
+                toggle-style: root.app-toggle-style;
+                close() => { root.show-flyout = false; }
+                open-settings() => { root.overlay-view = "SETTINGS"; root.list-category = ""; root.selected-card = ""; }
+                open-report-bug() => { root.open-report-bug(); }
+                open-update() => { root.dialog-open = "UPDATE"; }
+                open-exit() => { root.dialog-open = "EXIT"; }
+                terminal-toggled(checked) => { root.show-logpanel = checked; }
+                dynamic-bar-toggled(checked) => { if (checked) { root.open-dynamic-bar(); } else { root.hide-dynamic-bar(); } }
             }
         }
     }
 
+    // --- (c) Nav melebar ke bawah (ide abeng 20:52): pill nav ITU
+    // SENDIRI yang melebar — panel menempel di bawah nav (x = tepi
+    // kiri avatar, lebar = avatar + gap + kapsul), latar sama dengan
+    // kapsul nav, tanpa reflow (overlay). Tutup: klik-di-luar
+    // (penangkap di atas), klik-kanan (penangkap + panel), Esc.
+    if root.show-flyout && root.overlay-view == "" && root.app-flyout-style == "nav-expand" : Rectangle {
+        x: avatar-btn.absolute-position.x;
+        y: avatar-btn.absolute-position.y + avatar-btn.height + 4px * root.ui-scale;
+        width: 44px * root.ui-scale + Design.nav-gap * root.ui-scale + pill-content.preferred-width;
+        height: flyout-nav.preferred-height;
+        background: Design.nav-pill-bg;
+        border-color: Design.nav-pill-border;
+        border-width: 1px;
+        // Radius dibatasi setengah tinggi avatar (22px·scale):
+        // nav-pill-radius 999px hanya benar untuk pill setinggi
+        // 44px; di panel setinggi ±350px itu jadi stadion yang
+        // memakan header (nama di luar panel) dan footer
+        // ("Terbaru" di luar panel) — diukur dari screenshot.
+        border-radius: min(Design.nav-pill-radius, 22px * root.ui-scale);
+
+        // Klik-kanan di panel = tutup (klik kiri di luar ditangkap
+        // penangkap di atas).
+        nav-close-touch := TouchArea {
+            width: 100%;
+            height: 100%;
+            pointer-event(ev) => {
+                if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                    root.show-flyout = false;
+                }
+            }
+        }
+
+        flyout-nav := FlyoutMenu {
+            width: 100%;
+            show-header: true;
+            close-on-right-click: true;
+            user-name: root.app-user-name;
+            greeting-text: root.greeting-text;
+            has-pending-update: root.has-pending-update;
+            update-latest-version: root.update-latest-version;
+            app-version: root.app-version;
+            logpanel-visible <=> root.show-logpanel;
+            dynamic-bar-visible <=> root.app-dynamic-bar-visible;
+            toggle-style: root.app-toggle-style;
+            close() => { root.show-flyout = false; }
+            open-settings() => { root.overlay-view = "SETTINGS"; root.list-category = ""; root.selected-card = ""; }
+            open-report-bug() => { root.open-report-bug(); }
+            open-update() => { root.dialog-open = "UPDATE"; }
+            open-exit() => { root.dialog-open = "EXIT"; }
+            terminal-toggled(checked) => { root.show-logpanel = checked; }
+            dynamic-bar-toggled(checked) => { if (checked) { root.open-dynamic-bar(); } else { root.hide-dynamic-bar(); } }
+        }
+    }
+
+    // --- (d) Isi profil (ref pet-refs/profile-theme-ref.jpg):
+    // kartu sama seperti standar, tapi blok header diisi warna
+    // aksen profil (Settings.Accent / preset aktif) dengan avatar
+    // bulat besar + nama + sapaan putih di atasnya.
+    if root.show-flyout && root.overlay-view == "" && root.app-flyout-style == "profile-fill" : Rectangle {
+        x: avatar-btn.absolute-position.x;
+        y: avatar-btn.absolute-position.y + avatar-btn.height + 8px * root.ui-scale;
+        width: 256px;
+        height: flyout-fill.preferred-height;
+        background: Design.surface-elevated;
+        border-color: Design.separator;
+        border-width: 1px;
+        border-radius: Design.radius-md;
+        clip: true;
+
+        flyout-fill := VerticalLayout {
+            // Blok header aksen.
+            Rectangle {
+                background: Design.accent;
+                HorizontalLayout {
+                    padding: Design.space-md;
+                    spacing: 12px;
+                    Rectangle {
+                        width: 48px;
+                        height: 48px;
+                        background: #ffffff;
+                        border-radius: 24px;
+                        Text {
+                            text: root.app-user-initial;
+                            font-size: 20px;
+                            font-weight: 800;
+                            color: Design.accent;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                    VerticalLayout {
+                        spacing: 2px;
+                        alignment: center;
+                        Text {
+                            text: root.app-user-name;
+                            font-size: Design.font-h3;
+                            font-weight: 700;
+                            color: #ffffff;
+                        }
+                        Text {
+                            text: root.greeting-text;
+                            font-size: Design.font-caption;
+                            color: #ffffff.with-alpha(0.85);
+                        }
+                    }
+                }
+            }
+            FlyoutMenu {
+                width: 100%;
+                show-header: false;
+                user-name: root.app-user-name;
+                greeting-text: root.greeting-text;
+                has-pending-update: root.has-pending-update;
+                update-latest-version: root.update-latest-version;
+                app-version: root.app-version;
+                logpanel-visible <=> root.show-logpanel;
+                dynamic-bar-visible <=> root.app-dynamic-bar-visible;
+                toggle-style: root.app-toggle-style;
+                close() => { root.show-flyout = false; }
+                open-settings() => { root.overlay-view = "SETTINGS"; root.list-category = ""; root.selected-card = ""; }
+                open-report-bug() => { root.open-report-bug(); }
+                open-update() => { root.dialog-open = "UPDATE"; }
+                open-exit() => { root.dialog-open = "EXIT"; }
+                terminal-toggled(checked) => { root.show-logpanel = checked; }
+                dynamic-bar-toggled(checked) => { if (checked) { root.open-dynamic-bar(); } else { root.hide-dynamic-bar(); } }
+            }
+        }
+    }
     // ===== Toast (umpan balik aksi, hilang sendiri 2,5 detik) =====
     Rectangle {
         visible: root.toast != "";

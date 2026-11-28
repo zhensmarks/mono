@@ -666,6 +666,10 @@ export component Toggle inherits Rectangle {
     // AppWindow (app-toggle-style); nilai tak dikenal → "classic".
     in property <string> toggle-style: "classic";
     callback toggled(bool);
+    // Klik-kanan diteruskan ke pemakai (mis. FlyoutItem): TouchArea
+    // menelan semua press di areanya, jadi tanpa ini klik-kanan di
+    // atas toggle tidak pernah sampai ke penangkap di bawahnya.
+    callback right-clicked();
 
     width: root.toggle-style == "pill" ? 64px : 44px;
     height: 24px;
@@ -682,6 +686,11 @@ export component Toggle inherits Rectangle {
         clicked => {
             root.checked = !root.checked;
             root.toggled(root.checked);
+        }
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                root.right-clicked();
+            }
         }
     }
 
@@ -767,6 +776,8 @@ export component FlyoutItem inherits Rectangle {
     in property <string> toggle-style: "classic";
     callback clicked();
     callback toggled(bool);
+    // Klik-kanan diteruskan ke pemakai — lihat Toggle di atas.
+    callback right-clicked();
 
     height: 36px;
     background: item-touch.has-hover ? Design.bg-hover : transparent;
@@ -775,6 +786,11 @@ export component FlyoutItem inherits Rectangle {
     item-touch := TouchArea {
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                root.right-clicked();
+            }
+        }
     }
 
     HorizontalLayout {
@@ -810,6 +826,7 @@ export component FlyoutItem inherits Rectangle {
                 toggle-style: root.toggle-style;
                 checked: root.toggle-checked;
                 toggled(checked) => { root.toggled(checked); }
+                right-clicked() => { root.right-clicked(); }
             }
         }
     }
