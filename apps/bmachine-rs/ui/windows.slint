@@ -1047,6 +1047,27 @@ export component CardListWindow inherits Window {
                             }
                         }
 
+                        // State kosong (trello2, item 6): pesan di tengah
+                        // area daftar bila list ini tidak punya kartu.
+                        if root.card-titles.length == 0 : VerticalLayout {
+                            alignment: center;
+                            spacing: 6px;
+                            Text {
+                                text: "Belum ada kartu di list ini";
+                                font-size: 13px;
+                                font-weight: 600;
+                                color: Design.text-secondary;
+                                horizontal-alignment: center;
+                            }
+                            Text {
+                                text: "Tutup window ini lalu tekan ↻ di dashboard untuk memuat ulang";
+                                font-size: 12px;
+                                color: Design.text-muted;
+                                horizontal-alignment: center;
+                                wrap: word-wrap;
+                            }
+                        }
+
                         Rectangle { vertical-stretch: 1; }
                     }
                 }

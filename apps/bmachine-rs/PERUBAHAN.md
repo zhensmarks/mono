@@ -1,3 +1,14 @@
+## 2026-11-28 — Dex — Trello polish ronde 2 (item 6): state kosong + umpan balik refresh
+
+- Diubah:
+  - **`ui/main.slint` — empty state daftar embedded:** bila `list-titles` kosong (dan tidak ada kartu manual di EDITING), area daftar menampilkan "Belum ada kartu di list ini" + "Tekan ↻ untuk memuat ulang" di tengah (teks "Memuat kartu…" saat `trello-refreshing`). Text tidak men-grab pointer, jadi klik-kanan di area itu tetap sampai ke `list-back-touch` (kembali ke dashboard).
+  - **`ui/windows.slint` — empty state CardListWindow:** pesan yang sama di tengah area daftar + petunjuk "Tutup window ini lalu tekan ↻ di dashboard untuk memuat ulang" (window ini tidak punya tombol refresh sendiri).
+  - **`src/main.rs` — `spawn_trello_sync` menangkap error fetch:** tiap situs fetch (EDITING/REVISION/LATE) kini menyimpan error pertama ke `first_err`; refresh manual yang gagal men-toast "Gagal memuat Trello — EDITING: <err>" (bukan diam seolah sukses).
+  - **`ui/main.slint` — `refresh-timer` 600ms bukan lagi pen-toast sukses:** timer kini hanya watchdog yang menutup flag `trello-refreshing` bila thread sync tidak merespons; toast sukses/gagal sepenuhnya milik thread Rust. Komentar usang soal timer di `src/main.rs` diperbarui.
+- Alasan: list kosong (0 kartu) dulu menampilkan area putih besar yang membingungkan; refresh yang gagal tidak memberi tahu apa-apa (error fetch ditelan `if let Ok(cards)`), dan timer 600ms men-toast "sukses" buta walau fetch gagal/belum selesai.
+- Terverifikasi: `cargo build --offline` exit 0; `cargo test --offline` **192 passed**, 0 failed, 1 ignored. GUI Xvfb :98, APPDATA terisolasi `appdata-trello2` + mock Trello lokal port 18082 (LATE kosong): tab SUSULAN → empty state tampil di tengah daftar (`trello2-20`); mock dimatikan lalu ↻ → toast "Gagal memuat Trello — EDITING: HTTP request gagal: error sending …" (`trello2-21`); mock dinyalakan lagi lalu ↻ → SATU toast "Trello di-refresh — 4 card dimuat" (`trello2-22`, timer tidak lagi double-toast); CardListWindow LATE → empty state + petunjuk (`trello2-25`); CardListWindow EDITING (3 kartu) tetap menampilkan baris, tanpa empty state (`trello2-27`). Catatan: glyph "×" yang tampak di `trello2-25`/`trello2-27` adalah kursor default X11 (bentuk X) di posisi klik terakhir — bukan elemen UI (posisinya persis di koordinat klik).
+- Masih terbuka: belum diuji di PC Windows asli + data Trello asli; pesan error mentah reqwest cukup teknis ("error sending …") — bila abeng merasa terlalu teknis, bisa dipersingkat di ronde berikut.
+
 ## 2026-11-28 — Dex — Trello polish ronde 2 (item 5): label kartu dari API di-strip Markdown (chip tidak mentah)
 
 - Diubah:

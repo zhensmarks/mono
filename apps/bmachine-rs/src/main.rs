@@ -6978,14 +6978,23 @@ fn main() -> Result<(), slint::PlatformError> {
     ) {
         std::thread::spawn(move || {
             let mut synced = 0usize;
+            // Error fetch pertama (trello2, item 6): refresh manual
+            // harus memberi tahu bila gagal, bukan toast "sukses".
+            let mut first_err: Option<String> = None;
             if !k.is_empty() && !t.is_empty() {
                 // Skip bila list ini masih di-fetch thread lain
                 // (auto-refresh / refresh manual — `if (!IsRefreshing)`
                 // ala C#). `try_begin` juga me-reset `last_sync` list
                 // ini, jadi refresh manual ikut me-reset timer.
                 if !el.is_empty() && trello_state.try_begin(0) {
-                    if let Ok(cards) =
-                        trello_api::TrelloApiService::fetch_cards(&base_url, &k, &t, &el)
+                    let cards_res =
+                        trello_api::TrelloApiService::fetch_cards(&base_url, &k, &t, &el);
+                    if let Err(e) = &cards_res {
+                        if first_err.is_none() {
+                            first_err = Some(format!("EDITING: {}", e));
+                        }
+                    }
+                    if let Ok(cards) = cards_res
                     {
                         synced += cards.len();
                         // Dynamic Bar: kartu baru di list ini.
@@ -7121,8 +7130,14 @@ fn main() -> Result<(), slint::PlatformError> {
                     trello_state.finish(0);
                 }
                 if !rl.is_empty() && trello_state.try_begin(1) {
-                    if let Ok(cards) =
-                        trello_api::TrelloApiService::fetch_cards(&base_url, &k, &t, &rl)
+                    let cards_res =
+                        trello_api::TrelloApiService::fetch_cards(&base_url, &k, &t, &rl);
+                    if let Err(e) = &cards_res {
+                        if first_err.is_none() {
+                            first_err = Some(format!("REVISION: {}", e));
+                        }
+                    }
+                    if let Ok(cards) = cards_res
                     {
                         synced += cards.len();
                         // Dynamic Bar: kartu baru di list ini.
@@ -7241,8 +7256,14 @@ fn main() -> Result<(), slint::PlatformError> {
                     trello_state.finish(1);
                 }
                 if !ll.is_empty() && trello_state.try_begin(2) {
-                    if let Ok(cards) =
-                        trello_api::TrelloApiService::fetch_cards(&base_url, &k, &t, &ll)
+                    let cards_res =
+                        trello_api::TrelloApiService::fetch_cards(&base_url, &k, &t, &ll);
+                    if let Err(e) = &cards_res {
+                        if first_err.is_none() {
+                            first_err = Some(format!("LATE: {}", e));
+                        }
+                    }
+                    if let Ok(cards) = cards_res
                     {
                         synced += cards.len();
                         // Dynamic Bar: kartu baru di list ini.
@@ -7363,12 +7384,17 @@ fn main() -> Result<(), slint::PlatformError> {
             }
             // Sync otomatis / startup (show_toast=false) diam-diam:
             // jangan sentuh `trello-refreshing` (timer .slint 600ms
-            // akan toast tiap tick bila flag ini disentuh) dan jangan
-            // toast. Hanya refresh manual yang menutup flag + toast.
+            // adalah watchdog flag ini) dan jangan toast. Hanya
+            // refresh manual yang menutup flag + toast.
             if show_toast {
                 let _ = ui_weak.upgrade_in_event_loop(move |u| {
                     u.set_trello_refreshing(false);
-                    if synced > 0 {
+                    if let Some(err) = first_err {
+                        u.set_toast(slint::SharedString::from(format!(
+                            "Gagal memuat Trello — {}",
+                            err
+                        )));
+                    } else if synced > 0 {
                         u.set_toast(slint::SharedString::from(format!(
                             "Trello di-refresh — {} card dimuat",
                             synced
@@ -14201,8 +14227,8 @@ fn main() -> Result<(), slint::PlatformError> {
     // `if (!IsRefreshing)`). BUKAN realtime (webhook/push sengaja
     // tidak dipakai — bikin PC lag, keputusan abeng 28 Nov 00:30).
     // Tick diam-diam: tidak toast, tidak menyentuh
-    // `trello-refreshing` (timer .slint 600ms akan toast bila flag
-    // itu disentuh). Sync hanya mengganti array model — sama seperti
+    // `trello-refreshing` (timer .slint 600ms adalah watchdog
+    // flag itu). Sync hanya mengganti array model — sama seperti
     // refresh manual — jadi detail kartu yang terbuka + `selected-card`
     // tidak disentuh. List yang jatuh tempo saja yang di-sync
     // (yang lain dilewat dengan string kosong).

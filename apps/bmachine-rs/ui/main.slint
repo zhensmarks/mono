@@ -1393,13 +1393,16 @@ export component AppWindow inherits Window {
     }
 
     // Refresh Trello (C# RefreshActiveListCommand): tombol ↻ di bar
-    // status. Mockup: jeda 600ms lalu toast + hitung ulang.
+    // status. Timer ini hanya watchdog: bila thread sync tidak
+    // merespons, flag ditutup tanpa toast sukses palsu — toast
+    // (sukses/gagal) milik thread Rust `spawn_trello_sync`
+    // (trello2, item 6 — dulu timer ini men-toast "sukses" buta
+    // 600ms walau fetch gagal / belum selesai).
     refresh-timer := Timer {
         interval: 600ms;
         running: root.trello-refreshing;
         triggered => {
             root.trello-refreshing = false;
-            root.toast = "Trello di-refresh — " + root.trello-count + " card dimuat";
         }
     }
 
@@ -2268,6 +2271,30 @@ export component AppWindow inherits Window {
                                 }
                             }
                     }
+                    }
+                    // State kosong (trello2, item 6): bila tidak ada kartu
+                    // di list ini (dan tidak ada kartu manual di EDITING),
+                    // tampilkan pesan di tengah area daftar — bukan area
+                    // putih besar yang membingungkan. Text tidak men-grab
+                    // pointer, jadi klik kanan di area ini tetap sampai
+                    // ke list-back-touch (kembali ke dashboard).
+                    if root.list-titles.length == 0 && (root.list-category != "EDITING" || root.manual-titles.length == 0) : VerticalLayout {
+                        x: 0; y: 0; width: 100%; height: 100%;
+                        alignment: center;
+                        spacing: 6px;
+                        Text {
+                            text: root.trello-refreshing ? "Memuat kartu…" : "Belum ada kartu di list ini";
+                            font-size: 13px * root.ui-scale;
+                            font-weight: 600;
+                            color: Design.text-secondary;
+                            horizontal-alignment: center;
+                        }
+                        if !root.trello-refreshing : Text {
+                            text: "Tekan ↻ untuk memuat ulang";
+                            font-size: 12px * root.ui-scale;
+                            color: Design.text-muted;
+                            horizontal-alignment: center;
+                        }
                     }
                 }
             }
