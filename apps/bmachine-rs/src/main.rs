@@ -13854,13 +13854,21 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let hook_shortcut = Arc::clone(&shortcut);
     let hook_recording = Arc::clone(&recording);
+    // Latch trigger (28 Nov 2026, ronde perbaikan Windows): `active`
+    // DULU `Cell<bool>` lokal thread hook — hanya di-reset oleh
+    // Key/ButtonRelease yang cocok. Bila release terlewat, semua
+    // trigger berikutnya macet sampai restart. Sekarang
+    // `Arc<AtomicBool>` bersama: thread hook men-set, timer pump
+    // 16ms me-reset bila radial sudah tertutup (lihat bawah).
+    let hook_active = Arc::new(AtomicBool::new(false));
+    let hook_active_timer = Arc::clone(&hook_active);
     // Debug hook (sementara, 27 Nov 2026): BMACHINE_DEBUG_HOOK=1
     // mencetak tiap event rdev + hasil pencocokan trigger ke stderr.
     // Dipakai memverifikasi hook global di Linux/Xvfb.
     let hook_debug = std::env::var("BMACHINE_DEBUG_HOOK").is_ok();
     std::thread::spawn(move || {
         let modifiers = Cell::new(0u8);
-        let active = Cell::new(false);
+        let active = Arc::clone(&hook_active);
         let _ = rdev::listen(move |event: Event| {
             let mut mods = modifiers.get();
             if hook_debug {
@@ -13886,15 +13894,15 @@ fn main() -> Result<(), slint::PlatformError> {
                         return;
                     }
                     let cfg = *hook_shortcut.lock().unwrap();
-                    if !active.get() && shortcut_matches(&cfg, Some(key), None, mods) {
-                        active.set(true);
+                    if !active.load(Ordering::SeqCst) && shortcut_matches(&cfg, Some(key), None, mods) {
+                        active.store(true, Ordering::SeqCst);
                         let _ = hook_tx.send(RadialHookEvent::TriggerDown);
                     }
                 }
                 EventType::KeyRelease(key) => {
                     let cfg = *hook_shortcut.lock().unwrap();
-                    if active.get() && cfg.Type == 1 && vk_to_rdev_key(cfg.Key) == Some(key) {
-                        active.set(false);
+                    if active.load(Ordering::SeqCst) && cfg.Type == 1 && vk_to_rdev_key(cfg.Key) == Some(key) {
+                        active.store(false, Ordering::SeqCst);
                         let _ = hook_tx.send(RadialHookEvent::TriggerUp);
                     }
                     mods &= !modifier_mask_for_key(key);
@@ -13920,18 +13928,18 @@ fn main() -> Result<(), slint::PlatformError> {
                         return;
                     }
                     let cfg = *hook_shortcut.lock().unwrap();
-                    if !active.get() && shortcut_matches(&cfg, None, Some(button), mods) {
-                        active.set(true);
+                    if !active.load(Ordering::SeqCst) && shortcut_matches(&cfg, None, Some(button), mods) {
+                        active.store(true, Ordering::SeqCst);
                         let _ = hook_tx.send(RadialHookEvent::TriggerDown);
                     }
                 }
                 EventType::ButtonRelease(button) => {
                     let cfg = *hook_shortcut.lock().unwrap();
-                    if active.get()
+                    if active.load(Ordering::SeqCst)
                         && cfg.Type == 0
                         && mouse_button_index_to_rdev(cfg.MouseButton) == Some(button)
                     {
-                        active.set(false);
+                        active.store(false, Ordering::SeqCst);
                         let _ = hook_tx.send(RadialHookEvent::TriggerUp);
                     }
                 }
@@ -13988,6 +13996,18 @@ fn main() -> Result<(), slint::PlatformError> {
                             ));
                         }
                     }
+                }
+            }
+            // Reset latch (28 Nov 2026, ronde perbaikan Windows):
+            // radial sudah tertutup lewat jalur apa pun (lepas trigger,
+            // klik-kanan, Esc, tombol ×, buka toolbox) tapi latch hook
+            // masih true = Key/ButtonRelease terlewat. Reset di sini
+            // supaya trigger berikutnya tidak macet sampai restart.
+            // Dicek SETELAH kuras channel supaya TriggerDown yang baru
+            // masuk tidak ikut ter-reset.
+            if let Some(ui) = ui_weak.upgrade() {
+                if !ui.get_radial_open() && hook_active_timer.load(Ordering::SeqCst) {
+                    hook_active_timer.store(false, Ordering::SeqCst);
                 }
             }
         },

@@ -630,6 +630,16 @@ di aplikasi C#, dan gesture ini HARUS ada di port:
    modifier, dengan mode rekam; roda mouse juga di-hook.
    Ini spesifikasi pemicu Radial Menu — JANGAN bangun hook
    system-wide sekarang (Fase 6 / butuh izin).
+   Latch trigger (`active`, `src/main.rs`): `Arc<AtomicBool>`
+   bersama thread hook + timer pump 16ms; timer me-reset latch
+   bila `radial-open == false` (tanda Key/ButtonRelease terlewat)
+   supaya trigger berikutnya tidak macet sampai restart (28 Nov
+   2026, ronde perbaikan Windows). Jalur tutup radial yang nyata:
+   lepas trigger, klik-kanan (bila event sampai ke window —
+   tidak saat tombol tengah masih ditahan, OS implicit
+   capture/grab meneruskan press ke main window), eksekusi
+   segmen, buka toolbox. Esc dan tombol × TIDAK menutup radial
+   (tidak ada handler / window no-frame).
 6. **Explorer overlay** — klik kanan di latar overlay =
    tutup overlay (`explorer-back-touch`, TouchArea anak
    pertama root). BATCH dikecualikan (klik kanan di BATCH
