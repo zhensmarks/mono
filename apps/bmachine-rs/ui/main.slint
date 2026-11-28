@@ -2052,6 +2052,16 @@ export component AppWindow inherits Window {
                                             height: 16px * root.ui-scale;
                                             mouse-cursor: pointer;
                                             clicked => { check-wrap.checked = !check-wrap.checked; }
+                                            // Klik kanan di checkbox = kembali ke dashboard
+                                            // (check-touch men-grab press duluan — tanpa handler
+                                            // ini klik kanan di kotak 16px ini ditelan).
+                                            pointer-event(ev) => {
+                                                if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                                                    root.list-category = "";
+                                                    root.selected-card = "";
+                                                    root.toast = "Kembali ke dashboard (klik kanan)";
+                                                }
+                                            }
                                         }
                                     }
 
@@ -2185,6 +2195,15 @@ export component AppWindow inherits Window {
                                             height: 16px * root.ui-scale;
                                             mouse-cursor: pointer;
                                             clicked => { m-check-wrap.checked = !m-check-wrap.checked; }
+                                            // Klik kanan di checkbox = kembali ke dashboard
+                                            // (alasan sama seperti check-touch di atas).
+                                            pointer-event(ev) => {
+                                                if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                                                    root.list-category = "";
+                                                    root.selected-card = "";
+                                                    root.toast = "Kembali ke dashboard (klik kanan)";
+                                                }
+                                            }
                                         }
                                     }
 

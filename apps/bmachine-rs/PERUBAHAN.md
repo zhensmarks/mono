@@ -1,3 +1,12 @@
+## 2026-11-28 — Dex — Trello polish ronde 2 (item 2): klik-kanan di checkbox baris embedded = kembali ke dashboard
+
+- Diubah:
+  - **`ui/main.slint` — `check-touch` + `m-check-touch`:** handler `pointer-event` klik-kanan baru (kembali ke dashboard + toast "Kembali ke dashboard (klik kanan)"), sama seperti `list-touch`/`m-list-touch` barisnya.
+  - **`DESIGN_SYSTEM.md` §15.1:** catatan checkbox 16px (TouchArea-nya men-grab press duluan).
+- Alasan: temuan ronde perbaikan Windows — klik-kanan di BARIS daftar embedded sudah kembali (handler `list-touch` ada sejak port awal, terverifikasi trello2-02), tapi klik-kanan tepat di checkbox 16px ditelan `check-touch` tanpa handler (terbukti trello2-03: tetap di daftar). Akar yang sama seperti CardListWindow (7a82ab9) — TouchArea men-grab SEMUA Pressed.
+- Terverifikasi: `cargo build --offline` exit 0; `cargo test --offline` **192 passed**, 0 failed, 1 ignored. GUI Xvfb :98, APPDATA terisolasi `appdata-trello2` + mock Trello lokal port 18082 (3 kartu EDITING, 1 REVISION, LATE kosong): daftar terbuka → klik-kanan checkbox baris 1 (62,297) → kembali ke dashboard (`trello2-11` → `trello2-12`); klik-kanan area nama baris juga kembali (`trello2-02`, toast terlihat). Tidak ada double-fire (satu press hanya sampai ke satu TouchArea).
+- Masih terbuka: belum diuji di PC Windows asli + data Trello asli.
+
 ## 2026-11-28 — Dex — Ronde perbaikan Windows (5/5): latch trigger radial di-reset timer (anti-macet)
 
 - Diubah:

@@ -1001,7 +1001,9 @@ diceklis (DONE) atau belum (TODO) — JANGAN dihilangkan.
 Sub + due TIDAK tampil di baris (tetap ada di detail). Klik
 checkbox = toggle seleksi (biru + ✓, tidak membuka detail);
 klik baris → buka detail + toast. Klik kanan di daftar (area
-kosong maupun baris) = kembali ke dashboard (§10.11).
+kosong maupun baris, termasuk kotak checkbox 16px — TouchArea
+checkbox men-grab press duluan, jadi perlu handler sendiri)
+= kembali ke dashboard (§10.11).
 Berlaku sama di daftar embedded dan window Trello (§15.3).
 Bar status (C# UnifiedTrelloView Row 0/Row 3, ditambahkan 26 Nov
 19:25 — abeng menandai yang hilang di screenshot): di ATAS tab,
