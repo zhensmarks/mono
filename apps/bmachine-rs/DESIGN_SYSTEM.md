@@ -1172,10 +1172,11 @@ AppWindow embedded + BatchWindow terlepas):
    sekolah-diutamakan: nama sekolah besar baris 1, bulan +
    marketing kecil redup baris 2 (contoh: `12_PAUD TERPADU NUR
    INDAH` / `02 Agustus 2026 · CIREBON (RANGGA)`); tanpa nomor
-   urut. Header padat: kotak cari paling menonjol
-   (filter-as-you-type; daftar bisa 3203 sekolah) + dropdown
-   bulan kecil + tombol Refresh ↻ + aksi (Pilih Folder /
-   Kelola… / ☰ Tugas / ⧉ Lepas). Baris path + deskripsi panjang
+   urut. Baris 2 juga menampilkan angka isi file ("· N jpg",
+   §16.2) bila cache sudah punya hitungan. Header padat: kotak
+   cari paling menonjol (filter-as-you-type; daftar bisa 3203
+   sekolah) + dropdown bulan kecil + tombol Refresh ↻ + aksi
+   (Pilih Folder / Kelola… / ☰ Tugas / ⧉ Lepas). Baris path + deskripsi panjang
    pindah ke Kelola. Klik satu kali baris sekolah = pilih
    sekolah itu dan pindah ke treeview. Rapi di 520px (satu
    kolom, nama kebaca penuh, tidak ada kolom kepotong).
@@ -1185,10 +1186,24 @@ AppWindow embedded + BatchWindow terlepas):
    ganti dropdown = ganti sekolah di treeview. Tombol
    "‹ Daftar" kembali ke daftar Folder Reguler. Header:
    judul "BATCH" + deskripsi "Pilih sekolah, lalu jalankan
-   master." + dropdown working-set + "‹ Daftar" + "☰ Tugas".
+   master." + dropdown working-set + "Hitung:" (dropdown
+   extension yang dihitung, §16.2) + "‹ Daftar" + "☰ Tugas".
    Di bawahnya dua panel: SOURCE (kiri) dan OUTPUT (kanan).
    Di bawah panel: indikator manifest + tombol Replace; di
    bawahnya footer tombol script + Refresh + Clear.
+
+**Aturan header 36px (perbaikan 28 Nov 2026, laporan abeng
+15:39 — tombol menggantung ~14px di bawah garis tengah
+field):** SEMUA kontrol header daftar + treeview tingginya
+36px, `scale: 1` (tidak ikut ui-scale), teks/glyph terpusat
+vertikal — TextField cari, ComboBox bulan, ComboBox
+working-set, ComboBox "Hitung:", Btn teks (Pilih Folder /
+Kelola… / ☰ Tugas / ⧉ Lepas / ‹ Daftar), IconBtn ↻, grip
+⋮⋮, judul "BATCH". Diukur dari pixel di 1280×800, 960×640,
+520px: field tepat 36px, garis tengah semua kontrol sejajar
+(Δ ≤ 3px, sisa variasi bentuk glyph, mis. ⧉/g). ComboBox
+tetap tanpa tinggi baris tetap — daftar pilihan yang terbuka
+mendorong konten ke bawah (bukan overlay).
 
 Responsif (`narrow` bila content-width < 1000px): header
 membungkus ke dua baris (baris 2 = aksi rata kanan di daftar,
@@ -1221,16 +1236,32 @@ berhasil) + counter "N dipilih".
 
 - Baris folder 36px, baris anak 26px, font 12px — TIDAK ikut
   ui-scale (tree padat seperti C#).
+- **Angka isi file (28 Nov 2026, ide abeng 15:45):** tiap
+  baris folder menampilkan jumlah file rekursif di dalamnya,
+  di kanan nama (teks 11px redup, lebar 44px, sebelum tombol
+  ⋯); baris file tidak berangka. Extension yang dihitung
+  diatur user lewat dropdown "Hitung:" di header treeview —
+  jpg / png / psd / semua (default jpg); pilihan disimpan di
+  DB `Batch.FileCountExtension`, berlaku langsung tanpa
+  rescan. Hitungan daftar Folder Reguler ikut dari cache
+  (`RegulerRow.counts`, `counts_v: 1`) dan tampil di baris 2
+  ("· N jpg" / "· N file"); hitungan tree dihitung segar
+  tiap push dari disk (`fill_file_counts`) sehingga ikut
+  berubah saat file bertambah/hilang. "semua" = semua file
+  (termasuk NOTE.txt); 0 tetap ditampilkan ("0 png"), bukan
+  disembunyikan.
 - Chevron ▸/▾ (klik = expand/collapse, menampilkan 3 file
   contoh dari array `kids-N`, indent dengan ikon ▤).
 - Klik nama = toggle multi-select (maks 3) + highlight
   accent-subtle + toast "Path disalin: …".
 - Tombol ⋯ = menu konteks: New Subfolder… / Replace (Auto) /
-  Copy Path / **Delete — HAPUS DARI DISK** (toast "Dihapus
-  dari disk: <nama>"; menghapus folder menomori ulang sisanya).
-  Delete dari disk — ini koreksi atas analisis lama yang
-  salah bilang delete hanya menghapus dari daftar; Clear
-  yang hanya mengosongkan daftar.
+  Replace (Manual) / Copy Path / **Delete — HAPUS DARI DISK**
+  (toast "Dihapus dari disk: <nama>"; menghapus folder
+  menomori ulang sisanya). Di panel OUTPUT, menu yang sama
+  ditambah **Copy Output Path** (tanpa Replace) — menyalin
+  path output baris itu. Delete dari disk — ini koreksi atas
+  analisis lama yang salah bilang delete hanya menghapus
+  dari daftar; Clear yang hanya mengosongkan daftar.
 - **"+ Tambah Folder" MENGGANTI seluruh SOURCE** (per
   `AddFolders()`): beralih antara dua dataset contoh — A
   "27_SDN RANCAIYUH I" ↔ B "28_SDN BANTAR KAMBING 03"
@@ -1291,10 +1322,13 @@ placeholder Master File Browser yang ditunda) = duplikat
   Task Manager menampilkan "Menunggu save" + tombol
   "Lanjutkan" untuk follow-up "BUAT MASTER (duplikat)" (§16.9).
 
-Catatan: indikator manifest direset (`has-manifest = false`)
-saat sekolah dibuka (ulang) — file manifest di disk tetap ada,
-tapi indikator sesi tidak membacanya ulang. Terbuka (minor,
-perilaku lama).
+Catatan: indikator manifest TIDAK lagi direset saat sekolah
+dibuka (ulang) — diperbaiki 28 Nov 2026: `add_folder_named`
+kini mengisi `has_manifest` dari `manifest_exists()` saat
+sekolah dibuka, jadi indikator mencerminkan file manifest di
+disk (`manifest_<sha1(path)[:12]>.json` di
+`<oke>/_bm_copy_edit/`). Perilaku lama (reset ke false walau
+file ada) sudah dihapus.
 
 ### 16.5 Replace
 
@@ -1438,6 +1472,11 @@ daftar (jalan masuk sekunder; asumsi — abeng belum menolaknya).
 - **Heuristik scan (TETAP, adaptasi layout C#):** anak folder bulan
   yang isinya HANYA subfolder (tanpa file) = kategori (mis.
   "1. PAS FOTO") dan turun satu level; yang berisi file = sekolah.
+  **Pengecualian (28 Nov 2026, temuan verifikasi GUI):** folder
+  yang punya anak bernama PILIHAN adalah SEKOLAH walau tanpa file
+  langsung (tanpa NOTE.txt) — kategori berisi sekolah, bukan
+  PILIHAN langsung; tanpa ini sekolah semacam itu salah terbaca
+  sebagai kategori dan namanya jadi "PILIHAN" (kasus SDN-B).
   Marketing dibaca dari `NOTE.txt` di folder sekolah (baris
   `MARKETING:`). Bulan = nama folder bulan apa adanya ("07 Juli
   2026"). Scan worker master_creator TERBUKTI jalan 3 tingkat murni
@@ -1554,7 +1593,13 @@ callback + sync dari AppWindow). Scope saat ini HANYA BATCH.
   pointer, lalu user melanjutkan dengan menarik titlebar window baru.
   Alternatif: tombol "⧉ Lepas" di baris Folder Reguler drop zone
   (lepas di tengah atas main window, `center_over_main(ui, 1100, 700)`).
-  Grip/tombol disembunyikan di window terlepas (`show-tear-off: false`).
+  **Pemusatan tanpa geometri tersimpan (diperbaiki 28 Nov 2026):**
+  window baru yang belum pernah ditampilkan melaporkan
+  `size() == (0,0)`, sehingga `center_over_main(ui, 0, 0)`
+  mendaratkan window di TITIK tengah layar (640,400) — bukan
+  terpusat (90,50). `detach_batch_window`/`detach_doc_window`
+  kini memakai ukuran deklarasi (1100×700 / 560×640) bila ukuran
+  terukur 0. Grip/tombol disembunyikan di window terlepas (`show-tear-off: false`).
 - **Satu komponen bersama, tanpa duplikasi:** `ui/batch.slint` —
   `export component BatchView` (header, tree SOURCE/OUTPUT, drop zone,
   Folder Reguler, footer script, popup manage reguler, ctx menu),
@@ -1586,6 +1631,12 @@ callback + sync dari AppWindow). Scope saat ini HANYA BATCH.
   selalu membuat window BARU (reuse hide→show tidak andal di Linux).
   Geometri tersimpan di DB kunci `"BatchWindow"` (pola
   `read_window_geometry`/`save_window_geometry` yang sudah ada).
+  **Lepas → pindah → tutup → Lepas lagi = window kembali di posisi
+  tersimpan, BUKAN terpusat** (diperbaiki 28 Nov 2026, pola
+  `detach_doc_window` commit 87fbc76: bila geometri tersimpan ada,
+  `detach_batch_window` tidak menimpa posisi — `ensure_batch_window`
+  sudah menaruh window di posisi terakhir saat dock; pemusatan
+  hanya bila belum ada geometri tersimpan).
   Placeholder saat terlepas: kartu tengah "BATCH sedang terbuka di
   window terpisah." + tombol "Kembalikan ke Dashboard" → `batch-dock()`.
   `ex-send-batch` saat terlepas tetap menambah folder (sync mendorongnya

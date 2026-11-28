@@ -2391,6 +2391,8 @@ export component BatchWindow inherits Window {
     in-out property <string> newfolder-name: "";
     in-out property <[string]> batch-working-set-names: [];
     in-out property <int> batch-working-set-idx: -1;
+    in-out property <int> batch-file-count-ext-idx: 0;
+    in-out property <string> batch-file-count-ext-label: "jpg";
     in-out property <bool> reguler-manage-open: false;
     in-out property <[RegulerDirRow]> reguler-dirs: [];
     in-out property <int> reguler-scan-dir-idx: -1;
@@ -2433,6 +2435,7 @@ export component BatchWindow inherits Window {
     callback batch-clear();
     callback batch-list-open-school(int);
     callback batch-working-set-picked(int);
+    callback batch-file-count-ext-picked(int);
     callback batch-back-to-list();
     callback batch-reguler-refresh();
     callback batch-reguler-manage();
@@ -2574,6 +2577,8 @@ export component BatchWindow inherits Window {
                 newfolder-name <=> root.newfolder-name;
                 batch-working-set-names <=> root.batch-working-set-names;
                 batch-working-set-idx <=> root.batch-working-set-idx;
+                batch-file-count-ext-idx <=> root.batch-file-count-ext-idx;
+                batch-file-count-ext-label <=> root.batch-file-count-ext-label;
                 reguler-manage-open <=> root.reguler-manage-open;
                 reguler-dirs <=> root.reguler-dirs;
                 reguler-scan-dir-idx <=> root.reguler-scan-dir-idx;
@@ -2608,6 +2613,7 @@ export component BatchWindow inherits Window {
                 batch-clear() => { root.batch-clear(); }
                 batch-list-open-school(idx) => { root.batch-list-open-school(idx); }
                 batch-working-set-picked(idx) => { root.batch-working-set-picked(idx); }
+                batch-file-count-ext-picked(idx) => { root.batch-file-count-ext-picked(idx); }
                 batch-back-to-list() => { root.batch-back-to-list(); }
                 batch-reguler-refresh() => { root.batch-reguler-refresh(); }
                 batch-reguler-manage() => { root.batch-reguler-manage(); }

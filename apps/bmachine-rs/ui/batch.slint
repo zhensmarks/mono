@@ -23,6 +23,9 @@ export struct BatchRow {
     has-kids: bool,
     selected: bool,
     is-root: bool,
+    // Jumlah file rekursif di folder ini untuk ekstensi yang dipilih
+    // user; -1 = baris file / jangan tampilkan (28 Nov 2026).
+    file-count: int,
 }
 
 // Satu direktori Folder Reguler tersimpan (popup Kelola, tahap 4).
@@ -42,6 +45,9 @@ export struct RegulerSchoolRow {
     marketing: string,
     sekolah: string,
     path: string,
+    // Jumlah file rekursif di folder sekolah untuk ekstensi yang
+    // dipilih; -1 = belum dihitung (cache lama) / jangan tampilkan.
+    file-count: int,
 }
 
 component BatchTreeRow inherits Rectangle {
@@ -53,6 +59,9 @@ component BatchTreeRow inherits Rectangle {
     in property <bool> row-has-kids: false;
     in property <bool> row-selected: false;
     in property <string> panel: "SOURCE";
+    // Jumlah file rekursif di folder ini (ekstensi pilihan user);
+    // -1 = baris file / belum dihitung → angka disembunyikan.
+    in property <int> row-file-count: -1;
     callback row-clicked(string, string);
     callback row-right-down(string, string);
     callback row-right-up(string, string);
@@ -111,6 +120,20 @@ component BatchTreeRow inherits Rectangle {
             vertical-alignment: center;
             horizontal-stretch: 1;
             overflow: elide;
+        }
+
+        // Angka isi file (28 Nov 2026): jumlah file rekursif di
+        // folder ini untuk ekstensi yang dipilih user. Hanya baris
+        // folder yang hitungannya diketahui. Lebar 0 bila tidak
+        // tampil — `visible: false` saja tidak cukup, elemen tak
+        // terlihat tetap makan tempat di layout.
+        Text {
+            text: root.row-file-count + "";
+            font-size: 11px;
+            color: Design.text-muted;
+            horizontal-alignment: right;
+            vertical-alignment: center;
+            width: root.row-is-dir && root.row-file-count >= 0 ? 44px : 0px;
         }
 
         IconBtn {
@@ -301,7 +324,10 @@ component BatchTearGrip inherits TouchArea {
     in property <bool> show: true;
     callback tear-off(length, length);
     width: 22px;
-    height: 32px * root.scale;
+    // Tinggi 36px TETAP — sama seperti semua kontrol header BATCH
+    // (aturan presisi 27 Nov 2026; dulu 32px*scale sehingga grip
+    // menggantung di baris header yang di-scale ui-scale).
+    height: 36px;
     visible: root.show;
     mouse-cursor: grab;
     property <length> grip-start-x: 0px;
@@ -443,6 +469,13 @@ export component BatchView inherits Rectangle {
     // (Batch.FolderReguler.Cache) + refresh inkremental per bulan.
     in-out property <[string]> batch-working-set-names: [];
     in-out property <int> batch-working-set-idx: -1;
+    // Hitungan file (28 Nov 2026): ekstensi yang dihitung untuk angka
+    // di kanan nama folder (treeview + daftar Folder Reguler).
+    // Model ComboBox "Hitung" di header treeview; label dipakai
+    // subtext daftar ("128 jpg" / "128 file").
+    property <[string]> file-count-exts: ["jpg", "png", "psd", "semua"];
+    in-out property <int> batch-file-count-ext-idx: 0;
+    in-out property <string> batch-file-count-ext-label: "jpg";
     // Popup Kelola Folder Reguler (tahap 4) — overlay di tab BATCH.
     in-out property <bool> reguler-manage-open: false;
     in-out property <[RegulerDirRow]> reguler-dirs: [];
@@ -491,6 +524,7 @@ export component BatchView inherits Rectangle {
     callback batch-clear();
     callback batch-list-open-school(int);
     callback batch-working-set-picked(int);
+    callback batch-file-count-ext-picked(int);
     callback batch-back-to-list();
     callback batch-reguler-refresh();
     callback batch-reguler-manage();
@@ -549,25 +583,36 @@ export component BatchView inherits Rectangle {
                 // kartu SOURCE/OUTPUT (defect 28 Nov 2026).
                 VerticalLayout {
                     spacing: 8px * root.ui-scale;
+                    // Header treeview — SEMUA kontrol 36px, skala 1
+                    // (28 Nov 2026, aturan presisi abeng 27 Nov 16:30):
+                    // header = baris kontrol padat seperti tree (tidak
+                    // ikut ui-scale). Dulu Btn/IconBtn/grip/title
+                    // memakai ui-scale (36px*1.755≈63px di 1280×800)
+                    // sementara TextField/ComboBox tetap 36px — teks
+                    // tombol menggantung ~14px di bawah garis tengah
+                    // field. Kini tiap anak 36px + konten dipusatkan
+                    // vertikal, jadi garis tengahnya sejajar.
                     HorizontalLayout {
-                        spacing: 8px * root.ui-scale;
+                        spacing: 8px;
                         BatchTearGrip {
-                            scale: root.ui-scale;
+                            scale: 1;
                             show: root.show-tear-off;
                             tear-off(x, y) => { root.batch-tear-off(x, y); }
                         }
                         Text {
                             text: "BATCH";
-                            font-size: 14px * root.ui-scale;
+                            font-size: 14px;
                             font-weight: 800;
                             color: Design.text-primary;
-                            letter-spacing: 1px * root.ui-scale;
+                            letter-spacing: 1px;
+                            height: 36px;
                             vertical-alignment: center;
                         }
                         Text {
                             text: "Pilih sekolah, lalu jalankan master.";
-                            font-size: 12px * root.ui-scale;
+                            font-size: 12px;
                             color: Design.text-muted;
+                            height: 36px;
                             vertical-alignment: center;
                             horizontal-stretch: 1;
                             overflow: elide;
@@ -581,22 +626,43 @@ export component BatchView inherits Rectangle {
                             current-index <=> root.batch-working-set-idx;
                             selected(index) => { root.batch-working-set-picked(index); }
                         }
+                        // Hitung (28 Nov 2026): ekstensi yang dihitung
+                        // untuk angka file di kanan nama folder.
+                        if !root.narrow : Text {
+                            text: "Hitung:";
+                            font-size: 12px;
+                            color: Design.text-muted;
+                            height: 36px;
+                            vertical-alignment: center;
+                        }
+                        if !root.narrow : ComboBox {
+                            width: 110px;
+                            model: root.file-count-exts;
+                            current-index <=> root.batch-file-count-ext-idx;
+                            selected(index) => { root.batch-file-count-ext-picked(index); }
+                        }
                         if !root.narrow : BatchTreeActions {
-                            scale: root.ui-scale;
+                            scale: 1;
                             back-to-list() => { root.batch-back-to-list(); }
                             open-task-manager() => { root.batch-open-task-manager(); }
                         }
                     }
                     if root.narrow : HorizontalLayout {
-                        spacing: 8px * root.ui-scale;
+                        spacing: 8px;
                         ComboBox {
                             model: root.batch-working-set-names;
                             current-index <=> root.batch-working-set-idx;
                             selected(index) => { root.batch-working-set-picked(index); }
                             horizontal-stretch: 1;
                         }
+                        ComboBox {
+                            width: 110px;
+                            model: root.file-count-exts;
+                            current-index <=> root.batch-file-count-ext-idx;
+                            selected(index) => { root.batch-file-count-ext-picked(index); }
+                        }
                         BatchTreeActions {
-                            scale: root.ui-scale;
+                            scale: 1;
                             back-to-list() => { root.batch-back-to-list(); }
                             open-task-manager() => { root.batch-open-task-manager(); }
                         }
@@ -716,6 +782,7 @@ export component BatchView inherits Rectangle {
                                                 row-expanded: row.expanded;
                                                 row-has-kids: row.has-kids;
                                                 row-selected: row.selected;
+                                                row-file-count: row.file-count;
                                                 panel: "SOURCE";
                                                 row-clicked(panel, id) => { root.batch-row-clicked(panel, id); }
                                                 row-right-down(panel, id) => { root.batch-row-right-down(panel, id); }
@@ -862,6 +929,7 @@ export component BatchView inherits Rectangle {
                                                 row-expanded: row.expanded;
                                                 row-has-kids: row.has-kids;
                                                 row-selected: row.selected;
+                                                row-file-count: row.file-count;
                                                 panel: "OUTPUT";
                                                 row-clicked(panel, id) => { root.batch-row-clicked(panel, id); }
                                                 row-right-down(panel, id) => { root.batch-row-right-down(panel, id); }
@@ -1058,21 +1126,27 @@ export component BatchView inherits Rectangle {
                     // menonjol, filter-as-you-type) + bulan + ↻.
                     // Sempit: baris 2 = aksi (Pilih Folder, Kelola,
                     // ☰ Tugas, Lepas) rata kanan.
+                    // SEMUA kontrol 36px, skala 1 (28 Nov 2026 —
+                    // sama seperti header treeview: dulu tombol di
+                    // sini 36px*ui-scale ≈63px sementara kotak cari
+                    // + dropdown bulan tetap 36px, teks tombol
+                    // menggantung ~14px di bawah garis tengah field).
                     VerticalLayout {
                         spacing: 8px * root.ui-scale;
                         HorizontalLayout {
-                            spacing: 8px * root.ui-scale;
+                            spacing: 8px;
                             BatchTearGrip {
-                                scale: root.ui-scale;
+                                scale: 1;
                                 show: root.show-tear-off;
                                 tear-off(x, y) => { root.batch-tear-off(x, y); }
                             }
                             Text {
                                 text: "BATCH";
-                                font-size: 14px * root.ui-scale;
+                                font-size: 14px;
                                 font-weight: 800;
                                 color: Design.text-primary;
-                                letter-spacing: 1px * root.ui-scale;
+                                letter-spacing: 1px;
+                                height: 36px;
                                 vertical-alignment: center;
                             }
                             TextField {
@@ -1090,12 +1164,12 @@ export component BatchView inherits Rectangle {
                             IconBtn {
                                 glyph: "↻";
                                 variant: "ghost";
-                                scale: root.ui-scale;
+                                scale: 1;
                                 size: 36px;
                                 clicked => { root.batch-reguler-refresh(); }
                             }
                             if !root.narrow : BatchListActions {
-                                scale: root.ui-scale;
+                                scale: 1;
                                 show-tear-off: root.show-tear-off;
                                 pick-folder() => { root.batch-pick-folder(); }
                                 reguler-manage() => { root.batch-reguler-manage(); }
@@ -1105,9 +1179,9 @@ export component BatchView inherits Rectangle {
                         }
                         if root.narrow : HorizontalLayout {
                             alignment: end;
-                            spacing: 8px * root.ui-scale;
+                            spacing: 8px;
                             BatchListActions {
-                                scale: root.ui-scale;
+                                scale: 1;
                                 show-tear-off: root.show-tear-off;
                                 pick-folder() => { root.batch-pick-folder(); }
                                 reguler-manage() => { root.batch-reguler-manage(); }
@@ -1182,7 +1256,11 @@ export component BatchView inherits Rectangle {
                                         overflow: elide;
                                     }
                                     Text {
-                                        text: r.bulan + (r.marketing != "" ? " · " + r.marketing : "");
+                                        // Baris 2: bulan · marketing · N <ekstensi>
+                                        // (angka dari cache scan; -1 = belum
+                                        // dihitung → tidak tampil, layout satu
+                                        // kolom tetap utuh).
+                                        text: r.bulan + (r.marketing != "" ? " · " + r.marketing : "") + (r.file-count >= 0 ? " · " + r.file-count + " " + root.batch-file-count-ext-label : "");
                                         font-size: 11px * root.ui-scale;
                                         color: Design.text-muted;
                                         overflow: elide;

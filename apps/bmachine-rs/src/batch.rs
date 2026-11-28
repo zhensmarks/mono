@@ -280,6 +280,9 @@ pub struct FlatRow {
     pub has_kids: bool,
     pub selected: bool,
     pub is_root: bool,
+    /// Jumlah file (rekursif) di folder ini untuk ekstensi yang dipilih
+    /// user; -1 = bukan folder / jangan tampilkan angkanya.
+    pub file_count: i32,
 }
 
 fn flatten_node(node: &BatchNode, depth: i32, selected: &HashSet<String>, out: &mut Vec<FlatRow>, is_root: bool) {
@@ -294,6 +297,9 @@ fn flatten_node(node: &BatchNode, depth: i32, selected: &HashSet<String>, out: &
         has_kids: node.has_kids(),
         selected: selected.contains(&id),
         is_root,
+        // Diisi `fill_file_counts` oleh src_rows/out_rows (hitung
+        // rekursif per folder yang terlihat); -1 = belum diisi.
+        file_count: -1,
     });
     if node.is_dir && node.expanded {
         for c in &node.children {
@@ -302,6 +308,18 @@ fn flatten_node(node: &BatchNode, depth: i32, selected: &HashSet<String>, out: &
     }
 }
 
+/// Isi `file_count` tiap baris folder dari hitungan rekursif di disk
+/// (dipakai `src_rows`/`out_rows`): hanya folder yang terlihat yang
+/// dihitung — sekali per push — supaya angka selalu segar setelah file
+/// berubah (master jalan, refresh, tambah folder) tanpa cache yang
+/// bisa basi. Baris file tetap -1 (tidak tampil).
+pub fn fill_file_counts(rows: &mut [FlatRow], ext: &str) {
+    for r in rows.iter_mut() {
+        if r.is_dir {
+            r.file_count = count_files_recursive(std::path::Path::new(&r.path)).get(ext) as i32;
+        }
+    }
+}
 /// Ratakan tree SOURCE yang terlihat (hormat expand).
 /// - 1 root → baris root disembunyikan, isinya jadi baris teratas
 ///   (nama tampil di header, BATCH_DASHBOARD §4.4).
@@ -680,6 +698,105 @@ pub struct RegulerRow {
     pub marketing: String,
     pub sekolah: String,
     pub path: String,
+    /// Jumlah file di dalam folder sekolah (rekursif), per keranjang
+    /// ekstensi — dihitung saat scan (penuh / inkremental per bulan)
+    /// dan disimpan di cache, supaya daftar tampil instan tanpa
+    /// menghitung ulang tiap baris (28 Nov 2026).
+    /// `#[serde(default)]` = cache lama (tanpa field ini) tetap bisa
+    /// dibaca; hitungannya 0 sampai scan ulang berikutnya.
+    #[serde(default)]
+    pub counts: FileCounts,
+}
+
+// ---------------------------------------------------------------------------
+// Hitungan file per folder (28 Nov 2026 — angka di kanan nama folder)
+// ---------------------------------------------------------------------------
+
+/// Jumlah file rekursif di dalam satu folder, dikelompokkan per
+/// keranjang ekstensi. `jpg` mencakup `.jpg` + `.jpeg` (case-insensitive);
+/// `all` = semua file. Dipakai daftar Folder Reguler (per sekolah) dan
+/// treeview (per folder) — ekstensi yang ditampilkan dipilih user
+/// (`Batch.FileCountExtension`), keranjang lain tetap tersimpan supaya
+/// ganti ekstensi tidak butuh scan ulang.
+#[derive(Debug, Clone, Copy, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct FileCounts {
+    pub all: u32,
+    pub jpg: u32,
+    pub png: u32,
+    pub psd: u32,
+}
+
+impl FileCounts {
+    /// Ambil keranjang sesuai pilihan ekstensi (`jpg` | `png` | `psd` |
+    /// `all`; nilai lain = `jpg`).
+    pub fn get(&self, ext: &str) -> u32 {
+        match ext {
+            "png" => self.png,
+            "psd" => self.psd,
+            "all" => self.all,
+            _ => self.jpg,
+        }
+    }
+}
+
+/// Pilihan ekstensi yang sah untuk hitungan file. Nilai di luar daftar
+/// (mis. dari DB lama/rusak) → `"jpg"` (default).
+pub fn valid_file_count_ext(ext: &str) -> &'static str {
+    match ext {
+        "png" => "png",
+        "psd" => "psd",
+        "all" => "all",
+        _ => "jpg",
+    }
+}
+
+/// Label yang ditampilkan di samping angka (daftar Folder Reguler):
+/// ekstensi itu sendiri, kecuali `all` → `"file"`.
+pub fn file_count_ext_label(ext: &str) -> &'static str {
+    match valid_file_count_ext(ext) {
+        "all" => "file",
+        other => other,
+    }
+}
+
+/// Hitung file rekursif di bawah `dir`, dikelompokkan per keranjang.
+/// - Hanya file (bukan direktori); nama tersembunyi (`.lnk`,
+///   `desktop.ini`, dotfile) dilewati — sama seperti yang ditampilkan
+///   tree (is_hidden_name).
+/// - Symlink TIDAK diikuti (file_type entri, bukan target) — tidak
+///   ada risiko putaran.
+/// - Folder yang tidak bisa dibaca → 0 (bukan error): daftar tetap
+///   tampil, angkanya saja 0.
+pub fn count_files_recursive(dir: &Path) -> FileCounts {
+    let mut counts = FileCounts::default();
+    let mut stack: Vec<PathBuf> = vec![dir.to_path_buf()];
+    while let Some(d) = stack.pop() {
+        let Ok(rd) = std::fs::read_dir(&d) else {
+            continue;
+        };
+        for e in rd.flatten() {
+            let name = e.file_name().to_string_lossy().into_owned();
+            if is_hidden_name(&name) {
+                continue;
+            }
+            let ft = match e.file_type() {
+                Ok(t) => t,
+                Err(_) => continue,
+            };
+            if ft.is_dir() {
+                stack.push(e.path());
+            } else if ft.is_file() {
+                counts.all += 1;
+                match e.path().extension().and_then(|x| x.to_str()).unwrap_or("").to_ascii_lowercase().as_str() {
+                    "jpg" | "jpeg" => counts.jpg += 1,
+                    "png" => counts.png += 1,
+                    "psd" => counts.psd += 1,
+                    _ => {}
+                }
+            }
+        }
+    }
+    counts
 }
 
 /// Baca MARKETING dari NOTE.txt di folder sekolah, bila ada baris
@@ -766,7 +883,17 @@ pub fn scan_reguler_month(_root: &Path, bulan: &str, mpath: &Path) -> Vec<Regule
                 })
             })
             .unwrap_or(false);
-        if !child_dirs.is_empty() && !has_files {
+        // Sekolah dikenali juga dari anak PILIHAN-nya: kategori (mis.
+        // "1. PAS FOTO") berisi sekolah, bukan PILIHAN langsung — jadi
+        // folder yang punya anak bernama PILIHAN adalah sekolah, walau
+        // tidak punya file langsung (tanpa NOTE.txt). Tanpa ini,
+        // sekolah semacam itu salah dibaca sebagai kategori dan
+        // namanya jadi "PILIHAN" (temuan verifikasi 28 Nov 2026:
+        // SDN-B yang hanya berisi folder PILIHAN).
+        let has_pilihan_child = child_dirs
+            .iter()
+            .any(|(n, _)| n.eq_ignore_ascii_case("pilihan"));
+        if !child_dirs.is_empty() && !has_files && !has_pilihan_child {
             for (sekolah, spath) in child_dirs {
                 let marketing = marketing_from_note(&spath);
                 rows.push(RegulerRow {
@@ -774,6 +901,10 @@ pub fn scan_reguler_month(_root: &Path, bulan: &str, mpath: &Path) -> Vec<Regule
                     marketing,
                     sekolah,
                     path: spath.to_string_lossy().into_owned(),
+                    // Hitungan file rekursif (angka di kanan nama):
+                    // dihitung di sini — di thread scan latar — lalu
+                    // disimpan di cache, supaya UI tinggal membaca.
+                    counts: count_files_recursive(&spath),
                 });
             }
         } else {
@@ -783,6 +914,7 @@ pub fn scan_reguler_month(_root: &Path, bulan: &str, mpath: &Path) -> Vec<Regule
                 marketing,
                 sekolah: name,
                 path: path.to_string_lossy().into_owned(),
+                counts: count_files_recursive(&path),
             });
         }
     }
@@ -828,6 +960,12 @@ pub struct RegulerCache {
     pub scanned_at: u64,
     pub months: Vec<MonthFp>,
     pub rows: Vec<RegulerRow>,
+    /// Versi hitungan file per baris (28 Nov 2026): 0 = cache lama
+    /// tanpa `counts` (sebelum angka file) — refresh inkremental
+    /// memindai ulang semua bulan sekali untuk mengisinya, lalu
+    /// menyimpan 1. `#[serde(default)]` = cache lama tetap terbaca.
+    #[serde(default)]
+    pub counts_v: u32,
 }
 
 /// Fingerprint murah satu root: daftar + mtime folder bulan saja
@@ -1229,6 +1367,98 @@ impl BatchTask {
 }
 
 // ---------------------------------------------------------------------------
+// Manifest copy-edit (28 Nov 2026 — indikator manifest saat sekolah
+// dibuka ulang). Cermin PERSIS `_photoshop_utils.manifest_path_for`
+// (buat_master.py): path STABIL per folder PILIHAN, supaya DUPLIKAT
+// bisa menemukannya lagi kapan saja setelah fase 1 selesai:
+//   <oke_base>/_bm_copy_edit/manifest_<sha1(normcase(abspath(pilihan)))[:12]>.json
+// `normcase` = di Windows huruf kecil + '/' → '\'; di POSIX identitas
+// (sama seperti Python). SHA-1 ditulis tangan di sini (bukan crate
+// baru — build offline; vektor uji di bawah dicocokkan ke hashlib).
+// ---------------------------------------------------------------------------
+
+/// SHA-1 (FIPS 180-1), mengembalikan hex lowercase 40 karakter.
+pub fn sha1_hex(data: &[u8]) -> String {
+    let mut h: [u32; 5] = [0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0];
+    let bitlen = (data.len() as u64).wrapping_mul(8);
+    let mut msg = data.to_vec();
+    msg.push(0x80);
+    while msg.len() % 64 != 56 {
+        msg.push(0);
+    }
+    msg.extend_from_slice(&bitlen.to_be_bytes());
+    for chunk in msg.chunks_exact(64) {
+        let mut w = [0u32; 80];
+        for i in 0..16 {
+            w[i] = u32::from_be_bytes([chunk[i * 4], chunk[i * 4 + 1], chunk[i * 4 + 2], chunk[i * 4 + 3]]);
+        }
+        for i in 16..80 {
+            w[i] = (w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16]).rotate_left(1);
+        }
+        let (mut a, mut b, mut c, mut d, mut e) = (h[0], h[1], h[2], h[3], h[4]);
+        for (i, &wi) in w.iter().enumerate() {
+            let (f, k) = match i {
+                0..=19 => ((b & c) | ((!b) & d), 0x5A827999u32),
+                20..=39 => (b ^ c ^ d, 0x6ED9EBA1),
+                40..=59 => ((b & c) | (b & d) | (c & d), 0x8F1BBCDC),
+                _ => (b ^ c ^ d, 0xCA62C1D6),
+            };
+            let tmp = a
+                .rotate_left(5)
+                .wrapping_add(f)
+                .wrapping_add(e)
+                .wrapping_add(k)
+                .wrapping_add(wi);
+            e = d;
+            d = c;
+            c = b.rotate_left(30);
+            b = a;
+            a = tmp;
+        }
+        h[0] = h[0].wrapping_add(a);
+        h[1] = h[1].wrapping_add(b);
+        h[2] = h[2].wrapping_add(c);
+        h[3] = h[3].wrapping_add(d);
+        h[4] = h[4].wrapping_add(e);
+    }
+    h.iter().map(|x| format!("{:08x}", x)).collect()
+}
+
+/// Path manifest untuk satu folder PILIHAN (sumber aktif), cermin
+/// `manifest_path_for(pilihan_path, output_base)` — output_base =
+/// OKE BASE (`Paths.OkeBase`). `None` bila oke_base kosong.
+pub fn manifest_path_for(pilihan: &Path, oke_base: &str) -> Option<PathBuf> {
+    if oke_base.trim().is_empty() {
+        return None;
+    }
+    // normcase: Windows → huruf kecil + '/' → '\'; POSIX → apa adanya.
+    let abs = if pilihan.is_absolute() {
+        pilihan.to_path_buf()
+    } else {
+        std::env::current_dir().unwrap_or_default().join(pilihan)
+    };
+    let key_src = {
+        let s = abs.to_string_lossy().into_owned();
+        #[cfg(windows)]
+        let s = s.replace('/', "\\").to_ascii_lowercase();
+        s
+    };
+    let key = &sha1_hex(key_src.as_bytes())[..12];
+    Some(
+        PathBuf::from(oke_base)
+            .join("_bm_copy_edit")
+            .join(format!("manifest_{}.json", key)),
+    )
+}
+
+/// Apakah file manifest untuk folder sumber ini ada di disk.
+pub fn manifest_exists(pilihan: &Path, oke_base: &str) -> bool {
+    manifest_path_for(pilihan, oke_base)
+        .map(|p| p.is_file())
+        .unwrap_or(false)
+}
+
+// ---------------------------------------------------------------------------
 // State keseluruhan BATCH (dipegang main.rs)
 // ---------------------------------------------------------------------------
 
@@ -1239,6 +1469,11 @@ pub struct BatchState {
     pub oke_base: String,
     pub selection: BatchSelection,
     pub has_manifest: bool,
+    /// Ekstensi yang dihitung untuk angka file di treeview + daftar
+    /// Folder Reguler (`jpg` | `png` | `psd` | `all`; DB
+    /// `Batch.FileCountExtension`, default `"jpg"`). "" = belum dimuat
+    /// dari DB — `valid_file_count_ext` mengembalikannya ke `"jpg"`.
+    pub file_count_ext: String,
     /// Folder Reguler tersimpan (DB `Batch.FolderReguler`, JSON array).
     pub reguler_dirs: Vec<RegulerDir>,
     pub reguler_active: String,
@@ -1296,7 +1531,12 @@ impl BatchState {
         );
         self.roots = vec![BatchRoot::new(source_path, &local)];
         self.selection.clear();
-        self.has_manifest = false;
+        // Indikator manifest mencerminkan FILE di disk (28 Nov 2026):
+        // dulu selalu false saat sekolah dibuka (ulang) padahal file
+        // manifestnya masih ada — kini dibaca dari
+        // <oke_base>/_bm_copy_edit/manifest_<hash>.json (cermin
+        // manifest_path_for Python). Oke base kosong → false.
+        self.has_manifest = manifest_exists(source_path, &self.oke_base.clone());
     }
 
     pub fn clear(&mut self) {
@@ -1311,12 +1551,16 @@ impl BatchState {
 
     pub fn src_rows(&self) -> Vec<FlatRow> {
         let sel: HashSet<String> = self.selection.ids.iter().cloned().collect();
-        flatten_source(&self.roots, &sel)
+        let mut rows = flatten_source(&self.roots, &sel);
+        fill_file_counts(&mut rows, &self.file_count_ext);
+        rows
     }
 
     pub fn out_rows(&self) -> Vec<FlatRow> {
         let sel: HashSet<String> = self.selection.ids.iter().cloned().collect();
-        flatten_output(&self.roots, &sel)
+        let mut rows = flatten_output(&self.roots, &sel);
+        fill_file_counts(&mut rows, &self.file_count_ext);
+        rows
     }
 
     /// Nama folder aktif untuk header (1 root → nama folder sumbernya;
@@ -1442,6 +1686,7 @@ mod tests {
                 has_kids: false,
                 selected: false,
                 is_root: false,
+                file_count: -1,
             })
             .collect();
         let mut s = BatchSelection::default();
@@ -1744,6 +1989,7 @@ mod tests {
             scanned_at: now_unix(),
             months: fps.clone(),
             rows: rows.clone(),
+            counts_v: 1,
         };
         // Tanpa perubahan -> tidak ada bulan yang dipindai ulang.
         let (changed, removed) = reguler_cache_diff(&cache, &fps);
@@ -1772,6 +2018,7 @@ mod tests {
             scanned_at: now_unix(),
             months: fps2.clone(),
             rows: merged.clone(),
+            counts_v: 1,
         };
         fs::remove_dir_all(&m1).unwrap();
         let fps3 = reguler_month_fingerprints(&root);
@@ -1857,5 +2104,176 @@ mod tests {
         assert_eq!(t.lines[0], "baris 5");
         t.followups.push("BUAT MASTER (duplikat)".to_string());
         assert_eq!(t.followups.len(), 1);
+    }
+
+    #[test]
+    fn sha1_hex_matches_known_vectors() {
+        // Vektor FIPS 180-1 (dicocokkan ke Python hashlib.sha1).
+        assert_eq!(sha1_hex(b""), "da39a3ee5e6b4b0d3255bfef95601890afd80709");
+        assert_eq!(sha1_hex(b"abc"), "a9993e364706816aba3e25717850c26c9cd0d89d");
+        assert_eq!(
+            sha1_hex(b"/tmp/batchfix-fixture/reguler/28 November 2026/SDN-A/PILIHAN"),
+            "b781a54fa4a9feb9c52f06c8d7414ae1a3277067"
+        );
+    }
+
+    #[test]
+    fn manifest_path_for_matches_python() {
+        // Hash dihitung Python hashlib untuk path persis ini.
+        let p = manifest_path_for(
+            Path::new("/tmp/bmachine-batch-test-manifest/SDN-A/PILIHAN"),
+            "/tmp/bmachine-batch-test-manifest/oke",
+        )
+        .unwrap();
+        assert_eq!(
+            p,
+            PathBuf::from("/tmp/bmachine-batch-test-manifest/oke/_bm_copy_edit/manifest_e93cd222a464.json")
+        );
+        assert!(manifest_path_for(Path::new("/x/PILIHAN"), "").is_none());
+        assert!(manifest_path_for(Path::new("/x/PILIHAN"), "   ").is_none());
+    }
+
+    #[test]
+    fn manifest_exists_reads_file_on_disk() {
+        let d = tmpdir("manifest");
+        let pilihan = d.join("SDN-A").join("PILIHAN");
+        fs::create_dir_all(&pilihan).unwrap();
+        let oke = d.join("oke");
+        assert!(!manifest_exists(&pilihan, oke.to_str().unwrap()));
+        // Buat file manifest di path yang dihitung (seperti yang
+        // ditulis buat_master.py setelah Fase 1 sukses).
+        let mp = manifest_path_for(&pilihan, oke.to_str().unwrap()).unwrap();
+        fs::create_dir_all(mp.parent().unwrap()).unwrap();
+        fs::write(&mp, "{}").unwrap();
+        assert!(manifest_exists(&pilihan, oke.to_str().unwrap()));
+    }
+
+    #[test]
+    fn add_folder_named_restores_manifest_indicator() {
+        let d = tmpdir("manifest-restore");
+        let pilihan = d.join("SDN-A").join("PILIHAN");
+        fs::create_dir_all(&pilihan).unwrap();
+        let oke = d.join("oke");
+        let mut st = BatchState::default();
+        st.local_output = d.join("out").to_string_lossy().into_owned();
+        st.oke_base = oke.to_string_lossy().into_owned();
+        // Tanpa file manifest -> false (perilaku lama tetap benar).
+        st.add_folder_named(&pilihan, "SDN-A");
+        assert!(!st.has_manifest);
+        // File manifest ada -> buka (ulang) sekolah = indikator true.
+        let mp = manifest_path_for(&pilihan, st.oke_base.as_str()).unwrap();
+        fs::create_dir_all(mp.parent().unwrap()).unwrap();
+        fs::write(&mp, "{}").unwrap();
+        st.add_folder_named(&pilihan, "SDN-A");
+        assert!(st.has_manifest);
+    }
+
+    #[test]
+    fn count_files_recursive_buckets() {
+        let d = tmpdir("filecount");
+        let school = d.join("SDN-A");
+        let pilihan = school.join("PILIHAN");
+        fs::create_dir_all(pilihan.join("1. PAS FOTO")).unwrap();
+        fs::write(pilihan.join("foto1.jpg"), b"x").unwrap();
+        fs::write(pilihan.join("foto2.JPG"), b"x").unwrap();
+        fs::write(pilihan.join("foto3.jpeg"), b"x").unwrap();
+        fs::write(pilihan.join("1. PAS FOTO").join("a.png"), b"x").unwrap();
+        fs::write(pilihan.join("1. PAS FOTO").join("b.PSD"), b"x").unwrap();
+        fs::write(pilihan.join("catatan.txt"), b"x").unwrap();
+        fs::write(pilihan.join("NOTE.txt"), b"x").unwrap();
+        // Tersembunyi tidak dihitung (desktop.ini / .lnk — sama
+        // seperti yang disembunyikan tree; dotfile TIDAK termasuk
+        // hidden di sini, jadi tetap dihitung bila ada).
+        fs::write(pilihan.join("desktop.ini"), b"x").unwrap();
+        let c = count_files_recursive(&school);
+        assert_eq!(c.jpg, 3);
+        assert_eq!(c.png, 1);
+        assert_eq!(c.psd, 1);
+        assert_eq!(c.all, 7);
+        assert_eq!(c.get("jpg"), 3);
+        assert_eq!(c.get("png"), 1);
+        assert_eq!(c.get("all"), 7);
+        assert_eq!(c.get("tidak-ada"), 3);
+        assert_eq!(count_files_recursive(&d.join("tidak-ada")), FileCounts::default());
+    }
+
+    #[test]
+    fn scan_reguler_month_counts_files() {
+        let d = tmpdir("filecount-scan");
+        let school = d.join("28 November 2026").join("SDN-A");
+        let pilihan = school.join("PILIHAN");
+        fs::create_dir_all(&pilihan).unwrap();
+        fs::write(pilihan.join("f1.jpg"), b"x").unwrap();
+        fs::write(pilihan.join("f2.jpg"), b"x").unwrap();
+        fs::write(pilihan.join("f3.png"), b"x").unwrap();
+        let rows = scan_reguler(&d);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].counts.jpg, 2);
+        assert_eq!(rows[0].counts.png, 1);
+        assert_eq!(rows[0].counts.all, 3);
+        // Cache lama (tanpa field counts) tetap bisa dibaca.
+        let old: RegulerCache = serde_json::from_str(
+            r#"{"dir":"/x","scanned_at":0,"months":[],"rows":[{"bulan":"28 November 2026","marketing":"","sekolah":"SDN-A","path":"/x/SDN-A"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(old.rows[0].counts, FileCounts::default());
+    }
+
+    #[test]
+    fn scan_reguler_school_with_only_pilihan_child() {
+        // Sekolah yang isinya HANYA folder PILIHAN (tanpa NOTE.txt /
+        // file langsung) tetap dibaca sebagai sekolah "SDN-B", bukan
+        // sebagai kategori yang turun satu level jadi "PILIHAN"
+        // (temuan verifikasi GUI 28 Nov 2026).
+        let d = tmpdir("filecount-pilihan-only");
+        let pilihan = d
+            .join("28 November 2026")
+            .join("SDN-B")
+            .join("PILIHAN");
+        fs::create_dir_all(&pilihan).unwrap();
+        fs::write(pilihan.join("b1.jpg"), b"x").unwrap();
+        let rows = scan_reguler(&d);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].sekolah, "SDN-B");
+        assert_eq!(rows[0].counts.jpg, 1);
+    }
+
+    #[test]
+    fn file_count_ext_validation_and_labels() {
+        assert_eq!(valid_file_count_ext("jpg"), "jpg");
+        assert_eq!(valid_file_count_ext("png"), "png");
+        assert_eq!(valid_file_count_ext("psd"), "psd");
+        assert_eq!(valid_file_count_ext("all"), "all");
+        assert_eq!(valid_file_count_ext(""), "jpg");
+        assert_eq!(valid_file_count_ext("exe"), "jpg");
+        assert_eq!(file_count_ext_label("jpg"), "jpg");
+        assert_eq!(file_count_ext_label("all"), "file");
+    }
+
+    #[test]
+    fn src_rows_fill_file_counts() {
+        let d = tmpdir("filecount-rows");
+        let pilihan = d.join("SDN-A").join("PILIHAN");
+        fs::create_dir_all(pilihan.join("1. PAS FOTO")).unwrap();
+        fs::write(pilihan.join("a.jpg"), b"x").unwrap();
+        fs::write(pilihan.join("1. PAS FOTO").join("b.jpg"), b"x").unwrap();
+        fs::write(pilihan.join("1. PAS FOTO").join("c.png"), b"x").unwrap();
+        let mut st = BatchState::default();
+        st.local_output = d.join("out").to_string_lossy().into_owned();
+        st.file_count_ext = "jpg".to_string();
+        st.add_folder_named(&pilihan, "SDN-A");
+        let rows = st.src_rows();
+        // Baris folder "1. PAS FOTO": 1 jpg rekursif; baris file: -1.
+        let folder = rows.iter().find(|r| r.name == "1. PAS FOTO").unwrap();
+        assert_eq!(folder.file_count, 1);
+        // Ganti ekstensi -> angka ikut tanpa scan ulang.
+        st.file_count_ext = "png".to_string();
+        let rows = st.src_rows();
+        let folder = rows.iter().find(|r| r.name == "1. PAS FOTO").unwrap();
+        assert_eq!(folder.file_count, 1);
+        st.file_count_ext = "all".to_string();
+        let rows = st.src_rows();
+        let folder = rows.iter().find(|r| r.name == "1. PAS FOTO").unwrap();
+        assert_eq!(folder.file_count, 2);
     }
 }

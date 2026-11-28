@@ -3241,6 +3241,7 @@ fn batch_rows_model(rows: &[batch::FlatRow]) -> slint::ModelRc<BatchRow> {
                 has_kids: r.has_kids,
                 selected: r.selected,
                 is_root: r.is_root,
+                file_count: r.file_count,
             })
             .collect::<Vec<_>>(),
     ))
@@ -3294,6 +3295,17 @@ fn push_batch_to_ui_inner(ui: &AppWindow, st: &batch::BatchState) {
         })
         .unwrap_or(-1);
     ui.set_batch_working_set_idx(ws_idx);
+    // Hitungan file (28 Nov 2026): indeks ComboBox "Hitung" di header
+    // treeview + label tampilannya ("jpg" / "png" / "psd" / "file").
+    let ext = batch::valid_file_count_ext(&st.file_count_ext);
+    let ext_idx = match ext {
+        "png" => 1,
+        "psd" => 2,
+        "all" => 3,
+        _ => 0,
+    };
+    ui.set_batch_file_count_ext_idx(ext_idx);
+    ui.set_batch_file_count_ext_label(slint::SharedString::from(batch::file_count_ext_label(ext)));
     push_tasks_to_ui(ui, st);
 }
 
@@ -3311,6 +3323,8 @@ fn sync_batch_window(w: &BatchWindow, ui: &AppWindow) {
     w.set_has_manifest(ui.get_has_manifest());
     w.set_batch_working_set_names(ui.get_batch_working_set_names());
     w.set_batch_working_set_idx(ui.get_batch_working_set_idx());
+    w.set_batch_file_count_ext_idx(ui.get_batch_file_count_ext_idx());
+    w.set_batch_file_count_ext_label(ui.get_batch_file_count_ext_label());
     w.set_newfolder_open(ui.get_newfolder_open());
     w.set_newfolder_panel(ui.get_newfolder_panel());
     w.set_newfolder_parent(ui.get_newfolder_parent());
@@ -3605,7 +3619,13 @@ fn spawn_reguler_incremental(
         }
         let root = std::path::Path::new(&dir);
         let new_fps = batch::reguler_month_fingerprints(root);
-        let (changed, removed) = batch::reguler_cache_diff(&cache, &new_fps);
+        let (mut changed, removed) = batch::reguler_cache_diff(&cache, &new_fps);
+        // Migrasi cache lama (sebelum hitungan file, counts_v == 0):
+        // baris cache tidak punya hitungan — pindai ulang SEMUA bulan
+        // sekali supaya angka terisi, lalu cache tersimpan counts_v = 1.
+        if cache.counts_v == 0 {
+            changed = new_fps.iter().map(|fp| fp.name.clone()).collect();
+        }
         if changed.is_empty() && removed.is_empty() {
             eprintln!("[reguler-refresh] {}: tidak ada perubahan ({} bulan, {} baris dari cache)",
                 dir, cache.months.len(), cache.rows.len());
@@ -3636,6 +3656,7 @@ fn spawn_reguler_incremental(
             scanned_at: batch::now_unix(),
             months: new_fps,
             rows: rows.clone(),
+            counts_v: 1,
         };
         save_reguler_cache(&db, &new_cache);
         let toast = if n_added > 0 && n_removed > 0 {
@@ -3782,6 +3803,10 @@ fn push_reguler_to_ui_inner(
             marketing: slint::SharedString::from(r.marketing.as_str()),
             sekolah: slint::SharedString::from(r.sekolah.as_str()),
             path: slint::SharedString::from(r.path.as_str()),
+            // Angka dari cache scan (keranjang ekstensi pilihan);
+            // cache lama (counts 0 semua) dimigrasikan refresh
+            // inkremental sekali (counts_v) sebelum tampil di sini.
+            file_count: r.counts.get(&st.file_count_ext) as i32,
         })
         .collect();
     ui.set_reguler_scan_rows(slint::ModelRc::new(slint::VecModel::from(rows)));
@@ -4281,26 +4306,43 @@ fn detach_batch_window(
         return;
     }
     ensure_batch_window(ui, cell, db);
-    let pos = match pos {
-        Some(p) => p,
-        None => {
-            let (lw, lh) = match cell.borrow().as_ref() {
-                Some(w) => {
-                    let scale = w.window().scale_factor().max(1.0);
-                    let size = w.window().size();
-                    (
-                        (size.width as f32 / scale) as i32,
-                        (size.height as f32 / scale) as i32,
-                    )
-                }
-                None => (1100, 700),
-            };
-            center_over_main(ui, lw, lh)
-        }
+    // Posisi: drag grip memberi posisi eksplisit (titlebar di bawah
+    // pointer); tombol Lepas tanpa geometri tersimpan -> pusatkan di
+    // atas window utama; bila ada geometri tersimpan, JANGAN timpa —
+    // ensure_batch_window sudah menaruh window di posisi terakhir
+    // saat dock (pola detach_doc_window, commit 87fbc76 — dulu
+    // detach_batch_window selalu memusatkan dan menimpa posisi
+    // tersimpan itu).
+    let pos: Option<(i32, i32)> = match pos {
+        Some(p) => Some(p),
+        None => match read_window_geometry(db, "BatchWindow") {
+            Some(_) => None,
+            None => {
+                let (lw, lh) = match cell.borrow().as_ref() {
+                    Some(w) => {
+                        let scale = w.window().scale_factor().max(1.0);
+                        let size = w.window().size();
+                        let lw = (size.width as f32 / scale) as i32;
+                        let lh = (size.height as f32 / scale) as i32;
+                        // Window baru belum pernah ditampilkan: size()
+                        // masih (0,0) — pakai ukuran deklarasi
+                        // (1100x700) supaya pemusatan tidak jatuh ke
+                        // titik tengah layar (temuan verifikasi
+                        // 28 Nov 2026: Lepas pertama mendarat di
+                        // (640,400), bukan terpusat (90,50)).
+                        if lw > 0 && lh > 0 { (lw, lh) } else { (1100, 700) }
+                    }
+                    None => (1100, 700),
+                };
+                Some(center_over_main(ui, lw, lh))
+            }
+        },
     };
     if let Some(w) = cell.borrow().as_ref() {
-        w.window()
-            .set_position(slint::PhysicalPosition::new(pos.0, pos.1));
+        if let Some((px, py)) = pos {
+            w.window()
+                .set_position(slint::PhysicalPosition::new(px, py));
+        }
         let _ = w.hide();
         let _ = w.show();
     }
@@ -4548,10 +4590,13 @@ fn detach_doc_window(
                     Some(w) => {
                         let scale = w.window().scale_factor().max(1.0);
                         let size = w.window().size();
-                        (
-                            (size.width as f32 / scale) as i32,
-                            (size.height as f32 / scale) as i32,
-                        )
+                        let lw = (size.width as f32 / scale) as i32;
+                        let lh = (size.height as f32 / scale) as i32;
+                        // Sama seperti BatchWindow: window baru belum
+                        // pernah ditampilkan, size() masih (0,0) —
+                        // pakai ukuran deklarasi (560x640) supaya
+                        // pemusatan tidak jatuh ke titik tengah layar.
+                        if lw > 0 && lh > 0 { (lw, lh) } else { (560, 640) }
                     }
                     None => (560, 640),
                 };
@@ -6019,6 +6064,14 @@ fn main() -> Result<(), slint::PlatformError> {
         let mut st = batch_state.lock().unwrap();
         st.local_output = batch_db_get(&db, "Paths.LocalOutput", "Configs.Master.LocalOutput");
         st.oke_base = batch_db_get(&db, "Paths.OkeBase", "Configs.Master.OkeBase");
+        // Hitungan file (28 Nov 2026): ekstensi yang dihitung untuk
+        // angka di kanan nama folder; default "jpg".
+        st.file_count_ext = batch::valid_file_count_ext(&batch_db_get(
+            &db,
+            "Batch.FileCountExtension",
+            "Batch.FileCountExtension",
+        ))
+        .to_string();
         if let Some(ref dbm) = db {
             if let Ok(g) = dbm.lock() {
                 if let Some(v) = g.get("Batch.FolderReguler") {
@@ -8644,6 +8697,41 @@ fn main() -> Result<(), slint::PlatformError> {
                 return;
             };
             load_school_as_source(&ui, &st, &db_c, &batch_c, &entry.path, &entry.name, None);
+        });
+    }
+    {
+        // -- Treeview: ganti ekstensi hitungan file ("Hitung" —
+        // jpg/png/psd/semua). Angka treeview dihitung ulang dari
+        // disk (fill_file_counts di src_rows/out_rows); angka daftar
+        // tinggal ambil keranjang lain dari cache — tanpa scan ulang.
+        let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
+        let st = batch_state.clone();
+        let db_c = db.clone();
+        let scan = reguler_scan_state.clone();
+        let handle = batch_run_handle.clone();
+        ui.on_batch_file_count_ext_picked(move |idx| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let ext = match idx {
+                1 => "png",
+                2 => "psd",
+                3 => "all",
+                _ => "jpg",
+            };
+            {
+                let mut s = st.lock().unwrap();
+                s.file_count_ext = ext.to_string();
+            }
+            if let Some(dbm) = &db_c {
+                if let Ok(mut g) = dbm.lock() {
+                    let _ = g.set("Batch.FileCountExtension", ext, "String");
+                }
+            }
+            push_batch_to_ui(&ui, &st.lock().unwrap(), &batch_c);
+            let sc = scan.lock().unwrap();
+            push_reguler_to_ui(&ui, &st.lock().unwrap(), &sc, handle.is_running(), &batch_c);
         });
     }
     {
@@ -14621,6 +14709,7 @@ fn main() -> Result<(), slint::PlatformError> {
                         scanned_at: batch::now_unix(),
                         months: batch::reguler_month_fingerprints(std::path::Path::new(&dir)),
                         rows,
+                        counts_v: 1,
                     };
                     eprintln!(
                         "[reguler-scan] {}: scan penuh selesai, {} baris, {} bulan — cache disimpan",
