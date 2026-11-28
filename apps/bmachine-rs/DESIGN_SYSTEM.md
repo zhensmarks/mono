@@ -1450,11 +1450,12 @@ State di `SettingsView` (`ui/settings.slint`): `color-mode`
 terlihat menclok-menclok")** — aturan yang diterapkan di semua layar:
 SATU tinggi kontrol (Btn / TextField / ThemeRow / OptionChip = 36px;
 NavTab / PanelTab = 32px); baris input sejajar kiri-kanan (field Nama
-General lebar penuh; field hex 120px sama di Accent / Background /
-Foreground (swatch 36px + dot 28px, baris 36px — garis atas/bawah
-lurus, 26 Nov; di window <580px field jadi 96px + jarak 2px supaya
-kelima dot tetap muat di konten 288px pada 520px — tinggi tetap
-36/28px, garis tetap lurus); baris hex tinggi eksplisit 36px); dot swatch terpilih ring
+General 260px, penuh saat menumpuk; field hex 120px sama di Accent /
+Background / Foreground (swatch 36px + dot 28px, baris 36px — garis
+atas/bawah lurus, 26 Nov; saat menumpuk, konten <560px, field jadi
+80px + jarak 2px + dot compact 24px supaya baris hex tetap muat di
+konten 256px pada 520px — tinggi tetap 36px, garis tetap lurus); baris
+hex tinggi eksplisit 36px); dot swatch terpilih ring
 aksen (kelihatan di semua warna) + dot tak terpilih outline
 `border-hover` (dot gelap tetap kelihatan); bar preview kartu "Ikut
 sistem" dibatasi separuh terang supaya tidak menyeberang garis belah;
@@ -1502,6 +1503,90 @@ tetap memakan ruang) — perbaikannya butuh `height: 0` kondisional.
 
 Setiap perubahan field menampilkan toast "Disimpan: …"
 (mockup — belum tersimpan ke DB).
+
+### 17.4 Baris setting horizontal + wrap responsif (abeng, 28 Nov 09:57/09:59/10:01)
+
+Keluhan abeng: daftar preset Theme 8 baris full-width boros;
+baris setting label-di-atas + kontrol full-width di bawahnya aneh
+(Nama User cuma nama pendek tapi textbox full-width, Bahasa
+dropdown di bawah label). Aturan baru, mengikat di semua grup:
+
+- **Komponen `SettingRow`** (`ui/settings.slint`, sesudah
+  `FieldLabel`): label + subtext di KIRI, kontrol di KANAN
+  secukupnya lebarnya. Kontrol ditulis SEKALI sebagai `@children`;
+  lebarnya diatur di tiap pemakaian. Saat `stacked` — lebar konten
+  `< 560px` (`property <bool> stacked: content-rect.width < 560px`)
+  — kontrol pindah ke BAWAH label (wrap, memang diharapkan abeng).
+  Di window 520 konten 288px (sidebar terbuka) / 412px (rail ciut)
+  → menumpuk; di 800 konten 568px → horizontal; di 1280 konten
+  1048px → horizontal.
+- **Lebar kontrol saat lebar:** TextField Nama 260px, Bahasa 140px,
+  filter ekstensi 140px, field path 420px, field Trello/Google
+  420px, field hex 120px (80px saat menumpuk), chip secukupnya
+  (lebar natural dari label), Toggle natural. Saat menumpuk semua
+  field/dropdown jadi penuh lebar baris.
+- **Theme jadi dropdown** (in-flow, pola sama seperti ComboBox
+  `ui/design.slint` — BUKAN popup overlay): tertutup menampilkan
+  nama preset aktif + 4 dot warna (accent, revision, bg, fg) +
+  chevron-down; terbuka menampilkan daftar in-flow berisi 8 preset
+  + Custom + tema user (tetap bisa dihapus ×). Pilih → handler
+  `apply-theme-preset` / `apply-user-theme` yang sudah ada (live +
+  tersimpan DB, tanpa perubahan Rust). Tinggi eksplisit **dan**
+  `preferred-height` keduanya = `36px + (terbuka ? 4px + jumlah
+  baris × 36px : 0px)` supaya layout induk mengukur benar (pelajaran
+  defect dropdown bulan, commit c84d621).
+- **Perbaikan 520px:** baris hex — field 80px, spacing 2px,
+  `SwatchDot compact` 24px (total 248px, muat di konten 256px);
+  `WidgetColorRow` saat menumpuk jadi 2 baris (dot+label+field di
+  atas, 4 swatch di bawah), tinggi 76px; roda radial saat menumpuk
+  — roda di atas (tengah) + 8 chip rincian penuh lebar di bawah
+  (komponen `RadialWheelPreview` + `SlotChip`, dipakai di kedua
+  layout supaya tidak duplikasi ~90 baris); Shortcut menu saat
+  menumpuk — kotak + tombol menumpuk (kotak penuh, tombol penuh);
+  Extensions saat menumpuk — header judul wrap + tombol di bawah,
+  baris plugin nama di atas + tombol di bawah (tinggi baris 100px);
+  judul card Account/Script Manager + 3 teks deskripsi Script
+  Manager diberi `wrap: word-wrap` (judul panjang terpotong di
+  520px); deret 3 tombol Script Manager menumpuk jadi 3 tombol
+  penuh lebar; baris Worksheet/Kolom/Baris Account menumpuk jadi
+  Worksheet penuh + Kolom/Baris berdampingan di bawah.
+- **Yang dipertahankan sebagai blok penuh** (bukan baris setting):
+  kartu preview Color mode (Terang/Gelap/Ikut sistem), kartu Font,
+  blok Preview, roda radial, daftar Pet, baris multi-kolom Account
+  (Worksheet/Kolom/Baris, Board sync 2-kolom, Refresh intervals
+  4-kolom — sudah ringkas horizontal), Visibilitas dashboard (3
+  baris label-kiri + toggle-kanan, sudah horizontal).
+- **Catatan Slint:** ternary `kondisi ? 100% : Npx` TIDAK bisa
+  dikompilasi ("Cannot convert length to percent") — pakai
+  `kondisi ? parent.width : Npx` (keduanya length). `parent.width`
+  aman di sini: saat menumpuk lebar wrapper ditentukan layout luar
+  (stretch 1), bukan oleh kontrol.
+- **Penyerap ruang ekstra (28 Nov, dua tempat):** layout Slint
+  membagi rata ruang ekstra ke SEMUA anak bila total stretch <= 0
+  (tiap anak dianggap stretch 1 — `i-slint-core/layout.rs`),
+  dan cross-axis default adalah `stretch`, dan `alignment` default
+  layout adalah `Stretch`. Akibatnya (a) label `FieldLabel` yang
+  barisnya lebih tinggi dari label (dropdown Theme terbuka, Paket
+  ikon 2 baris chip + preview) membuat deskripsi melayang ke tengah
+  baris; (b) grup yang kontennya lebih pendek dari viewport (Paths,
+  Extensions, About) ikut direnggangkan ke tinggi penuh sehingga
+  baris tersebar. Perbaikan: (a) `FieldLabel` diakhiri `Rectangle
+  { vertical-stretch: 1; }` tak terlihat (tinggi natural 0) +
+  `vertical-stretch: 0` di kedua `Text`-nya — penyerap mengambil
+  semua slack di dalam label; (b) tiap layout konten grup memakai
+  `alignment: start` supaya anak-anaknya tetap pada tinggi natural
+  dan ruang ekstra dibiarkan kosong di bawah (penyerap di akhir
+  konten grup sempat dicoba — TIDAK cukup untuk Extensions karena
+  Card yang berisi `Rectangle` melaporkan stretch 1 sehingga ikut
+  menyerap separuh slack; `alignment: start` mematikan distribusi
+  itu di akar). (Percobaan `vertical-stretch: 0` saja TIDAK mempan
+  karena aturan total <= 0 di atas; `vertical-alignment: top` saja
+  juga tidak — yang meregang adalah kotaknya, bukan posisi teks di
+  dalamnya. Mekanisme dibuktikan di scratch crate
+  `~/tmp-childtest`.)
+- **Prinsip umum (mengikat, abeng 28 Nov 10:01):** SEMUA view/window
+  harus matang tampilannya dari ukuran kecil (520) sampai besar —
+  verifikasi di lebar 1280 DAN 520.
 
 ## 18. Arsitektur Overlay & Navigasi
 

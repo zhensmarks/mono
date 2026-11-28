@@ -146,6 +146,11 @@ component FieldLabel inherits VerticalLayout {
         font-size: Design.font-body;
         font-weight: 700;
         color: Design.text-primary;
+        vertical-alignment: top;
+        vertical-stretch: 0;
+        // Judul ikut wrap supaya tidak terpotong di kolom sempit
+        // (baris 2-kolom Account di 520px — kolom cuma ~106px).
+        wrap: word-wrap;
     }
     Text {
         text: desc;
@@ -153,6 +158,160 @@ component FieldLabel inherits VerticalLayout {
         color: Design.text-secondary;
         wrap: word-wrap;
         visible: desc != "";
+        // WAJIB top: Text ber-wrap diregangkan vertikal oleh layout
+        // bila baris lebih tinggi dari label (mis. dropdown Theme
+        // terbuka, Paket ikon 2 baris chip + preview) — tanpa ini
+        // teks deskripsi melayang ke tengah baris (28 Nov 2026).
+        vertical-alignment: top;
+        vertical-stretch: 0;
+    }
+    // Penyerap ruang ekstra (tak terlihat, tinggi natural 0): bila
+    // baris lebih tinggi dari label, layout Slint membagi rata ruang
+    // ekstra ke SEMUA anak bila total stretch <= 0 (dianggap 1 tiap
+    // anak — i-slint-core layout.rs) sehingga deskripsi melayang ke
+    // tengah. Dengan penyerap stretch 1 ini, judul + deskripsi
+    // (stretch 0) tetap pada tinggi naturalnya di atas.
+    Rectangle { vertical-stretch: 1; }
+}
+
+// Satu baris setting (abeng, 28 Nov 09:59/10:01): label + subtext di
+// KIRI, kontrol di KANAN secukupnya lebarnya — bukan label di atas +
+// kontrol full-width di bawah (boros, "aneh"). Saat konten sempit
+// (`stacked`, window compact 520) baris MENUMPUK: label di atas,
+// kontrol di bawah — itu tidak apa-apa dan memang diharapkan.
+// Kontrol (@children) ditulis SEKALI: lebarnya diatur di tiap
+// pemakaian (fixed saat lebar, 100% saat menumpuk — TextField /
+// ComboBox / baris field+tombol), atau natural (Toggle / Btn /
+// baris chip / baris hex). Pembungkus menengahkan kontrol secara
+// vertikal terhadap label yang mungkin membungkus 2 baris (§7).
+component SettingRow inherits VerticalLayout {
+    in property <string> title;
+    in property <string> desc;
+    in property <bool> stacked;
+    spacing: 6px;
+    if stacked : FieldLabel { title: title; desc: desc; }
+    HorizontalLayout {
+        spacing: 16px;
+        if !stacked : FieldLabel { title: title; desc: desc; horizontal-stretch: 1; }
+        VerticalLayout {
+            alignment: center;
+            // Jarak antar anak bila kontrol terdiri dari beberapa
+            // baris (mis. chip + pratinjau di "Gaya toggle").
+            spacing: 8px;
+            horizontal-stretch: stacked ? 1 : 0;
+            @children
+        }
+    }
+}
+
+// Chip statis rincian slot radial (28px, teks 10px di tengah).
+// `accent-text`: teks warna aksen (slot skrip); `more`: chip navigasi
+// More/Back (latar aksen-subtle + border aksen + teks tebal).
+component SlotChip inherits Rectangle {
+    in property <string> label;
+    in property <bool> accent-text: false;
+    in property <bool> more: false;
+    height: 28px;
+    background: more ? Design.accent-subtle : Design.bg-hover;
+    border-color: more ? Design.accent : transparent;
+    border-width: more ? 1px : 0px;
+    border-radius: 4px;
+    Text {
+        text: root.label;
+        font-size: 10px;
+        font-weight: more ? 800 : accent-text ? 700 : 400;
+        color: accent-text || more ? Design.accent : Design.text-primary;
+        vertical-alignment: center;
+        horizontal-alignment: center;
+    }
+}
+
+// Pratinjau roda radial 200x200 (RadialSlotsControl C#) — komponen
+// supaya bisa dipakai di layout lebar (roda + rincian di kanan) maupun
+// menumpuk (roda di atas, rincian di bawah) tanpa menduplikasi ~90 baris.
+component RadialWheelPreview inherits Rectangle {
+    width: 200px;
+    height: 200px;
+    border-radius: 100px;
+    background: Design.surface-elevated;
+    border-color: Design.separator;
+    border-width: 1px;
+    clip: true;
+
+    // 8 Pembatas sektor
+    Path {
+        width: 100%; height: 100%;
+        viewbox-x: 0; viewbox-y: 0; viewbox-width: 200; viewbox-height: 200;
+        fill: transparent;
+        stroke: Design.text-primary;
+        stroke-width: 1px;
+        opacity: 0.15;
+        commands: "M 116.84 59.35 L 138.27 7.61 M 140.65 83.16 L 192.39 61.73 M 140.65 116.84 L 192.39 138.27 M 116.84 140.65 L 138.27 192.39 M 83.16 140.65 L 61.73 192.39 M 59.35 116.84 L 7.61 138.27 M 59.35 83.16 L 7.61 61.73 M 83.16 59.35 L 61.73 7.61";
+    }
+
+    // Hub tengah 88px
+    Rectangle {
+        x: 56px; y: 56px; width: 88px; height: 88px;
+        border-radius: 44px;
+        background: Design.card-bg;
+        border-color: Design.separator;
+        border-width: 1px;
+        VerticalLayout {
+            alignment: center;
+            spacing: 2px;
+            Text { text: "RADIAL"; font-size: 10px; font-weight: 800; letter-spacing: 1px; color: Design.text-primary; horizontal-alignment: center; }
+            Text { text: "7 SLOTS"; font-size: 8px; font-weight: 600; color: Design.accent; horizontal-alignment: center; }
+        }
+    }
+
+    // 8 Tombol slot pada R = 72px (cx=100, cy=100, btn 32x32 -> -16px)
+    // 0° (Utara): (100 - 16, 100 - 72 - 16) = (84, 12)
+    Rectangle {
+        x: 84px; y: 12px; width: 32px; height: 32px; border-radius: 16px;
+        background: Design.card-bg; border-color: Design.accent; border-width: 1.5px;
+        SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "image"; size: 16px; icon-color: Design.accent; }
+    }
+    // 45° (NE): (100 + 51 - 16, 100 - 51 - 16) = (135, 33)
+    Rectangle {
+        x: 135px; y: 33px; width: 32px; height: 32px; border-radius: 16px;
+        background: Design.card-bg; border-color: Design.accent; border-width: 1.5px;
+        SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "file-text"; size: 16px; icon-color: Design.accent; }
+    }
+    // 90° (Timur): (100 + 72 - 16, 100 - 16) = (156, 84)
+    Rectangle {
+        x: 156px; y: 84px; width: 32px; height: 32px; border-radius: 16px;
+        background: Design.card-bg; border-color: Design.accent; border-width: 1.5px;
+        SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "wrench"; size: 16px; icon-color: Design.accent; }
+    }
+    // 135° (SE): (100 + 51 - 16, 100 + 51 - 16) = (135, 135)
+    Rectangle {
+        x: 135px; y: 135px; width: 32px; height: 32px; border-radius: 16px;
+        background: Design.card-bg; border-color: Design.separator; border-width: 1px;
+        SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "crop"; size: 16px; icon-color: Design.text-primary; }
+    }
+    // 180° (Selatan - More/Nav): (100 - 16, 100 + 72 - 16) = (84, 156)
+    Rectangle {
+        x: 84px; y: 156px; width: 32px; height: 32px; border-radius: 16px;
+        background: Design.accent-subtle; border-color: Design.accent; border-width: 1px;
+        SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "more-horizontal"; size: 16px; icon-color: Design.accent; }
+    }
+    // 225° (SW): (100 - 51 - 16, 100 + 51 - 16) = (33, 135)
+    Rectangle {
+        x: 33px; y: 135px; width: 32px; height: 32px; border-radius: 16px;
+        background: Design.card-bg; border-color: Design.separator; border-width: 1px;
+        SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "palette"; size: 16px; icon-color: Design.text-primary; }
+    }
+    // 270° (Barat): (100 - 72 - 16, 100 - 16) = (12, 84)
+    Rectangle {
+        x: 12px; y: 84px; width: 32px; height: 32px; border-radius: 16px;
+        background: Design.card-bg; border-color: Design.separator; border-width: 1px;
+        SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "save"; size: 16px; icon-color: Design.text-primary; }
+    }
+    // 315° (NW): (100 - 51 - 16, 100 - 51 - 16) = (33, 33)
+    Rectangle {
+        x: 33px; y: 33px; width: 32px; height: 32px; border-radius: 16px;
+        background: Design.card-bg; border-color: Design.separator; border-width: 1px;
+        SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "download"; size: 16px; icon-color: Design.text-primary; }
     }
 }
 
@@ -160,24 +319,27 @@ component FieldLabel inherits VerticalLayout {
 // Wadah setinggi baris (36px): lingkaran 28px di tengah vertikal.
 // Anak layout menempel ke ATAS, jadi lingkaran langsung di baris 36px
 // kelihatan "ke atas" — dibungkus wadah setinggi baris + y eksplisit.
+// `compact` (baris menumpuk di window 520): lingkaran 24px supaya
+// baris hex (preview + field + 5 dot) tetap muat di konten 256px.
 component SwatchDot inherits Rectangle {
     in property <color> swatch;
     in property <bool> selected;
+    in property <bool> compact: false;
     callback clicked();
-    width: 28px;
+    width: root.compact ? 24px : 28px;
     height: 36px;
     circle := Rectangle {
-        width: 28px;
-        height: 28px;
+        width: root.compact ? 24px : 28px;
+        height: root.compact ? 24px : 28px;
         x: 0px;
-        y: (root.height - 28px) / 2;
+        y: (root.height - (root.compact ? 24px : 28px)) / 2;
         background: swatch;
         border-color: selected ? Design.accent : Design.border-hover;
         border-width: 2px;
         border-radius: 999px;
     }
     dot-touch := TouchArea {
-        width: 28px;
+        width: root.compact ? 24px : 28px;
         height: 36px;
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
@@ -450,6 +612,9 @@ component PetRow inherits Rectangle {
 // Satu baris warna widget: dot warna aktif + label + field hex +
 // 4 swatch. Swatch mengirim hex (string) karena Slint tidak bisa
 // memformat color → hex.
+// `stacked` (window 520): baris membungkus jadi 2 baris —
+// dot+label+field di atas, 4 swatch di bawah — supaya tetap muat
+// di konten 256px (satu baris butuh ~376px).
 component WidgetColorRow inherits Rectangle {
     in property <string> label;
     in property <color> dot-color;
@@ -459,11 +624,12 @@ component WidgetColorRow inherits Rectangle {
     in-out property <string> hex;
     in property <[color]> swatches;
     in property <[string]> swatch-hexes;
+    in property <bool> stacked: false;
     callback hex-edited(string);
     callback hex-accepted(string);
     callback swatch-picked(string);
-    height: 36px;
-    HorizontalLayout {
+    height: root.stacked ? 76px : 36px;
+    if !root.stacked : HorizontalLayout {
         spacing: 8px;
         VerticalLayout {
             alignment: center;
@@ -488,6 +654,39 @@ component WidgetColorRow inherits Rectangle {
             swatch: sw;
             selected: dot-color == sw;
             clicked => { root.swatch-picked(swatch-hexes[i]); }
+        }
+    }
+    if root.stacked : VerticalLayout {
+        spacing: 4px;
+        HorizontalLayout {
+            spacing: 8px;
+            VerticalLayout {
+                alignment: center;
+                Rectangle { width: 20px; height: 20px; background: dot-color; border-color: Design.border-hover; border-width: 1px; border-radius: 999px; }
+            }
+            Text {
+                text: label;
+                font-size: Design.font-button;
+                font-weight: 700;
+                color: Design.text-secondary;
+                vertical-alignment: center;
+                width: 76px;
+            }
+            TextField {
+                width: 120px;
+                text <=> hex;
+                placeholder: "#3b82f6";
+                edited(text) => { root.hex-edited(text); }
+                accepted(text) => { root.hex-accepted(text); }
+            }
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            for sw2[j] in swatches : SwatchDot {
+                swatch: sw2;
+                selected: dot-color == sw2;
+                clicked => { root.swatch-picked(swatch-hexes[j]); }
+            }
         }
     }
 }
@@ -685,6 +884,29 @@ export component SettingsView inherits Rectangle {
     // tinggi tetap 36px (swatch/field) + 28px (dot) di semua lebar —
     // garis atas/bawah baris tetap lurus.
     property <bool> hex-compact: root.width < 580px;
+
+    // Baris setting menumpuk saat konten sempit (abeng, 28 Nov
+    // 10:01): label kiri + kontrol kanan hanya bila konten cukup
+    // lebar; di bawah 560px (window compact 520 — konten 288px
+    // sidebar terbuka / 412px sidebar ciut) label di atas + kontrol
+    // di bawah. Prinsip umum: semua view matang dari 520 ke besar.
+    property <bool> stacked: content-rect.width < 560px;
+
+    // Dropdown preset tema (abeng, 28 Nov 09:57): daftar 8+ baris
+    // boros tempat → satu field dropdown; keadaan tertutup
+    // menampilkan nama preset aktif + 4 dot paletnya.
+    property <bool> theme-dropdown-open: false;
+    // Nama preset aktif (bawaan + Custom); tema user ("") ditampilkan
+    // lewat `for` di field dropdown (nama diambil dari array).
+    property <string> theme-cur-name: root.theme-preset == "bmachine-dark" ? "BMachine Dark"
+        : root.theme-preset == "bmachine-light" ? "BMachine Light"
+        : root.theme-preset == "midnight-oled" ? "Midnight OLED"
+        : root.theme-preset == "catppuccin-mocha" ? "Catppuccin Mocha"
+        : root.theme-preset == "emerald-studio" ? "Emerald Studio"
+        : root.theme-preset == "spider" ? "Spider Red"
+        : root.theme-preset == "gwen" ? "Gwen Pink"
+        : root.theme-preset == "armor" ? "Armor Red"
+        : root.theme-preset == "custom" ? "Custom" : "";
 
     // --- General ---
     in-out property <string> user-name: "USER";
@@ -982,6 +1204,11 @@ export component SettingsView inherits Rectangle {
                     visible: root.group == "Appearance";
                     VerticalLayout {
                         x: 0; width: content-rect.width;
+                        // Isi rapat di atas (alignment start): tanpa ini,
+                        // konten yang lebih pendek dari viewport
+                        // direnggangkan ke tinggi penuh (ruang ekstra
+                        // dibagi ke anak-anak) — lih. DESIGN_SYSTEM §17.4.
+                        alignment: start;
                         spacing: Design.space-lg;
                         padding-left: 16px;
                         padding-right: 16px;
@@ -1046,103 +1273,186 @@ export component SettingsView inherits Rectangle {
                             }
                         }
 
-                        // Theme preset — 8 preset terkurasi (opinionated,
-                        // bukan color-picker bebas). Palet penuh (mode +
-                        // aksen + bg + fg + 4 warna widget) didefinisikan
-                        // SATU tempat di Rust (`theme.rs::builtin_presets`)
-                        // — klik di sini hanya memanggil id-nya, Rust yang
-                        // menerapkan + menyimpan. Preview 4 titik = aksen,
-                        // revisi/sekunder, background, foreground.
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel {
-                                title: "Theme";
-                                desc: "Start with a preset, then adjust its colors and fonts";
-                            }
-                            ThemeRow {
-                                label: "BMachine Dark";
-                                sw1: #3b82f6; sw2: #f97316; sw3: #121212; sw4: #FFFFFF;
-                                selected: root.theme-preset == "bmachine-dark";
-                                clicked => { root.apply-theme-preset("bmachine-dark"); }
-                            }
-                            ThemeRow {
-                                label: "BMachine Light";
-                                sw1: #3b82f6; sw2: #f97316; sw3: #F5F5F5; sw4: #111111;
-                                selected: root.theme-preset == "bmachine-light";
-                                clicked => { root.apply-theme-preset("bmachine-light"); }
-                            }
-                            ThemeRow {
-                                label: "Midnight OLED";
-                                sw1: #38BDF8; sw2: #f97316; sw3: #000000; sw4: #F8FAFC;
-                                selected: root.theme-preset == "midnight-oled";
-                                clicked => { root.apply-theme-preset("midnight-oled"); }
-                            }
-                            ThemeRow {
-                                label: "Catppuccin Mocha";
-                                sw1: #CBA6F7; sw2: #FAB387; sw3: #1E1E2E; sw4: #CDD6F4;
-                                selected: root.theme-preset == "catppuccin-mocha";
-                                clicked => { root.apply-theme-preset("catppuccin-mocha"); }
-                            }
-                            ThemeRow {
-                                label: "Emerald Studio";
-                                sw1: #10B981; sw2: #F59E0B; sw3: #0F1715; sw4: #ECFDF5;
-                                selected: root.theme-preset == "emerald-studio";
-                                clicked => { root.apply-theme-preset("emerald-studio"); }
-                            }
-                            ThemeRow {
-                                label: "Spider Red";
-                                sw1: #D9272E; sw2: #1557A5; sw3: #171717; sw4: #FFFFFF;
-                                selected: root.theme-preset == "spider";
-                                clicked => { root.apply-theme-preset("spider"); }
-                            }
-                            ThemeRow {
-                                label: "Gwen Pink";
-                                sw1: #F2A2C0; sw2: #65D6D6; sw3: #24242E; sw4: #FFFFFF;
-                                selected: root.theme-preset == "gwen";
-                                clicked => { root.apply-theme-preset("gwen"); }
-                            }
-                            ThemeRow {
-                                label: "Armor Red";
-                                sw1: #A71930; sw2: #D9A52E; sw3: #252525; sw4: #FFFFFF;
-                                selected: root.theme-preset == "armor";
-                                clicked => { root.apply-theme-preset("armor"); }
-                            }
-                            ThemeRow {
-                                label: "Custom";
-                                sw1: root.accent-color; sw2: Design.cat-revision; sw3: root.bg-color; sw4: root.fg-color;
-                                selected: root.theme-preset == "custom";
-                                clicked => {
-                                    root.theme-preset = "custom";
-                                    root.appearance-changed();
-                                    root.toast("Mode Custom aktif — ubah warna atau font di bawah");
+                        // Theme preset — DROPDOWN (abeng, 28 Nov 09:57:
+                        // daftar 8+ baris boros tempat). Palet penuh
+                        // (mode + aksen + bg + fg + 4 warna widget)
+                        // didefinisikan SATU tempat di Rust
+                        // (`theme.rs::builtin_presets`) — klik di sini
+                        // hanya memanggil id-nya, Rust yang menerapkan +
+                        // menyimpan. Field tertutup menampilkan nama
+                        // preset aktif + 4 dot paletnya (aksen,
+                        // revisi/sekunder, background, foreground —
+                        // sama seperti baris Custom). Daftar in-flow
+                        // (bukan popup overlay — pola ComboBox):
+                        // terbuka mendorong konten ke bawah.
+                        SettingRow {
+                            title: "Theme";
+                            desc: "Start with a preset, then adjust its colors and fonts";
+                            stacked: root.stacked;
+                            VerticalLayout {
+                                spacing: 4px;
+                                // Lebar: 360px saat lebar, penuh saat
+                                // menumpuk. Tinggi = field 36px +
+                                // daftar bila terbuka (9 baris bawaan +
+                                // tema user). `preferred-height` WAJIB
+                                // sama dengan `height` (pola ComboBox —
+                                // layout Slint tidak memakai binding
+                                // `height` untuk mengukur baris induk).
+                                width: root.stacked ? parent.width : 360px;
+                                height: 36px + (root.theme-dropdown-open ? 4px + (9 + root.user-theme-ids.length) * 36px : 0px);
+                                preferred-height: 36px + (root.theme-dropdown-open ? 4px + (9 + root.user-theme-ids.length) * 36px : 0px);
+                                // Field tertutup.
+                                Rectangle {
+                                    height: 36px;
+                                    background: Design.bg-input;
+                                    border-color: root.theme-dropdown-open ? Design.border-focus : Design.border-default;
+                                    border-width: 1px;
+                                    border-radius: Design.radius-sm;
+                                    dd-touch := TouchArea {
+                                        mouse-cursor: pointer;
+                                        clicked => { root.theme-dropdown-open = !root.theme-dropdown-open; }
+                                    }
+                                    Text {
+                                        x: 12px;
+                                        width: parent.width - 122px;
+                                        height: 100%;
+                                        text: root.theme-cur-name;
+                                        font-size: Design.font-body;
+                                        font-weight: 600;
+                                        color: Design.text-primary;
+                                        vertical-alignment: center;
+                                        overflow: elide;
+                                    }
+                                    // Nama tema user (hanya yang aktif
+                                    // yang tampil; Rectangle kosong lebar
+                                    // 0 bila tidak cocok — `if` tidak bisa
+                                    // langsung mengikuti `for` di Slint).
+                                    for ut[i] in root.user-theme-ids : Rectangle {
+                                        x: 12px;
+                                        height: 100%;
+                                        clip: true;
+                                        if root.theme-preset == ut : Text {
+                                            text: root.user-theme-names[i];
+                                            font-size: Design.font-body;
+                                            font-weight: 600;
+                                            color: Design.text-primary;
+                                            vertical-alignment: center;
+                                            height: 100%;
+                                        }
+                                    }
+                                    // 4 dot palet preset aktif.
+                                    Rectangle { x: parent.width - 102px; y: 12px; width: 12px; height: 12px; background: root.accent-color; border-color: Design.border-hover; border-width: 1px; border-radius: 999px; }
+                                    Rectangle { x: parent.width - 86px; y: 12px; width: 12px; height: 12px; background: Design.cat-revision; border-color: Design.border-hover; border-width: 1px; border-radius: 999px; }
+                                    Rectangle { x: parent.width - 70px; y: 12px; width: 12px; height: 12px; background: root.bg-color; border-color: Design.border-hover; border-width: 1px; border-radius: 999px; }
+                                    Rectangle { x: parent.width - 54px; y: 12px; width: 12px; height: 12px; background: root.fg-color; border-color: Design.border-hover; border-width: 1px; border-radius: 999px; }
+                                    SvgIcon {
+                                        x: parent.width - 26px;
+                                        y: (parent.height - self.height) / 2;
+                                        name: "chevron-down";
+                                        size: 14px;
+                                        icon-color: Design.text-muted;
+                                    }
+                                }
+                                // Daftar opsi (hanya saat terbuka).
+                                if root.theme-dropdown-open : Rectangle {
+                                    background: Design.surface-elevated;
+                                    border-color: Design.border-default;
+                                    border-width: 1px;
+                                    border-radius: Design.radius-sm;
+                                    clip: true;
+                                    height: (9 + root.user-theme-ids.length) * 36px;
+                                    VerticalLayout {
+                                        ThemeRow {
+                                            label: "BMachine Dark";
+                                            sw1: #3b82f6; sw2: #f97316; sw3: #121212; sw4: #FFFFFF;
+                                            selected: root.theme-preset == "bmachine-dark";
+                                            clicked => { root.theme-dropdown-open = false; root.apply-theme-preset("bmachine-dark"); }
+                                        }
+                                        ThemeRow {
+                                            label: "BMachine Light";
+                                            sw1: #3b82f6; sw2: #f97316; sw3: #F5F5F5; sw4: #111111;
+                                            selected: root.theme-preset == "bmachine-light";
+                                            clicked => { root.theme-dropdown-open = false; root.apply-theme-preset("bmachine-light"); }
+                                        }
+                                        ThemeRow {
+                                            label: "Midnight OLED";
+                                            sw1: #38BDF8; sw2: #f97316; sw3: #000000; sw4: #F8FAFC;
+                                            selected: root.theme-preset == "midnight-oled";
+                                            clicked => { root.theme-dropdown-open = false; root.apply-theme-preset("midnight-oled"); }
+                                        }
+                                        ThemeRow {
+                                            label: "Catppuccin Mocha";
+                                            sw1: #CBA6F7; sw2: #FAB387; sw3: #1E1E2E; sw4: #CDD6F4;
+                                            selected: root.theme-preset == "catppuccin-mocha";
+                                            clicked => { root.theme-dropdown-open = false; root.apply-theme-preset("catppuccin-mocha"); }
+                                        }
+                                        ThemeRow {
+                                            label: "Emerald Studio";
+                                            sw1: #10B981; sw2: #F59E0B; sw3: #0F1715; sw4: #ECFDF5;
+                                            selected: root.theme-preset == "emerald-studio";
+                                            clicked => { root.theme-dropdown-open = false; root.apply-theme-preset("emerald-studio"); }
+                                        }
+                                        ThemeRow {
+                                            label: "Spider Red";
+                                            sw1: #D9272E; sw2: #1557A5; sw3: #171717; sw4: #FFFFFF;
+                                            selected: root.theme-preset == "spider";
+                                            clicked => { root.theme-dropdown-open = false; root.apply-theme-preset("spider"); }
+                                        }
+                                        ThemeRow {
+                                            label: "Gwen Pink";
+                                            sw1: #F2A2C0; sw2: #65D6D6; sw3: #24242E; sw4: #FFFFFF;
+                                            selected: root.theme-preset == "gwen";
+                                            clicked => { root.theme-dropdown-open = false; root.apply-theme-preset("gwen"); }
+                                        }
+                                        ThemeRow {
+                                            label: "Armor Red";
+                                            sw1: #A71930; sw2: #D9A52E; sw3: #252525; sw4: #FFFFFF;
+                                            selected: root.theme-preset == "armor";
+                                            clicked => { root.theme-dropdown-open = false; root.apply-theme-preset("armor"); }
+                                        }
+                                        ThemeRow {
+                                            label: "Custom";
+                                            sw1: root.accent-color; sw2: Design.cat-revision; sw3: root.bg-color; sw4: root.fg-color;
+                                            selected: root.theme-preset == "custom";
+                                            clicked => {
+                                                root.theme-dropdown-open = false;
+                                                root.theme-preset = "custom";
+                                                root.appearance-changed();
+                                                root.toast("Mode Custom aktif — ubah warna atau font di bawah");
+                                            }
+                                        }
+                                        for ut2[j] in root.user-theme-ids : ThemeRow {
+                                            label: root.user-theme-names[j];
+                                            sw1: root.user-theme-accents[j];
+                                            sw2: root.user-theme-revisions[j];
+                                            sw3: root.user-theme-bgs[j];
+                                            sw4: root.user-theme-fgs[j];
+                                            selected: root.theme-preset == ut2;
+                                            deletable: true;
+                                            clicked => { root.theme-dropdown-open = false; root.apply-user-theme(ut2); }
+                                            delete => { root.delete-user-theme(ut2); }
+                                        }
+                                    }
                                 }
                             }
                         }
 
                         // Tema saya — tema buatan user (SQLite
-                        // `Settings.Theme.UserThemes`, JSON). Override
-                        // user melapisi preset bawaan; ubah warna manual
-                        // saat tema user aktif → jadi Custom (tema yang
-                        // tersimpan tidak berubah sampai disimpan ulang).
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel {
-                                title: "Tema saya";
-                                desc: "Tema buatan sendiri — klik untuk memakai, × untuk menghapus";
-                            }
-                            for ut[i] in root.user-theme-ids : ThemeRow {
-                                label: root.user-theme-names[i];
-                                sw1: root.user-theme-accents[i];
-                                sw2: root.user-theme-revisions[i];
-                                sw3: root.user-theme-bgs[i];
-                                sw4: root.user-theme-fgs[i];
-                                selected: root.theme-preset == ut;
-                                deletable: true;
-                                clicked => { root.apply-user-theme(ut); }
-                                delete => { root.delete-user-theme(ut); }
-                            }
+                        // `Settings.Theme.UserThemes`, JSON). Daftar tema
+                        // tersimpan tampil di dalam dropdown Theme di
+                        // atas (klik untuk memakai, × untuk menghapus).
+                        // Di sini tinggal simpan tampilan saat ini
+                        // sebagai tema baru. Override user melapisi
+                        // preset bawaan; ubah warna manual saat tema
+                        // user aktif → jadi Custom (tema yang tersimpan
+                        // tidak berubah sampai disimpan ulang).
+                        SettingRow {
+                            title: "Tema saya";
+                            desc: "Simpan tampilan saat ini sebagai tema buatan sendiri";
+                            stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: Design.space-sm;
+                                width: root.stacked ? parent.width : 360px;
                                 height: 36px;
                                 TextField {
                                     horizontal-stretch: 1;
@@ -1163,12 +1473,10 @@ export component SettingsView inherits Rectangle {
                         // Compact / Normal / Comfortable — ukuran tombol
                         // & ikon). Diterapkan lewat token font + spacing
                         // — langsung berlaku tanpa restart.
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel {
-                                title: "Kepadatan";
-                                desc: "Ukuran tombol, ikon, dan teks — Compact untuk layar kecil, Comfortable untuk sentuhan yang lebih longgar";
-                            }
+                        SettingRow {
+                            title: "Kepadatan";
+                            desc: "Ukuran tombol, ikon, dan teks — Compact untuk layar kecil, Comfortable untuk sentuhan yang lebih longgar";
+                            stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: 6px;
                                 OptionChip {
@@ -1193,14 +1501,12 @@ export component SettingsView inherits Rectangle {
                         }
 
                         // Accent.
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel {
-                                title: "Accent";
-                                desc: "Set the color for highlights and selected controls (ketik #RRGGBB + Enter)";
-                            }
+                        SettingRow {
+                            title: "Accent";
+                            desc: "Set the color for highlights and selected controls (ketik #RRGGBB + Enter)";
+                            stacked: root.stacked;
                             HorizontalLayout {
-                                spacing: root.hex-compact ? 2px : 8px;
+                                spacing: root.stacked ? 2px : root.hex-compact ? 2px : 8px;
                                 height: 36px;
                                 Rectangle {
                                     width: 36px; height: 36px;
@@ -1210,7 +1516,7 @@ export component SettingsView inherits Rectangle {
                                     border-radius: Design.radius-sm;
                                 }
                                 TextField {
-                                    width: root.hex-compact ? 96px : 120px;
+                                    width: root.stacked ? 80px : root.hex-compact ? 96px : 120px;
                                     text <=> root.accent-hex;
                                     placeholder: "#3b82f6";
                                     edited(text) => { root.accent-hex = text; }
@@ -1222,26 +1528,31 @@ export component SettingsView inherits Rectangle {
                                 }
                                 SwatchDot {
                                     swatch: #3b82f6;
+                                    compact: root.stacked;
                                     selected: root.accent-color == #3b82f6;
                                     clicked => { root.theme-preset = "custom"; root.accent-color = #3b82f6; root.accent-hex = "#3b82f6"; root.accent-hex-good = "#3b82f6"; root.appearance-changed(); root.toast("Accent #3b82f6 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #339CFF;
+                                    compact: root.stacked;
                                     selected: root.accent-color == #339CFF;
                                     clicked => { root.theme-preset = "custom"; root.accent-color = #339CFF; root.accent-hex = "#339CFF"; root.accent-hex-good = "#339CFF"; root.appearance-changed(); root.toast("Accent #339CFF diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #f97316;
+                                    compact: root.stacked;
                                     selected: root.accent-color == #f97316;
                                     clicked => { root.theme-preset = "custom"; root.accent-color = #f97316; root.accent-hex = "#f97316"; root.accent-hex-good = "#f97316"; root.appearance-changed(); root.toast("Accent #f97316 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #2dd4bf;
+                                    compact: root.stacked;
                                     selected: root.accent-color == #2dd4bf;
                                     clicked => { root.theme-preset = "custom"; root.accent-color = #2dd4bf; root.accent-hex = "#2dd4bf"; root.accent-hex-good = "#2dd4bf"; root.appearance-changed(); root.toast("Accent #2dd4bf diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #8B5CF6;
+                                    compact: root.stacked;
                                     selected: root.accent-color == #8B5CF6;
                                     clicked => { root.theme-preset = "custom"; root.accent-color = #8B5CF6; root.accent-hex = "#8B5CF6"; root.accent-hex-good = "#8B5CF6"; root.appearance-changed(); root.toast("Accent #8B5CF6 diterapkan"); }
                                 }
@@ -1249,14 +1560,12 @@ export component SettingsView inherits Rectangle {
                         }
 
                         // Background.
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel {
-                                title: "Background";
-                                desc: "Set the color behind app content (ketik #RRGGBB + Enter)";
-                            }
+                        SettingRow {
+                            title: "Background";
+                            desc: "Set the color behind app content (ketik #RRGGBB + Enter)";
+                            stacked: root.stacked;
                             HorizontalLayout {
-                                spacing: root.hex-compact ? 2px : 8px;
+                                spacing: root.stacked ? 2px : root.hex-compact ? 2px : 8px;
                                 height: 36px;
                                 Rectangle {
                                     width: 36px; height: 36px;
@@ -1266,7 +1575,7 @@ export component SettingsView inherits Rectangle {
                                     border-radius: Design.radius-sm;
                                 }
                                 TextField {
-                                    width: root.hex-compact ? 96px : 120px;
+                                    width: root.stacked ? 80px : root.hex-compact ? 96px : 120px;
                                     text <=> root.bg-hex;
                                     placeholder: "#121212";
                                     edited(text) => { root.bg-hex = text; }
@@ -1278,26 +1587,31 @@ export component SettingsView inherits Rectangle {
                                 }
                                 SwatchDot {
                                     swatch: #121212;
+                                    compact: root.stacked;
                                     selected: root.bg-color == #121212;
                                     clicked => { root.theme-preset = "custom"; root.bg-color = #121212; root.bg-hex = "#121212"; root.bg-hex-good = "#121212"; root.appearance-changed(); root.toast("Background #121212 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #000000;
+                                    compact: root.stacked;
                                     selected: root.bg-color == #000000;
                                     clicked => { root.theme-preset = "custom"; root.bg-color = #000000; root.bg-hex = "#000000"; root.bg-hex-good = "#000000"; root.appearance-changed(); root.toast("Background #000000 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #1A1C20;
+                                    compact: root.stacked;
                                     selected: root.bg-color == #1A1C20;
                                     clicked => { root.theme-preset = "custom"; root.bg-color = #1A1C20; root.bg-hex = "#1A1C20"; root.bg-hex-good = "#1A1C20"; root.appearance-changed(); root.toast("Background #1A1C20 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #F5F5F5;
+                                    compact: root.stacked;
                                     selected: root.bg-color == #F5F5F5;
                                     clicked => { root.theme-preset = "custom"; root.bg-color = #F5F5F5; root.bg-hex = "#F5F5F5"; root.bg-hex-good = "#F5F5F5"; root.appearance-changed(); root.toast("Background #F5F5F5 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #FFFFFF;
+                                    compact: root.stacked;
                                     selected: root.bg-color == #FFFFFF;
                                     clicked => { root.theme-preset = "custom"; root.bg-color = #FFFFFF; root.bg-hex = "#FFFFFF"; root.bg-hex-good = "#FFFFFF"; root.appearance-changed(); root.toast("Background #FFFFFF diterapkan"); }
                                 }
@@ -1305,14 +1619,12 @@ export component SettingsView inherits Rectangle {
                         }
 
                         // Foreground.
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel {
-                                title: "Foreground";
-                                desc: "Choose the main text color (ketik #RRGGBB + Enter)";
-                            }
+                        SettingRow {
+                            title: "Foreground";
+                            desc: "Choose the main text color (ketik #RRGGBB + Enter)";
+                            stacked: root.stacked;
                             HorizontalLayout {
-                                spacing: root.hex-compact ? 2px : 8px;
+                                spacing: root.stacked ? 2px : root.hex-compact ? 2px : 8px;
                                 height: 36px;
                                 Rectangle {
                                     width: 36px; height: 36px;
@@ -1322,7 +1634,7 @@ export component SettingsView inherits Rectangle {
                                     border-radius: Design.radius-sm;
                                 }
                                 TextField {
-                                    width: root.hex-compact ? 96px : 120px;
+                                    width: root.stacked ? 80px : root.hex-compact ? 96px : 120px;
                                     text <=> root.fg-hex;
                                     placeholder: "#FFFFFF";
                                     edited(text) => { root.fg-hex = text; }
@@ -1334,26 +1646,31 @@ export component SettingsView inherits Rectangle {
                                 }
                                 SwatchDot {
                                     swatch: #FFFFFF;
+                                    compact: root.stacked;
                                     selected: root.fg-color == #FFFFFF;
                                     clicked => { root.theme-preset = "custom"; root.fg-color = #FFFFFF; root.fg-hex = "#FFFFFF"; root.fg-hex-good = "#FFFFFF"; root.appearance-changed(); root.toast("Foreground #FFFFFF diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #111111;
+                                    compact: root.stacked;
                                     selected: root.fg-color == #111111;
                                     clicked => { root.theme-preset = "custom"; root.fg-color = #111111; root.fg-hex = "#111111"; root.fg-hex-good = "#111111"; root.appearance-changed(); root.toast("Foreground #111111 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #E4E4E7;
+                                    compact: root.stacked;
                                     selected: root.fg-color == #E4E4E7;
                                     clicked => { root.theme-preset = "custom"; root.fg-color = #E4E4E7; root.fg-hex = "#E4E4E7"; root.fg-hex-good = "#E4E4E7"; root.appearance-changed(); root.toast("Foreground #E4E4E7 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #999999;
+                                    compact: root.stacked;
                                     selected: root.fg-color == #999999;
                                     clicked => { root.theme-preset = "custom"; root.fg-color = #999999; root.fg-hex = "#999999"; root.fg-hex-good = "#999999"; root.appearance-changed(); root.toast("Foreground #999999 diterapkan"); }
                                 }
                                 SwatchDot {
                                     swatch: #3b82f6;
+                                    compact: root.stacked;
                                     selected: root.fg-color == #3b82f6;
                                     clicked => { root.theme-preset = "custom"; root.fg-color = #3b82f6; root.fg-hex = "#3b82f6"; root.fg-hex-good = "#3b82f6"; root.appearance-changed(); root.toast("Foreground #3b82f6 diterapkan"); }
                                 }
@@ -1372,6 +1689,7 @@ export component SettingsView inherits Rectangle {
                             }
                             WidgetColorRow {
                                 label: "EDITING";
+                                stacked: root.stacked;
                                 dot-color: Design.cat-editing;
                                 hex <=> root.widget-editing-hex;
                                 swatches: [#3b82f6, #D9272E, #10B981, #8B5CF6];
@@ -1382,6 +1700,7 @@ export component SettingsView inherits Rectangle {
                             }
                             WidgetColorRow {
                                 label: "REVISION";
+                                stacked: root.stacked;
                                 dot-color: Design.cat-revision;
                                 hex <=> root.widget-revision-hex;
                                 swatches: [#f97316, #1557A5, #65D6D6, #D9A52E];
@@ -1392,6 +1711,7 @@ export component SettingsView inherits Rectangle {
                             }
                             WidgetColorRow {
                                 label: "LATE";
+                                stacked: root.stacked;
                                 dot-color: Design.cat-late;
                                 hex <=> root.widget-late-hex;
                                 swatches: [#ef4444, #D62828, #f97316, #8B5CF6];
@@ -1402,6 +1722,7 @@ export component SettingsView inherits Rectangle {
                             }
                             WidgetColorRow {
                                 label: "POINTS";
+                                stacked: root.stacked;
                                 dot-color: Design.cat-points;
                                 hex <=> root.widget-points-hex;
                                 swatches: [#2dd4bf, #10B981, #3b82f6, #D9A52E];
@@ -1439,12 +1760,10 @@ export component SettingsView inherits Rectangle {
                         }
 
                         // Pola latar widget — mengubah widget-bg global.
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel {
-                                title: "Pola latar widget";
-                                desc: "Motif dekorasi di atas kartu statistik — ganti satu tempat, semua kartu berubah";
-                            }
+                        SettingRow {
+                            title: "Pola latar widget";
+                            desc: "Motif dekorasi di atas kartu statistik — ganti satu tempat, semua kartu berubah";
+                            stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: 6px;
                                 OptionChip {
@@ -1477,12 +1796,10 @@ export component SettingsView inherits Rectangle {
                         // Gaya latar widget — permukaan kartu statistik
                         // (bagian dari tema: tiap preset mendefinisikan
                         // gayanya; ubah manual → preset jadi "custom").
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel {
-                                title: "Gaya latar widget";
-                                desc: "Permukaan kartu statistik di dashboard — Solid datar, Gradien tinta aksen, Kaca terangkat, Outline border aksen, atau Gauge arc bercahaya + angka besar + badge status";
-                            }
+                        SettingRow {
+                            title: "Gaya latar widget";
+                            desc: "Permukaan kartu statistik di dashboard — Solid datar, Gradien tinta aksen, Kaca terangkat, Outline border aksen, atau Gauge arc bercahaya + angka besar + badge status";
+                            stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: 6px;
                                 OptionChip {
@@ -1524,12 +1841,10 @@ export component SettingsView inherits Rectangle {
                         // bawah menampilkan gaya yang sedang dipilih
                         // (klik pratinjau hanya demo animasi geser —
                         // tidak mengubah pengaturan apa pun).
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel {
-                                title: "Gaya toggle";
-                                desc: "Tampilan saklar on/off — Klasik aksen + thumb putih, Pill geser hitam lebar dengan teks ON/OFF (ref toggle-ref.gif), atau Outline border tipis + thumb lingkaran";
-                            }
+                        SettingRow {
+                            title: "Gaya toggle";
+                            desc: "Tampilan saklar on/off — Klasik aksen + thumb putih, Pill geser hitam lebar dengan teks ON/OFF (ref toggle-ref.gif), atau Outline border tipis + thumb lingkaran";
+                            stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: 6px;
                                 OptionChip {
@@ -1581,12 +1896,10 @@ export component SettingsView inherits Rectangle {
                         // aplikasi (nav, widget, tombol, flyout),
                         // langsung tanpa restart. Pratinjau di bawah
                         // menampilkan 4 ikon dalam paket yang dipilih.
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel {
-                                title: "Paket ikon";
-                                desc: "Gaya gambar ikon — Lucide (bawaan), Tabler, Phosphor, Heroicons, Feather, atau Material Symbols; semua open-source";
-                            }
+                        SettingRow {
+                            title: "Paket ikon";
+                            desc: "Gaya gambar ikon — Lucide (bawaan), Tabler, Phosphor, Heroicons, Feather, atau Material Symbols; semua open-source";
+                            stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: 6px;
                                 OptionChip {
@@ -1642,12 +1955,10 @@ export component SettingsView inherits Rectangle {
                         // Nusa): mode Notch / Avatar Pet + voice SAPI
                         // (Windows). Semua perubahan disimpan +
                         // diterapkan langsung tanpa restart.
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel {
-                                title: "Notch";
-                                desc: "Notch hidup di atas layar — pill hitam kecil berisi mata; hover untuk mengembang. Mode Avatar Pet: maskot bisa di-drag ke mana saja dan bergerak sendiri";
-                            }
+                        SettingRow {
+                            title: "Notch";
+                            desc: "Notch hidup di atas layar — pill hitam kecil berisi mata; hover untuk mengembang. Mode Avatar Pet: maskot bisa di-drag ke mana saja dan bergerak sendiri";
+                            stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: 6px;
                                 OptionChip {
@@ -1672,12 +1983,10 @@ export component SettingsView inherits Rectangle {
                         // warnanya dibalik jadi putih supaya terbaca
                         // di atas pill hitam); Bulat = lingkaran
                         // putih besar tanpa glow.
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel {
-                                title: "Gaya mata";
-                                desc: "Bentuk mata maskot di notch dan blob pet bawaan — berlaku langsung tanpa restart";
-                            }
+                        SettingRow {
+                            title: "Gaya mata";
+                            desc: "Bentuk mata maskot di notch dan blob pet bawaan — berlaku langsung tanpa restart";
+                            stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: 6px;
                                 OptionChip {
@@ -1706,20 +2015,24 @@ export component SettingsView inherits Rectangle {
                         // aktif, hapus. Pet aktif tampil di mode
                         // Avatar Pet (bukan di pill notch). Blob
                         // bawaan = default bila belum ada pet.
+                        // ComboBox = baris SettingRow (label kiri);
+                        // install + daftar pet ter-install tetap
+                        // full-width di bawahnya (daftar butuh lebar).
                         VerticalLayout {
                             spacing: 6px;
-                            FieldLabel {
+                            SettingRow {
                                 title: "Pet";
                                 desc: "Maskot mode Avatar Pet — blob bawaan, atau pet animasi dari galeri PetDex (gratis, 5340+ pet). Ketik slug atau nama pet, lalu Install. Kredit pembuat tampil di bawah nama.";
-                            }
-                            ComboBox {
-                                width: 260px;
-                                model: root.pet-names;
-                                current-index: root.pet-active-index;
-                                selected(index) => {
-                                    root.pet-active-index = index;
-                                    root.pet-active-changed(index);
-                                    root.toast("Pet aktif: " + root.pet-names[index]);
+                                stacked: root.stacked;
+                                ComboBox {
+                                    width: root.stacked ? parent.width : 260px;
+                                    model: root.pet-names;
+                                    current-index: root.pet-active-index;
+                                    selected(index) => {
+                                        root.pet-active-index = index;
+                                        root.pet-active-changed(index);
+                                        root.toast("Pet aktif: " + root.pet-names[index]);
+                                    }
                                 }
                             }
                             HorizontalLayout {
@@ -1753,12 +2066,10 @@ export component SettingsView inherits Rectangle {
                             }
                         }
 
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel {
-                                title: "Suara maskot";
-                                desc: "Maskot bicara saat ada kartu baru masuk atau poin bertambah (Windows SAPI — offline, gratis; di Linux tidak ada suara)";
-                            }
+                        SettingRow {
+                            title: "Suara maskot";
+                            desc: "Maskot bicara saat ada kartu baru masuk atau poin bertambah (Windows SAPI — offline, gratis; di Linux tidak ada suara)";
+                            stacked: root.stacked;
                             Toggle {
                                 toggle-style: root.toggle-style;
                                 checked: root.notch-voice-enabled;
@@ -1766,14 +2077,12 @@ export component SettingsView inherits Rectangle {
                             }
                         }
 
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel {
-                                title: "Pilih suara";
-                                desc: "Suara Windows yang terpasang — Otomatis memakai Bahasa Indonesia bila ada";
-                            }
+                        SettingRow {
+                            title: "Pilih suara";
+                            desc: "Suara Windows yang terpasang — Otomatis memakai Bahasa Indonesia bila ada";
+                            stacked: root.stacked;
                             ComboBox {
-                                width: 260px;
+                                width: root.stacked ? parent.width : 260px;
                                 model: root.notch-voices;
                                 current-index: root.notch-voice-index;
                                 selected(index) => {
@@ -1784,12 +2093,10 @@ export component SettingsView inherits Rectangle {
                             }
                         }
 
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel {
-                                title: "Volume suara";
-                                desc: "Keras suara maskot, 0–100";
-                            }
+                        SettingRow {
+                            title: "Volume suara";
+                            desc: "Keras suara maskot, 0–100";
+                            stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: 8px;
                                 TextField {
@@ -1811,12 +2118,10 @@ export component SettingsView inherits Rectangle {
                         }
 
                         // Corner Radius & Nav Pill Style
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel {
-                                title: "Corner radius";
-                                desc: "Kelengkungan sudut kartu, tombol, dan panel";
-                            }
+                        SettingRow {
+                            title: "Corner radius";
+                            desc: "Kelengkungan sudut kartu, tombol, dan panel";
+                            stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: 6px;
                                 OptionChip {
@@ -1840,12 +2145,10 @@ export component SettingsView inherits Rectangle {
                             }
                         }
 
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel {
-                                title: "Navigation pill style";
-                                desc: "Bentuk bar navigasi atas (HOME / BATCH)";
-                            }
+                        SettingRow {
+                            title: "Navigation pill style";
+                            desc: "Bentuk bar navigasi atas (HOME / BATCH)";
+                            stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: 6px;
                                 OptionChip {
@@ -1877,12 +2180,10 @@ export component SettingsView inherits Rectangle {
                         // titlebar kustom + konten dalam panel rounded
                         // inset (sidebar Settings pindah ke area frame
                         // saat wrapped aktif — bukan panel kedua).
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel {
-                                title: "Window chrome";
-                                desc: "Gaya chrome window — berlaku ke semua window (utama, Spreadsheet, Toolbox, Trello)";
-                            }
+                        SettingRow {
+                            title: "Window chrome";
+                            desc: "Gaya chrome window — berlaku ke semua window (utama, Spreadsheet, Toolbox, Trello)";
+                            stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: 6px;
                                 OptionChip {
@@ -1915,44 +2216,46 @@ export component SettingsView inherits Rectangle {
                         // Gaya + posisi tombol kontrol (hanya saat
                         // titlebar kustom tampil: chrome custom/wrapped).
                         VerticalLayout {
-                            spacing: 6px;
+                            spacing: Design.space-lg;
                             visible: root.chrome == "custom" || root.chrome == "wrapped";
-                            FieldLabel {
+                            SettingRow {
                                 title: "Tombol kontrol";
                                 desc: "Gaya tombol min / max / close di title bar";
-                            }
-                            HorizontalLayout {
-                                spacing: 6px;
-                                OptionChip {
-                                    label: "Ikon";
-                                    horizontal-stretch: 1;
-                                    selected: root.chrome-button-style == "icons";
-                                    clicked => { root.chrome-button-style = "icons"; root.appearance-changed(); root.toast("Tombol kontrol: Ikon"); }
+                                stacked: root.stacked;
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    OptionChip {
+                                        label: "Ikon";
+                                        horizontal-stretch: 1;
+                                        selected: root.chrome-button-style == "icons";
+                                        clicked => { root.chrome-button-style = "icons"; root.appearance-changed(); root.toast("Tombol kontrol: Ikon"); }
+                                    }
+                                    OptionChip {
+                                        label: "Dots macOS";
+                                        horizontal-stretch: 1;
+                                        selected: root.chrome-button-style == "dots";
+                                        clicked => { root.chrome-button-style = "dots"; root.appearance-changed(); root.toast("Tombol kontrol: Dots macOS"); }
+                                    }
                                 }
-                                OptionChip {
-                                    label: "Dots macOS";
-                                    horizontal-stretch: 1;
-                                    selected: root.chrome-button-style == "dots";
-                                    clicked => { root.chrome-button-style = "dots"; root.appearance-changed(); root.toast("Tombol kontrol: Dots macOS"); }
-                                }
                             }
-                            FieldLabel {
+                            SettingRow {
                                 title: "Posisi tombol";
                                 desc: "Tombol kontrol di kiri (macOS) atau kanan (Windows)";
-                            }
-                            HorizontalLayout {
-                                spacing: 6px;
-                                OptionChip {
-                                    label: "Kanan";
-                                    horizontal-stretch: 1;
-                                    selected: root.chrome-button-position == "right";
-                                    clicked => { root.chrome-button-position = "right"; root.appearance-changed(); root.toast("Tombol kontrol: Kanan"); }
-                                }
-                                OptionChip {
-                                    label: "Kiri";
-                                    horizontal-stretch: 1;
-                                    selected: root.chrome-button-position == "left";
-                                    clicked => { root.chrome-button-position = "left"; root.appearance-changed(); root.toast("Tombol kontrol: Kiri"); }
+                                stacked: root.stacked;
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    OptionChip {
+                                        label: "Kanan";
+                                        horizontal-stretch: 1;
+                                        selected: root.chrome-button-position == "right";
+                                        clicked => { root.chrome-button-position = "right"; root.appearance-changed(); root.toast("Tombol kontrol: Kanan"); }
+                                    }
+                                    OptionChip {
+                                        label: "Kiri";
+                                        horizontal-stretch: 1;
+                                        selected: root.chrome-button-position == "left";
+                                        clicked => { root.chrome-button-position = "left"; root.appearance-changed(); root.toast("Tombol kontrol: Kiri"); }
+                                    }
                                 }
                             }
                         }
@@ -2145,6 +2448,11 @@ export component SettingsView inherits Rectangle {
                     visible: root.group == "Account";
                     VerticalLayout {
                         x: 0; width: content-rect.width;
+                        // Isi rapat di atas (alignment start): tanpa ini,
+                        // konten yang lebih pendek dari viewport
+                        // direnggangkan ke tinggi penuh (ruang ekstra
+                        // dibagi ke anak-anak) — lih. DESIGN_SYSTEM §17.4.
+                        alignment: start;
                         spacing: Design.space-lg;
                         padding-left: 16px;
                         padding-right: 16px;
@@ -2162,24 +2470,28 @@ export component SettingsView inherits Rectangle {
                                     font-weight: 700;
                                     letter-spacing: 1px;
                                     color: Design.text-primary;
+                                    wrap: word-wrap;
                                 }
 
-                                VerticalLayout {
-                                    spacing: 4px;
-                                    FieldLabel { title: "Base URL"; desc: "Alamat server board — Trello asli atau Trello kantor (tanpa / di akhir)"; }
+                                SettingRow {
+                                    title: "Base URL";
+                                    desc: "Alamat server board — Trello asli atau Trello kantor (tanpa / di akhir)";
+                                    stacked: root.stacked;
                                     TextField {
-                                        horizontal-stretch: 1;
+                                        width: root.stacked ? parent.width : 420px;
                                         text: root.trello-base-url;
                                         placeholder: "https://api.trello.com/1";
                                         edited(text) => { root.trello-base-url = text; }
                                     }
                                 }
 
-                                VerticalLayout {
-                                    spacing: 4px;
-                                    FieldLabel { title: "API Key"; desc: "Key pengembang Trello Power-Up"; }
+                                SettingRow {
+                                    title: "API Key";
+                                    desc: "Key pengembang Trello Power-Up";
+                                    stacked: root.stacked;
                                     HorizontalLayout {
                                         spacing: 8px;
+                                        width: root.stacked ? parent.width : 420px;
                                         TextField {
                                             horizontal-stretch: 1;
                                             text: root.trello-api-key;
@@ -2197,11 +2509,13 @@ export component SettingsView inherits Rectangle {
                                     }
                                 }
 
-                                VerticalLayout {
-                                    spacing: 4px;
-                                    FieldLabel { title: "Token"; desc: "Token akses baca & tulis akun Trello"; }
+                                SettingRow {
+                                    title: "Token";
+                                    desc: "Token akses baca & tulis akun Trello";
+                                    stacked: root.stacked;
                                     HorizontalLayout {
                                         spacing: 8px;
+                                        width: root.stacked ? parent.width : 420px;
                                         TextField {
                                             horizontal-stretch: 1;
                                             text: root.trello-token;
@@ -2243,13 +2557,16 @@ export component SettingsView inherits Rectangle {
                                     font-weight: 700;
                                     letter-spacing: 1px;
                                     color: Design.text-primary;
+                                    wrap: word-wrap;
                                 }
 
-                                VerticalLayout {
-                                    spacing: 4px;
-                                    FieldLabel { title: "Credentials JSON"; desc: "Path file kredensial Google Service Account"; }
+                                SettingRow {
+                                    title: "Credentials JSON";
+                                    desc: "Path file kredensial Google Service Account";
+                                    stacked: root.stacked;
                                     HorizontalLayout {
                                         spacing: 8px;
+                                        width: root.stacked ? parent.width : 420px;
                                         TextField {
                                             horizontal-stretch: 1;
                                             text: root.google-creds-path;
@@ -2264,18 +2581,21 @@ export component SettingsView inherits Rectangle {
                                     }
                                 }
 
-                                VerticalLayout {
-                                    spacing: 4px;
-                                    FieldLabel { title: "Sheet ID"; desc: "ID unik dari link Google Sheet"; }
+                                SettingRow {
+                                    title: "Sheet ID";
+                                    desc: "ID unik dari link Google Sheet";
+                                    stacked: root.stacked;
                                     TextField {
-                                        horizontal-stretch: 1;
+                                        width: root.stacked ? parent.width : 420px;
                                         text: root.google-sheet-id;
                                         placeholder: "Google Sheet ID";
                                         edited(text) => { root.google-sheet-id = text; }
                                     }
                                 }
 
-                                HorizontalLayout {
+                                // Menumpuk saat sempit: 3 kolom butuh
+                                // ~300px, konten kartu 520px cuma 224px.
+                                if !root.stacked : HorizontalLayout {
                                     spacing: 12px;
                                     VerticalLayout {
                                         horizontal-stretch: 1;
@@ -2305,6 +2625,41 @@ export component SettingsView inherits Rectangle {
                                             text: root.google-sheet-row;
                                             placeholder: "12";
                                             edited(text) => { root.google-sheet-row = text; }
+                                        }
+                                    }
+                                }
+                                if root.stacked : VerticalLayout {
+                                    spacing: 8px;
+                                    VerticalLayout {
+                                        spacing: 4px;
+                                        FieldLabel { title: "Worksheet Poin"; desc: "Tab poin harian"; }
+                                        TextField {
+                                            text: root.google-sheet-name;
+                                            placeholder: "misal Sheet1";
+                                            edited(text) => { root.google-sheet-name = text; }
+                                        }
+                                    }
+                                    HorizontalLayout {
+                                        spacing: 12px;
+                                        VerticalLayout {
+                                            horizontal-stretch: 1;
+                                            spacing: 4px;
+                                            FieldLabel { title: "Kolom"; desc: "Kolom sel"; }
+                                            TextField {
+                                                text: root.google-sheet-col;
+                                                placeholder: "B";
+                                                edited(text) => { root.google-sheet-col = text; }
+                                            }
+                                        }
+                                        VerticalLayout {
+                                            horizontal-stretch: 1;
+                                            spacing: 4px;
+                                            FieldLabel { title: "Baris"; desc: "Baris sel"; }
+                                            TextField {
+                                                text: root.google-sheet-row;
+                                                placeholder: "12";
+                                                edited(text) => { root.google-sheet-row = text; }
+                                            }
                                         }
                                     }
                                 }
@@ -2370,6 +2725,7 @@ export component SettingsView inherits Rectangle {
                                     font-weight: 700;
                                     letter-spacing: 1px;
                                     color: Design.text-primary;
+                                    wrap: word-wrap;
                                 }
 
                                 HorizontalLayout {
@@ -2481,6 +2837,7 @@ export component SettingsView inherits Rectangle {
                                     font-weight: 700;
                                     letter-spacing: 1px;
                                     color: Design.text-primary;
+                                    wrap: word-wrap;
                                 }
 
                                 HorizontalLayout {
@@ -2550,6 +2907,11 @@ export component SettingsView inherits Rectangle {
                     visible: root.group == "Extensions";
                     VerticalLayout {
                         x: 0; width: content-rect.width;
+                        // Isi rapat di atas (alignment start): tanpa ini,
+                        // konten yang lebih pendek dari viewport
+                        // direnggangkan ke tinggi penuh (ruang ekstra
+                        // dibagi ke anak-anak) — lih. DESIGN_SYSTEM §17.4.
+                        alignment: start;
                         spacing: Design.space-lg;
                         padding-left: 16px;
                         padding-right: 16px;
@@ -2560,7 +2922,7 @@ export component SettingsView inherits Rectangle {
                             VerticalLayout {
                                 padding: Design.space-lg;
                                 spacing: Design.space-md;
-                                HorizontalLayout {
+                                if !root.stacked : HorizontalLayout {
                                     Text {
                                         text: "INSTALLED EXTENSIONS / PLUGINS";
                                         font-size: Design.font-h3;
@@ -2576,6 +2938,22 @@ export component SettingsView inherits Rectangle {
                                         clicked => { root.toast("Pilih file DLL ekstensi…"); }
                                     }
                                 }
+                                if root.stacked : VerticalLayout {
+                                    spacing: 8px;
+                                    Text {
+                                        text: "INSTALLED EXTENSIONS / PLUGINS";
+                                        font-size: Design.font-h3;
+                                        font-weight: 700;
+                                        letter-spacing: 1px;
+                                        color: Design.text-primary;
+                                        wrap: word-wrap;
+                                    }
+                                    Btn {
+                                        label: "Add Plugin (.dll)";
+                                        variant: "primary";
+                                        clicked => { root.toast("Pilih file DLL ekstensi…"); }
+                                    }
+                                }
 
                                 Text {
                                     text: "Folder: BMachine/plugins/";
@@ -2583,14 +2961,16 @@ export component SettingsView inherits Rectangle {
                                     color: Design.text-muted;
                                 }
 
-                                // Mock Item Plugin
+                                // Mock Item Plugin — menumpuk saat
+                                // sempit (nama + tombol di bawah) karena
+                                // baris horizontal butuh ~410px.
                                 Rectangle {
-                                    height: 52px;
+                                    height: root.stacked ? 100px : 52px;
                                     background: Design.bg-hover;
                                     border-radius: Design.radius-sm;
                                     border-width: 1px;
                                     border-color: Design.border-default;
-                                    HorizontalLayout {
+                                    if !root.stacked : HorizontalLayout {
                                         padding-left: 12px;
                                         padding-right: 12px;
                                         spacing: 12px;
@@ -2626,6 +3006,48 @@ export component SettingsView inherits Rectangle {
                                             clicked => { root.toast("Plugin dihapus."); }
                                         }
                                     }
+                                    if root.stacked : VerticalLayout {
+                                        padding-left: 12px;
+                                        padding-right: 12px;
+                                        padding-top: 8px;
+                                        padding-bottom: 8px;
+                                        spacing: 8px;
+                                        HorizontalLayout {
+                                            spacing: 12px;
+                                            Text {
+                                                text: "🧩";
+                                                font-size: 18px;
+                                                vertical-alignment: center;
+                                            }
+                                            VerticalLayout {
+                                                spacing: 2px;
+                                                Text {
+                                                    text: "SampleExtension.dll";
+                                                    font-size: Design.font-body;
+                                                    font-weight: 600;
+                                                    color: Design.text-primary;
+                                                }
+                                                Text {
+                                                    text: "v1.0.0 · Active · External Extension";
+                                                    font-size: Design.font-caption;
+                                                    color: Design.text-muted;
+                                                }
+                                            }
+                                        }
+                                        HorizontalLayout {
+                                            spacing: 8px;
+                                            Btn {
+                                                label: "Disable";
+                                                variant: "secondary";
+                                                clicked => { root.toast("Plugin dinonaktifkan (.disabled)"); }
+                                            }
+                                            Btn {
+                                                label: "Hapus";
+                                                variant: "danger";
+                                                clicked => { root.toast("Plugin dihapus."); }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -2638,6 +3060,11 @@ export component SettingsView inherits Rectangle {
                     visible: root.group == "Script Manager";
                     VerticalLayout {
                         x: 0; width: content-rect.width;
+                        // Isi rapat di atas (alignment start): tanpa ini,
+                        // konten yang lebih pendek dari viewport
+                        // direnggangkan ke tinggi penuh (ruang ekstra
+                        // dibagi ke anak-anak) — lih. DESIGN_SYSTEM §17.4.
+                        alignment: start;
                         spacing: Design.space-lg;
                         padding-left: 16px;
                         padding-right: 16px;
@@ -2654,16 +3081,39 @@ export component SettingsView inherits Rectangle {
                                     font-weight: 700;
                                     letter-spacing: 1px;
                                     color: Design.text-primary;
+                                    wrap: word-wrap;
                                 }
 
                                 Text {
                                     text: "Konfigurasi scripts.json, urutan script Master, dan penataan 8 slot Radial Menu.";
                                     font-size: Design.font-caption;
                                     color: Design.text-muted;
+                                    wrap: word-wrap;
                                 }
 
-                                HorizontalLayout {
+                                // Menumpuk saat sempit: 3 tombol
+                                // berdampingan butuh ~600px, konten
+                                // 520px cuma 256px.
+                                if !root.stacked : HorizontalLayout {
                                     spacing: 12px;
+                                    Btn {
+                                        label: "Buka Folder Scripts/Master";
+                                        variant: "secondary";
+                                        clicked => { root.toast("Folder Scripts/Master belum dikonfigurasi."); }
+                                    }
+                                    Btn {
+                                        label: "Buka Folder Scripts/Action";
+                                        variant: "secondary";
+                                        clicked => { root.toast("Folder Scripts/Action belum dikonfigurasi."); }
+                                    }
+                                    Btn {
+                                        label: "Reload scripts.json";
+                                        variant: "primary";
+                                        clicked => { root.toast("Metadata skrip berhasil direload."); }
+                                    }
+                                }
+                                if root.stacked : VerticalLayout {
+                                    spacing: 8px;
                                     Btn {
                                         label: "Buka Folder Scripts/Master";
                                         variant: "secondary";
@@ -2693,128 +3143,64 @@ export component SettingsView inherits Rectangle {
                                     font-weight: 700;
                                     letter-spacing: 1px;
                                     color: Design.text-primary;
+                                    wrap: word-wrap;
                                 }
                                 Text {
                                     text: "Pratinjau roda live 1:1 — 7 slot skrip + 1 navigasi More/Back di posisi 180° (Selatan)";
                                     font-size: Design.font-caption;
                                     color: Design.text-muted;
+                                    wrap: word-wrap;
                                 }
 
-                                HorizontalLayout {
+                                // Lebar: roda + rincian berdampingan.
+                                // Menumpuk (520px): roda di atas (tengah),
+                                // 8 chip rincian penuh lebar di bawah —
+                                // berdampingan butuh ~500px, konten 520px
+                                // cuma 256px.
+                                if !root.stacked : HorizontalLayout {
                                     spacing: Design.space-lg;
-
-                                    // Roda 200x200 (RadialSlotsControl C#)
-                                    Rectangle {
-                                        width: 200px;
-                                        height: 200px;
-                                        border-radius: 100px;
-                                        background: Design.surface-elevated;
-                                        border-color: Design.separator;
-                                        border-width: 1px;
-                                        clip: true;
-
-                                        // 8 Pembatas sektor
-                                        Path {
-                                            width: 100%; height: 100%;
-                                            viewbox-x: 0; viewbox-y: 0; viewbox-width: 200; viewbox-height: 200;
-                                            fill: transparent;
-                                            stroke: Design.text-primary;
-                                            stroke-width: 1px;
-                                            opacity: 0.15;
-                                            commands: "M 116.84 59.35 L 138.27 7.61 M 140.65 83.16 L 192.39 61.73 M 140.65 116.84 L 192.39 138.27 M 116.84 140.65 L 138.27 192.39 M 83.16 140.65 L 61.73 192.39 M 59.35 116.84 L 7.61 138.27 M 59.35 83.16 L 7.61 61.73 M 83.16 59.35 L 61.73 7.61";
-                                        }
-
-                                        // Hub tengah 88px
-                                        Rectangle {
-                                            x: 56px; y: 56px; width: 88px; height: 88px;
-                                            border-radius: 44px;
-                                            background: Design.card-bg;
-                                            border-color: Design.separator;
-                                            border-width: 1px;
-                                            VerticalLayout {
-                                                alignment: center;
-                                                spacing: 2px;
-                                                Text { text: "RADIAL"; font-size: 10px; font-weight: 800; letter-spacing: 1px; color: Design.text-primary; horizontal-alignment: center; }
-                                                Text { text: "7 SLOTS"; font-size: 8px; font-weight: 600; color: Design.accent; horizontal-alignment: center; }
-                                            }
-                                        }
-
-                                        // 8 Tombol slot pada R = 72px (cx=100, cy=100, btn 32x32 -> -16px)
-                                        // 0° (Utara): (100 - 16, 100 - 72 - 16) = (84, 12)
-                                        Rectangle {
-                                            x: 84px; y: 12px; width: 32px; height: 32px; border-radius: 16px;
-                                            background: Design.card-bg; border-color: Design.accent; border-width: 1.5px;
-                                            SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "image"; size: 16px; icon-color: Design.accent; }
-                                        }
-                                        // 45° (NE): (100 + 51 - 16, 100 - 51 - 16) = (135, 33)
-                                        Rectangle {
-                                            x: 135px; y: 33px; width: 32px; height: 32px; border-radius: 16px;
-                                            background: Design.card-bg; border-color: Design.accent; border-width: 1.5px;
-                                            SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "file-text"; size: 16px; icon-color: Design.accent; }
-                                        }
-                                        // 90° (Timur): (100 + 72 - 16, 100 - 16) = (156, 84)
-                                        Rectangle {
-                                            x: 156px; y: 84px; width: 32px; height: 32px; border-radius: 16px;
-                                            background: Design.card-bg; border-color: Design.accent; border-width: 1.5px;
-                                            SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "wrench"; size: 16px; icon-color: Design.accent; }
-                                        }
-                                        // 135° (SE): (100 + 51 - 16, 100 + 51 - 16) = (135, 135)
-                                        Rectangle {
-                                            x: 135px; y: 135px; width: 32px; height: 32px; border-radius: 16px;
-                                            background: Design.card-bg; border-color: Design.separator; border-width: 1px;
-                                            SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "crop"; size: 16px; icon-color: Design.text-primary; }
-                                        }
-                                        // 180° (Selatan - More/Nav): (100 - 16, 100 + 72 - 16) = (84, 156)
-                                        Rectangle {
-                                            x: 84px; y: 156px; width: 32px; height: 32px; border-radius: 16px;
-                                            background: Design.accent-subtle; border-color: Design.accent; border-width: 1px;
-                                            SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "more-horizontal"; size: 16px; icon-color: Design.accent; }
-                                        }
-                                        // 225° (SW): (100 - 51 - 16, 100 + 51 - 16) = (33, 135)
-                                        Rectangle {
-                                            x: 33px; y: 135px; width: 32px; height: 32px; border-radius: 16px;
-                                            background: Design.card-bg; border-color: Design.separator; border-width: 1px;
-                                            SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "palette"; size: 16px; icon-color: Design.text-primary; }
-                                        }
-                                        // 270° (Barat): (100 - 72 - 16, 100 - 16) = (12, 84)
-                                        Rectangle {
-                                            x: 12px; y: 84px; width: 32px; height: 32px; border-radius: 16px;
-                                            background: Design.card-bg; border-color: Design.separator; border-width: 1px;
-                                            SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "save"; size: 16px; icon-color: Design.text-primary; }
-                                        }
-                                        // 315° (NW): (100 - 51 - 16, 100 - 51 - 16) = (33, 33)
-                                        Rectangle {
-                                            x: 33px; y: 33px; width: 32px; height: 32px; border-radius: 16px;
-                                            background: Design.card-bg; border-color: Design.separator; border-width: 1px;
-                                            SvgIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; name: "download"; size: 16px; icon-color: Design.text-primary; }
-                                        }
-                                    }
-
-                                    // Kolom Rincian 8 Slot
+                                    RadialWheelPreview { }
                                     VerticalLayout {
                                         horizontal-stretch: 1;
                                         spacing: 4px;
-
                                         HorizontalLayout {
                                             spacing: 6px;
-                                            Rectangle { width: 140px; height: 28px; background: Design.bg-hover; border-radius: 4px; Text { text: "0° (Utara): SEND-LOGO [Sub]"; font-size: 10px; font-weight: 700; color: Design.accent; vertical-alignment: center; horizontal-alignment: center; } }
-                                            Rectangle { width: 140px; height: 28px; background: Design.bg-hover; border-radius: 4px; Text { text: "45° (NE): SEND-TEXT [Sub]"; font-size: 10px; font-weight: 700; color: Design.accent; vertical-alignment: center; horizontal-alignment: center; } }
+                                            SlotChip { label: "0° (Utara): SEND-LOGO [Sub]"; accent-text: true; width: 140px; }
+                                            SlotChip { label: "45° (NE): SEND-TEXT [Sub]"; accent-text: true; width: 140px; }
                                         }
                                         HorizontalLayout {
                                             spacing: 6px;
-                                            Rectangle { width: 140px; height: 28px; background: Design.bg-hover; border-radius: 4px; Text { text: "90° (Timur): TOOLBOX [Grup]"; font-size: 10px; font-weight: 700; color: Design.accent; vertical-alignment: center; horizontal-alignment: center; } }
-                                            Rectangle { width: 140px; height: 28px; background: Design.bg-hover; border-radius: 4px; Text { text: "135° (SE): CROP-CENTER"; font-size: 10px; color: Design.text-primary; vertical-alignment: center; horizontal-alignment: center; } }
+                                            SlotChip { label: "90° (Timur): TOOLBOX [Grup]"; accent-text: true; width: 140px; }
+                                            SlotChip { label: "135° (SE): CROP-CENTER"; width: 140px; }
                                         }
                                         HorizontalLayout {
                                             spacing: 6px;
-                                            Rectangle { width: 140px; height: 28px; background: Design.accent-subtle; border-color: Design.accent; border-width: 1px; border-radius: 4px; Text { text: "180° (Selatan): MORE (Nav)"; font-size: 10px; font-weight: 800; color: Design.accent; vertical-alignment: center; horizontal-alignment: center; } }
-                                            Rectangle { width: 140px; height: 28px; background: Design.bg-hover; border-radius: 4px; Text { text: "225° (SW): COLOR-MATCH"; font-size: 10px; color: Design.text-primary; vertical-alignment: center; horizontal-alignment: center; } }
+                                            SlotChip { label: "180° (Selatan): MORE (Nav)"; more: true; width: 140px; }
+                                            SlotChip { label: "225° (SW): COLOR-MATCH"; width: 140px; }
                                         }
                                         HorizontalLayout {
                                             spacing: 6px;
-                                            Rectangle { width: 140px; height: 28px; background: Design.bg-hover; border-radius: 4px; Text { text: "270° (Barat): AUTO-SAVE"; font-size: 10px; color: Design.text-primary; vertical-alignment: center; horizontal-alignment: center; } }
-                                            Rectangle { width: 140px; height: 28px; background: Design.bg-hover; border-radius: 4px; Text { text: "315° (NW): EXPORT-JPG"; font-size: 10px; color: Design.text-primary; vertical-alignment: center; horizontal-alignment: center; } }
+                                            SlotChip { label: "270° (Barat): AUTO-SAVE"; width: 140px; }
+                                            SlotChip { label: "315° (NW): EXPORT-JPG"; width: 140px; }
                                         }
+                                    }
+                                }
+                                if root.stacked : VerticalLayout {
+                                    spacing: Design.space-md;
+                                    HorizontalLayout {
+                                        alignment: center;
+                                        RadialWheelPreview { }
+                                    }
+                                    VerticalLayout {
+                                        spacing: 4px;
+                                        SlotChip { label: "0° (Utara): SEND-LOGO [Sub]"; accent-text: true; }
+                                        SlotChip { label: "45° (NE): SEND-TEXT [Sub]"; accent-text: true; }
+                                        SlotChip { label: "90° (Timur): TOOLBOX [Grup]"; accent-text: true; }
+                                        SlotChip { label: "135° (SE): CROP-CENTER"; }
+                                        SlotChip { label: "180° (Selatan): MORE (Nav)"; more: true; }
+                                        SlotChip { label: "225° (SW): COLOR-MATCH"; }
+                                        SlotChip { label: "270° (Barat): AUTO-SAVE"; }
+                                        SlotChip { label: "315° (NW): EXPORT-JPG"; }
                                     }
                                 }
                             }
@@ -2830,23 +3216,23 @@ export component SettingsView inherits Rectangle {
                                     font-weight: 700;
                                     letter-spacing: 1px;
                                     color: Design.text-primary;
+                                    wrap: word-wrap;
                                 }
                                 Text {
                                     text: "Segmen radial mengikuti warna aksen tema aktif (Spider = merah, Gwen = pink) — berlaku langsung tanpa restart";
                                     font-size: Design.font-caption;
                                     color: Design.text-muted;
+                                    wrap: word-wrap;
                                 }
 
                                 // Gaya ring radial: Kaca = ring kaca
                                 // gelap transparan; HUD = outline tipis
                                 // + glow aksen di segmen aktif; Flat =
                                 // datar tanpa kaca/glow.
-                                VerticalLayout {
-                                    spacing: 6px;
-                                    FieldLabel {
-                                        title: "Gaya radial";
-                                        desc: "Kaca = ring kaca gelap; HUD = outline tipis + glow aksen; Flat = datar tanpa glow";
-                                    }
+                                SettingRow {
+                                    title: "Gaya radial";
+                                    desc: "Kaca = ring kaca gelap; HUD = outline tipis + glow aksen; Flat = datar tanpa glow";
+                                    stacked: root.stacked;
                                     HorizontalLayout {
                                         spacing: 6px;
                                         OptionChip {
@@ -2875,12 +3261,10 @@ export component SettingsView inherits Rectangle {
                                 // terakhir selalu navigasi (More/Back).
                                 // 9–12 baru terbuka bila slot radial
                                 // bisa diedit user.
-                                VerticalLayout {
-                                    spacing: 6px;
-                                    FieldLabel {
-                                        title: "Jumlah segmen";
-                                        desc: "Ring dibagi sama rata sesuai jumlah segmen — segmen terakhir selalu More/Back";
-                                    }
+                                SettingRow {
+                                    title: "Jumlah segmen";
+                                    desc: "Ring dibagi sama rata sesuai jumlah segmen — segmen terakhir selalu More/Back";
+                                    stacked: root.stacked;
                                     HorizontalLayout {
                                         spacing: 6px;
                                         OptionChip {
@@ -2932,6 +3316,11 @@ export component SettingsView inherits Rectangle {
                     visible: root.group == "General";
                     VerticalLayout {
                         x: 0; width: content-rect.width;
+                        // Isi rapat di atas (alignment start): tanpa ini,
+                        // konten yang lebih pendek dari viewport
+                        // direnggangkan ke tinggi penuh (ruang ekstra
+                        // dibagi ke anak-anak) — lih. DESIGN_SYSTEM §17.4.
+                        alignment: start;
                         spacing: Design.space-lg;
                         padding-left: 16px;
                         padding-right: 16px;
@@ -2949,23 +3338,25 @@ export component SettingsView inherits Rectangle {
                             color: Design.text-primary;
                         }
 
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Nama user"; desc: "Nama yang tampil di profil & log"; }
+                        SettingRow {
+                            title: "Nama user";
+                            desc: "Nama yang tampil di profil & log";
+                            stacked: root.stacked;
                             TextField {
-                                // Lebar penuh seperti semua field path — sejajar kanan-kiri dengan kontrol lain.
-                                horizontal-stretch: 1;
+                                // Secukupnya (260px) saat lebar, penuh saat menumpuk.
+                                width: root.stacked ? parent.width : 260px;
                                 text: root.user-name;
                                 placeholder: "Nama user";
                                 edited(text) => { root.user-name = text; }
                                 accepted(text) => { root.toast("Disimpan: Nama user"); }
                             }
                         }
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Bahasa"; desc: "Bahasa antarmuka aplikasi"; }
+                        SettingRow {
+                            title: "Bahasa";
+                            desc: "Bahasa antarmuka aplikasi";
+                            stacked: root.stacked;
                             ComboBox {
-                                width: 140px;
+                                width: root.stacked ? parent.width : 140px;
                                 model: ["English", "Indonesia"];
                                 current-index: root.lang == "Indonesia" ? 1 : 0;
                                 selected(index) => {
@@ -2974,11 +3365,12 @@ export component SettingsView inherits Rectangle {
                                 }
                             }
                         }
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Filter ekstensi file"; desc: "Filter file saat batch (kosong = semua)"; }
+                        SettingRow {
+                            title: "Filter ekstensi file";
+                            desc: "Filter file saat batch (kosong = semua)";
+                            stacked: root.stacked;
                             TextField {
-                                width: 140px;
+                                width: root.stacked ? parent.width : 140px;
                                 text: root.batch-file-filter;
                                 placeholder: "All (*)";
                                 edited(text) => { root.batch-file-filter = text; }
@@ -2988,18 +3380,20 @@ export component SettingsView inherits Rectangle {
                                 }
                             }
                         }
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Animasi startup"; desc: "Tampilkan animasi saat aplikasi dibuka"; }
+                        SettingRow {
+                            title: "Animasi startup";
+                            desc: "Tampilkan animasi saat aplikasi dibuka";
+                            stacked: root.stacked;
                             Toggle {
                                 toggle-style: root.toggle-style;
                                 checked: root.anim-startup;
                                 toggled(checked) => { root.anim-startup = checked; root.toast(checked ? "Disimpan: Animasi startup nyala" : "Disimpan: Animasi startup mati"); }
                             }
                         }
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Kecepatan animasi statistik"; desc: "Kecepatan transisi angka di kartu dashboard"; }
+                        SettingRow {
+                            title: "Kecepatan animasi statistik";
+                            desc: "Kecepatan transisi angka di kartu dashboard";
+                            stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: 6px;
                                 OptionChip {
@@ -3022,9 +3416,10 @@ export component SettingsView inherits Rectangle {
                                 }
                             }
                         }
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Interval refresh Trello"; desc: "Seberapa sering statistik Trello dimuat ulang"; }
+                        SettingRow {
+                            title: "Interval refresh Trello";
+                            desc: "Seberapa sering statistik Trello dimuat ulang";
+                            stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: 8px;
                                 TextField {
@@ -3048,35 +3443,39 @@ export component SettingsView inherits Rectangle {
                                 }
                             }
                         }
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Data"; desc: "Penyimpanan & cadangan database"; }
-                            HorizontalLayout {
-                                spacing: 8px;
-                                Text {
-                                    text: "Penyimpanan";
-                                    font-size: Design.font-body;
-                                    color: Design.text-primary;
-                                    vertical-alignment: center;
-                                    horizontal-stretch: 1;
-                                }
-                                Btn {
-                                    label: ">";
-                                    variant: "secondary";
-                                    clicked => { root.group = "Paths"; }
-                                }
-                            }
-                            HorizontalLayout {
+                        SettingRow {
+                            title: "Data";
+                            desc: "Penyimpanan & cadangan database";
+                            stacked: root.stacked;
+                            VerticalLayout {
                                 spacing: 6px;
-                                Btn {
-                                    label: "Export";
-                                    variant: "secondary";
-                                    clicked => { root.export-database(); }
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    Text {
+                                        text: "Penyimpanan";
+                                        font-size: Design.font-body;
+                                        color: Design.text-primary;
+                                        vertical-alignment: center;
+                                        horizontal-stretch: 1;
+                                    }
+                                    Btn {
+                                        label: ">";
+                                        variant: "secondary";
+                                        clicked => { root.group = "Paths"; }
+                                    }
                                 }
-                                Btn {
-                                    label: "Import";
-                                    variant: "secondary";
-                                    clicked => { root.import-database(); }
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    Btn {
+                                        label: "Export";
+                                        variant: "secondary";
+                                        clicked => { root.export-database(); }
+                                    }
+                                    Btn {
+                                        label: "Import";
+                                        variant: "secondary";
+                                        clicked => { root.import-database(); }
+                                    }
                                 }
                             }
                         }
@@ -3142,38 +3541,73 @@ export component SettingsView inherits Rectangle {
                                 }
                             }
                         }
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Shortcut menu"; desc: "Shortcut global membuka radial tepat di posisi cursor"; }
-                            Text {
-                                text: root.recording-shortcut ? "MENUNGGU INPUT — tekan kombinasi keyboard / tombol mouse. Esc untuk batal." : "Shortcut saat ini:";
-                                font-size: Design.font-caption;
-                                color: root.recording-shortcut ? Design.accent : Design.text-muted;
-                            }
-                            HorizontalLayout {
-                                spacing: Design.space-sm;
-                                Rectangle {
-                                    width: 260px;
-                                    height: 36px;
-                                    background: Design.bg-hover;
-                                    border-color: root.recording-shortcut ? Design.accent : Design.separator;
-                                    border-width: 1px;
-                                    border-radius: Design.radius-sm;
-                                    Text {
-                                        text: root.recording-shortcut ? "MENUNGGU INPUT…" : root.current-shortcut-label;
-                                        font-size: Design.font-button;
-                                        font-weight: 700;
-                                        color: root.recording-shortcut ? Design.accent : Design.text-primary;
-                                        horizontal-alignment: center;
-                                        vertical-alignment: center;
+                        SettingRow {
+                            title: "Shortcut menu";
+                            desc: "Shortcut global membuka radial tepat di posisi cursor";
+                            stacked: root.stacked;
+                            VerticalLayout {
+                                spacing: 8px;
+                                Text {
+                                    text: root.recording-shortcut ? "MENUNGGU INPUT — tekan kombinasi keyboard / tombol mouse. Esc untuk batal." : "Shortcut saat ini:";
+                                    font-size: Design.font-caption;
+                                    color: root.recording-shortcut ? Design.accent : Design.text-muted;
+                                    wrap: word-wrap;
+                                }
+                                // Lebar: kotak + tombol berdampingan
+                                // saat lebar; menumpuk (kotak penuh +
+                                // tombol penuh) saat sempit — berdampingan
+                                // butuh ~390px, konten 520px cuma 256px.
+                                if !root.stacked : HorizontalLayout {
+                                    spacing: Design.space-sm;
+                                    Rectangle {
+                                        width: 260px;
+                                        height: 36px;
+                                        background: Design.bg-hover;
+                                        border-color: root.recording-shortcut ? Design.accent : Design.separator;
+                                        border-width: 1px;
+                                        border-radius: Design.radius-sm;
+                                        Text {
+                                            text: root.recording-shortcut ? "MENUNGGU INPUT…" : root.current-shortcut-label;
+                                            font-size: Design.font-button;
+                                            font-weight: 700;
+                                            color: root.recording-shortcut ? Design.accent : Design.text-primary;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                    Btn {
+                                        label: root.recording-shortcut ? "Batal" : "Rekam Shortcut";
+                                        variant: root.recording-shortcut ? "secondary" : "primary";
+                                        clicked => {
+                                            if (root.recording-shortcut) { root.cancel-recording-shortcut(); }
+                                            else { root.start-recording-shortcut(); }
+                                        }
                                     }
                                 }
-                                Btn {
-                                    label: root.recording-shortcut ? "Batal" : "Rekam Shortcut";
-                                    variant: root.recording-shortcut ? "secondary" : "primary";
-                                    clicked => {
-                                        if (root.recording-shortcut) { root.cancel-recording-shortcut(); }
-                                        else { root.start-recording-shortcut(); }
+                                if root.stacked : VerticalLayout {
+                                    spacing: 8px;
+                                    Rectangle {
+                                        height: 36px;
+                                        background: Design.bg-hover;
+                                        border-color: root.recording-shortcut ? Design.accent : Design.separator;
+                                        border-width: 1px;
+                                        border-radius: Design.radius-sm;
+                                        Text {
+                                            text: root.recording-shortcut ? "MENUNGGU INPUT…" : root.current-shortcut-label;
+                                            font-size: Design.font-button;
+                                            font-weight: 700;
+                                            color: root.recording-shortcut ? Design.accent : Design.text-primary;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                    Btn {
+                                        label: root.recording-shortcut ? "Batal" : "Rekam Shortcut";
+                                        variant: root.recording-shortcut ? "secondary" : "primary";
+                                        clicked => {
+                                            if (root.recording-shortcut) { root.cancel-recording-shortcut(); }
+                                            else { root.start-recording-shortcut(); }
+                                        }
                                     }
                                 }
                             }
@@ -3200,6 +3634,11 @@ export component SettingsView inherits Rectangle {
                     visible: root.group == "Paths";
                     VerticalLayout {
                         x: 0; width: content-rect.width;
+                        // Isi rapat di atas (alignment start): tanpa ini,
+                        // konten yang lebih pendek dari viewport
+                        // direnggangkan ke tinggi penuh (ruang ekstra
+                        // dibagi ke anak-anak) — lih. DESIGN_SYSTEM §17.4.
+                        alignment: start;
                         spacing: Design.space-lg;
                         padding-left: 16px;
                         padding-right: 16px;
@@ -3215,11 +3654,13 @@ export component SettingsView inherits Rectangle {
                             color: Design.text-primary;
                         }
 
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Local Output"; desc: "Base folder OUTPUT (mis. D:\\Output)"; }
+                        SettingRow {
+                            title: "Local Output";
+                            desc: "Base folder OUTPUT (mis. D:\\Output)";
+                            stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: 8px;
+                                width: root.stacked ? parent.width : 420px;
                                 TextField {
                                     horizontal-stretch: 1;
                                     text: root.path-local;
@@ -3233,11 +3674,13 @@ export component SettingsView inherits Rectangle {
                                 }
                             }
                         }
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "OKE BASE"; desc: "Share backup OKE BASE (jaringan)"; }
+                        SettingRow {
+                            title: "OKE BASE";
+                            desc: "Share backup OKE BASE (jaringan)";
+                            stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: 8px;
+                                width: root.stacked ? parent.width : 420px;
                                 TextField {
                                     horizontal-stretch: 1;
                                     text: root.path-okebase;
@@ -3252,11 +3695,13 @@ export component SettingsView inherits Rectangle {
                                 }
                             }
                         }
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Photoshop Path"; desc: "Executable Photoshop (untuk JSX & COM)"; }
+                        SettingRow {
+                            title: "Photoshop Path";
+                            desc: "Executable Photoshop (untuk JSX & COM)";
+                            stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: 8px;
+                                width: root.stacked ? parent.width : 420px;
                                 TextField {
                                     horizontal-stretch: 1;
                                     text: root.path-photoshop;
@@ -3271,11 +3716,13 @@ export component SettingsView inherits Rectangle {
                                 }
                             }
                         }
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Master Pas Foto"; desc: "Folder master pas foto"; }
+                        SettingRow {
+                            title: "Master Pas Foto";
+                            desc: "Folder master pas foto";
+                            stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: 8px;
+                                width: root.stacked ? parent.width : 420px;
                                 TextField {
                                     horizontal-stretch: 1;
                                     text: root.path-pasfoto;
@@ -3289,11 +3736,13 @@ export component SettingsView inherits Rectangle {
                                 }
                             }
                         }
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Master Manasik"; desc: "Folder master manasik"; }
+                        SettingRow {
+                            title: "Master Manasik";
+                            desc: "Folder master manasik";
+                            stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: 8px;
+                                width: root.stacked ? parent.width : 420px;
                                 TextField {
                                     horizontal-stretch: 1;
                                     text: root.path-manasik;
@@ -3307,11 +3756,13 @@ export component SettingsView inherits Rectangle {
                                 }
                             }
                         }
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Master Wisuda"; desc: "Folder master wisuda"; }
+                        SettingRow {
+                            title: "Master Wisuda";
+                            desc: "Folder master wisuda";
+                            stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: 8px;
+                                width: root.stacked ? parent.width : 420px;
                                 TextField {
                                     horizontal-stretch: 1;
                                     text: root.path-wisuda;
@@ -3325,11 +3776,13 @@ export component SettingsView inherits Rectangle {
                                 }
                             }
                         }
-                        VerticalLayout {
-                            spacing: 6px;
-                            FieldLabel { title: "Master Profesi"; desc: "Folder master profesi"; }
+                        SettingRow {
+                            title: "Master Profesi";
+                            desc: "Folder master profesi";
+                            stacked: root.stacked;
                             HorizontalLayout {
                                 spacing: 8px;
+                                width: root.stacked ? parent.width : 420px;
                                 TextField {
                                     horizontal-stretch: 1;
                                     text: root.path-profesi;
@@ -3352,6 +3805,11 @@ export component SettingsView inherits Rectangle {
                     visible: root.group == "About";
                     VerticalLayout {
                         x: 0; width: content-rect.width;
+                        // Isi rapat di atas (alignment start): tanpa ini,
+                        // konten yang lebih pendek dari viewport
+                        // direnggangkan ke tinggi penuh (ruang ekstra
+                        // dibagi ke anak-anak) — lih. DESIGN_SYSTEM §17.4.
+                        alignment: start;
                         spacing: Design.space-lg;
                         padding-left: 16px;
                         padding-right: 16px;
@@ -3377,11 +3835,13 @@ export component SettingsView inherits Rectangle {
                                     text: "Port Rust/Slint (mockup interaktif)";
                                     font-size: Design.font-body;
                                     color: Design.text-secondary;
+                                    wrap: word-wrap;
                                 }
                                 Text {
                                     text: "Dibangun dari BMachine C# (Avalonia/.NET 8).";
                                     font-size: Design.font-caption;
                                     color: Design.text-muted;
+                                    wrap: word-wrap;
                                 }
                                 HorizontalLayout {
                                     Btn {

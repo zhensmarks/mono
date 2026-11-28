@@ -7,7 +7,7 @@
 // "EXPLORER-SETTINGS" di ui/main.slint). Klik kanan = kembali
 // (pola yang sama dengan SettingsView — tanpa tombol "← Kembali").
 
-import { Design, HSeparator, Btn, TextField, Toggle } from "design.slint";
+import { Design, HSeparator, Btn, TextField, Toggle, ComboBox } from "design.slint";
 
 // Chip pilihan (salinan dari ui/settings.slint — tiap file mendefinisikan
 // sendiri; komponen lokal tidak bisa diimpor antar file di Slint 1.19).
@@ -51,6 +51,11 @@ component FieldLabel inherits VerticalLayout {
         font-size: Design.font-body;
         font-weight: 700;
         color: Design.text-primary;
+        vertical-alignment: top;
+        vertical-stretch: 0;
+        // Judul ikut wrap supaya tidak terpotong di kolom sempit
+        // (lih. FieldLabel di ui/settings.slint).
+        wrap: word-wrap;
     }
     Text {
         text: desc;
@@ -58,6 +63,37 @@ component FieldLabel inherits VerticalLayout {
         color: Design.text-secondary;
         wrap: word-wrap;
         visible: desc != "";
+        // WAJIB top: Text ber-wrap diregangkan vertikal oleh layout
+        // bila baris lebih tinggi dari label — tanpa ini teks deskripsi
+        // melayang ke tengah baris (28 Nov 2026, lih. SettingRow).
+        vertical-alignment: top;
+        vertical-stretch: 0;
+    }
+    // Penyerap ruang ekstra (tak terlihat, tinggi natural 0) — lih.
+    // FieldLabel di ui/settings.slint: tanpa ini layout Slint membagi
+    // rata ruang ekstra ke judul + deskripsi bila baris lebih tinggi.
+    Rectangle { vertical-stretch: 1; }
+}
+
+// Baris setting horizontal (pola SettingRow di ui/settings.slint):
+// label + subtext di KIRI, kontrol di KANAN secukupnya lebarnya;
+// saat `stacked` kontrol pindah ke BAWAH label. Kontrol ditulis
+// SEKALI sebagai @children; lebarnya diatur di tiap pemakaian.
+component ExpSettingRow inherits VerticalLayout {
+    in property <string> title;
+    in property <string> desc;
+    in property <bool> stacked;
+    spacing: 6px;
+    if stacked : FieldLabel { title: title; desc: desc; }
+    HorizontalLayout {
+        spacing: 16px;
+        if !stacked : FieldLabel { title: title; desc: desc; horizontal-stretch: 1; }
+        VerticalLayout {
+            alignment: center;
+            spacing: 8px;
+            horizontal-stretch: stacked ? 1 : 0;
+            @children
+        }
     }
 }
 
@@ -80,6 +116,10 @@ export component ExplorerSettingsView inherits Rectangle {
     // Gaya toggle on/off ("classic" | "pill" | "outline") — diikat
     // dari AppWindow (app-toggle-style), lihat DESIGN_SYSTEM.md §5.2.
     in-out property <string> toggle-style: "classic";
+
+    // Menumpuk saat lebar view < 560px (window 520) — kontrol pindah
+    // ke bawah label (pola SettingRow di ui/settings.slint §17.4).
+    property <bool> stacked: self.width < 560px;
 
     // Klik kanan = kembali ke Explorer (C# OnEmbeddedViewPointerPressed:
     // klik kanan = NavigateBack). TouchArea latar di belakang isi.
@@ -116,12 +156,18 @@ export component ExplorerSettingsView inherits Rectangle {
                 width: 100%;
                 spacing: Design.space-lg;
                 padding-bottom: Design.space-lg;
+                // Isi rapat di atas (alignment start): tanpa ini,
+                // konten yang lebih pendek dari viewport direnggangkan
+                // ke tinggi penuh — lih. DESIGN_SYSTEM.md §17.4.
+                alignment: start;
 
-                VerticalLayout {
-                    spacing: 6px;
-                    FieldLabel { title: "Default Explorer Path"; desc: "Folder yang dibuka pertama kali oleh Explorer"; }
+                ExpSettingRow {
+                    title: "Default Explorer Path";
+                    desc: "Folder yang dibuka pertama kali oleh Explorer";
+                    stacked: root.stacked;
                     HorizontalLayout {
                         spacing: 8px;
+                        width: root.stacked ? parent.width : 420px;
                         TextField {
                             horizontal-stretch: 1;
                             text: root.exp-path;
@@ -136,52 +182,31 @@ export component ExplorerSettingsView inherits Rectangle {
                         }
                     }
                 }
-                VerticalLayout {
-                    spacing: 6px;
-                    FieldLabel { title: "View Mode"; desc: "Tampilan daftar file Explorer"; }
-                    HorizontalLayout {
-                        spacing: 6px;
-                        OptionChip {
-                            label: "Details";
-                            horizontal-stretch: 1;
-                            selected: root.exp-view == "Details";
-                            clicked => { root.exp-view = "Details"; root.save-explorer-settings(); }
-                        }
-                        OptionChip {
-                            label: "List";
-                            horizontal-stretch: 1;
-                            selected: root.exp-view == "List";
-                            clicked => { root.exp-view = "List"; root.save-explorer-settings(); }
-                        }
-                    }
-                    HorizontalLayout {
-                        spacing: 6px;
-                        OptionChip {
-                            label: "Thumbnails";
-                            horizontal-stretch: 1;
-                            selected: root.exp-view == "Thumbnails";
-                            clicked => { root.exp-view = "Thumbnails"; root.save-explorer-settings(); }
-                        }
-                        OptionChip {
-                            label: "Tiles";
-                            horizontal-stretch: 1;
-                            selected: root.exp-view == "Tiles";
-                            clicked => { root.exp-view = "Tiles"; root.save-explorer-settings(); }
-                        }
-                    }
-                    HorizontalLayout {
-                        spacing: 6px;
-                        OptionChip {
-                            label: "Split";
-                            horizontal-stretch: 1;
-                            selected: root.exp-view == "Split";
-                            clicked => { root.exp-view = "Split"; root.save-explorer-settings(); }
+                ExpSettingRow {
+                    title: "View Mode";
+                    desc: "Tampilan daftar file Explorer";
+                    stacked: root.stacked;
+                    // 5 pilihan jadi dropdown (dulu 5 chip dalam 3
+                    // baris — boros 120px vertikal); nilai & simpan
+                    // tetap sama.
+                    ComboBox {
+                        width: root.stacked ? parent.width : 200px;
+                        model: ["Details", "List", "Thumbnails", "Tiles", "Split"];
+                        current-index: root.exp-view == "Details" ? 0 : root.exp-view == "List" ? 1 : root.exp-view == "Thumbnails" ? 2 : root.exp-view == "Tiles" ? 3 : 4;
+                        selected(index) => {
+                            if (index == 0) { root.exp-view = "Details"; }
+                            else if (index == 1) { root.exp-view = "List"; }
+                            else if (index == 2) { root.exp-view = "Thumbnails"; }
+                            else if (index == 3) { root.exp-view = "Tiles"; }
+                            else { root.exp-view = "Split"; }
+                            root.save-explorer-settings();
                         }
                     }
                 }
-                VerticalLayout {
-                    spacing: 6px;
-                    FieldLabel { title: "Sort"; desc: "Urutan file di Explorer"; }
+                ExpSettingRow {
+                    title: "Sort";
+                    desc: "Urutan file di Explorer";
+                    stacked: root.stacked;
                     HorizontalLayout {
                         spacing: 6px;
                         OptionChip {
@@ -204,9 +229,10 @@ export component ExplorerSettingsView inherits Rectangle {
                         }
                     }
                 }
-                VerticalLayout {
-                    spacing: 6px;
-                    FieldLabel { title: "Group"; desc: "Pengelompokan file di Explorer"; }
+                ExpSettingRow {
+                    title: "Group";
+                    desc: "Pengelompokan file di Explorer";
+                    stacked: root.stacked;
                     HorizontalLayout {
                         spacing: 6px;
                         OptionChip {
@@ -229,46 +255,52 @@ export component ExplorerSettingsView inherits Rectangle {
                         }
                     }
                 }
-                VerticalLayout {
-                    spacing: 6px;
-                    FieldLabel { title: "Show hidden files"; desc: "Tampilkan file & folder tersembunyi"; }
+                ExpSettingRow {
+                    title: "Show hidden files";
+                    desc: "Tampilkan file & folder tersembunyi";
+                    stacked: root.stacked;
                     Toggle {
                         toggle-style: root.toggle-style;
                         checked: root.exp-hidden;
                         toggled(checked) => { root.exp-hidden = checked; root.save-explorer-settings(); }
                     }
                 }
-                VerticalLayout {
-                    spacing: 6px;
-                    FieldLabel { title: "Show file extensions"; desc: "Tampilkan ekstensi file (.psd, .jpg, …)"; }
+                ExpSettingRow {
+                    title: "Show file extensions";
+                    desc: "Tampilkan ekstensi file (.psd, .jpg, …)";
+                    stacked: root.stacked;
                     Toggle {
                         toggle-style: root.toggle-style;
                         checked: root.exp-ext;
                         toggled(checked) => { root.exp-ext = checked; root.save-explorer-settings(); }
                     }
                 }
-                VerticalLayout {
-                    spacing: 6px;
-                    FieldLabel { title: "Show path bar"; desc: "Tampilkan baris navigasi (Back/Forward/Up + address bar)"; }
+                ExpSettingRow {
+                    title: "Show path bar";
+                    desc: "Tampilkan baris navigasi (Back/Forward/Up + address bar)";
+                    stacked: root.stacked;
                     Toggle {
                         toggle-style: root.toggle-style;
                         checked: root.exp-showbar;
                         toggled(checked) => { root.exp-showbar = checked; root.save-explorer-settings(); }
                     }
                 }
-                VerticalLayout {
-                    spacing: 6px;
-                    FieldLabel { title: "Explorer Font"; desc: "Font teks Explorer (default Inter)"; }
+                ExpSettingRow {
+                    title: "Explorer Font";
+                    desc: "Font teks Explorer (default Inter)";
+                    stacked: root.stacked;
                     TextField {
+                        width: root.stacked ? parent.width : 200px;
                         text: root.exp-font;
                         placeholder: "Inter";
                         edited(text) => { root.exp-font = text; }
                         accepted(text) => { root.save-explorer-settings(); }
                     }
                 }
-                VerticalLayout {
-                    spacing: 6px;
-                    FieldLabel { title: "Content zoom"; desc: "Zoom konten Explorer (75–200%)"; }
+                ExpSettingRow {
+                    title: "Content zoom";
+                    desc: "Zoom konten Explorer (75–200%)";
+                    stacked: root.stacked;
                     HorizontalLayout {
                         spacing: 8px;
                         Btn {
