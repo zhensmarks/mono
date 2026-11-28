@@ -1441,34 +1441,35 @@ component MascotEye inherits Rectangle {
     width: root.eye-w + 10px;
     height: 34px;
 
-    // Glow putih di belakang mata — hanya gaya Nusa.
+    // Glow di belakang mata — hanya gaya Nusa. Warna mengikuti
+    // tema (text-primary: putih di gelap, gelap di terang).
     if root.eye-style == "nusa" : Rectangle {
         width: root.eye-w + 8px;
         height: root.eye-h + 8px;
         x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
         border-radius: 12px;
-        background: #ffffff;
+        background: Design.text-primary;
         opacity: 0.14;
     }
-    // Bola mata putih. Gaya Baymax: titiknya sendiri bergeser
-    // mengikuti kursor (tidak ada pupil).
+    // Bola mata. Warna mengikuti tema (text-primary) supaya tetap
+    // kontras dengan pill yang juga mengikuti tema.
     Rectangle {
         width: root.dot-w;
         height: root.dot-h;
         x: (parent.width - self.width) / 2 + (root.eye-style == "baymax" ? root.pupil-dx : 0px);
         y: (parent.height - self.height) / 2 + (root.eye-style == "baymax" ? root.pupil-dy : 0px);
         border-radius: root.dot-w / 2;
-        background: #ffffff;
-        // Pupil hitam — hilang saat mata terpejam/tidur; gaya
-        // Baymax tidak punya pupil.
+        background: Design.text-primary;
+        // Pupil — warna latar pill (surface-elevated): hilang saat
+        // mata terpejam/tidur; gaya Baymax tidak punya pupil.
         if !root.eye-closed && root.eye-style != "baymax" : Rectangle {
             width: 7px;
             height: 9px;
             x: (parent.width - self.width) / 2 + root.pupil-dx;
             y: (parent.height - self.height) / 2 + root.pupil-dy;
             border-radius: 4px;
-            background: #0d0d0d;
+            background: Design.surface-elevated;
         }
     }
 }
@@ -1496,7 +1497,7 @@ component MascotEyes inherits Rectangle {
         y: (parent.height - 2px) / 2;
         width: (root.eye-w + 10px) + root.gap;
         height: 2px;
-        background: #ffffff;
+        background: Design.text-primary;
     }
     HorizontalLayout {
         spacing: root.gap;
@@ -1800,17 +1801,24 @@ export component DynamicBarWindow inherits Window {
 
         // Garis tipis auto-hide (window lain maksimal, mis.
         // browser — ref layzee, abeng 28 Nov 11:59): seberkas
-        // garis hitam selebar pill di tengah atas, tidak nutupin
+        // garis selebar pill di tengah atas, tidak nutupin
         // tombol close tab; hover tidak mengembang (bar-touch
-        // dinonaktifkan di mode ini).
+        // dinonaktifkan di mode ini). Warna separator supaya
+        // kelihatan di wallpaper apa pun (bukan hitam mentah).
         if root.bar-display == "line" : Rectangle {
             width: root.pill-w;
             height: 4px;
-            background: #0d0d0d;
+            background: Design.separator;
             border-radius: 2px;
         }
 
-        // ----- Pill notch / badan pet (hitam, mata putih) -----
+        // ----- Pill notch / badan pet (mengikuti tema) -----
+        // Latar = surface-elevated (gelap di tema gelap, putih di
+        // tema terang) + border 1px separator supaya pill kelihatan
+        // di wallpaper apa pun; mata/mulut = text-primary (kontras
+        // dengan latar). Dulu latar hardcode #0d0d0d + border putih
+        // 15% — pill nyaris tak terlihat di desktop gelap dan tetap
+        // hitam di mode Terang (temuan Windows 28 Nov 2026).
         // Pet PetDex aktif (mode pet): latar hitam blob hilang —
         // sprite-nya sendiri yang menentukan bentuk (latar sheet
         // transparan, seperti PetDex Desktop).
@@ -1819,8 +1827,8 @@ export component DynamicBarWindow inherits Window {
             width: root.pill-w;
             x: root.expanded ? (root.bar-mode == "pet" ? 8px : (parent.width - root.pill-w) / 2) : 0px;
             height: root.pill-h;
-            background: (root.pet-sprite-active && root.bar-mode == "pet") ? transparent : #0d0d0d;
-            border-color: root.notif-count > 0 ? Design.accent : #ffffff26;
+            background: (root.pet-sprite-active && root.bar-mode == "pet") ? transparent : Design.surface-elevated;
+            border-color: root.notif-count > 0 ? Design.accent : Design.separator;
             border-width: (root.pet-sprite-active && root.bar-mode == "pet") ? 0px : 1px;
             border-radius: root.bar-mode == "pet" ? 42px : 16px;
 
@@ -1843,9 +1851,9 @@ export component DynamicBarWindow inherits Window {
             }
 
             // Wajah maskot blob (hanya bila tidak ada sprite
-            // PetDex aktif): mata + mulut putih, di tengah pill.
-            // Mode notch hanya mata (pill 32px); mode pet mata +
-            // mulut.
+            // PetDex aktif): mata + mulut mengikuti tema (text-primary),
+            // di tengah pill. Mode notch hanya mata (pill 32px);
+            // mode pet mata + mulut.
             if !root.pet-sprite-active : VerticalLayout {
                 width: 100%;
                 y: (parent.height - self.height) / 2;
@@ -1874,7 +1882,7 @@ export component DynamicBarWindow inherits Window {
                         width: root.mouth-w;
                         height: root.mouth-h;
                         border-radius: root.mouth-r;
-                        background: #ffffff;
+                        background: Design.text-primary;
                         animate width { duration: 250ms; easing: ease-in-out; }
                         animate height { duration: 250ms; easing: ease-in-out; }
                         animate border-radius { duration: 250ms; easing: ease-in-out; }

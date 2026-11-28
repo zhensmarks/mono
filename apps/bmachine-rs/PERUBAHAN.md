@@ -1,3 +1,12 @@
+## 2026-11-28 — Dex — Ronde perbaikan Windows (2/5): notch mengikuti tema + border separator
+
+- Diubah:
+  - **`ui/windows.slint` — pill + mata + garis auto-hide:** latar pill `#0d0d0d` → `Design.surface-elevated` (gelap di tema gelap, putih di Terang); border pill `#ffffff26` → `Design.separator` (tetap aksen bila ada notifikasi belum dibaca); mata/pupil/glow/garis Baymax/mulut `#ffffff`/`#0d0d0d` → `Design.text-primary` (mata, mulut, glow, garis Baymax) / `Design.surface-elevated` (pupil); garis tipis auto-hide `#0d0d0d` → `Design.separator`. Token sudah disalin ke bar lewat `sync_design_to_bar` (item 1 — kini salin semua token), jadi tidak ada perubahan Rust.
+  - **`DESIGN_SYSTEM.md` §21:** deskripsi pill ("pill hitam", border aksen) + garis auto-hide diperbarui ke perilaku baru.
+- Alasan: temuan tes Windows 28 Nov 18:09–18:53 — pill hitam nyaris tak terlihat di desktop gelap, dan tetap hitam di mode Terang walau setelah restart.
+- Terverifikasi: `cargo build --offline` exit 0. GUI Xvfb :98, APPDATA terisolasi `appdata-fixwin`, screenshot `fixwin-30/31-notch-*.png` + crop: **gelap** — pill `#202020` + border terlihat, mata putih + pupil gelap (`fixwin-30`); **terang** — pill putih + mata gelap + pupil putih + halo abu-abu (`fixwin-31`, piksel pill `(255,255,255)`, mata `#111111`).
+- Masih terbuka: (1) Ujung membulat pill menyisakan 1–2px hitam di Xvfb (piksel transparan window bar dirender hitam tanpa compositor) — di Windows (DWM) akan menampilkan window di belakangnya; perlu konfirmasi Dex di PC. (2) Belum diuji di PC Windows asli.
+
 ## 2026-11-28 — Dex — Ronde perbaikan Windows (1/5): tema live ke SEMUA window (celah tema #13 ditutup)
 
 - Diubah:
