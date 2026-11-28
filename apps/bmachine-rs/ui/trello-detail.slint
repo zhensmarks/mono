@@ -25,6 +25,186 @@
 
 import { Design, Btn, IconBtn, TextField, HSeparator } from "design.slint";
 
+// ============================================================
+// Markdown — deskripsi & komentar ala Trello
+// ============================================================
+// Slint tidak punya rich text: Rust (src/markdown.rs) mem-parse
+// Markdown jadi baris-baris `MdLine` (sudah di-wrap per lebar
+// tampilan), .slint hanya merender segmen per baris. Parsing
+// lewat `pure callback parse-md` supaya bisa dipanggil dari
+// binding (callback biasa dianggap impure dan tidak boleh
+// dipanggil di binding/`for`).
+export struct MdLine {
+    kind: string,      // para | h1 | h2 | h3 | li | quote | code | blank
+    indent: int,       // tingkat list (0/1)
+    marker: string,    // "•" | "1." | "" (baris lanjutan)
+    text: string,      // blok kode: teks penuh multi-baris
+    seg1-text: string, seg1-kind: string, seg1-url: string,
+    seg2-text: string, seg2-kind: string, seg2-url: string,
+    seg3-text: string, seg3-kind: string, seg3-url: string,
+    seg4-text: string, seg4-kind: string, seg4-url: string,
+    seg5-text: string, seg5-kind: string, seg5-url: string,
+    seg6-text: string, seg6-kind: string, seg6-url: string,
+    gap: length,       // ruang setelah baris ini
+}
+
+// Satu segmen inline dalam satu baris Markdown. Tinggi baris
+// (lh) sama untuk semua segmen supaya baseline rata — code /
+// mention dibungkus chip, link digarisbawahi + bisa diklik.
+export component MdSeg inherits Rectangle {
+    in property <string> text;
+    in property <string> kind; // plain | bold | italic | bold-italic | code | link | mention
+    in property <string> url;
+    in property <length> font-size: 12px;
+    in property <length> lh: 18px;
+    in property <bool> heading: false;
+    in property <color> text-color: Design.text-secondary;
+    callback open-url(string);
+    callback show-toast(string);
+
+    height: root.lh;
+    // Chip code/mention: teks + padding 5px kiri-kanan.
+    width: (root.kind == "code" || root.kind == "mention") ? seg-text.preferred-width + 10px : seg-text.preferred-width;
+
+    // Latar chip (code = permukaan + border, mention = tint aksen).
+    if root.kind == "code" || root.kind == "mention" : Rectangle {
+        width: 100%; height: root.lh - 4px; y: 2px;
+        background: root.kind == "code" ? Design.surface-elevated : Design.accent.transparentize(0.85);
+        border-width: root.kind == "code" ? 1px : 0px;
+        border-color: Design.separator;
+        border-radius: 4px;
+    }
+    seg-text := Text {
+        text: root.text;
+        font-size: root.font-size;
+        font-weight: root.kind == "bold" || root.kind == "bold-italic" || root.kind == "mention" || root.heading ? 700 : 400;
+        font-italic: root.kind == "italic" || root.kind == "bold-italic";
+        font-family: root.kind == "code" ? "JetBrains Mono" : Design.font-family;
+        color: root.kind == "link" ? Design.accent : root.kind == "mention" ? Design.accent : root.kind == "code" ? Design.text-primary : root.text-color;
+        width: 100%;
+        height: 100%;
+        horizontal-alignment: root.kind == "code" || root.kind == "mention" ? center : left;
+        vertical-alignment: center;
+    }
+    // Garis bawah link.
+    if root.kind == "link" : Rectangle {
+        y: root.lh - 4px; width: 100%; height: 1px;
+        background: Design.accent;
+    }
+    // Klik link (buka browser) / mention (toast — profil Trello
+    // belum ada sampai Fase 6).
+    if root.kind == "link" || root.kind == "mention" : TouchArea {
+        width: 100%; height: 100%;
+        mouse-cursor: pointer;
+        clicked => {
+            if (root.kind == "link") { root.open-url(root.url); }
+            else { root.show-toast("Profil " + root.text + " belum tersedia (mockup — Fase 6)"); }
+        }
+    }
+}
+
+// Renderer Markdown: VerticalLayout berisi baris-baris MdLine.
+// `width` HARUS definit dari pemakai (100% dari Flickable /
+// kolom yang lebarnya sudah pasti) — baris di-wrap Rust per
+// lebar ini, jadi lebar dari konten akan melingkar.
+export component MarkdownView inherits VerticalLayout {
+    in property <string> source;
+    in property <length> font-size: 12px;
+    pure callback parse-md(string, length) -> [MdLine];
+    callback open-url(string);
+    callback show-toast(string);
+
+    spacing: 0;
+    property <[MdLine]> lines: root.parse-md(root.source, root.width);
+    for line in root.lines : Rectangle {
+        width: 100%;
+        // Tinggi: blank = spasi kecil; code = isi + padding;
+        // lain = tinggi baris + gap.
+        height: line.kind == "blank" ? 6px : line.kind == "code" ? code-text.preferred-height + 16px : line-lh + line.gap;
+        property <length> line-lh: line.kind == "h1" ? root.font-size * 2.0 : line.kind == "h2" ? root.font-size * 1.75 : line.kind == "h3" ? root.font-size * 1.6 : root.font-size * 1.5;
+        property <length> seg-font-size: line.kind == "h1" ? root.font-size * 1.33 : line.kind == "h2" ? root.font-size * 1.17 : line.kind == "h3" ? root.font-size * 1.08 : root.font-size;
+        property <bool> is-heading: line.kind == "h1" || line.kind == "h2" || line.kind == "h3";
+        property <color> seg-color: is-heading ? Design.text-primary : Design.text-secondary;
+
+        // Elemen ukur blok kode — selalu ada (preferred-height
+        // tetap terhitung), hanya terlihat untuk kind code.
+        code-text := Text {
+            text: line.text;
+            font-family: "JetBrains Mono";
+            font-size: root.font-size;
+            color: Design.text-secondary;
+            wrap: word-wrap;
+            width: parent.width - 16px;
+            visible: line.kind == "code";
+        }
+        // Blok kode: tint + border + radius, teks di dalam.
+        if line.kind == "code" : Rectangle {
+            width: 100%; height: 100%;
+            background: Design.surface-elevated;
+            border-width: 1px;
+            border-color: Design.separator;
+            border-radius: 6px;
+            Text {
+                x: 8px; y: 8px; width: parent.width - 16px;
+                text: line.text;
+                font-family: "JetBrains Mono";
+                font-size: root.font-size;
+                color: Design.text-secondary;
+                wrap: word-wrap;
+            }
+        }
+        // Bar quote di tepi kiri baris.
+        if line.kind == "quote" : Rectangle {
+            x: 0; y: 0; width: 3px; height: line-lh;
+            background: Design.accent;
+            border-radius: 2px;
+        }
+        // Baris isi: marker list + segmen-segmen.
+        if line.kind != "code" && line.kind != "blank" : HorizontalLayout {
+            // Quote: menjorok 11px (3px bar + 8px celah). List
+            // lanjutan: +20px supaya teks rata di bawah teks
+            // baris pertama (bukan di bawah marker).
+            x: line.kind == "quote" ? 11px : line.indent * 18px + (line.kind == "li" && line.marker == "" ? 20px : 0px);
+            y: 0;
+            width: parent.width - self.x;
+            height: line-lh;
+            spacing: 0;
+            if line.marker != "" : Text {
+                text: line.marker;
+                font-size: seg-font-size;
+                font-weight: 700;
+                color: Design.text-muted;
+                width: 20px;
+                height: 100%;
+                vertical-alignment: center;
+            }
+            if line.seg1-text != "" : MdSeg { text: line.seg1-text; kind: line.seg1-kind; url: line.seg1-url; font-size: seg-font-size; lh: line-lh; heading: is-heading; text-color: seg-color; open-url(u) => { root.open-url(u); } show-toast(t) => { root.show-toast(t); } }
+            if line.seg2-text != "" : MdSeg { text: line.seg2-text; kind: line.seg2-kind; url: line.seg2-url; font-size: seg-font-size; lh: line-lh; heading: is-heading; text-color: seg-color; open-url(u) => { root.open-url(u); } show-toast(t) => { root.show-toast(t); } }
+            if line.seg3-text != "" : MdSeg { text: line.seg3-text; kind: line.seg3-kind; url: line.seg3-url; font-size: seg-font-size; lh: line-lh; heading: is-heading; text-color: seg-color; open-url(u) => { root.open-url(u); } show-toast(t) => { root.show-toast(t); } }
+            if line.seg4-text != "" : MdSeg { text: line.seg4-text; kind: line.seg4-kind; url: line.seg4-url; font-size: seg-font-size; lh: line-lh; heading: is-heading; text-color: seg-color; open-url(u) => { root.open-url(u); } show-toast(t) => { root.show-toast(t); } }
+            if line.seg5-text != "" : MdSeg { text: line.seg5-text; kind: line.seg5-kind; url: line.seg5-url; font-size: seg-font-size; lh: line-lh; heading: is-heading; text-color: seg-color; open-url(u) => { root.open-url(u); } show-toast(t) => { root.show-toast(t); } }
+            if line.seg6-text != "" : MdSeg { text: line.seg6-text; kind: line.seg6-kind; url: line.seg6-url; font-size: seg-font-size; lh: line-lh; heading: is-heading; text-color: seg-color; open-url(u) => { root.open-url(u); } show-toast(t) => { root.show-toast(t); } }
+        }
+    }
+}
+
+// Toolbar editor Markdown — dipakai deskripsi + komentar.
+// `insert` membawa kind ("bold" | "italic" | "bullet" |
+// "numbered" | "link" | "code" | "mention"); Rust (md-insert)
+// membungkus seleksi bila ada, else menyisipkan snippet.
+export component MdToolbar inherits HorizontalLayout {
+    callback insert(string);
+    spacing: 4px;
+    height: 24px;
+    Btn { label: "B"; variant: "ghost"; small: true; height-override: 24px; clicked => { root.insert("bold"); } }
+    Btn { label: "I"; variant: "ghost"; small: true; height-override: 24px; clicked => { root.insert("italic"); } }
+    Btn { label: "•"; variant: "ghost"; small: true; height-override: 24px; clicked => { root.insert("bullet"); } }
+    Btn { label: "1."; variant: "ghost"; small: true; height-override: 24px; clicked => { root.insert("numbered"); } }
+    Btn { label: "Link"; variant: "ghost"; small: true; height-override: 24px; clicked => { root.insert("link"); } }
+    Btn { label: "</>"; variant: "ghost"; small: true; height-override: 24px; clicked => { root.insert("code"); } }
+    Btn { label: "@"; variant: "ghost"; small: true; height-override: 24px; clicked => { root.insert("mention"); } }
+}
+
 // Satu baris komentar: avatar bulat + nama + waktu + isi.
 // Di-export supaya CommentWindow (ui/windows.slint) memakai
 // komponen yang sama persis dengan panel Comments inline.
@@ -34,6 +214,9 @@ export component CommentRow inherits HorizontalLayout {
     in property <string> body;
     in property <string> initial;
     in property <color> avatar-bg: Design.accent;
+    pure callback parse-md(string, length) -> [MdLine];
+    callback open-url(string);
+    callback show-toast(string);
 
     spacing: 8px;
 
@@ -54,6 +237,9 @@ export component CommentRow inherits HorizontalLayout {
         }
     }
     VerticalLayout {
+        // Lebar definit supaya MarkdownView bisa wrap per lebar
+        // ini (avatar 28px + spacing 8px).
+        width: root.width - 36px;
         spacing: 4px;
         HorizontalLayout {
             height: 16px;
@@ -73,11 +259,14 @@ export component CommentRow inherits HorizontalLayout {
                 vertical-alignment: center;
             }
         }
-        Text {
-            text: root.body;
+        // Isi komentar dirender sebagai Markdown.
+        MarkdownView {
+            width: 100%;
+            source: root.body;
             font-size: 12px;
-            color: Design.text-secondary;
-            wrap: word-wrap;
+            parse-md(s, w) => { root.parse-md(s, w) }
+            open-url(u) => { root.open-url(u); }
+            show-toast(t) => { root.show-toast(t); }
         }
     }
 }
@@ -129,8 +318,21 @@ export component TrelloDetailPanel inherits Rectangle {
     // segmen panah split button; di-host oleh AppWindow /
     // CardListWindow (lihat ui/main.slint + ui/windows.slint).
     callback open-comment-window();
+    // Markdown (deskripsi & komentar): parsing di Rust via
+    // `pure callback parse-md`; toolbar editor via `md-insert`
+    // (Rust membungkus seleksi / menyisipkan snippet); simpan
+    // deskripsi ke Rust via `save-description` (Rust menulis ke
+    // `edited_descs` + update model supaya langsung ter-render).
+    pure callback parse-md(string, length) -> [MdLine];
+    callback md-insert(string, string, int, int) -> string;
+    callback save-description(string);
 
     property <string> comment-draft: "";
+    // Mode edit deskripsi (tombol "Edit" di samping label
+    // Description) + draft-nya. Sembunyi bila kartu manual
+    // (deskripsi kartu manual = URL, tidak bisa diedit).
+    property <bool> desc-editing: false;
+    property <string> desc-draft: "";
     // Draft komentar tambahan (in-out supaya Rust bisa membaca /
     // menulisnya saat CommentWindow dibuka/ditutup — sinkronisasi
     // bolak-balik dengan window komentar; rendering + penulisan
@@ -463,38 +665,134 @@ export component TrelloDetailPanel inherits Rectangle {
         HSeparator { }
 
         // Description (13px SemiBold + isi 12px).
-        Text {
-            text: "Description";
-            font-size: 13px;
-            font-weight: 600;
-            color: Design.text-primary;
-            // Tinggi eksplisit 18px: Text anak langsung VerticalLayout
-            // bisa mengembang preferred-height-nya (dihitung seolah
-            // lebar ~0) dan mendorong isi di bawahnya — label 1 baris
-            // 13px selalu 18px, jadi aman dipatok.
+        HorizontalLayout {
             height: 18px;
+            Text {
+                text: "Description";
+                font-size: 13px;
+                font-weight: 600;
+                color: Design.text-primary;
+                // Tinggi eksplisit 18px: Text anak langsung VerticalLayout
+                // bisa mengembang preferred-height-nya (dihitung seolah
+                // lebar ~0) dan mendorong isi di bawahnya — label 1 baris
+                // 13px selalu 18px, jadi aman dipatok.
+                height: 18px;
+                vertical-alignment: center;
+            }
+            Rectangle { horizontal-stretch: 1; }
+            // Edit deskripsi (Markdown) — tidak untuk kartu manual
+            // (deskripsinya = URL, bukan teks).
+            if !root.is-manual && !root.desc-editing : Btn {
+                label: "Edit"; variant: "ghost"; small: true; height-override: 24px;
+                clicked => {
+                    root.desc-draft = root.description;
+                    root.desc-editing = true;
+                }
+            }
         }
         // Isi deskripsi bisa panjang (deskripsi asli dari API Trello) —
         // C# membatasi tinggi isi 240px + scroll; port ikut (polish
         // abeng 28 Nov 10:16: deskripsi panjang sebelumnya terpotong di
         // tepi bawah panel tanpa bisa dibaca sisanya). Flickable
         // setinggi isi, maks 240px — deskripsi pendek tidak menyisakan
-        // ruang kosong.
-        Rectangle {
-            height: min(240px, desc-text.preferred-height);
+        // ruang kosong. Isi dirender sebagai Markdown.
+        if !root.desc-editing : Rectangle {
+            height: min(240px, desc-md.preferred-height);
             clip: true;
             desc-flick := Flickable {
                 x: 0; y: 0; width: 100%; height: 100%;
-                viewport-height: desc-text.preferred-height;
-                desc-text := Text {
-                    text: root.description;
-                    font-size: 12px;
-                    color: Design.text-secondary;
-                    wrap: word-wrap;
-                    vertical-alignment: top;
-                    // Lebar eksplisit supaya preferred-height dihitung pada
-                    // lebar benar (bukan ~0) — tanpa ini teks bisa turun.
+                viewport-height: desc-md.preferred-height;
+                desc-md := MarkdownView {
                     width: 100%;
+                    source: root.description;
+                    font-size: 12px;
+                    parse-md(s, w) => { root.parse-md(s, w) }
+                    open-url(u) => { root.open-url(u); }
+                    show-toast(t) => { root.show-toast(t); }
+                }
+            }
+        }
+        // Editor deskripsi: toolbar Markdown + TextInput multi-baris
+        // + pratinjau live + Simpan/Batal.
+        if root.desc-editing : VerticalLayout {
+            spacing: 8px;
+            MdToolbar {
+                insert(kind) => {
+                    root.desc-draft = root.md-insert(kind, root.desc-draft, desc-edit.cursor-position-byte-offset, desc-edit.anchor-position-byte-offset);
+                }
+            }
+            Rectangle {
+                height: 120px;
+                background: Design.bg-input;
+                border-color: desc-edit.has-focus ? Design.border-focus : Design.border-default;
+                border-width: 1px;
+                border-radius: Design.radius-sm;
+                clip: true;
+                desc-edit := TextInput {
+                    x: 10px; y: 6px;
+                    width: parent.width - 20px;
+                    height: parent.height - 12px;
+                    text <=> root.desc-draft;
+                    font-size: 12px;
+                    color: Design.text-primary;
+                    selection-foreground-color: white;
+                    selection-background-color: Design.accent;
+                    wrap: word-wrap;
+                    single-line: false;
+                }
+            }
+            Text {
+                text: "Pratinjau";
+                font-size: 11px;
+                font-weight: 600;
+                color: Design.text-muted;
+                height: 16px;
+            }
+            Rectangle {
+                height: min(140px, desc-preview-md.preferred-height);
+                clip: true;
+                Flickable {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    viewport-height: desc-preview-md.preferred-height;
+                    desc-preview-md := MarkdownView {
+                        width: 100%;
+                        source: root.desc-draft;
+                        font-size: 12px;
+                        parse-md(s, w) => { root.parse-md(s, w) }
+                        open-url(u) => { root.open-url(u); }
+                        show-toast(t) => { root.show-toast(t); }
+                    }
+                }
+            }
+            HorizontalLayout {
+                height: 32px;
+                spacing: 8px;
+                Btn {
+                    label: "Simpan"; variant: "primary"; height-override: 32px;
+                    clicked => {
+                        root.save-description(root.desc-draft);
+                        root.desc-editing = false;
+                    }
+                }
+                Btn {
+                    label: "Batal"; variant: "ghost"; height-override: 32px;
+                    clicked => { root.desc-editing = false; }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                Text {
+                    text: "Markdown: **tebal** *miring* `kode` [link](url)";
+                    font-size: 11px;
+                    color: Design.text-muted;
+                    vertical-alignment: center;
+                }
+            }
+            // Fokus ke editor begitu mode edit muncul.
+            desc-focus-timer := Timer {
+                interval: 60ms;
+                running: true;
+                triggered => {
+                    self.running = false;
+                    desc-edit.focus();
                 }
             }
         }
@@ -621,6 +919,9 @@ export component TrelloDetailPanel inherits Rectangle {
                             body: root.draft-1;
                             initial: root.user-initial;
                             avatar-bg: Design.accent;
+                            parse-md(s, w) => { root.parse-md(s, w) }
+                            open-url(u) => { root.open-url(u); }
+                            show-toast(t) => { root.show-toast(t); }
                         }
                         if root.added-count >= 2 : CommentRow {
                             author: root.user-name;
@@ -628,6 +929,9 @@ export component TrelloDetailPanel inherits Rectangle {
                             body: root.draft-2;
                             initial: root.user-initial;
                             avatar-bg: Design.accent;
+                            parse-md(s, w) => { root.parse-md(s, w) }
+                            open-url(u) => { root.open-url(u); }
+                            show-toast(t) => { root.show-toast(t); }
                         }
                         if root.added-count >= 3 : CommentRow {
                             author: root.user-name;
@@ -635,6 +939,9 @@ export component TrelloDetailPanel inherits Rectangle {
                             body: root.draft-3;
                             initial: root.user-initial;
                             avatar-bg: Design.accent;
+                            parse-md(s, w) => { root.parse-md(s, w) }
+                            open-url(u) => { root.open-url(u); }
+                            show-toast(t) => { root.show-toast(t); }
                         }
                     }
                 }
@@ -656,31 +963,82 @@ export component TrelloDetailPanel inherits Rectangle {
                     clicked => { root.comment-draft = "Sudah dicek."; }
                 }
             }
+            // Editor komentar (Markdown): toolbar + input multi-baris
+            // + pratinjau live. Enter menyisipkan baris baru (bukan
+            // kirim); kirim hanya via tombol →.
+            MdToolbar {
+                insert(kind) => {
+                    root.comment-draft = root.md-insert(kind, root.comment-draft, comment-input.cursor-position-byte-offset, comment-input.anchor-position-byte-offset);
+                }
+            }
             HorizontalLayout {
-                height: 36px;
                 spacing: 8px;
-                TextField {
+                // TextField bawaan single-line 36px — editor komentar
+                // multi-baris memakai TextInput mentah di dalam
+                // Rectangle ala TextField (latar + border + radius).
+                Rectangle {
                     horizontal-stretch: 1;
-                    placeholder: "Write a comment... (@mention)";
-                    // Dua arah (<=>): TextField di dalam menulis balik
-                    // ke root.text saat user mengetik, yang akan
-                    // MEMUTUS binding satu arah — dengan <=> kedua sisi
-                    // tetap tersinkron (termasuk saat draft dikosongkan
-                    // oleh send-comment).
-                    text <=> root.comment-draft;
-                    accepted(text) => { root.send-comment(); }
+                    height: 56px;
+                    background: Design.bg-input;
+                    border-color: comment-input.has-focus ? Design.border-focus : Design.border-default;
+                    border-width: 1px;
+                    border-radius: Design.radius-sm;
+                    clip: true;
+                    comment-input := TextInput {
+                        x: 10px; y: 6px;
+                        width: parent.width - 20px;
+                        height: parent.height - 12px;
+                        text <=> root.comment-draft;
+                        font-size: 12px;
+                        color: Design.text-primary;
+                        selection-foreground-color: white;
+                        selection-background-color: Design.accent;
+                        wrap: word-wrap;
+                        single-line: false;
+                    }
+                    Text {
+                        text: "Write a comment... (@mention)";
+                        font-size: 12px;
+                        color: Design.text-muted;
+                        x: 10px; y: 6px;
+                        visible: root.comment-draft == "" && !comment-input.has-focus;
+                    }
                 }
-                IconBtn {
-                    glyph: "+";
-                    variant: "ghost";
-                    size: 36px;
-                    clicked => { root.show-toast("Lampirkan file ke komentar (mockup — Fase 6)"); }
+                // Tombol rata bawah (input multi-baris).
+                VerticalLayout {
+                    alignment: end;
+                    IconBtn {
+                        glyph: "+";
+                        variant: "ghost";
+                        size: 36px;
+                        clicked => { root.show-toast("Lampirkan file ke komentar (mockup — Fase 6)"); }
+                    }
                 }
-                IconBtn {
-                    glyph: "→";
-                    variant: "accent";
-                    size: 36px;
-                    clicked => { root.send-comment(); }
+                VerticalLayout {
+                    alignment: end;
+                    IconBtn {
+                        glyph: "→";
+                        variant: "accent";
+                        size: 36px;
+                        clicked => { root.send-comment(); }
+                    }
+                }
+            }
+            // Pratinjau komentar saat mengetik (maks ~100px).
+            if root.comment-draft != "" : Rectangle {
+                height: min(100px, comment-preview-md.preferred-height);
+                clip: true;
+                Flickable {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    viewport-height: comment-preview-md.preferred-height;
+                    comment-preview-md := MarkdownView {
+                        width: 100%;
+                        source: root.comment-draft;
+                        font-size: 12px;
+                        parse-md(s, w) => { root.parse-md(s, w) }
+                        open-url(u) => { root.open-url(u); }
+                        show-toast(t) => { root.show-toast(t); }
+                    }
                 }
             }
         }

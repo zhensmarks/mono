@@ -11,7 +11,7 @@ import { ExplorerSettingsView } from "explorer-settings.slint";
 import { ToolboxView, SheetsView, LeaderboardView } from "modul.slint";
 import { LogPanelView } from "logpanel.slint";
 import { ExplorerView } from "explorer.slint";
-import { TrelloDetailPanel } from "trello-detail.slint";
+import { TrelloDetailPanel, MdLine } from "trello-detail.slint";
 import { RadialMenuView } from "radial.slint";
 import { BatchView, BatchRow, RegulerDirRow, RegulerSchoolRow } from "batch.slint";
 import { SplashView } from "splash.slint";
@@ -644,6 +644,13 @@ export component AppWindow inherits Window {
     // Buka komentar kartu terpilih di CommentWindow (window OS
     // terpisah) — dari segmen panah split button Comment.
     callback open-comment-window();
+    // Markdown (deskripsi & komentar): parsing di Rust
+    // (src/markdown.rs) — pure supaya bisa dipanggil dari
+    // binding; toolbar editor via md-insert; simpan deskripsi
+    // yang diedit via save-desc (Rust: edited_descs + model).
+    pure callback parse-md(string, length) -> [MdLine];
+    callback md-insert(string, string, int, int) -> string;
+    callback save-desc(string);
     callback refresh-leaderboard();
     // Dynamic Bar (floating mini-bar): buka/tutup dari flyout profil.
     callback open-dynamic-bar();
@@ -2278,6 +2285,9 @@ export component AppWindow inherits Window {
                     show-toast(text) => { root.toast = text; }
                     open-url(u) => { root.open-url(u); }
                     open-comment-window => { root.open-comment-window(); }
+                    parse-md(s, w) => { root.parse-md(s, w) }
+                    md-insert(kind, text, cur, anch) => { root.md-insert(kind, text, cur, anch) }
+                    save-description(text) => { root.save-desc(text); }
                 }
             }
 
@@ -3116,7 +3126,9 @@ export component AppWindow inherits Window {
                             category-label: root.trello-window-cat == "REVISION" ? "REVISI" : root.trello-window-cat == "LATE" ? "SUSULAN" : root.trello-window-cat;
                             accent: root.tw-accent;
                             done: root.selected-is-manual ? root.manual-done[root.selected-manual-index] : root.list-done[root.selected-index];
-                            description: "Edit pas foto sekolah — crop, centering kepala di guide, logo terlihat.";
+                            // Deskripsi dari model (bukan mock) — sama
+                            // seperti detail embedded.
+                            description: root.selected-is-manual ? "" : root.list-desc[root.selected-index];
                             panel-margin: 24px;
                             title-size: 20px;
                             panel-bg: Design.surface-elevated;
@@ -3130,8 +3142,11 @@ export component AppWindow inherits Window {
                             close => { root.selected-card = ""; root.detail-panel = ""; root.detail-added-count = 0; }
                             unlink => { root.remove-manual(root.selected-manual-index); root.selected-card = ""; root.detail-panel = ""; root.detail-added-count = 0; }
                             show-toast(text) => { root.toast = text; }
-                    open-url(u) => { root.open-url(u); }
-                    open-comment-window => { root.open-comment-window(); }
+                            open-url(u) => { root.open-url(u); }
+                            open-comment-window => { root.open-comment-window(); }
+                            parse-md(s, w) => { root.parse-md(s, w) }
+                            md-insert(kind, text, cur, anch) => { root.md-insert(kind, text, cur, anch) }
+                            save-description(text) => { root.save-desc(text); }
                         }
                     }
                 }

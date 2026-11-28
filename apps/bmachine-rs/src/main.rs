@@ -9,6 +9,7 @@ mod explorer;
 mod fullscreen;
 mod icons;
 mod local_update;
+mod markdown;
 mod panel_extra;
 mod petdex;
 mod platform;
@@ -2755,6 +2756,140 @@ fn sync_chrome_to_windows(
 /// tidak andal di Linux). Saat ditutup, draft komentar ditulis
 /// balik ke host pembuka (AppWindow atau CardListWindow, sesuai
 /// `source`) — state komentar dibagi seperti C# (DataContext =
+/// Konversi satu baris hasil parse Markdown (src/markdown.rs) ke
+/// struct Slint `MdLine` (ui/trello-detail.slint) untuk callback
+/// `parse-md`.
+fn md_line_to_slint(l: markdown::MdLine) -> MdLine {
+    fn seg_kind(k: markdown::MdSegKind) -> slint::SharedString {
+        slint::SharedString::from(match k {
+            markdown::MdSegKind::Plain => "plain",
+            markdown::MdSegKind::Bold => "bold",
+            markdown::MdSegKind::Italic => "italic",
+            markdown::MdSegKind::BoldItalic => "bold-italic",
+            markdown::MdSegKind::Code => "code",
+            markdown::MdSegKind::Link => "link",
+            markdown::MdSegKind::Mention => "mention",
+        })
+    }
+    let mut out = MdLine::default();
+    out.kind = slint::SharedString::from(match l.kind {
+        markdown::MdLineKind::Para => "para",
+        markdown::MdLineKind::H1 => "h1",
+        markdown::MdLineKind::H2 => "h2",
+        markdown::MdLineKind::H3 => "h3",
+        markdown::MdLineKind::Bullet | markdown::MdLineKind::Numbered => "li",
+        markdown::MdLineKind::Quote => "quote",
+        markdown::MdLineKind::Code => "code",
+        markdown::MdLineKind::Blank => "blank",
+    });
+    out.indent = l.indent;
+    out.marker = slint::SharedString::from(l.marker);
+    out.text = slint::SharedString::from(l.text);
+    out.gap = l.gap;
+    let mut segs = l.segments.into_iter();
+    let mut set = |slot_text: &mut slint::SharedString,
+                   slot_kind: &mut slint::SharedString,
+                   slot_url: &mut slint::SharedString| {
+        if let Some(s) = segs.next() {
+            *slot_text = slint::SharedString::from(s.text);
+            *slot_kind = seg_kind(s.kind);
+            *slot_url = slint::SharedString::from(s.url);
+        }
+    };
+    set(&mut out.seg1_text, &mut out.seg1_kind, &mut out.seg1_url);
+    set(&mut out.seg2_text, &mut out.seg2_kind, &mut out.seg2_url);
+    set(&mut out.seg3_text, &mut out.seg3_kind, &mut out.seg3_url);
+    set(&mut out.seg4_text, &mut out.seg4_kind, &mut out.seg4_url);
+    set(&mut out.seg5_text, &mut out.seg5_kind, &mut out.seg5_url);
+    set(&mut out.seg6_text, &mut out.seg6_kind, &mut out.seg6_url);
+    out
+}
+
+/// Parse Markdown jadi model `[MdLine]` untuk callback `parse-md`
+/// (AppWindow + CommentWindow — handler yang sama).
+fn md_parse_model(text: slint::SharedString, width: f32) -> slint::ModelRc<MdLine> {
+    let lines = markdown::parse_markdown(text.as_str(), width, 12.0);
+    slint::ModelRc::new(slint::VecModel::from(
+        lines.into_iter().map(md_line_to_slint).collect::<Vec<_>>(),
+    ))
+}
+
+/// Simpan deskripsi hasil edit (editor Markdown di detail kartu):
+/// kunci dari model ids kategori aktif (list-ids adalah plain
+/// property — getter-nya privat di Rust), tulis ke `edited_descs`,
+/// update model desc + subs AppWindow supaya langsung ter-render
+/// (refresh Trello berikutnya memakai edited_descs yang sama).
+/// Dipakai AppWindow.on_save_desc + CardListWindow.on_save_desc.
+fn save_trello_desc(
+    ui: &AppWindow,
+    edited_descs: &std::sync::Arc<
+        std::sync::Mutex<std::collections::HashMap<String, String>>,
+    >,
+    cat: &str,
+    idx: usize,
+    text: slint::SharedString,
+) {
+    let (desc_model, subs_model, ids_model, fallback) = match cat {
+        "REVISION" => (
+            ui.get_revision_desc(),
+            ui.get_revision_subs(),
+            ui.get_revision_ids(),
+            "Revisi",
+        ),
+        "LATE" => (ui.get_late_desc(), ui.get_late_subs(), ui.get_late_ids(), "Susulan"),
+        _ => (
+            ui.get_editing_desc(),
+            ui.get_editing_subs(),
+            ui.get_editing_ids(),
+            "Trello Card",
+        ),
+    };
+    if idx >= ids_model.row_count() {
+        return;
+    }
+    let Some(key) = ids_model.row_data(idx) else {
+        return;
+    };
+    let key = key.to_string();
+    if let Ok(mut g) = edited_descs.lock() {
+        g.insert(key, text.to_string());
+    }
+    // Subtitle satu-baris = baris pertama TANPA sintaks Markdown.
+    let sub = {
+        let first = markdown::plain_first_line(text.as_str());
+        if first.is_empty() {
+            fallback.to_string()
+        } else {
+            first
+        }
+    };
+    let mut descs: Vec<slint::SharedString> = (0..desc_model.row_count())
+        .filter_map(|i| desc_model.row_data(i))
+        .collect();
+    let mut subs: Vec<slint::SharedString> = (0..subs_model.row_count())
+        .filter_map(|i| subs_model.row_data(i))
+        .collect();
+    if idx < descs.len() && idx < subs.len() {
+        descs[idx] = text.clone();
+        subs[idx] = slint::SharedString::from(sub);
+        match cat {
+            "REVISION" => {
+                ui.set_revision_desc(slint::ModelRc::new(slint::VecModel::from(descs)));
+                ui.set_revision_subs(slint::ModelRc::new(slint::VecModel::from(subs)));
+            }
+            "LATE" => {
+                ui.set_late_desc(slint::ModelRc::new(slint::VecModel::from(descs)));
+                ui.set_late_subs(slint::ModelRc::new(slint::VecModel::from(subs)));
+            }
+            _ => {
+                ui.set_editing_desc(slint::ModelRc::new(slint::VecModel::from(descs)));
+                ui.set_editing_subs(slint::ModelRc::new(slint::VecModel::from(subs)));
+            }
+        }
+        ui.set_toast(slint::SharedString::from("Deskripsi disimpan"));
+    }
+}
+
 /// VM yang sama untuk CommentWindow + CardDetailPanelHost).
 fn ensure_comment_window(
     cell: &std::rc::Rc<std::cell::RefCell<Option<CommentWindow>>>,
@@ -2806,6 +2941,25 @@ fn ensure_comment_window(
         w.on_toast(move |msg| {
             if let Some(ui) = ui_weak2.upgrade() {
                 ui.set_toast(msg);
+            }
+        });
+        // Markdown (komentar): parse + toolbar editor + buka link
+        // — handler yang sama dengan AppWindow.
+        w.on_parse_md(|text, width| md_parse_model(text, width));
+        w.on_md_insert(|kind, text, cursor, anchor| {
+            slint::SharedString::from(markdown::md_insert(
+                kind.as_str(),
+                text.as_str(),
+                cursor,
+                anchor,
+            ))
+        });
+        let ui_weak_url = ui_weak.clone();
+        w.on_open_url(move |url| {
+            if let Err(e) = platform::open_url(&url) {
+                if let Some(ui) = ui_weak_url.upgrade() {
+                    ui.set_toast(slint::SharedString::from(e));
+                }
             }
         });
         // Tombol kontrol chrome (min/max) + drag (titlebar kustom /
@@ -5989,6 +6143,16 @@ fn main() -> Result<(), slint::PlatformError> {
     // 1 = CardListWindow.
     let comment_source: std::rc::Rc<std::cell::Cell<u8>> =
         std::rc::Rc::new(std::cell::Cell::new(0));
+    // Deskripsi kartu hasil edit lokal (editor Markdown di detail
+    // kartu) — kunci = display-id-atau-id-penuh (lihat
+    // trello_card_desc_key); diterapkan saat membangun model
+    // desc/subs di spawn_trello_sync supaya edit bertahan melewati
+    // refresh Trello (hanya sesi ini — belum ada persistensi DB).
+    // Arc<Mutex<...>> (bukan Rc<RefCell>) karena spawn_trello_sync
+    // memindahkannya ke thread sinkronisasi (harus Send).
+    let edited_descs: std::sync::Arc<
+        std::sync::Mutex<std::collections::HashMap<String, String>>,
+    > = std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new()));
     // BatchWindow terlepas (tear-off BATCH, 28 Nov 2026) — dibuat saat
     // tab BATCH diseret keluar; None = BATCH masih embedded di dashboard.
     let batch_win_cell: BatchWinCell =
@@ -6734,6 +6898,31 @@ fn main() -> Result<(), slint::PlatformError> {
         String::new()
     }
 
+    // Kunci deskripsi hasil edit lokal: display-id-atau-id-penuh,
+    // SAMA seperti konstruksi `list-ids` (lihat blok EDITING di
+    // bawah) — supaya edit bertahan melewati refresh Trello.
+    fn trello_card_desc_key(c: &trello_api::TrelloCardItem) -> String {
+        let did = extract_card_display_id(&c.name);
+        if did.is_empty() {
+            c.id.clone()
+        } else {
+            did
+        }
+    }
+
+    // Deskripsi efektif kartu: hasil edit lokal (edited_descs) bila
+    // ada, else deskripsi dari API Trello.
+    fn trello_effective_desc(
+        edited: &std::collections::HashMap<String, String>,
+        c: &trello_api::TrelloCardItem,
+    ) -> String {
+        let key = trello_card_desc_key(c);
+        edited
+            .get(&key)
+            .cloned()
+            .unwrap_or_else(|| c.desc.clone().unwrap_or_default())
+    }
+
     // Interval auto-refresh Trello (detik) dari properti Settings
     // (`app-trello-interval`, key DB `Trello.RefreshInterval`).
     // Override env `BMACHINE_TRELLO_INTERVAL_SECS` HANYA untuk tes
@@ -6764,6 +6953,9 @@ fn main() -> Result<(), slint::PlatformError> {
         show_toast: bool,
         bar_store: BarStore,
         trello_state: std::sync::Arc<trello_api::TrelloSyncState>,
+        edited_descs: std::sync::Arc<
+            std::sync::Mutex<std::collections::HashMap<String, String>>,
+        >,
     ) {
         std::thread::spawn(move || {
             let mut synced = 0usize;
@@ -6803,21 +6995,23 @@ fn main() -> Result<(), slint::PlatformError> {
                             .iter()
                             .map(|c| slint::SharedString::from(c.name.as_str()))
                             .collect();
-                        let subs: Vec<slint::SharedString> = cards
+                        // Deskripsi efektif: hasil edit lokal
+                        // (edited_descs) mengalahkan deskripsi API —
+                        // dipakai subs (baris pertama) + descs.
+                        let edited = edited_descs.lock().unwrap();
+                        let eff_descs: Vec<String> = cards
                             .iter()
-                            .map(|c| {
-                                let s = c
-                                    .desc
-                                    .as_deref()
-                                    .unwrap_or("")
-                                    .lines()
-                                    .next()
-                                    .unwrap_or("")
-                                    .trim();
+                            .map(|c| trello_effective_desc(&edited, c))
+                            .collect();
+                        drop(edited);
+                        let subs: Vec<slint::SharedString> = eff_descs
+                            .iter()
+                            .map(|d| {
+                                let s = markdown::plain_first_line(d);
                                 slint::SharedString::from(if s.is_empty() {
                                     "Trello Card"
                                 } else {
-                                    s
+                                    s.as_str()
                                 })
                             })
                             .collect();
@@ -6851,13 +7045,9 @@ fn main() -> Result<(), slint::PlatformError> {
                                 )
                             })
                             .collect();
-                        let descs: Vec<slint::SharedString> = cards
+                        let descs: Vec<slint::SharedString> = eff_descs
                             .iter()
-                            .map(|c| {
-                                slint::SharedString::from(
-                                    c.desc.clone().unwrap_or_default(),
-                                )
-                            })
+                            .map(|d| slint::SharedString::from(d.as_str()))
                             .collect();
                         // Label Trello kartu (nama label; maks 2 dipakai
                         // detail: label-1 + label-2) + jumlah lampiran
@@ -6958,18 +7148,17 @@ fn main() -> Result<(), slint::PlatformError> {
                             .iter()
                             .map(|c| slint::SharedString::from(c.name.as_str()))
                             .collect();
-                        let subs: Vec<slint::SharedString> = cards
+                        let edited = edited_descs.lock().unwrap();
+                        let eff_descs: Vec<String> = cards
                             .iter()
-                            .map(|c| {
-                                let s = c
-                                    .desc
-                                    .as_deref()
-                                    .unwrap_or("")
-                                    .lines()
-                                    .next()
-                                    .unwrap_or("")
-                                    .trim();
-                                slint::SharedString::from(if s.is_empty() { "Revisi" } else { s })
+                            .map(|c| trello_effective_desc(&edited, c))
+                            .collect();
+                        drop(edited);
+                        let subs: Vec<slint::SharedString> = eff_descs
+                            .iter()
+                            .map(|d| {
+                                let s = markdown::plain_first_line(d);
+                                slint::SharedString::from(if s.is_empty() { "Revisi" } else { s.as_str() })
                             })
                             .collect();
                         let dues: Vec<slint::SharedString> = cards
@@ -6992,13 +7181,9 @@ fn main() -> Result<(), slint::PlatformError> {
                                 )
                             })
                             .collect();
-                        let descs: Vec<slint::SharedString> = cards
+                        let descs: Vec<slint::SharedString> = eff_descs
                             .iter()
-                            .map(|c| {
-                                slint::SharedString::from(
-                                    c.desc.clone().unwrap_or_default(),
-                                )
-                            })
+                            .map(|d| slint::SharedString::from(d.as_str()))
                             .collect();
                         // Label Trello kartu (nama label; maks 2 dipakai
                         // detail: label-1 + label-2) + jumlah lampiran
@@ -7099,18 +7284,17 @@ fn main() -> Result<(), slint::PlatformError> {
                             .iter()
                             .map(|c| slint::SharedString::from(c.name.as_str()))
                             .collect();
-                        let subs: Vec<slint::SharedString> = cards
+                        let edited = edited_descs.lock().unwrap();
+                        let eff_descs: Vec<String> = cards
                             .iter()
-                            .map(|c| {
-                                let s = c
-                                    .desc
-                                    .as_deref()
-                                    .unwrap_or("")
-                                    .lines()
-                                    .next()
-                                    .unwrap_or("")
-                                    .trim();
-                                slint::SharedString::from(if s.is_empty() { "Susulan" } else { s })
+                            .map(|c| trello_effective_desc(&edited, c))
+                            .collect();
+                        drop(edited);
+                        let subs: Vec<slint::SharedString> = eff_descs
+                            .iter()
+                            .map(|d| {
+                                let s = markdown::plain_first_line(d);
+                                slint::SharedString::from(if s.is_empty() { "Susulan" } else { s.as_str() })
                             })
                             .collect();
                         let dues: Vec<slint::SharedString> = cards
@@ -7133,13 +7317,9 @@ fn main() -> Result<(), slint::PlatformError> {
                                 )
                             })
                             .collect();
-                        let descs: Vec<slint::SharedString> = cards
+                        let descs: Vec<slint::SharedString> = eff_descs
                             .iter()
-                            .map(|c| {
-                                slint::SharedString::from(
-                                    c.desc.clone().unwrap_or_default(),
-                                )
-                            })
+                            .map(|d| slint::SharedString::from(d.as_str()))
                             .collect();
                         // Label Trello kartu (nama label; maks 2 dipakai
                         // detail: label-1 + label-2) + jumlah lampiran
@@ -7251,6 +7431,7 @@ fn main() -> Result<(), slint::PlatformError> {
             false,
             bar_store.clone(),
             trello_sync_state.clone(),
+            edited_descs.clone(),
         );
     }
 
@@ -9022,6 +9203,7 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     }
 
+        let edited_descs_test = edited_descs.clone();
         ui.on_test_trello(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 let k = ui.get_trello_api_key().to_string();
@@ -9041,6 +9223,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 let ll = ui.get_late_list_id().to_string();
                 let bar_store_thread = bar_store_test.clone();
                 let trello_state_thread = trello_state_test.clone();
+                let edited_descs_thread = edited_descs_test.clone();
                 std::thread::spawn(move || {
                     match trello_api::TrelloApiService::verify_connection(&base_url, &k, &t) {
                         Ok(member) => {
@@ -9068,7 +9251,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                     name
                                 )));
                             });
-                            spawn_trello_sync(ui_w, k, t, base_url, el, rl, ll, false, bar_store_thread, trello_state_thread);
+                            spawn_trello_sync(ui_w, k, t, base_url, el, rl, ll, false, bar_store_thread, trello_state_thread, edited_descs_thread);
                         }
                         Err(e) => {
                             let _ = ui_w.upgrade_in_event_loop(move |u| {
@@ -9095,10 +9278,50 @@ fn main() -> Result<(), slint::PlatformError> {
             }
         });
     }
+    // Markdown (deskripsi & komentar): parse ke model [MdLine],
+    // toolbar editor (md-insert), simpan deskripsi yang diedit.
+    ui.on_parse_md(|text, width| md_parse_model(text, width));
+    ui.on_md_insert(|kind, text, cursor, anchor| {
+        slint::SharedString::from(markdown::md_insert(
+            kind.as_str(),
+            text.as_str(),
+            cursor,
+            anchor,
+        ))
+    });
+    {
+        let ui_weak = ui.as_weak();
+        let edited_descs_save = edited_descs.clone();
+        ui.on_save_desc(move |text| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            if ui.get_selected_is_manual() {
+                ui.set_toast(slint::SharedString::from(
+                    "Kartu manual tidak punya deskripsi",
+                ));
+                return;
+            }
+            let idx = ui.get_selected_index() as usize;
+            // Kategori aktif = trello-window-cat bila tidak kosong
+            // else list-category (cermin derived prop list-desc di
+            // ui/main.slint).
+            let cat = {
+                let tw = ui.get_trello_window_cat();
+                if !tw.is_empty() {
+                    tw.to_string()
+                } else {
+                    ui.get_list_category().to_string()
+                }
+            };
+            save_trello_desc(&ui, &edited_descs_save, &cat, idx, text);
+        });
+    }
     {
         let ui_weak = ui.as_weak();
         let bar_store_refresh = bar_store.clone();
         let trello_state_refresh = trello_sync_state.clone();
+        let edited_descs_refresh = edited_descs.clone();
         ui.on_refresh_trello(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 spawn_trello_sync(
@@ -9112,6 +9335,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     true,
                     bar_store_refresh.clone(),
                     trello_state_refresh.clone(),
+                    edited_descs_refresh.clone(),
                 );
             }
         });
@@ -9946,6 +10170,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let comment_cell = comment_win_cell.clone();
         let comment_vis = comment_visible.clone();
         let comment_src = comment_source.clone();
+        let edited_descs_cw = edited_descs.clone();
         let ui_weak = ui.as_weak();
         ui.on_open_new_card_window(move |cat| {
             let cat_str = cat.as_str().to_string();
@@ -9963,6 +10188,55 @@ fn main() -> Result<(), slint::PlatformError> {
                             let _ = w.hide();
                         }
                     });
+                    // Markdown (deskripsi & komentar): parse + toolbar
+                    // editor + buka link + simpan deskripsi — handler
+                    // yang sama dengan AppWindow (simpan memakai helper
+                    // save_trello_desc + segarkan salinan card-desc).
+                    w.on_parse_md(|text, width| md_parse_model(text, width));
+                    w.on_md_insert(|kind, text, cursor, anchor| {
+                        slint::SharedString::from(markdown::md_insert(
+                            kind.as_str(),
+                            text.as_str(),
+                            cursor,
+                            anchor,
+                        ))
+                    });
+                    let ui_weak_url = ui_weak.clone();
+                    w.on_open_url(move |url| {
+                        if let Err(e) = platform::open_url(&url) {
+                            if let Some(ui) = ui_weak_url.upgrade() {
+                                ui.set_toast(slint::SharedString::from(e));
+                            }
+                        }
+                    });
+                    {
+                        let ui_weak_save = ui_weak.clone();
+                        let edited_descs_save = edited_descs_cw.clone();
+                        let w_weak_save = w.as_weak();
+                        w.on_save_desc(move |text| {
+                            let Some(ui) = ui_weak_save.upgrade() else {
+                                return;
+                            };
+                            let Some(card) = w_weak_save.upgrade() else {
+                                return;
+                            };
+                            let cat = card.get_category().to_string();
+                            let idx = card.get_selected_idx() as usize;
+                            save_trello_desc(&ui, &edited_descs_save, &cat, idx, text);
+                            // Segarkan salinan card-desc + card-subs
+                            // window dari model AppWindow (sudah
+                            // ter-update helper).
+                            let (desc_model, subs_model) = match cat.as_str() {
+                                "REVISION" => {
+                                    (ui.get_revision_desc(), ui.get_revision_subs())
+                                }
+                                "LATE" => (ui.get_late_desc(), ui.get_late_subs()),
+                                _ => (ui.get_editing_desc(), ui.get_editing_subs()),
+                            };
+                            card.set_card_desc(desc_model);
+                            card.set_card_subs(subs_model);
+                        });
+                    }
                     // Tombol kontrol chrome (min/max) + drag (titlebar
                     // kustom / strip headless) + gaya chrome awal dari
                     // AppWindow (lihat DESIGN_SYSTEM.md §23).
@@ -10061,19 +10335,39 @@ fn main() -> Result<(), slint::PlatformError> {
                         w.set_card_subs(main_ui.get_editing_subs());
                         w.set_card_due(main_ui.get_editing_due());
                         w.set_card_done(main_ui.get_editing_done());
+                        w.set_card_desc(main_ui.get_editing_desc());
+                        w.set_card_ids(main_ui.get_editing_ids());
+                        w.set_card_urls(main_ui.get_editing_urls());
+                        w.set_card_label1(main_ui.get_editing_label1());
+                        w.set_card_label2(main_ui.get_editing_label2());
+                        w.set_card_atts(main_ui.get_editing_atts());
                     } else if cat_str == "REVISION" {
                         w.set_category_accent(slint::Color::from_rgb_u8(245, 158, 11));
                         w.set_card_titles(main_ui.get_revision_titles());
                         w.set_card_subs(main_ui.get_revision_subs());
                         w.set_card_due(main_ui.get_revision_due());
                         w.set_card_done(main_ui.get_revision_done());
+                        w.set_card_desc(main_ui.get_revision_desc());
+                        w.set_card_ids(main_ui.get_revision_ids());
+                        w.set_card_urls(main_ui.get_revision_urls());
+                        w.set_card_label1(main_ui.get_revision_label1());
+                        w.set_card_label2(main_ui.get_revision_label2());
+                        w.set_card_atts(main_ui.get_revision_atts());
                     } else {
                         w.set_category_accent(slint::Color::from_rgb_u8(239, 68, 68));
                         w.set_card_titles(main_ui.get_late_titles());
                         w.set_card_subs(main_ui.get_late_subs());
                         w.set_card_due(main_ui.get_late_due());
                         w.set_card_done(main_ui.get_late_done());
+                        w.set_card_desc(main_ui.get_late_desc());
+                        w.set_card_ids(main_ui.get_late_ids());
+                        w.set_card_urls(main_ui.get_late_urls());
+                        w.set_card_label1(main_ui.get_late_label1());
+                        w.set_card_label2(main_ui.get_late_label2());
+                        w.set_card_atts(main_ui.get_late_atts());
                     }
+                    w.set_user_name(main_ui.get_app_user_name());
+                    w.set_user_initial(main_ui.get_app_user_initial());
                 }
                 // Tengah window utama (C# CenterScreen; 450x600
                 // sesuai ukuran CardListWindow di .slint).
@@ -13880,6 +14174,7 @@ fn main() -> Result<(), slint::PlatformError> {
             let ui_weak = ui.as_weak();
             let state = trello_sync_state.clone();
             let bar_store_timer = bar_store.clone();
+            let edited_descs_timer = edited_descs.clone();
             move || {
                 let Some(ui) = ui_weak.upgrade() else {
                     return;
@@ -13920,6 +14215,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     false,
                     bar_store_timer.clone(),
                     state.clone(),
+                    edited_descs_timer.clone(),
                 );
             }
         },

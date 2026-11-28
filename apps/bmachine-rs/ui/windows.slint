@@ -4,7 +4,7 @@
 
 import { Design, Btn, IconBtn, SvgIcon, TextField, WindowControls, HSeparator } from "design.slint";
 import { SpreadsheetComponent } from "spreadsheet.slint";
-import { TrelloDetailPanel, CommentRow } from "trello-detail.slint";
+import { TrelloDetailPanel, CommentRow, MdLine, MdToolbar, MarkdownView } from "trello-detail.slint";
 import { RadialMenuView } from "radial.slint";
 import { ToolboxView } from "modul.slint";
 import { BatchView, BatchRow, RegulerDirRow, RegulerSchoolRow } from "batch.slint";
@@ -678,6 +678,18 @@ export component CardListWindow inherits Window {
     in-out property <[string]> card-subs: [];
     in-out property <[string]> card-due: [];
     in-out property <[bool]> card-done: [];
+    // Data deskripsi/meta kartu (diisi Rust saat window dibuka dari
+    // model AppWindow kategori aktif — sebelumnya deskripsi detail
+    // masih mock hardcode).
+    in-out property <[string]> card-desc: [];
+    in-out property <[string]> card-ids: [];
+    in-out property <[string]> card-urls: [];
+    in-out property <[string]> card-label1: [];
+    in-out property <[string]> card-label2: [];
+    in-out property <[int]> card-atts: [];
+    // Nama + inisial user aktif (author komentar baru).
+    in-out property <string> user-name: "USER";
+    in-out property <string> user-initial: "U";
 
     callback close-window();
     callback minimize-window();
@@ -685,6 +697,14 @@ export component CardListWindow inherits Window {
     callback move-window(length, length);
     callback toggle-done(int);
     callback toast(string);
+    callback open-url(string);
+    // Markdown (deskripsi & komentar): parsing di Rust — pure
+    // supaya bisa dipanggil dari binding; toolbar editor via
+    // md-insert; simpan deskripsi via save-desc (Rust:
+    // edited_descs + model AppWindow).
+    pure callback parse-md(string, length) -> [MdLine];
+    callback md-insert(string, string, int, int) -> string;
+    callback save-desc(string);
 
     // Drag strip mode headless (tanpa titlebar): seret 28px teratas
     // konten (di bawah elemen interaktif — search bar tetap
@@ -957,18 +977,30 @@ export component CardListWindow inherits Window {
                     x: 0; y: 0; width: 100%; height: 100%;
                     card-title: root.card-titles[root.selected-idx];
                     event-date: root.card-due[root.selected-idx];
+                    display-id: root.card-ids[root.selected-idx];
                     due-text: "Due: " + root.card-due[root.selected-idx];
                     is-manual: false;
+                    card-url-override: root.card-urls[root.selected-idx];
                     category-label: root.category;
                     accent: root.category-accent;
                     done: root.card-done[root.selected-idx];
-                    description: "Edit pas foto sekolah — crop, centering kepala di guide, logo terlihat rapi dan warna seimbang.";
+                    description: root.card-desc[root.selected-idx];
+                    label-1: root.card-label1[root.selected-idx];
+                    label-2: root.card-label2[root.selected-idx];
+                    attachments-count: root.card-atts[root.selected-idx];
+                    user-name: root.user-name;
+                    user-initial: root.user-initial;
                     added-count <=> root.detail-added-count;
                     draft-1 <=> root.detail-draft-1;
                     draft-2 <=> root.detail-draft-2;
                     draft-3 <=> root.detail-draft-3;
                     open-comment-window => { root.open-comment-window(); }
                     close() => { root.selected-idx = -1; root.toast("Detail ditutup"); }
+                    show-toast(t) => { root.toast(t); }
+                    open-url(u) => { root.open-url(u); }
+                    parse-md(s, w) => { root.parse-md(s, w) }
+                    md-insert(kind, text, cur, anch) => { root.md-insert(kind, text, cur, anch) }
+                    save-description(text) => { root.save-desc(text); }
                 }
             }
                 }
@@ -1025,6 +1057,12 @@ export component CommentWindow inherits Window {
     callback move-window(length, length);
     callback toast(string);
     callback send-comment();
+    callback open-url(string);
+    // Markdown (komentar): parsing di Rust (src/markdown.rs) —
+    // pure supaya bisa dipanggil dari binding; toolbar editor
+    // via md-insert (Rust).
+    pure callback parse-md(string, length) -> [MdLine];
+    callback md-insert(string, string, int, int) -> string;
 
     property <string> comment-draft: "";
 
@@ -1224,6 +1262,9 @@ export component CommentWindow inherits Window {
                             body: root.draft-1;
                             initial: root.user-initial;
                             avatar-bg: Design.accent;
+                            parse-md(s, w) => { root.parse-md(s, w) }
+                            open-url(u) => { root.open-url(u); }
+                            show-toast(t) => { root.toast(t); }
                         }
                         if root.added-count >= 2 : CommentRow {
                             author: root.user-name;
@@ -1231,6 +1272,9 @@ export component CommentWindow inherits Window {
                             body: root.draft-2;
                             initial: root.user-initial;
                             avatar-bg: Design.accent;
+                            parse-md(s, w) => { root.parse-md(s, w) }
+                            open-url(u) => { root.open-url(u); }
+                            show-toast(t) => { root.toast(t); }
                         }
                         if root.added-count >= 3 : CommentRow {
                             author: root.user-name;
@@ -1238,6 +1282,9 @@ export component CommentWindow inherits Window {
                             body: root.draft-3;
                             initial: root.user-initial;
                             avatar-bg: Design.accent;
+                            parse-md(s, w) => { root.parse-md(s, w) }
+                            open-url(u) => { root.open-url(u); }
+                            show-toast(t) => { root.toast(t); }
                         }
                     }
                 }
@@ -1259,26 +1306,82 @@ export component CommentWindow inherits Window {
                     clicked => { root.comment-draft = "Sudah dicek."; }
                 }
             }
+            // Editor komentar (Markdown): toolbar + input multi-baris
+            // + pratinjau live. Enter menyisipkan baris baru (bukan
+            // kirim); kirim hanya via tombol →.
+            MdToolbar {
+                insert(kind) => {
+                    root.comment-draft = root.md-insert(kind, root.comment-draft, comment-input.cursor-position-byte-offset, comment-input.anchor-position-byte-offset);
+                }
+            }
             HorizontalLayout {
-                height: 36px;
                 spacing: 8px;
-                TextField {
+                // TextField bawaan single-line 36px — editor komentar
+                // multi-baris memakai TextInput mentah di dalam
+                // Rectangle ala TextField (latar + border + radius).
+                Rectangle {
                     horizontal-stretch: 1;
-                    placeholder: "Write a comment... (@mention)";
-                    text <=> root.comment-draft;
-                    accepted(text) => { root.send-comment(); }
+                    height: 56px;
+                    background: Design.bg-input;
+                    border-color: comment-input.has-focus ? Design.border-focus : Design.border-default;
+                    border-width: 1px;
+                    border-radius: Design.radius-sm;
+                    clip: true;
+                    comment-input := TextInput {
+                        x: 10px; y: 6px;
+                        width: parent.width - 20px;
+                        height: parent.height - 12px;
+                        text <=> root.comment-draft;
+                        font-size: 12px;
+                        color: Design.text-primary;
+                        selection-foreground-color: white;
+                        selection-background-color: Design.accent;
+                        wrap: word-wrap;
+                        single-line: false;
+                    }
+                    Text {
+                        text: "Write a comment... (@mention)";
+                        font-size: 12px;
+                        color: Design.text-muted;
+                        x: 10px; y: 6px;
+                        visible: root.comment-draft == "" && !comment-input.has-focus;
+                    }
                 }
-                IconBtn {
-                    glyph: "+";
-                    variant: "ghost";
-                    size: 36px;
-                    clicked => { root.toast("Lampirkan file ke komentar (mockup — Fase 6)"); }
+                // Tombol rata bawah (input multi-baris).
+                VerticalLayout {
+                    alignment: end;
+                    IconBtn {
+                        glyph: "+";
+                        variant: "ghost";
+                        size: 36px;
+                        clicked => { root.toast("Lampirkan file ke komentar (mockup — Fase 6)"); }
+                    }
                 }
-                IconBtn {
-                    glyph: "→";
-                    variant: "accent";
-                    size: 36px;
-                    clicked => { root.send-comment(); }
+                VerticalLayout {
+                    alignment: end;
+                    IconBtn {
+                        glyph: "→";
+                        variant: "accent";
+                        size: 36px;
+                        clicked => { root.send-comment(); }
+                    }
+                }
+            }
+            // Pratinjau komentar saat mengetik (maks ~100px).
+            if root.comment-draft != "" : Rectangle {
+                height: min(100px, comment-preview-md.preferred-height);
+                clip: true;
+                Flickable {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    viewport-height: comment-preview-md.preferred-height;
+                    comment-preview-md := MarkdownView {
+                        width: 100%;
+                        source: root.comment-draft;
+                        font-size: 12px;
+                        parse-md(s, w) => { root.parse-md(s, w) }
+                        open-url(u) => { root.open-url(u); }
+                        show-toast(t) => { root.toast(t); }
+                    }
                 }
             }
         }

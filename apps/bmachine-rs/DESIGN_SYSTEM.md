@@ -1087,6 +1087,41 @@ sempat dikira rusak pada kartu berjudul pendek (TK ASSALAM, kartu
 manual, REVISI) — ternyata koordinat klik pengujinya yang salah
 (baris aksi kartu 1 baris ada di y~295, bukan y~360).
 
+#### Markdown deskripsi + komentar (28 Nov 2026)
+
+Deskripsi kartu + isi komentar di-render Markdown ala Trello
+asli (parser Rust `src/markdown.rs`, render Slint
+`MarkdownView` di `ui/trello-detail.slint`): bold `**`,
+italic `*`/`_`, bold-italic `***`, heading `#`–`###`, list
+bullet `-`/`*`/`+` + numbered `N.`/`N)`, quote `> `, code
+inline `` ` `` + blok fenced `` ``` ``, link `[teks](url)` +
+URL telanjang (`www.` → `https://`, hanya http(s) — bisa
+diklik, buka browser), mention `@nama` (chip, klik → toast
+"Profil … belum tersedia (mockup — Fase 6)"). Editor:
+toolbar `MdToolbar` (B, I, •, 1., Link, `</>`, @) + input
+multi-line + pratinjau live saat mengetik; deskripsi lewat
+tombol "Edit" kecil di label Description (Simpan/Batal) —
+simpan ke `edited_descs` (Arc<Mutex<HashMap>>) yang menang
+atas deskripsi API di `spawn_trello_sync` + refresh
+berikutnya; komentar via toolbar + input multi-line di
+sub-panel Comments / CommentWindow (Enter = baris baru,
+kirim hanya tombol `→` / quick-reply). Berlaku di SEMUA
+tempat: detail embedded, detail CardListWindow, CommentWindow
+— CardListWindow punya salinan `card-desc`/`card-ids`/
+`card-urls`/`card-label1/2`/`card-atts` + callback
+`parse-md`/`md-insert`/`save-desc` sendiri (diisi Rust saat
+window dibuka dari model AppWindow kategori aktif). Subtitle
+daftar kartu = `plain_first_line` (baris pertama deskripsi
+tanpa sintaks Markdown — `#`, `**`, link, `@`, dsb. di-strip).
+Komentar tetap mock lokal maks 3 (GET comments = Fase 6).
+Batasan Slint 1.19: callback biasa impure — `parse-md` harus
+`pure callback` supaya bisa dipanggil dari binding/`for`;
+`MdLine` di-flatten (maks 6 segmen/baris, baris lebih dari itu
+dipecah jadi baris lanjutan); lebar wrap diestimasi dari
+lebar font Inter (faktor aman 0,97; code monospace 0,60em;
+bold ×1,05; CJK 1,0em). Posisi kursor setelah sisipan toolbar
+tidak bisa diatur (TextInput tidak mengekspos setter kursor).
+
 ### 15.3 Window Trello (dari panah widget)
 
 CardListWindow — OS window terpisah (`ui/windows.slint`,
