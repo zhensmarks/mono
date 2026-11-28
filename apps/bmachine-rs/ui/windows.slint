@@ -72,7 +72,7 @@ export component ToolboxWindow inherits Window {
     // C# Min 680x580 tidak bisa dipasang bersama width/height di
     // Slint (satu Window tidak boleh punya width + min-width) —
     // ukuran buka 1024x730 tetap sama; lantai resize tidak ditegakkan.
-    background: Design.app-bg;
+    background: transparent;
     default-font-family: Design.font-family;
     // Chrome window (lihat DESIGN_SYSTEM.md §23): "native" = chrome
     // bawaan OS, lainnya frameless + titlebar kustom di bawah.
@@ -91,6 +91,17 @@ export component ToolboxWindow inherits Window {
     callback move-window(length, length);
     callback toast(string);
     in-out property <string> tool-tab: "MantraNama";
+
+    // Latar window membulat (§23, 28 Nov 2026): Window transparan +
+    // Rectangle ini yang memberi warna latar + radius sudut luar
+    // (radius-xl mengikuti gaya sudut Settings; 0px saat chrome
+    // native supaya frame OS tidak diganggu).
+    win-bg := Rectangle {
+        x: 0; y: 0; width: 100%; height: 100%;
+        background: Design.app-bg;
+        border-radius: root.chrome-style == "native" ? 0px : Design.radius-xl;
+    }
+
 
     // Drag strip mode headless (tanpa titlebar): seret 28px teratas
     // konten (di bawah elemen interaktif — tab/tombol tetap
@@ -128,6 +139,8 @@ export component ToolboxWindow inherits Window {
         if root.chrome-style == "custom" || root.chrome-style == "wrapped" : Rectangle {
             height: 38px;
             background: Design.surface-elevated;
+            border-top-left-radius: Design.radius-xl;
+            border-top-right-radius: Design.radius-xl;
             border-color: Design.separator;
             border-width: 0.5px;
 
@@ -230,7 +243,7 @@ export component ReportBugDialog inherits Window {
     title: "Laporkan Bug";
     width: 560px;
     height: 400px;
-    background: Design.app-bg;
+    background: transparent;
     no-frame: true;
     default-font-family: Design.font-family;
 
@@ -241,6 +254,17 @@ export component ReportBugDialog inherits Window {
     in-out property <string> summary-text: "";
     in-out property <string> detail-text: "";
 
+    // Latar window membulat (§23, 28 Nov 2026): Window transparan +
+    // Rectangle ini yang memberi warna latar + radius sudut luar
+    // (radius-xl mengikuti gaya sudut Settings; 0px saat chrome
+    // native supaya frame OS tidak diganggu).
+    win-bg := Rectangle {
+        x: 0; y: 0; width: 100%; height: 100%;
+        background: Design.app-bg;
+        border-radius: Design.radius-xl;
+    }
+
+
     VerticalLayout {
         padding: 0;
         spacing: 0;
@@ -250,6 +274,8 @@ export component ReportBugDialog inherits Window {
         Rectangle {
             height: 38px;
             background: Design.surface-elevated;
+            border-top-left-radius: Design.radius-xl;
+            border-top-right-radius: Design.radius-xl;
             border-color: Design.separator;
             border-width: 0.5px;
 
@@ -386,7 +412,7 @@ export component SpreadsheetWindow inherits Window {
     title: "BMachine — Spreadsheet Editor";
     width: 1000px;
     height: 600px;
-    background: Design.app-bg;
+    background: transparent;
     default-font-family: Design.font-family;
     // Chrome window (lihat DESIGN_SYSTEM.md §23): "native" = chrome
     // bawaan OS, lainnya frameless + titlebar kustom di bawah.
@@ -454,6 +480,16 @@ export component SpreadsheetWindow inherits Window {
     // Margin 0,0,420,0 — kanan 420px bebas untuk toolbar/tombol close).
     callback move-window(length, length);
 
+    // Latar window membulat (§23, 28 Nov 2026): Window transparan +
+    // Rectangle ini yang memberi warna latar + radius sudut luar
+    // (radius-xl mengikuti gaya sudut Settings; 0px saat chrome
+    // native supaya frame OS tidak diganggu).
+    win-bg := Rectangle {
+        x: 0; y: 0; width: 100%; height: 100%;
+        background: Design.app-bg;
+        border-radius: root.chrome-style == "native" ? 0px : Design.radius-xl;
+    }
+
     // Drag strip mode headless (tanpa titlebar): seret 28px teratas
     // konten (di bawah elemen interaktif — toolbar tetap menerima
     // kliknya sendiri).
@@ -489,6 +525,8 @@ export component SpreadsheetWindow inherits Window {
         if root.chrome-style == "custom" || root.chrome-style == "wrapped" : Rectangle {
             height: 46px;
             background: Design.surface-elevated;
+            border-top-left-radius: Design.radius-xl;
+            border-top-right-radius: Design.radius-xl;
             border-color: Design.separator;
             border-width: 0.5px;
 
@@ -581,6 +619,7 @@ export component SpreadsheetWindow inherits Window {
                     width: parent.width - (root.chrome-style == "wrapped" ? 16px : 0px);
                     height: parent.height - (root.chrome-style == "wrapped" ? 16px : 0px);
                     is-standalone: true;
+                    outer-radius: root.chrome-style == "native" ? 0px : Design.radius-xl;
             grid <=> root.grid;
             grid-orig <=> root.grid-orig;
             col-headers <=> root.col-headers;
@@ -643,7 +682,7 @@ export component CardListWindow inherits Window {
     // yang disamakan, struktur tidak diubah.
     width: 450px;
     height: 600px;
-    background: Design.app-bg;
+    background: transparent;
     default-font-family: Design.font-family;
     // Chrome window (lihat DESIGN_SYSTEM.md §23): "native" = chrome
     // bawaan OS, lainnya frameless + titlebar kustom di bawah.
@@ -706,6 +745,17 @@ export component CardListWindow inherits Window {
     callback md-insert(string, string, int, int) -> string;
     callback save-desc(string);
 
+    // Latar window membulat (§23, 28 Nov 2026): Window transparan +
+    // Rectangle ini yang memberi warna latar + radius sudut luar
+    // (radius-xl mengikuti gaya sudut Settings; 0px saat chrome
+    // native supaya frame OS tidak diganggu).
+    win-bg := Rectangle {
+        x: 0; y: 0; width: 100%; height: 100%;
+        background: Design.app-bg;
+        border-radius: root.chrome-style == "native" ? 0px : Design.radius-xl;
+    }
+
+
     // Drag strip mode headless (tanpa titlebar): seret 28px teratas
     // konten (di bawah elemen interaktif — search bar tetap
     // menerima kliknya sendiri).
@@ -742,6 +792,8 @@ export component CardListWindow inherits Window {
         if root.chrome-style == "custom" || root.chrome-style == "wrapped" : Rectangle {
             height: 38px;
             background: Design.surface-elevated;
+            border-top-left-radius: Design.radius-xl;
+            border-top-right-radius: Design.radius-xl;
             border-color: Design.separator;
             border-width: 0.5px;
 
@@ -1025,7 +1077,7 @@ export component CommentWindow inherits Window {
     title: "Comments";
     width: 400px;
     height: 600px;
-    background: Design.app-bg;
+    background: transparent;
     default-font-family: Design.font-family;
     // C# Topmost=true.
     always-on-top: true;
@@ -1109,6 +1161,16 @@ export component CommentWindow inherits Window {
         }
     }
 
+    // Latar window membulat (§23, 28 Nov 2026): Window transparan +
+    // Rectangle ini yang memberi warna latar + radius sudut luar
+    // (radius-xl mengikuti gaya sudut Settings; 0px saat chrome
+    // native supaya frame OS tidak diganggu).
+    win-bg := Rectangle {
+        x: 0; y: 0; width: 100%; height: 100%;
+        background: Design.app-bg;
+        border-radius: root.chrome-style == "native" ? 0px : Design.radius-xl;
+    }
+
     VerticalLayout {
         padding: 0;
         spacing: 0;
@@ -1119,6 +1181,8 @@ export component CommentWindow inherits Window {
         if root.chrome-style == "custom" || root.chrome-style == "wrapped" : Rectangle {
             height: 38px;
             background: Design.surface-elevated;
+            border-top-left-radius: Design.radius-xl;
+            border-top-right-radius: Design.radius-xl;
             border-color: Design.separator;
             border-width: 0.5px;
 
@@ -2467,7 +2531,7 @@ export component BatchWindow inherits Window {
     // Lebar minimum 520px (seperti AppWindow) tidak bisa dipasang
     // bersama width/height di Slint — lantai resize tidak ditegakkan
     // (pola sama seperti ToolboxWindow); konten tetap rapi di 520px.
-    background: Design.app-bg;
+    background: transparent;
     default-font-family: Design.font-family;
     // Chrome window (lihat DESIGN_SYSTEM.md §23): "native" = chrome
     // bawaan OS, lainnya frameless + titlebar kustom di bawah.
@@ -2559,6 +2623,17 @@ export component BatchWindow inherits Window {
     callback batch-reguler-month-picked(int);
     callback batch-open-task-manager();
 
+    // Latar window membulat (§23, 28 Nov 2026): Window transparan +
+    // Rectangle ini yang memberi warna latar + radius sudut luar
+    // (radius-xl mengikuti gaya sudut Settings; 0px saat chrome
+    // native supaya frame OS tidak diganggu).
+    win-bg := Rectangle {
+        x: 0; y: 0; width: 100%; height: 100%;
+        background: Design.app-bg;
+        border-radius: root.chrome-style == "native" ? 0px : Design.radius-xl;
+    }
+
+
     // Drag strip mode headless (tanpa titlebar): seret 28px teratas
     // konten (pola sama seperti CardListWindow).
     if root.chrome-style == "headless" : TouchArea {
@@ -2607,6 +2682,8 @@ export component BatchWindow inherits Window {
             if root.chrome-style == "custom" || root.chrome-style == "wrapped" : Rectangle {
                 height: 38px;
                 background: Design.surface-elevated;
+                border-top-left-radius: Design.radius-xl;
+                border-top-right-radius: Design.radius-xl;
                 border-color: Design.separator;
                 border-width: 0.5px;
 
@@ -2753,7 +2830,7 @@ export component DocWindow inherits Window {
     title: "BMachine — DOC";
     width: 560px;
     height: 640px;
-    background: Design.app-bg;
+    background: transparent;
     default-font-family: Design.font-family;
     // Chrome window (§23): "native" = chrome bawaan OS, lainnya
     // frameless + titlebar kustom di bawah. Didorong Rust saat window
@@ -2808,6 +2885,17 @@ export component DocWindow inherits Window {
     callback doc-open(int);
     callback doc-remove(int);
 
+    // Latar window membulat (§23, 28 Nov 2026): Window transparan +
+    // Rectangle ini yang memberi warna latar + radius sudut luar
+    // (radius-xl mengikuti gaya sudut Settings; 0px saat chrome
+    // native supaya frame OS tidak diganggu).
+    win-bg := Rectangle {
+        x: 0; y: 0; width: 100%; height: 100%;
+        background: Design.app-bg;
+        border-radius: root.chrome-style == "native" ? 0px : Design.radius-xl;
+    }
+
+
     // Drag strip mode headless (tanpa titlebar): seret 28px teratas
     // konten (pola sama seperti CardListWindow).
     if root.chrome-style == "headless" : TouchArea {
@@ -2850,6 +2938,8 @@ export component DocWindow inherits Window {
             if root.chrome-style == "custom" || root.chrome-style == "wrapped" : Rectangle {
                 height: 38px;
                 background: Design.surface-elevated;
+                border-top-left-radius: Design.radius-xl;
+                border-top-right-radius: Design.radius-xl;
                 border-color: Design.separator;
                 border-width: 0.5px;
 
@@ -2965,7 +3055,7 @@ export component DocSettingsWindow inherits Window {
     title: "Pengaturan DOC";
     width: 520px;
     height: 460px;
-    background: Design.app-bg;
+    background: transparent;
     no-frame: true;
     default-font-family: Design.font-family;
 
@@ -2975,6 +3065,16 @@ export component DocSettingsWindow inherits Window {
 
     in-out property <string> name-text: "";
     in-out property <string> address-text: "";
+
+    // Latar window membulat (§23, 28 Nov 2026): Window transparan +
+    // Rectangle ini yang memberi warna latar + radius sudut luar
+    // (radius-xl mengikuti gaya sudut Settings; 0px saat chrome
+    // native supaya frame OS tidak diganggu).
+    win-bg := Rectangle {
+        x: 0; y: 0; width: 100%; height: 100%;
+        background: Design.app-bg;
+        border-radius: Design.radius-xl;
+    }
 
     forward-focus: doc-settings-keys;
     doc-settings-keys := FocusScope {
@@ -2993,6 +3093,8 @@ export component DocSettingsWindow inherits Window {
             Rectangle {
                 height: 38px;
                 background: Design.surface-elevated;
+                border-top-left-radius: Design.radius-xl;
+                border-top-right-radius: Design.radius-xl;
                 border-color: Design.separator;
                 border-width: 0.5px;
 

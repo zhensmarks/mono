@@ -1,3 +1,12 @@
+## 2026-11-28 — Dex — Ronde perbaikan Windows (3/5): sudut window membulat (transparent window + rounded-rect background)
+
+- Diubah:
+  - **`ui/main.slint` (AppWindow) + `ui/windows.slint` (8 window sekunder) + `ui/spreadsheet.slint`:** tiap Window ber-chrome kini `background: transparent` + Rectangle latar pertama `win-bg` (`Design.app-bg`, `border-radius: Design.radius-xl` — mengikuti gaya sudut Settings; 0px saat chrome `native`) + radius atas yang sama di titlebar kustom. Window: Toolbox, ReportBugDialog, Spreadsheet, CardList, Comment, Batch, Doc, DocSettings. `SpreadsheetComponent` (satu-satunya konten full-bleed opaque) dapat properti baru `outer-radius` yang diisi window-nya (0px saat embedded di AppWindow) supaya tidak menutupi sudut bawah bg rect. Radial + notch tidak disentuh (popup transparan, sudah membulat).
+  - **`DESIGN_SYSTEM.md` §23:** paragraf sudut membulat (pola + pengecualian Spreadsheet + catatan DWMWA).
+- Alasan: temuan tes Windows 28 Nov 18:09–18:53 — sudut luar window kotak (borderless), panel dalam rounded.
+- Terverifikasi: `cargo build --offline` exit 0 (warning lama saja). GUI Xvfb :98, APPDATA terisolasi `appdata-fixwin`, tema Terang, screenshot `fixwin-40/41-corners-*.png`: **main window 960×640** — keempat sudut: piksel (0,0)/(2,2) hitam (desktop) → (5,5) terang `#F5F5F5`; **CardList 450×600** (posisi 255,20) — keempat sudut: hitam → putih titlebar / `#F5F5F5` dari 5px. Catatan: window utama terbuka 960×640 (bukan fullscreen) — pengukuran awal di (1279,799) sempat salah sangka karena itu di luar window.
+- Masih terbuka: (1) Di Xvfb tanpa compositor sudut menampilkan hitam (X root); di Windows (DWM) harusnya menampilkan wallpaper/window di belakang — perlu konfirmasi Dex di PC. (2) Belum diuji di PC Windows asli.
+
 ## 2026-11-28 — Dex — Ronde perbaikan Windows (2/5): notch mengikuti tema + border separator
 
 - Diubah:

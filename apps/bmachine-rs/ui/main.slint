@@ -485,7 +485,7 @@ export component AppWindow inherits Window {
     // sangat kecil itu wajar — user menyesuaikan sendiri.
     min-width: Design.window-min-width;
     title: "BMachine";
-    background: Design.app-bg;
+    background: transparent;
     default-font-family: Design.font-family;
 
     in-out property <string> current-tab: "HOME";
@@ -1478,6 +1478,16 @@ export component AppWindow inherits Window {
                 }
             }
         }
+
+    // Latar window membulat (§23, 28 Nov 2026): Window transparan +
+    // Rectangle ini yang memberi warna latar + radius sudut luar
+    // (radius-xl mengikuti gaya sudut Settings; 0px saat chrome
+    // native supaya frame OS tidak diganggu).
+    win-bg := Rectangle {
+        x: 0; y: 0; width: 100%; height: 100%;
+        background: Design.app-bg;
+        border-radius: root.app-chrome == "native" ? 0px : Design.radius-xl;
+    }
 
     // Global radial shortcut watcher toggles this property; Rust membuka/
     // menutup window OS radial di cursor (bukan overlay). Satu-satunya
@@ -3665,6 +3675,8 @@ export component AppWindow inherits Window {
         width: 100%;
         height: 28px;
         background: Design.app-bg;
+        border-top-left-radius: root.app-chrome == "native" ? 0px : Design.radius-xl;
+        border-top-right-radius: root.app-chrome == "native" ? 0px : Design.radius-xl;
 
         title-drag := TouchArea {
             x: root.app-chrome-button-position == "left" ? 130px : 0px;

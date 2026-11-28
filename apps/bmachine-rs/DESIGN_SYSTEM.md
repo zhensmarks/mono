@@ -3221,6 +3221,23 @@ gaya tidak butuh restart. Catatan: sebelum tugas ini, "native" hanya
 menyembunyikan titlebar custom tanpa menampilkan chrome OS (bug laten
 — `no-frame: true` statis); sekarang diperbaiki.
 
+**Sudut window membulat (28 Nov 2026, ronde perbaikan Windows):**
+window frameless (custom/headless/wrapped) dulu kotak di luar padahal
+panel dalamnya rounded. Sekarang tiap Window ber-chrome
+(`background: transparent`) + Rectangle latar pertama (`win-bg`,
+`Design.app-bg`, `border-radius: Design.radius-xl` — mengikuti gaya
+sudut Settings) + radius atas yang sama di titlebar kustom; saat
+chrome `native` radius = 0px supaya frame OS tidak diganggu.
+Berlaku ke AppWindow + 8 window sekunder (Toolbox, ReportBug,
+Spreadsheet, CardList, Comment, Batch, Doc, DocSettings). Pengecualian:
+`SpreadsheetComponent` full-bleed opaque — radius luarnya diisi window
+lewat properti `outer-radius` (0px saat embedded di AppWindow).
+Radial + notch tetap popup transparan (sudah membulat sendiri). Di
+Xvfb tanpa compositor, piksel sudut menampilkan hitam (X root) =
+desktop; di Windows (DWM) menampilkan wallpaper/window di belakang.
+Jalur DWMWA tidak dipakai — Windows-only dan tidak bisa diverifikasi
+dari Linux.
+
 **Tombol kontrol** — `Settings.Chrome.ButtonStyle`
 (`valid_chrome_button_style()`: `"icons"` | `"dots"`, default
 `"icons"`) dan `Settings.Chrome.ButtonPosition`

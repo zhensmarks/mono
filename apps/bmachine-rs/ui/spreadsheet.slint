@@ -172,6 +172,9 @@ component GridCell inherits Rectangle {
 
 export component SpreadsheetComponent inherits Rectangle {
     in-out property <bool> is-standalone: false;
+    // Radius sudut luar saat dipakai sebagai window mandiri
+    // (diisi window; 0px saat embedded di AppWindow).
+    in-out property <length> outer-radius: 0px;
     in-out property <string> search-query: "";
     // Status jujur: default "Belum terhubung" (28 Nov 2026 — default
     // lama "Terhubung ke Google Sheets" tampil bersamaan dengan data
@@ -608,6 +611,7 @@ export component SpreadsheetComponent inherits Rectangle {
     }
 
     background: Design.app-bg;
+    border-radius: root.outer-radius;
 
     VerticalLayout {
         padding: Design.space-md;
