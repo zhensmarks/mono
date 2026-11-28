@@ -293,13 +293,118 @@ component BatchCtxMenu inherits Card {
     }
 }
 
+// Grip tear-off (dipakai header daftar + header treeview): seret
+// melewati 48px ke arah mana pun -> BATCH lepas jadi window OS;
+// tutup window itu -> kembali ke dashboard (§16.10).
+component BatchTearGrip inherits TouchArea {
+    in property <float> scale: 1;
+    in property <bool> show: true;
+    callback tear-off(length, length);
+    width: 22px;
+    height: 32px * root.scale;
+    visible: root.show;
+    mouse-cursor: grab;
+    property <length> grip-start-x: 0px;
+    property <length> grip-start-y: 0px;
+    property <bool> grip-dragging: false;
+    pointer-event(ev) => {
+        if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+            self.grip-start-x = self.mouse-x;
+            self.grip-start-y = self.mouse-y;
+            self.grip-dragging = true;
+        } else if (ev.kind == PointerEventKind.up) {
+            self.grip-dragging = false;
+        } else if (ev.kind == PointerEventKind.move && self.grip-dragging) {
+            if (self.mouse-x - self.grip-start-x > 48px || self.grip-start-x - self.mouse-x > 48px || self.mouse-y - self.grip-start-y > 48px || self.grip-start-y - self.mouse-y > 48px) {
+                self.grip-dragging = false;
+                root.tear-off(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+            }
+        }
+    }
+    Text {
+        text: "⋮⋮";
+        font-size: 14px * root.scale;
+        font-weight: 800;
+        color: Design.text-muted;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        width: 100%;
+        height: 100%;
+    }
+}
+
+// Aksi header tampilan DAFTAR Folder Reguler — dipakai dua kali
+// (baris 1 saat lebar, baris 2 saat sempit); satu definisi supaya
+// label + callback tidak dobel dan tidak drift (28 Nov 2026).
+component BatchListActions inherits HorizontalLayout {
+    in property <float> scale: 1;
+    in property <bool> show-tear-off: true;
+    callback pick-folder();
+    callback reguler-manage();
+    callback open-task-manager();
+    callback tear-off-center();
+    spacing: 8px * root.scale;
+    Btn {
+        label: "Pilih Folder";
+        variant: "ghost";
+        scale: root.scale;
+        clicked => { root.pick-folder(); }
+    }
+    Btn {
+        label: "Kelola…";
+        variant: "ghost";
+        scale: root.scale;
+        clicked => { root.reguler-manage(); }
+    }
+    Btn {
+        label: "☰ Tugas";
+        variant: "ghost";
+        scale: root.scale;
+        clicked => { root.open-task-manager(); }
+    }
+    Btn {
+        label: "⧉ Lepas";
+        variant: "ghost";
+        scale: root.scale;
+        visible: root.show-tear-off;
+        clicked => { root.tear-off-center(); }
+    }
+}
+
+// Aksi header TREEVIEW — dipakai dua kali (baris 1 saat lebar,
+// baris 2 saat sempit). "‹ Daftar" = kembali ke daftar Folder
+// Reguler (tanpa tombol "← Kembali" — ini aksi navigasi daftar,
+// bukan tombol kembali umum).
+component BatchTreeActions inherits HorizontalLayout {
+    in property <float> scale: 1;
+    callback back-to-list();
+    callback open-task-manager();
+    spacing: 8px * root.scale;
+    Btn {
+        label: "‹ Daftar";
+        variant: "ghost";
+        scale: root.scale;
+        clicked => { root.back-to-list(); }
+    }
+    Btn {
+        label: "☰ Tugas";
+        variant: "ghost";
+        scale: root.scale;
+        clicked => { root.open-task-manager(); }
+    }
+}
+
 export component BatchView inherits Rectangle {
-    // Host: skala UI + tinggi panel + lebar konten (dihitung host
-    // — AppWindow: tinggi window − nav; BatchWindow: tinggi window
-    // − titlebar).
+    // Host: skala UI + lebar konten (dihitung host). Tinggi panel
+    // TIDAK lagi dihitung host (rumus lama lupa titlebar AppWindow
+    // → footer jatuh di bawah lipatan): panel pakai
+    // vertical-stretch dan mengambil sisa tinggi BatchView sendiri.
     in property <float> ui-scale: 1;
-    in property <length> panels-height: 400px;
     in property <length> content-width: 960px;
+    // Sempit = header dua baris + drop-zone menumpuk. Satu baris
+    // header butuh ~950px; di bawah itu tombol terpotong (1280px
+    // panel-terbuka, 960px, 520px — 28 Nov 2026).
+    property <bool> narrow: root.content-width < 1000px;
 
     // Data BATCH beneran (Rust, src/batch.rs) — model flat rows.
     // SOURCE/OUTPUT dirender sebagai DAFTAR DATAR (parallel arrays):
@@ -311,8 +416,11 @@ export component BatchView inherits Rectangle {
     in-out property <string> selected-output: "";
     // Folder output belum ada di disk -> chip "(pending)" oranye.
     in-out property <bool> batch-out-pending: true;
-    // Dua fase master: Fase 1 (buat_master.py) membuat manifest;
-    // Fase 2 (BUAT MASTER = buat_master_duplikat.py) BUTUH manifest.
+    // Dua fase master: Fase 1 = script "buat_master" di footer
+    // (buat_master.py membuat manifest — persis C#: tombol ikon
+    // buat_master di footer DashboardView, BUKAN tombol "Fase 1"
+    // sendiri); Fase 2 (BUAT MASTER = buat_master_duplikat.py)
+    // BUTUH manifest dan tetap manual (tombol Lanjutkan).
     in-out property <bool> has-manifest: false;
     // Jumlah node terpilih (tampil di header SOURCE: "N dipilih").
     in-out property <int> batch-sel-count: 0;
@@ -329,10 +437,12 @@ export component BatchView inherits Rectangle {
     in-out property <string> newfolder-panel: "";
     in-out property <string> newfolder-parent: "";
     in-out property <string> newfolder-name: "";
-    // Folder Reguler (ala master_creator): dropdown direktori kerja
-    // tersimpan + popup kelola (tabel bulan/marketing/sekolah).
-    in-out property <[string]> batch-reguler-names: [];
-    in-out property <int> batch-reguler-idx: -1;
+    // Folder Reguler (ala master_creator): daftar sekolah di
+    // tampilan awal + popup Kelola (manajemen direktori) + dropdown
+    // working set di atas treeview. Hasil scan di-cache di DB
+    // (Batch.FolderReguler.Cache) + refresh inkremental per bulan.
+    in-out property <[string]> batch-working-set-names: [];
+    in-out property <int> batch-working-set-idx: -1;
     // Popup Kelola Folder Reguler (tahap 4) — overlay di tab BATCH.
     in-out property <bool> reguler-manage-open: false;
     in-out property <[RegulerDirRow]> reguler-dirs: [];
@@ -343,11 +453,10 @@ export component BatchView inherits Rectangle {
     in-out property <string> reguler-filter: "";
     in-out property <[string]> reguler-months: ["Semua bulan"];
     in-out property <int> reguler-month-idx: 0;
-    in-out property <int> reguler-selected-row: -1;
     // Footer: tombol script dari scripts.json (atau default 5).
     in-out property <[string]> batch-scripts: ["buat_master", "manasik", "wisuda", "pasfoto", "profesi"];
     in-out property <bool> batch-running: false;
-    // SOURCE kosong = belum ada folder (drop zone tampil);
+    // SOURCE kosong = belum ada folder (daftar Folder Reguler tampil);
     // OUTPUT kosong = tree output belum ada (teks "Output akan
     // muncul di sini." tampil).
     property <bool> src-empty: root.src-rows.length == 0;
@@ -375,13 +484,15 @@ export component BatchView inherits Rectangle {
     callback batch-confirm-new-folder(string, string);
     callback batch-cancel-new-folder();
     callback batch-run-script(string);
-    callback batch-phase1();
     callback batch-copy-master();
     callback batch-stop();
     callback batch-replace-auto();
     callback batch-refresh();
     callback batch-clear();
-    callback batch-reguler-picked(int);
+    callback batch-list-open-school(int);
+    callback batch-working-set-picked(int);
+    callback batch-back-to-list();
+    callback batch-reguler-refresh();
     callback batch-reguler-manage();
     callback batch-reguler-close();
     callback batch-reguler-add();
@@ -390,8 +501,6 @@ export component BatchView inherits Rectangle {
     callback batch-reguler-select-dir(int);
     callback batch-reguler-filter-changed(string);
     callback batch-reguler-month-picked(int);
-    callback batch-reguler-row-clicked(int);
-    callback batch-reguler-load-selected();
     callback batch-open-task-manager();
     // Tear-off: seret grip melewati 48px -> lepas jadi window OS
     // (argumen = posisi pointer relatif window utama, logis);
@@ -409,8 +518,9 @@ export component BatchView inherits Rectangle {
             // + dua fase master + Replace. SOURCE = ISI folder sekolah
             // (tree, expand lazy, scan disk); BUAT MASTER = fase 2
             // (butuh manifest fase 1); Replace single + multiple;
-            // toolbar = launcher skrip. Tampilan awal HANYA drop zone;
-            // tree muncul setelah folder dipilih (abeng 28 Nov 00:42).
+            // toolbar = launcher skrip. Tampilan awal = DAFTAR Folder
+            // Reguler (28 Nov 2026, menggantikan drop zone — abeng
+            // 14:44); tree muncul setelah sekolah dipilih dari daftar.
             // Task Manager (tahap 5) dock di kanan tab — panel progres
             // terpisah ala master_creator, bukan log panel.
             HorizontalLayout {
@@ -426,101 +536,81 @@ export component BatchView inherits Rectangle {
                 padding-bottom: Design.space-xl;
                 spacing: Design.space-md;
 
-                // Header: judul + deskripsi + Folder Reguler + tambah.
+                // Header responsif (pola SettingRow: menumpuk saat
+                // sempit). Lebar: satu baris (judul + deskripsi +
+                // Folder Reguler + aksi). Sempit: dua baris (baris 1 =
+                // judul + deskripsi + dropdown; baris 2 = aksi rata
+                // kanan). Deskripsi elide + stretch supaya tidak
+                // mendorong tombol keluar (defect 28 Nov 2026).
                 // TANPA height tetap: ComboBox di baris ini harus bisa
                 // tumbuh saat terbuka (preferred-height) dan mendorong
                 // tree ke bawah — height tetap 36px membuat daftarnya
                 // meluber menumpuk tree di bawah dan klik item ditelan
                 // kartu SOURCE/OUTPUT (defect 28 Nov 2026).
-                HorizontalLayout {
+                VerticalLayout {
                     spacing: 8px * root.ui-scale;
-                    // Grip tear-off: seret tab BATCH keluar
-                    // (geser > 48px ke arah mana pun) -> BATCH lepas
-                    // jadi window OS sendiri; tutup window itu ->
-                    // kembali ke dashboard (lihat DESIGN_SYSTEM §16.10).
-                    tear-grip := TouchArea {
-                        width: 22px;
-                        height: 32px * root.ui-scale;
-                        visible: root.show-tear-off;
-                        mouse-cursor: grab;
-                        property <length> grip-start-x: 0px;
-                        property <length> grip-start-y: 0px;
-                        property <bool> grip-dragging: false;
-                        pointer-event(ev) => {
-                            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
-                                self.grip-start-x = self.mouse-x;
-                                self.grip-start-y = self.mouse-y;
-                                self.grip-dragging = true;
-                            } else if (ev.kind == PointerEventKind.up) {
-                                self.grip-dragging = false;
-                            } else if (ev.kind == PointerEventKind.move && self.grip-dragging) {
-                                if (self.mouse-x - self.grip-start-x > 48px || self.grip-start-x - self.mouse-x > 48px || self.mouse-y - self.grip-start-y > 48px || self.grip-start-y - self.mouse-y > 48px) {
-                                    self.grip-dragging = false;
-                                    root.batch-tear-off(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
-                                }
-                            }
+                    HorizontalLayout {
+                        spacing: 8px * root.ui-scale;
+                        BatchTearGrip {
+                            scale: root.ui-scale;
+                            show: root.show-tear-off;
+                            tear-off(x, y) => { root.batch-tear-off(x, y); }
                         }
                         Text {
-                            text: "⋮⋮";
+                            text: "BATCH";
                             font-size: 14px * root.ui-scale;
                             font-weight: 800;
-                            color: Design.text-muted;
-                            horizontal-alignment: center;
+                            color: Design.text-primary;
+                            letter-spacing: 1px * root.ui-scale;
                             vertical-alignment: center;
-                            width: 100%;
-                            height: 100%;
+                        }
+                        Text {
+                            text: "Pilih sekolah, lalu jalankan master.";
+                            font-size: 12px * root.ui-scale;
+                            color: Design.text-muted;
+                            vertical-alignment: center;
+                            horizontal-stretch: 1;
+                            overflow: elide;
+                        }
+                        // Working set (ala "Direktori :" master_creator):
+                        // sekolah yang sudah dibuka dari Folder Reguler —
+                        // ganti dropdown = ganti sekolah di treeview.
+                        if !root.narrow : ComboBox {
+                            width: 240px;
+                            model: root.batch-working-set-names;
+                            current-index <=> root.batch-working-set-idx;
+                            selected(index) => { root.batch-working-set-picked(index); }
+                        }
+                        if !root.narrow : BatchTreeActions {
+                            scale: root.ui-scale;
+                            back-to-list() => { root.batch-back-to-list(); }
+                            open-task-manager() => { root.batch-open-task-manager(); }
                         }
                     }
-                    Text {
-                        text: "BATCH";
-                        font-size: 14px * root.ui-scale;
-                        font-weight: 800;
-                        color: Design.text-primary;
-                        letter-spacing: 1px * root.ui-scale;
-                        vertical-alignment: center;
-                    }
-                    Text {
-                        text: "Pilih folder sumber, lalu jalankan master.";
-                        font-size: 12px * root.ui-scale;
-                        color: Design.text-muted;
-                        vertical-alignment: center;
-                    }
-                    Rectangle { horizontal-stretch: 1; }
-                    // Folder Reguler (ala master_creator): dropdown
-                    // direktori kerja tersimpan — pindah folder tanpa
-                    // drag lagi. Kosong = belum ada yang disimpan.
-                    ComboBox {
-                        width: 200px;
-                        model: root.batch-reguler-names;
-                        current-index: root.batch-reguler-idx;
-                        selected(index) => { root.batch-reguler-picked(index); }
-                    }
-                    Btn {
-                        label: "Folder Reguler…";
-                        variant: "ghost";
-                        scale: root.ui-scale;
-                        clicked => { root.batch-reguler-manage(); }
-                    }
-                    Btn {
-                        label: "☰ Tugas";
-                        variant: "ghost";
-                        scale: root.ui-scale;
-                        clicked => { root.batch-open-task-manager(); }
-                    }
-                    Btn {
-                        label: "+ Tambah Folder";
-                        variant: "secondary";
-                        scale: root.ui-scale;
-                        clicked => { root.batch-pick-folder(); }
+                    if root.narrow : HorizontalLayout {
+                        spacing: 8px * root.ui-scale;
+                        ComboBox {
+                            model: root.batch-working-set-names;
+                            current-index <=> root.batch-working-set-idx;
+                            selected(index) => { root.batch-working-set-picked(index); }
+                            horizontal-stretch: 1;
+                        }
+                        BatchTreeActions {
+                            scale: root.ui-scale;
+                            back-to-list() => { root.batch-back-to-list(); }
+                            open-task-manager() => { root.batch-open-task-manager(); }
+                        }
                     }
                 }
 
                 // Dua panel explorer (SOURCE kiri, OUTPUT kanan).
-                // Tinggi eksplisit: window − nav (68*scale) − header
-                // (36) − baris aksi A (36) − toolbar (56) −
-                // 3 celah (36px) − padding (32px).
+                // Tinggi = sisa ruang BatchView (vertical-stretch):
+                // header + baris A + footer mengambil jatahnya dulu,
+                // panel mengisi sisanya — jadi footer tidak pernah
+                // jatuh di bawah lipatan (rumus host lama lupa
+                // titlebar AppWindow, 28 Nov 2026).
                 HorizontalLayout {
-                    height: root.panels-height;
+                    vertical-stretch: 1;
                     spacing: Design.space-md;
 
                     // Panel SOURCE — TREE isi folder sekolah (flat rows
@@ -834,14 +924,22 @@ export component BatchView inherits Rectangle {
                     }
                 }
 
-                // Baris A: indikator manifest + Fase 1 + Replace.
-                // Manifest: dot hijau = ada (Fase 1 sudah jalan),
-                // merah = belum ada (BUAT MASTER akan error).
+                // Baris A: indikator manifest + Replace. Tombol
+                // "▶ Fase 1" DIHAPUS 28 Nov 2026 (persis C#: tidak ada
+                // tombol Fase 1 — chip "buat_master" di footer yang
+                // menjalankan Fase 1). Manifest: dot hijau = ada
+                // (buat_master sudah jalan), merah = belum ada
+                // (BUAT MASTER akan error).
                 HorizontalLayout {
                     height: 36px * root.ui-scale;
                     spacing: 8px * root.ui-scale;
                     HorizontalLayout {
                         spacing: 6px * root.ui-scale;
+                        // Ambil sisa lebar (pola SettingRow) supaya
+                        // Replace selalu di ujung kanan — spacer
+                        // Rectangle kosong di sini yang membuat tombol
+                        // kanan hilang (28 Nov 2026).
+                        horizontal-stretch: 1;
                         Text {
                             text: "●";
                             font-size: 10px * root.ui-scale;
@@ -854,14 +952,6 @@ export component BatchView inherits Rectangle {
                             color: Design.text-secondary;
                             vertical-alignment: center;
                         }
-                    }
-                    Rectangle { horizontal-stretch: 1; }
-                    Btn {
-                        label: "▶ Fase 1";
-                        variant: "ghost";
-                        scale: root.ui-scale;
-                        enabled: !root.batch-running;
-                        clicked => { root.batch-phase1(); }
                     }
                     Btn {
                         label: "Replace";
@@ -878,6 +968,11 @@ export component BatchView inherits Rectangle {
                 // proses SEMUA folder SOURCE, OUTPUT terisi, log
                 // "[SUCCESS] Batch Selesai.". Kanan: refresh (re-scan
                 // SOURCE & OUTPUT) + clear merah (kosongkan daftar).
+                // Chip di Flickable horizontal (scroll bila sempit);
+                // ↻ + × SELALU di ujung kanan — JANGAN pakai spacer
+                // Rectangle kosong sebelum keduanya (spacer itu yang
+                // membuat keduanya hilang di 1280/960/520px,
+                // 28 Nov 2026); Flickable-lah yang stretch.
                 Card {
                     height: 56px * root.ui-scale;
                     HorizontalLayout {
@@ -888,16 +983,29 @@ export component BatchView inherits Rectangle {
                         padding-left: Design.space-sm * root.ui-scale;
                         padding-right: Design.space-sm * root.ui-scale;
                         spacing: 6px * root.ui-scale;
-                        for s in root.batch-scripts:
-                            Btn {
-                                label: s;
-                                variant: "secondary";
-                                scale: root.ui-scale;
-                                small: true;
-                                enabled: !root.batch-running;
-                                clicked => { root.batch-run-script(s); }
+                        chips-flick := Flickable {
+                            horizontal-stretch: 1;
+                            // Lebar konten = lebar baris chip (bukan
+                            // lebar Flickable): chip di luar lebar
+                            // tampil jadi scroll, bukan terpotong.
+                            // width eksplisit di chips-row memutus
+                            // binding loop (content-width <- row.width
+                            // <- content-width).
+                            content-width: chips-row.preferred-width;
+                            chips-row := HorizontalLayout {
+                                width: self.preferred-width;
+                                spacing: 6px * root.ui-scale;
+                                for s in root.batch-scripts:
+                                    Btn {
+                                        label: s;
+                                        variant: "secondary";
+                                        scale: root.ui-scale;
+                                        small: true;
+                                        enabled: !root.batch-running;
+                                        clicked => { root.batch-run-script(s); }
+                                    }
                             }
-                        Rectangle { horizontal-stretch: 1; }
+                        }
                         if root.batch-running : Btn {
                             label: "■ Stop";
                             variant: "danger";
@@ -925,99 +1033,195 @@ export component BatchView inherits Rectangle {
 
             }
 
-            // ----- BATCH kosong: SELURUH tab = satu drop zone (C#
-            // DashboardView.axaml:345-361, tampil bila ShowDropZone).
-            // Slint belum mendukung drag-drop OS — klik "Pilih Folder"
-            // = pilih folder lewat dialog (Windows) / zenity (Linux);
-            // Folder Reguler di bawahnya = jalan pintas tanpa drag.
+            // ----- BATCH: tampilan AWAL = daftar Folder Reguler
+            // (28 Nov 2026, menggantikan drop zone — abeng 14:44).
+            // Sekolah-diutamakan, satu kolom: nama sekolah besar
+            // baris 1, bulan + marketing kecil redup baris 2; tanpa
+            // nomor urut; klik satu kali = pilih sekolah, pindah ke
+            // treeview. Daftar tampil instan dari cache scan terakhir
+            // (DB) + refresh inkremental per bulan di latar; tombol ↻
+            // memaksa scan penuh. Folder dadakan di luar Folder
+            // Reguler: tombol kecil "Pilih Folder" di header.
             Rectangle {
                 x: 0; y: 0;
                 width: 100%; height: 100%;
                 visible: root.src-empty;
-                border-color: Design.border-hover;
-                border-width: 2px;
-                border-radius: Design.radius-md;
                 VerticalLayout {
                     x: 0; y: 0; width: 100%; height: 100%;
-                    alignment: center;
-                    spacing: 12px * root.ui-scale;
-                    HorizontalLayout {
-                        alignment: center;
-                        Rectangle {
-                            width: 64px * root.ui-scale;
-                            height: 64px * root.ui-scale;
-                            border-color: Design.text-muted;
-                            border-width: 2px;
-                            border-radius: 32px * root.ui-scale;
-                            opacity: 0.5;
+                    padding-left: Design.space-xl;
+                    padding-right: Design.space-xl;
+                    padding-top: Design.space-md;
+                    padding-bottom: Design.space-xl;
+                    spacing: 8px * root.ui-scale;
+
+                    // Header daftar: grip + BATCH + cari (paling
+                    // menonjol, filter-as-you-type) + bulan + ↻.
+                    // Sempit: baris 2 = aksi (Pilih Folder, Kelola,
+                    // ☰ Tugas, Lepas) rata kanan.
+                    VerticalLayout {
+                        spacing: 8px * root.ui-scale;
+                        HorizontalLayout {
+                            spacing: 8px * root.ui-scale;
+                            BatchTearGrip {
+                                scale: root.ui-scale;
+                                show: root.show-tear-off;
+                                tear-off(x, y) => { root.batch-tear-off(x, y); }
+                            }
                             Text {
-                                text: "+";
-                                font-size: 36px * root.ui-scale;
-                                font-weight: 300;
-                                color: Design.text-muted;
-                                horizontal-alignment: center;
+                                text: "BATCH";
+                                font-size: 14px * root.ui-scale;
+                                font-weight: 800;
+                                color: Design.text-primary;
+                                letter-spacing: 1px * root.ui-scale;
                                 vertical-alignment: center;
-                                width: 100%;
-                                height: 100%;
+                            }
+                            TextField {
+                                placeholder: "Cari nama sekolah…";
+                                text: root.reguler-filter;
+                                edited(text) => { root.reguler-filter = text; root.batch-reguler-filter-changed(text); }
+                                horizontal-stretch: 1;
+                            }
+                            ComboBox {
+                                width: root.narrow ? 140px : 160px;
+                                model: root.reguler-months;
+                                current-index <=> root.reguler-month-idx;
+                                selected(index) => { root.batch-reguler-month-picked(index); }
+                            }
+                            IconBtn {
+                                glyph: "↻";
+                                variant: "ghost";
+                                scale: root.ui-scale;
+                                size: 36px;
+                                clicked => { root.batch-reguler-refresh(); }
+                            }
+                            if !root.narrow : BatchListActions {
+                                scale: root.ui-scale;
+                                show-tear-off: root.show-tear-off;
+                                pick-folder() => { root.batch-pick-folder(); }
+                                reguler-manage() => { root.batch-reguler-manage(); }
+                                open-task-manager() => { root.batch-open-task-manager(); }
+                                tear-off-center() => { root.batch-tear-off-center(); }
+                            }
+                        }
+                        if root.narrow : HorizontalLayout {
+                            alignment: end;
+                            spacing: 8px * root.ui-scale;
+                            BatchListActions {
+                                scale: root.ui-scale;
+                                show-tear-off: root.show-tear-off;
+                                pick-folder() => { root.batch-pick-folder(); }
+                                reguler-manage() => { root.batch-reguler-manage(); }
+                                open-task-manager() => { root.batch-open-task-manager(); }
+                                tear-off-center() => { root.batch-tear-off-center(); }
                             }
                         }
                     }
-                    Text {
-                        text: "DRAG FOLDERS HERE";
-                        font-size: 16px * root.ui-scale;
-                        font-weight: 800;
-                        color: Design.text-primary;
-                        horizontal-alignment: center;
+
+                    // Status scan ("N sekolah" / "Memindai…" /
+                    // "Tidak ada sekolah" / "Pilih direktori dulu") —
+                    // hanya bila ada baris; saat kosong, status tampil
+                    // di tengah (blok kosong di bawah).
+                    if root.reguler-scan-rows.length > 0 : Text {
+                        text: root.reguler-scan-status;
+                        font-size: 11px * root.ui-scale;
+                        color: Design.text-muted;
+                        vertical-alignment: center;
                     }
-                    Text {
-                        text: "Drop source folders to begin batch processing";
-                        font-size: 12px * root.ui-scale;
-                        color: Design.text-secondary;
-                        horizontal-alignment: center;
-                    }
-                    HorizontalLayout {
-                        alignment: center;
-                        padding-top: 8px * root.ui-scale;
-                        Btn {
-                            label: "Pilih Folder";
-                            variant: "secondary";
-                            scale: root.ui-scale;
-                            clicked => { root.batch-pick-folder(); }
+
+                    // Daftar sekolah (satu kolom). Baris: nama besar
+                    // (satu baris elide) + bulan · marketing kecil
+                    // redup. Klik satu kali = buka treeview.
+                    // TINGGI BARIS: eksplisit = preferred-height VL
+                    // dalam. Tanpa ini, Flickable meregangkan VL
+                    // konten ke tinggi viewport dan Slint 1.19 membagi
+                    // ruang ekstra ke semua baris (tanpa stretch pun)
+                    // sehingga tiap baris jadi ~163px, bukan ~77px
+                    // (defect 28 Nov 2026; pola sama seperti baris
+                    // tree yang pakai height eksplisit 36px/26px).
+                    // BUNGKUS: pola sama seperti panel tree — Flickable
+                    // di dalam Rectangle stretch+clip dengan width/
+                    // height 100%; Flickable sebagai anak langsung
+                    // layout membuat konten tidak rata atas (daftar
+                    // terdorong ke bawah, defect 28 Nov 2026).
+                    if root.reguler-scan-rows.length > 0 : Rectangle {
+                        vertical-stretch: 1;
+                        clip: true;
+                        list-scroll := Flickable {
+                            x: 0; y: 0; width: 100%; height: 100%;
+                            VerticalLayout {
+                                width: list-scroll.width;
+                                spacing: 2px;
+                            for r[idx] in root.reguler-scan-rows : Rectangle {
+                                height: list-row-inner.preferred-height;
+                                background: list-row-touch.has-hover ? Design.bg-hover : transparent;
+                                border-radius: Design.radius-sm;
+                                list-row-touch := TouchArea {
+                                    width: parent.width;
+                                    height: parent.height;
+                                    mouse-cursor: pointer;
+                                    clicked => { root.batch-list-open-school(idx); }
+                                }
+                                // Lebar eksplisit = lebar baris: VL anak
+                                // Rectangle (bukan dalam layout) hanya
+                                // selebar kontennya bila tanpa width.
+                                list-row-inner := VerticalLayout {
+                                    width: parent.width;
+                                    padding-left: 8px;
+                                    padding-right: 8px;
+                                    padding-top: 6px * root.ui-scale;
+                                    padding-bottom: 6px * root.ui-scale;
+                                    spacing: 2px;
+                                    Text {
+                                        text: r.sekolah;
+                                        font-size: 14px * root.ui-scale;
+                                        font-weight: 700;
+                                        color: Design.text-primary;
+                                        // Satu baris elide (BUKAN wrap):
+                                        // nama realistis (≤60 karakter)
+                                        // tetap kebaca penuh di 520px.
+                                        overflow: elide;
+                                    }
+                                    Text {
+                                        text: r.bulan + (r.marketing != "" ? " · " + r.marketing : "");
+                                        font-size: 11px * root.ui-scale;
+                                        color: Design.text-muted;
+                                        overflow: elide;
+                                    }
+                                }
+                            }
                         }
                     }
-                    HorizontalLayout {
-                        alignment: center;
-                        spacing: 8px * root.ui-scale;
-                        padding-top: 8px * root.ui-scale;
-                        Text {
-                            text: "Folder Reguler:";
-                            font-size: 12px * root.ui-scale;
-                            color: Design.text-muted;
-                            vertical-alignment: center;
-                        }
-                        ComboBox {
-                            width: 220px;
-                            model: root.batch-reguler-names;
-                            current-index: root.batch-reguler-idx;
-                            selected(index) => { root.batch-reguler-picked(index); }
-                        }
-                        Btn {
-                            label: "Kelola…";
-                            variant: "ghost";
-                            scale: root.ui-scale;
-                            clicked => { root.batch-reguler-manage(); }
-                        }
-                        Btn {
-                            label: "⧉ Lepas";
-                            variant: "ghost";
-                            scale: root.ui-scale;
-                            visible: root.show-tear-off;
-                            clicked => { root.batch-tear-off-center(); }
+                    }
+                    // Kosong: status scan menjelaskan kenapa (belum ada
+                    // direktori / sedang memindai / tidak ada yang cocok).
+                    if root.reguler-scan-rows.length == 0 : Rectangle {
+                        vertical-stretch: 1;
+                        VerticalLayout {
+                            width: parent.width;
+                            alignment: center;
+                            spacing: 8px * root.ui-scale;
+                            Text {
+                                text: root.reguler-scan-status;
+                                font-size: 13px * root.ui-scale;
+                                color: Design.text-muted;
+                                horizontal-alignment: center;
+                            }
+                            if root.reguler-scan-status == "Pilih direktori dulu" : Text {
+                                text: "Tambah direktori lewat Kelola, atau pilih folder langsung.";
+                                font-size: 12px * root.ui-scale;
+                                color: Design.text-muted;
+                                horizontal-alignment: center;
+                                wrap: word-wrap;
+                            }
                         }
                     }
                 }
             }
 
+    // Popup Kelola Folder Reguler — MANAJEMEN DIREKTORI saja
+    // (28 Nov 2026): tabel sekolah pindah ke tampilan daftar utama;
+    // di sini hanya direktori tersimpan (status, kunci, konteks
+    // output) + tambah/hapus. Tinggi mengikuti konten.
     if root.reguler-manage-open : Rectangle {
         x: 0; y: 0;
         width: 100%; height: 100%;
@@ -1034,7 +1238,6 @@ export component BatchView inherits Rectangle {
             x: (parent.width - self.width) / 2;
             y: (parent.height - self.height) / 2;
             width: min(760px * root.ui-scale, parent.width - 32px);
-            height: min(560px * root.ui-scale, parent.height - 32px);
             background: Design.surface-elevated;
             border-color: Design.border-hover;
             border-width: 1px;
@@ -1140,7 +1343,7 @@ export component BatchView inherits Rectangle {
                         clicked => { root.batch-reguler-add(); }
                     }
                     Text {
-                        text: "Klik direktori untuk melihat sekolah di dalamnya. Kunci = tidak bisa dihapus.";
+                        text: "Klik direktori untuk memindai sekolah di dalamnya (tampil di daftar). Kunci = tidak bisa dihapus.";
                         font-size: 11px * root.ui-scale;
                         color: Design.text-muted;
                         vertical-alignment: center;
@@ -1150,84 +1353,9 @@ export component BatchView inherits Rectangle {
                 }
                 HSeparator { }
                 HorizontalLayout {
-                    height: 28px * root.ui-scale;
-                    spacing: 8px * root.ui-scale;
-                    Text {
-                        text: "Sekolah";
-                        font-size: 11px * root.ui-scale;
-                        font-weight: 800;
-                        color: Design.text-muted;
-                        letter-spacing: 1px * root.ui-scale;
-                        vertical-alignment: center;
-                    }
-                    Rectangle { horizontal-stretch: 1; }
-                    Text {
-                        text: root.reguler-scan-status;
-                        font-size: 11px * root.ui-scale;
-                        color: Design.text-muted;
-                        vertical-alignment: center;
-                    }
-                }
-                // TANPA height tetap: ComboBox bulan harus bisa tumbuh
-                // saat terbuka (preferred-height) dan mendorong tabel
-                // ke bawah — height tetap 32px membuat daftarnya
-                // meluber menumpuk tabel sekolah dan klik item ditelan
-                // baris tabel di bawahnya (defect 28 Nov 2026).
-                HorizontalLayout {
-                    spacing: 8px * root.ui-scale;
-                    TextField {
-                        placeholder: "Cari nama sekolah atau marketing…";
-                        text: root.reguler-filter;
-                        edited(text) => { root.reguler-filter = text; root.batch-reguler-filter-changed(text); }
-                        horizontal-stretch: 1;
-                    }
-                    ComboBox {
-                        width: 160px;
-                        model: root.reguler-months;
-                        current-index: root.reguler-month-idx;
-                        selected(index) => { root.batch-reguler-month-picked(index); }
-                    }
-                }
-                HorizontalLayout {
-                    height: 22px;
-                    spacing: 8px;
-                    Text { text: "BULAN"; font-size: 11px; font-weight: 800; color: Design.text-muted; width: 130px; vertical-alignment: center; }
-                    Text { text: "MARKETING"; font-size: 11px; font-weight: 800; color: Design.text-muted; width: 120px; vertical-alignment: center; }
-                    Text { text: "SEKOLAH"; font-size: 11px; font-weight: 800; color: Design.text-muted; horizontal-stretch: 1; vertical-alignment: center; }
-                }
-                reguler-schools-scroll := Flickable {
-                    vertical-stretch: 1;
-                    reguler-schools-layout := VerticalLayout {
-                        spacing: 1px;
-                        for r[idx] in root.reguler-scan-rows : Rectangle {
-                            height: 28px;
-                            background: root.reguler-selected-row == idx ? Design.accent-subtle : (row-touch.has-hover ? Design.bg-hover : transparent);
-                            border-radius: Design.radius-sm;
-                            row-touch := TouchArea {
-                                mouse-cursor: pointer;
-                                clicked => { root.batch-reguler-row-clicked(idx); }
-                            }
-                            HorizontalLayout {
-                                padding-left: 8px;
-                                padding-right: 8px;
-                                spacing: 8px;
-                                Text { text: r.bulan; font-size: 12px; color: Design.text-secondary; width: 130px; vertical-alignment: center; overflow: elide; }
-                                Text { text: r.marketing; font-size: 12px; color: Design.text-secondary; width: 120px; vertical-alignment: center; overflow: elide; }
-                                Text { text: r.sekolah; font-size: 12px; font-weight: 700; color: Design.text-primary; horizontal-stretch: 1; vertical-alignment: center; overflow: elide; }
-                            }
-                        }
-                    }
-                }
-                HorizontalLayout {
                     height: 36px * root.ui-scale;
                     spacing: 8px * root.ui-scale;
-                    Btn {
-                        label: "Jadikan Source";
-                        variant: "secondary";
-                        scale: root.ui-scale;
-                        clicked => { root.batch-reguler-load-selected(); }
-                    }
-                    Rectangle { horizontal-stretch: 1; }
+                    alignment: end;
                     Btn {
                         label: "Tutup";
                         variant: "ghost";

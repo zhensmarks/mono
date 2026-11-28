@@ -2368,7 +2368,8 @@ export component BatchWindow inherits Window {
     // Skala UI dari ukuran window sendiri (rumus sama seperti AppWindow).
     property <float> ui-scale: max(1, min(min(((self.width - 40px) / 1px) / 600, ((self.height - 98px) / 1px) / 400), 1.8));
     property <length> titlebar-height: (root.chrome-style == "custom" || root.chrome-style == "wrapped") ? 38px : 0px;
-    property <length> batch-panels-height: root.height - root.titlebar-height - 128px * root.ui-scale - 68px;
+    // Tinggi panel TIDAK dihitung di sini lagi (BatchView pakai
+    // vertical-stretch — rumus lama lupa titlebar AppWindow).
 
     // --- State BATCH (pass-through ke BatchView; semua diisi Rust) ---
     in-out property <[BatchRow]> src-rows: [];
@@ -2387,8 +2388,8 @@ export component BatchWindow inherits Window {
     in-out property <string> newfolder-panel: "";
     in-out property <string> newfolder-parent: "";
     in-out property <string> newfolder-name: "";
-    in-out property <[string]> batch-reguler-names: [];
-    in-out property <int> batch-reguler-idx: -1;
+    in-out property <[string]> batch-working-set-names: [];
+    in-out property <int> batch-working-set-idx: -1;
     in-out property <bool> reguler-manage-open: false;
     in-out property <[RegulerDirRow]> reguler-dirs: [];
     in-out property <int> reguler-scan-dir-idx: -1;
@@ -2397,7 +2398,6 @@ export component BatchWindow inherits Window {
     in-out property <string> reguler-filter: "";
     in-out property <[string]> reguler-months: ["Semua bulan"];
     in-out property <int> reguler-month-idx: 0;
-    in-out property <int> reguler-selected-row: -1;
     in-out property <[string]> batch-scripts: ["buat_master", "manasik", "wisuda", "pasfoto", "profesi"];
     in-out property <bool> batch-running: false;
 
@@ -2425,13 +2425,15 @@ export component BatchWindow inherits Window {
     callback batch-confirm-new-folder(string, string);
     callback batch-cancel-new-folder();
     callback batch-run-script(string);
-    callback batch-phase1();
     callback batch-copy-master();
     callback batch-stop();
     callback batch-replace-auto();
     callback batch-refresh();
     callback batch-clear();
-    callback batch-reguler-picked(int);
+    callback batch-list-open-school(int);
+    callback batch-working-set-picked(int);
+    callback batch-back-to-list();
+    callback batch-reguler-refresh();
     callback batch-reguler-manage();
     callback batch-reguler-close();
     callback batch-reguler-add();
@@ -2440,8 +2442,6 @@ export component BatchWindow inherits Window {
     callback batch-reguler-select-dir(int);
     callback batch-reguler-filter-changed(string);
     callback batch-reguler-month-picked(int);
-    callback batch-reguler-row-clicked(int);
-    callback batch-reguler-load-selected();
     callback batch-open-task-manager();
 
     // Drag strip mode headless (tanpa titlebar): seret 28px teratas
@@ -2553,7 +2553,6 @@ export component BatchWindow inherits Window {
             BatchView {
                 vertical-stretch: 1;
                 ui-scale: root.ui-scale;
-                panels-height: root.batch-panels-height;
                 content-width: root.width - 16px;
                 show-tear-off: false;
                 src-rows <=> root.src-rows;
@@ -2572,8 +2571,8 @@ export component BatchWindow inherits Window {
                 newfolder-panel <=> root.newfolder-panel;
                 newfolder-parent <=> root.newfolder-parent;
                 newfolder-name <=> root.newfolder-name;
-                batch-reguler-names <=> root.batch-reguler-names;
-                batch-reguler-idx <=> root.batch-reguler-idx;
+                batch-working-set-names <=> root.batch-working-set-names;
+                batch-working-set-idx <=> root.batch-working-set-idx;
                 reguler-manage-open <=> root.reguler-manage-open;
                 reguler-dirs <=> root.reguler-dirs;
                 reguler-scan-dir-idx <=> root.reguler-scan-dir-idx;
@@ -2582,7 +2581,6 @@ export component BatchWindow inherits Window {
                 reguler-filter <=> root.reguler-filter;
                 reguler-months <=> root.reguler-months;
                 reguler-month-idx <=> root.reguler-month-idx;
-                reguler-selected-row <=> root.reguler-selected-row;
                 batch-scripts <=> root.batch-scripts;
                 batch-running <=> root.batch-running;
                 batch-pick-folder() => { root.batch-pick-folder(); }
@@ -2602,13 +2600,15 @@ export component BatchWindow inherits Window {
                 batch-confirm-new-folder(name, panel) => { root.batch-confirm-new-folder(name, panel); }
                 batch-cancel-new-folder() => { root.batch-cancel-new-folder(); }
                 batch-run-script(name) => { root.batch-run-script(name); }
-                batch-phase1() => { root.batch-phase1(); }
                 batch-copy-master() => { root.batch-copy-master(); }
                 batch-stop() => { root.batch-stop(); }
                 batch-replace-auto() => { root.batch-replace-auto(); }
                 batch-refresh() => { root.batch-refresh(); }
                 batch-clear() => { root.batch-clear(); }
-                batch-reguler-picked(idx) => { root.batch-reguler-picked(idx); }
+                batch-list-open-school(idx) => { root.batch-list-open-school(idx); }
+                batch-working-set-picked(idx) => { root.batch-working-set-picked(idx); }
+                batch-back-to-list() => { root.batch-back-to-list(); }
+                batch-reguler-refresh() => { root.batch-reguler-refresh(); }
                 batch-reguler-manage() => { root.batch-reguler-manage(); }
                 batch-reguler-close() => { root.batch-reguler-close(); }
                 batch-reguler-add() => { root.batch-reguler-add(); }
@@ -2617,8 +2617,6 @@ export component BatchWindow inherits Window {
                 batch-reguler-select-dir(idx) => { root.batch-reguler-select-dir(idx); }
                 batch-reguler-filter-changed(text) => { root.batch-reguler-filter-changed(text); }
                 batch-reguler-month-picked(idx) => { root.batch-reguler-month-picked(idx); }
-                batch-reguler-row-clicked(idx) => { root.batch-reguler-row-clicked(idx); }
-                batch-reguler-load-selected() => { root.batch-reguler-load-selected(); }
                 batch-open-task-manager() => { root.batch-open-task-manager(); }
                 show-toast(t) => { root.batch-toast(t); }
             }

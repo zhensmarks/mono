@@ -674,7 +674,7 @@ pub fn resolve_replace_pairs(
 // Folder Reguler (ala master_creator) — daftar direktori kerja tersimpan
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct RegulerRow {
     pub bulan: String,
     pub marketing: String,
@@ -704,8 +704,16 @@ pub fn marketing_from_note(folder: &Path) -> String {
 /// Jalan di thread latar (pemanggil) supaya UI tidak lag.
 pub fn scan_reguler(root: &Path) -> Vec<RegulerRow> {
     let mut rows = Vec::new();
+    for (bulan, mpath) in month_folders_sorted(root) {
+        rows.extend(scan_reguler_month(root, &bulan, &mpath));
+    }
+    rows
+}
+
+/// Folder bulan di bawah root, urut natural (nama + path).
+fn month_folders_sorted(root: &Path) -> Vec<(String, PathBuf)> {
     let Ok(rd) = std::fs::read_dir(root) else {
-        return rows;
+        return Vec::new();
     };
     let mut months: Vec<(String, PathBuf)> = rd
         .flatten()
@@ -720,59 +728,220 @@ pub fn scan_reguler(root: &Path) -> Vec<RegulerRow> {
         })
         .collect();
     months.sort_by(|a, b| natural_cmp(&a.0, &b.0));
-    for (bulan, mpath) in months {
-        let Ok(sd) = std::fs::read_dir(&mpath) else {
-            continue;
-        };
-        let mut entries: Vec<(String, PathBuf)> = sd
-            .flatten()
-            .filter_map(|e| {
-                let name = e.file_name().to_string_lossy().into_owned();
-                let is_dir = e.file_type().map(|t| t.is_dir()).unwrap_or(false);
-                if is_dir && !is_hidden_name(&name) {
-                    Some((name, e.path()))
-                } else {
-                    None
-                }
-            })
-            .collect();
-        entries.sort_by(|a, b| natural_cmp(&a.0, &b.0));
-        for (name, path) in entries {
-            // Dua bentuk layout bulan: langsung sekolah (bulan →
-            // sekolah, berisi file foto) atau lewat kategori bernomor
-            // (bulan → "1. PAS FOTO" → sekolah). Kategori dikenali
-            // karena isinya HANYA subfolder sekolah (tanpa file);
-            // sekolah dikenali karena berisi file (foto/catatan).
-            let child_dirs = subdirs_sorted(&path);
-            let has_files = std::fs::read_dir(&path)
-                .map(|rd| {
-                    rd.flatten().any(|e| {
-                        e.file_type().map(|t| t.is_file()).unwrap_or(false)
-                    })
-                })
-                .unwrap_or(false);
-            if !child_dirs.is_empty() && !has_files {
-                for (sekolah, spath) in child_dirs {
-                    let marketing = marketing_from_note(&spath);
-                    rows.push(RegulerRow {
-                        bulan: bulan.clone(),
-                        marketing,
-                        sekolah,
-                        path: spath.to_string_lossy().into_owned(),
-                    });
-                }
+    months
+}
+
+/// Pindai SATU folder bulan → baris-baris sekolah di bulan itu.
+/// Dipakai scan penuh (scan_reguler) dan refresh inkremental
+/// (hanya bulan yang mtime-nya berubah yang dipindai ulang).
+pub fn scan_reguler_month(_root: &Path, bulan: &str, mpath: &Path) -> Vec<RegulerRow> {
+    let mut rows = Vec::new();
+    let Ok(sd) = std::fs::read_dir(mpath) else {
+        return rows;
+    };
+    let mut entries: Vec<(String, PathBuf)> = sd
+        .flatten()
+        .filter_map(|e| {
+            let name = e.file_name().to_string_lossy().into_owned();
+            let is_dir = e.file_type().map(|t| t.is_dir()).unwrap_or(false);
+            if is_dir && !is_hidden_name(&name) {
+                Some((name, e.path()))
             } else {
-                let marketing = marketing_from_note(&path);
+                None
+            }
+        })
+        .collect();
+    entries.sort_by(|a, b| natural_cmp(&a.0, &b.0));
+    for (name, path) in entries {
+        // Dua bentuk layout bulan: langsung sekolah (bulan →
+        // sekolah, berisi file foto) atau lewat kategori bernomor
+        // (bulan → "1. PAS FOTO" → sekolah). Kategori dikenali
+        // karena isinya HANYA subfolder sekolah (tanpa file);
+        // sekolah dikenali karena berisi file (foto/catatan).
+        let child_dirs = subdirs_sorted(&path);
+        let has_files = std::fs::read_dir(&path)
+            .map(|rd| {
+                rd.flatten().any(|e| {
+                    e.file_type().map(|t| t.is_file()).unwrap_or(false)
+                })
+            })
+            .unwrap_or(false);
+        if !child_dirs.is_empty() && !has_files {
+            for (sekolah, spath) in child_dirs {
+                let marketing = marketing_from_note(&spath);
                 rows.push(RegulerRow {
-                    bulan: bulan.clone(),
+                    bulan: bulan.to_string(),
                     marketing,
-                    sekolah: name,
-                    path: path.to_string_lossy().into_owned(),
+                    sekolah,
+                    path: spath.to_string_lossy().into_owned(),
                 });
             }
+        } else {
+            let marketing = marketing_from_note(&path);
+            rows.push(RegulerRow {
+                bulan: bulan.to_string(),
+                marketing,
+                sekolah: name,
+                path: path.to_string_lossy().into_owned(),
+            });
         }
     }
     rows
+}
+
+// ---------------------------------------------------------------------------
+// Folder Reguler — CACHE + REFRESH INKREMENTAL (28 Nov 2026, temuan
+// master_creator: tiap buka dialog, _RegularScanWorker jalan ulang
+// penuh dari nol + _fill_table membangun ulang ribuan baris; hasil
+// scan TIDAK pernah disimpan; root UNC jadi tiap listing = satu
+// round-trip SMB. Port menyimpan hasil scan terakhir di DB dan
+// hanya memindai ulang bulan yang mtime-nya berubah — tanpa
+// FileSystemWatcher lewat SMB (event sering tidak sampai),
+// bandingkan mtime seperti watcher Explorer (polling 2 detik).
+// ---------------------------------------------------------------------------
+
+/// Detik epoch sekarang (untuk `scanned_at`).
+pub fn now_unix() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// Fingerprint satu folder bulan: nama + mtime (nanodetik epoch).
+/// Nanodetik — bukan detik — supaya perubahan dalam detik yang sama
+/// tetap terdeteksi (scan lalu tambah sekolah seketika).
+/// mtime 0 = metadata tak terbaca → selalu dianggap berubah (aman).
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct MonthFp {
+    pub name: String,
+    pub mtime: u64,
+}
+
+/// Cache hasil scan Folder Reguler (DB `Batch.FolderReguler.Cache`,
+/// JSON): baris terakhir + fingerprint mtime tiap folder bulan +
+/// waktu scan. Daftar tampil instan dari cache; worker latar
+/// membandingkan fingerprint dan hanya memindai ulang bulan berubah.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct RegulerCache {
+    pub dir: String,
+    pub scanned_at: u64,
+    pub months: Vec<MonthFp>,
+    pub rows: Vec<RegulerRow>,
+}
+
+/// Fingerprint murah satu root: daftar + mtime folder bulan saja
+/// (segelintir round-trip — tanpa membaca isi tiap bulan).
+pub fn reguler_month_fingerprints(root: &Path) -> Vec<MonthFp> {
+    month_folders_sorted(root)
+        .iter()
+        .map(|(name, path)| MonthFp {
+            name: name.clone(),
+            mtime: std::fs::metadata(path)
+                .and_then(|m| m.modified())
+                .ok()
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_nanos() as u64)
+                .unwrap_or(0),
+        })
+        .collect()
+}
+
+/// Bandingkan fingerprint cache dengan fingerprint sekarang:
+/// (bulan berubah/baru → pindai ulang, bulan hilang → buang barisnya).
+/// Bulan yang mtime-nya sama persis dilewati.
+pub fn reguler_cache_diff(
+    old: &RegulerCache,
+    new_fps: &[MonthFp],
+) -> (Vec<String>, Vec<String>) {
+    let changed: Vec<String> = new_fps
+        .iter()
+        .filter(|fp| {
+            old.months
+                .iter()
+                .find(|m| m.name == fp.name)
+                .map(|m| m.mtime != fp.mtime)
+                .unwrap_or(true)
+        })
+        .map(|fp| fp.name.clone())
+        .collect();
+    let removed: Vec<String> = old
+        .months
+        .iter()
+        .filter(|m| !new_fps.iter().any(|fp| fp.name == m.name))
+        .map(|m| m.name.clone())
+        .collect();
+    (changed, removed)
+}
+
+/// Gabungkan baris cache dengan hasil pindai ulang bulan-bulan yang
+/// berubah: buang baris bulan berubah/hilang, lalu tambah baris baru;
+/// urut lagi (bulan natural, lalu sekolah natural — sama seperti
+/// scan penuh).
+pub fn reguler_merge_rows(
+    cached: &[RegulerRow],
+    changed: &[String],
+    removed: &[String],
+    fresh: Vec<RegulerRow>,
+) -> Vec<RegulerRow> {
+    let mut rows: Vec<RegulerRow> = cached
+        .iter()
+        .filter(|r| !changed.contains(&r.bulan) && !removed.contains(&r.bulan))
+        .cloned()
+        .collect();
+    rows.extend(fresh);
+    rows.sort_by(|a, b| {
+        natural_cmp(&a.bulan, &b.bulan).then_with(|| natural_cmp(&a.sekolah, &b.sekolah))
+    });
+    rows
+}
+
+/// Resolusi PILIHAN (temuan master_creator `_resolve_pilihan_dir`,
+/// open_folder_reguler_popup — dibaca PERSIS dari bytecode,
+/// carve.py → mc_extract/, Python 3.13 + mc_dis_local.py,
+/// 28 Nov 2026 14:55; hal terbuka sebelumnya kini TERTUTUP).
+/// Urutan kandidat, berhenti di yang pertama ketemu:
+/// 1. pp = normpath(path.strip()); kosong / bukan dir → None.
+/// 2. base = basename(pp); base.strip().upper() == "PILIHAN" →
+///    kembalikan pp apa adanya (path itu sendiri sudah PILIHAN).
+/// 3. cand = join(pp, "PILIHAN"); isdir(cand) → kembalikan cand.
+/// 4. Scan anak-anak pp satu-satu; nama .strip().upper() ==
+///    "PILIHAN" DAN is_dir → kembalikan join(pp, nama) — jadi
+///    "Pilihan"/"pilihan" huruf apa pun diterima di langkah ini,
+///    tapi langkah 3 yang persis huruf besar dicek dulu.
+/// 5. Tidak ada → None (missing; folder tidak ditambahkan).
+/// Semua kegagalan (basename/listdir) ditangkap → None/lanjut.
+/// (Rust PathBuf dari read_dir join sudah ternormalisasi —
+/// setara normpath; tidak ada trailing-slash.)
+pub fn resolve_pilihan_dir(school: &Path) -> Option<PathBuf> {
+    // 1. Bukan dir → missing.
+    if !school.is_dir() {
+        return None;
+    }
+    // 2. Folder itu sendiri sudah PILIHAN.
+    if let Some(base) = school.file_name().and_then(|n| n.to_str()) {
+        if base.trim().to_ascii_uppercase() == "PILIHAN" {
+            return Some(school.to_path_buf());
+        }
+    }
+    // 3. Subfolder persis "PILIHAN" (huruf besar).
+    let cand = school.join("PILIHAN");
+    if cand.is_dir() {
+        return Some(cand);
+    }
+    // 4. Scan anak-anak: varian huruf apa pun.
+    if let Ok(rd) = std::fs::read_dir(school) {
+        for e in rd.flatten() {
+            let name = e.file_name().to_string_lossy().into_owned();
+            if name.trim().to_ascii_uppercase() == "PILIHAN"
+                && e.file_type().map(|t| t.is_dir()).unwrap_or(false)
+            {
+                return Some(e.path());
+            }
+        }
+    }
+    // 5. Tidak ada.
+    None
 }
 
 /// Subdirektori (bukan file tersembunyi) satu folder, urut natural.
@@ -829,6 +998,34 @@ impl RegulerDir {
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| self.path.clone())
     }
+}
+
+// ---------------------------------------------------------------------------
+// Working set — sekolah/folder yang sudah dibuka sebagai SOURCE (daftar
+// Folder Reguler, Pilih Folder, kirim dari Explorer). Tampil di dropdown
+// direktori di atas treeview (ala "Direktori :" master_creator):
+// ganti dropdown = ganti sekolah di treeview. Terbaru dulu, maks 20.
+// Disimpan di DB `Batch.WorkingSet` sebagai JSON array.
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct WorkingSetEntry {
+    pub name: String,
+    pub path: String,
+}
+
+pub const WORKING_SET_MAX: usize = 20;
+
+/// Masukkan (nama, path) ke depan working set: dedup berdasarkan path
+/// (tak peka huruf besar — Windows), potong ke maks 20.
+pub fn working_set_add(set: &mut Vec<WorkingSetEntry>, name: &str, path: &str) {
+    let lower = path.to_ascii_lowercase();
+    set.retain(|e| e.path.to_ascii_lowercase() != lower);
+    set.insert(
+        0,
+        WorkingSetEntry { name: name.to_string(), path: path.to_string() },
+    );
+    set.truncate(WORKING_SET_MAX);
 }
 
 /// Status satu direktori reguler (teks kunci untuk .slint — warna
@@ -1045,6 +1242,9 @@ pub struct BatchState {
     /// Folder Reguler tersimpan (DB `Batch.FolderReguler`, JSON array).
     pub reguler_dirs: Vec<RegulerDir>,
     pub reguler_active: String,
+    /// Working set: sekolah/folder yang sudah dibuka sebagai SOURCE
+    /// (DB `Batch.WorkingSet`, JSON array). Dropdown di atas treeview.
+    pub working_set: Vec<WorkingSetEntry>,
     /// Tugas Task Manager (terbaru dulu, maks 8 — lihat `push_task`).
     pub tasks: Vec<BatchTask>,
     /// ID tugas run yang sedang aktif ("" = tidak ada).
@@ -1074,8 +1274,26 @@ impl BatchState {
 
 impl BatchState {
     /// AddFolders() C#: MENGGANTI seluruh koleksi (bukan append).
+    /// Sumber baru juga masuk working set (dropdown treeview).
+    /// Nama working set = nama folder (file_name).
     pub fn add_folder(&mut self, source_path: &Path) {
+        let name = source_path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| source_path.to_string_lossy().into_owned());
+        self.add_folder_named(source_path, &name);
+    }
+
+    /// Seperti add_folder, tapi nama working set diberikan eksplisit —
+    /// dipakai saat sumbernya hasil resolusi PILIHAN (nama yang tampil
+    /// tetap nama sekolah yang dipilih user, bukan "PILIHAN").
+    pub fn add_folder_named(&mut self, source_path: &Path, name: &str) {
         let local = PathBuf::from(&self.local_output);
+        working_set_add(
+            &mut self.working_set,
+            name,
+            &source_path.to_string_lossy(),
+        );
         self.roots = vec![BatchRoot::new(source_path, &local)];
         self.selection.clear();
         self.has_manifest = false;
@@ -1105,9 +1323,18 @@ impl BatchState {
     /// >1 → nama root terpilih; kosong → "").
     pub fn header_source_name(&self) -> String {
         if self.roots.len() == 1 {
-            self.roots[0]
-                .source_path
-                .file_name()
+            let p = &self.roots[0].source_path;
+            // Sumber hasil resolusi PILIHAN: header menampilkan nama
+            // sekolah (parent), bukan "PILIHAN" — user memilih sekolah,
+            // isi tree-nya memang dari folder PILIHAN.
+            if p.file_name().map(|n| n.eq_ignore_ascii_case("pilihan")).unwrap_or(false) {
+                return p
+                    .parent()
+                    .and_then(|par| par.file_name())
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+            }
+            p.file_name()
                 .map(|n| n.to_string_lossy().into_owned())
                 .unwrap_or_default()
         } else {
@@ -1497,6 +1724,123 @@ mod tests {
         let b = rows.iter().find(|r| r.sekolah == "SDN Bantar Kambing 03").unwrap();
         assert_eq!(b.marketing, "");
         assert_eq!(reguler_months(&rows).len(), 2);
+    }
+
+    #[test]
+    fn reguler_cache_diff_and_merge_only_touched_month() {
+        let root = tmpdir("cache-diff");
+        let m1 = root.join("02 AGUSTUS 2026");
+        let m2 = root.join("03 SEPTEMBER 2026");
+        fs::create_dir_all(m1.join("SDN-A")).unwrap();
+        fs::create_dir_all(m2.join("SDN-B")).unwrap();
+        fs::write(m1.join("SDN-A").join("foto.jpg"), b"x").unwrap();
+        fs::write(m2.join("SDN-B").join("foto.jpg"), b"x").unwrap();
+        let rows = scan_reguler(&root);
+        assert_eq!(rows.len(), 2);
+        let fps = reguler_month_fingerprints(&root);
+        assert_eq!(fps.len(), 2);
+        let cache = RegulerCache {
+            dir: root.to_string_lossy().into_owned(),
+            scanned_at: now_unix(),
+            months: fps.clone(),
+            rows: rows.clone(),
+        };
+        // Tanpa perubahan -> tidak ada bulan yang dipindai ulang.
+        let (changed, removed) = reguler_cache_diff(&cache, &fps);
+        assert!(changed.is_empty() && removed.is_empty());
+        // Tambah sekolah di bulan 2 saja -> hanya bulan 2 berubah.
+        fs::create_dir_all(m2.join("SDN-C")).unwrap();
+        fs::write(m2.join("SDN-C").join("foto.jpg"), b"x").unwrap();
+        // Sentuh mtime folder bulan 2 (buat dir baru mengubah mtime
+        // parent di Linux; pastikan dengan set mtime bila perlu).
+        let fps2 = reguler_month_fingerprints(&root);
+        let (changed2, removed2) = reguler_cache_diff(&cache, &fps2);
+        assert_eq!(changed2, vec!["03 SEPTEMBER 2026".to_string()]);
+        assert!(removed2.is_empty());
+        // Merge: baris bulan 1 dipertahankan, bulan 2 diganti hasil baru.
+        let fresh = scan_reguler_month(&root, "03 SEPTEMBER 2026", &m2);
+        assert_eq!(fresh.len(), 2);
+        let merged = reguler_merge_rows(&rows, &changed2, &removed2, fresh);
+        assert_eq!(merged.len(), 3);
+        assert_eq!(merged[0].sekolah, "SDN-A");
+        assert_eq!(merged[1].sekolah, "SDN-B");
+        assert_eq!(merged[2].sekolah, "SDN-C");
+        // Hapus bulan 1 -> terdeteksi sebagai removed. Cache di sini
+        // = keadaan setelah merge (fps2 + merged), bukan cache awal.
+        let cache2 = RegulerCache {
+            dir: root.to_string_lossy().into_owned(),
+            scanned_at: now_unix(),
+            months: fps2.clone(),
+            rows: merged.clone(),
+        };
+        fs::remove_dir_all(&m1).unwrap();
+        let fps3 = reguler_month_fingerprints(&root);
+        let (changed3, removed3) = reguler_cache_diff(&cache2, &fps3);
+        assert_eq!(removed3, vec!["02 AGUSTUS 2026".to_string()]);
+        assert!(changed3.is_empty());
+        let merged3 = reguler_merge_rows(&merged, &changed3, &removed3, Vec::new());
+        assert_eq!(merged3.len(), 2);
+        assert_eq!(merged3[0].sekolah, "SDN-B");
+        assert_eq!(merged3[1].sekolah, "SDN-C");
+    }
+
+    #[test]
+    fn resolve_pilihan_dir_follows_bytecode_order() {
+        let root = tmpdir("pilihan");
+        // 1. Bukan dir -> None.
+        let notdir = root.join("bukan-dir.txt");
+        fs::write(&notdir, b"x").unwrap();
+        assert!(resolve_pilihan_dir(&notdir).is_none());
+        assert!(resolve_pilihan_dir(&root.join("tidak-ada")).is_none());
+        // 2. Folder itu sendiri sudah PILIHAN -> kembalikan apa adanya.
+        let p = root.join("PILIHAN");
+        fs::create_dir_all(&p).unwrap();
+        assert_eq!(resolve_pilihan_dir(&p).unwrap(), p);
+        // 3. Subfolder persis "PILIHAN".
+        let school = root.join("SDN-A");
+        fs::create_dir_all(&school).unwrap();
+        assert!(resolve_pilihan_dir(&school).is_none());
+        let cand = school.join("PILIHAN");
+        fs::create_dir_all(&cand).unwrap();
+        assert_eq!(resolve_pilihan_dir(&school).unwrap(), cand);
+        // 4. Varian huruf ("Pilihan") diterima bila yang persis tak ada.
+        let school2 = root.join("SDN-B");
+        let v = school2.join("Pilihan");
+        fs::create_dir_all(&v).unwrap();
+        assert_eq!(resolve_pilihan_dir(&school2).unwrap(), v);
+        // Tanpa PILIHAN tapi ada subfolder lain -> tetap None.
+        let school3 = root.join("SDN-C");
+        fs::create_dir_all(school3.join("LAIN")).unwrap();
+        assert!(resolve_pilihan_dir(&school3).is_none());
+    }
+
+    #[test]
+    fn header_source_name_shows_school_for_pilihan_source() {
+        let mut st = BatchState::default();
+        st.local_output = "/tmp/out".to_string();
+        st.add_folder(Path::new("/data/28 NOVEMBER 2026/SDN-A/PILIHAN"));
+        assert_eq!(st.header_source_name(), "SDN-A");
+        st.add_folder(Path::new("/data/28 NOVEMBER 2026/SDN-B"));
+        assert_eq!(st.header_source_name(), "SDN-B");
+    }
+
+    #[test]
+    fn working_set_add_prepends_dedups_and_caps() {
+        let mut set = Vec::new();
+        working_set_add(&mut set, "SDN-A", "/x/SDN-A");
+        working_set_add(&mut set, "SDN-B", "/x/SDN-B");
+        assert_eq!(set.len(), 2);
+        assert_eq!(set[0].name, "SDN-B");
+        // Buka lagi SDN-A (path sama, huruf beda) -> naik ke depan, tetap 2.
+        working_set_add(&mut set, "SDN-A", "/X/sdn-a");
+        assert_eq!(set.len(), 2);
+        assert_eq!(set[0].name, "SDN-A");
+        assert_eq!(set[0].path, "/X/sdn-a");
+        for i in 0..25 {
+            working_set_add(&mut set, &format!("S{}", i), &format!("/x/S{}", i));
+        }
+        assert_eq!(set.len(), WORKING_SET_MAX);
+        assert_eq!(set[0].name, "S24");
     }
 
     #[test]

@@ -253,7 +253,7 @@ export component TaskManagerWindow inherits Window {
             }
             HSeparator { }
             if task-rows.length == 0 : Text {
-                text: "Belum ada tugas.\nJalankan Fase 1 atau script master dari tab BATCH.";
+                text: "Belum ada tugas.\nJalankan script master dari tab BATCH.";
                 font-size: 12px;
                 color: Design.text-muted;
                 wrap: word-wrap;
@@ -1053,8 +1053,11 @@ export component AppWindow inherits Window {
     in-out property <string> selected-master: "PAS FOTO";
     // Folder output belum ada di disk → chip "(pending)" oranye.
     in-out property <bool> batch-out-pending: true;
-    // Dua fase master: Fase 1 (buat_master.py) membuat manifest;
-    // Fase 2 (BUAT MASTER = buat_master_duplikat.py) BUTUH manifest.
+    // Dua fase master: Fase 1 = script "buat_master" di footer
+    // (buat_master.py membuat manifest — persis C#: tombol ikon
+    // buat_master di footer DashboardView, BUKAN tombol "Fase 1"
+    // sendiri); Fase 2 (BUAT MASTER = buat_master_duplikat.py)
+    // BUTUH manifest dan tetap manual (tombol Lanjutkan).
     in-out property <bool> has-manifest: false;
     // Jumlah node terpilih (tampil di header SOURCE: "N dipilih").
     in-out property <int> batch-sel-count: 0;
@@ -1071,10 +1074,10 @@ export component AppWindow inherits Window {
     in-out property <string> newfolder-panel: "";
     in-out property <string> newfolder-parent: "";
     in-out property <string> newfolder-name: "";
-    // Folder Reguler (ala master_creator): dropdown direktori kerja
-    // tersimpan + popup kelola (tabel bulan/marketing/sekolah).
-    in-out property <[string]> batch-reguler-names: [];
-    in-out property <int> batch-reguler-idx: -1;
+    // Folder Reguler (ala master_creator): daftar sekolah di
+    // tampilan awal + popup kelola + dropdown working set treeview.
+    in-out property <[string]> batch-working-set-names: [];
+    in-out property <int> batch-working-set-idx: -1;
     // Popup Kelola Folder Reguler (tahap 4) — overlay di tab BATCH.
     in-out property <bool> reguler-manage-open: false;
     in-out property <[RegulerDirRow]> reguler-dirs: [];
@@ -1085,7 +1088,6 @@ export component AppWindow inherits Window {
     in-out property <string> reguler-filter: "";
     in-out property <[string]> reguler-months: ["Semua bulan"];
     in-out property <int> reguler-month-idx: 0;
-    in-out property <int> reguler-selected-row: -1;
     // Panel Task Manager (tahap 5) — dock kanan di tab BATCH.
     in-out property <bool> task-manager-open: false;
     in-out property <[TaskRow]> task-rows: [];
@@ -1110,13 +1112,15 @@ export component AppWindow inherits Window {
     callback batch-confirm-new-folder(string, string);
     callback batch-cancel-new-folder();
     callback batch-run-script(string);
-    callback batch-phase1();
     callback batch-copy-master();
     callback batch-stop();
     callback batch-replace-auto();
     callback batch-refresh();
     callback batch-clear();
-    callback batch-reguler-picked(int);
+    callback batch-list-open-school(int);
+    callback batch-working-set-picked(int);
+    callback batch-back-to-list();
+    callback batch-reguler-refresh();
     callback batch-reguler-manage();
     callback batch-reguler-close();
     callback batch-reguler-add();
@@ -1125,8 +1129,6 @@ export component AppWindow inherits Window {
     callback batch-reguler-select-dir(int);
     callback batch-reguler-filter-changed(string);
     callback batch-reguler-month-picked(int);
-    callback batch-reguler-row-clicked(int);
-    callback batch-reguler-load-selected();
     callback batch-open-task-manager();
     callback batch-task-cancel(string);
     callback batch-task-followup(string);
@@ -2168,7 +2170,6 @@ export component AppWindow inherits Window {
                 x: 0; y: 0;
                 width: 100%; height: 100%;
                 ui-scale: root.ui-scale;
-                panels-height: root.height - 68px * root.ui-scale - 128px * root.ui-scale - 68px;
                 content-width: root.content-width;
                 src-rows <=> root.src-rows;
                 out-rows <=> root.out-rows;
@@ -2186,8 +2187,8 @@ export component AppWindow inherits Window {
                 newfolder-panel <=> root.newfolder-panel;
                 newfolder-parent <=> root.newfolder-parent;
                 newfolder-name <=> root.newfolder-name;
-                batch-reguler-names <=> root.batch-reguler-names;
-                batch-reguler-idx <=> root.batch-reguler-idx;
+                batch-working-set-names <=> root.batch-working-set-names;
+                batch-working-set-idx <=> root.batch-working-set-idx;
                 reguler-manage-open <=> root.reguler-manage-open;
                 reguler-dirs <=> root.reguler-dirs;
                 reguler-scan-dir-idx <=> root.reguler-scan-dir-idx;
@@ -2196,7 +2197,6 @@ export component AppWindow inherits Window {
                 reguler-filter <=> root.reguler-filter;
                 reguler-months <=> root.reguler-months;
                 reguler-month-idx <=> root.reguler-month-idx;
-                reguler-selected-row <=> root.reguler-selected-row;
                 batch-scripts <=> root.batch-scripts;
                 batch-running <=> root.batch-running;
                 batch-pick-folder() => { root.batch-pick-folder(); }
@@ -2216,13 +2216,15 @@ export component AppWindow inherits Window {
                 batch-confirm-new-folder(name, panel) => { root.batch-confirm-new-folder(name, panel); }
                 batch-cancel-new-folder() => { root.batch-cancel-new-folder(); }
                 batch-run-script(name) => { root.batch-run-script(name); }
-                batch-phase1() => { root.batch-phase1(); }
                 batch-copy-master() => { root.batch-copy-master(); }
                 batch-stop() => { root.batch-stop(); }
                 batch-replace-auto() => { root.batch-replace-auto(); }
                 batch-refresh() => { root.batch-refresh(); }
                 batch-clear() => { root.batch-clear(); }
-                batch-reguler-picked(idx) => { root.batch-reguler-picked(idx); }
+                batch-list-open-school(idx) => { root.batch-list-open-school(idx); }
+                batch-working-set-picked(idx) => { root.batch-working-set-picked(idx); }
+                batch-back-to-list() => { root.batch-back-to-list(); }
+                batch-reguler-refresh() => { root.batch-reguler-refresh(); }
                 batch-reguler-manage() => { root.batch-reguler-manage(); }
                 batch-reguler-close() => { root.batch-reguler-close(); }
                 batch-reguler-add() => { root.batch-reguler-add(); }
@@ -2231,8 +2233,6 @@ export component AppWindow inherits Window {
                 batch-reguler-select-dir(idx) => { root.batch-reguler-select-dir(idx); }
                 batch-reguler-filter-changed(text) => { root.batch-reguler-filter-changed(text); }
                 batch-reguler-month-picked(idx) => { root.batch-reguler-month-picked(idx); }
-                batch-reguler-row-clicked(idx) => { root.batch-reguler-row-clicked(idx); }
-                batch-reguler-load-selected() => { root.batch-reguler-load-selected(); }
                 batch-open-task-manager() => { root.batch-open-task-manager(); }
                 batch-tear-off(x, y) => { root.batch-tear-off(x, y); }
                 batch-tear-off-center() => { root.batch-tear-off-center(); }
@@ -2967,13 +2967,15 @@ export component AppWindow inherits Window {
             root.overlay-view = "";
         }
         // "BUAT MASTER" dari menu konteks item: sama seperti di atas,
-        // toast fase 1 (manifest dibuat, template dibuka di Photoshop).
+        // lalu jalankan script buat_master (= Fase 1: manifest dibuat,
+        // template dibuka di Photoshop — persis tombol buat_master di
+        // footer C#, bukan tombol "Fase 1" sendiri).
         buat-master(folder) => {
-            // Seperti send-to-batch, lalu langsung Fase 1 (manifest).
+            // Seperti send-to-batch, lalu jalankan buat_master.
             root.batch-add-folder(folder);
             root.current-tab = "BATCH";
             root.overlay-view = "";
-            root.batch-phase1();
+            root.batch-run-script("buat_master");
         }
         open-settings-explorer() => {
             // Pengaturan Explorer kini tampilan tersendiri (C#

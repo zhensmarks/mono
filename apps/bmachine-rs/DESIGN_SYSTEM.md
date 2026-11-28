@@ -1163,15 +1163,50 @@ benar-benar teliti — jangan sampai salah sedikit pun**
 (arahan abeng 26 Nov 16:07). Tampilan boleh dirombak; alur
 kerja tidak.
 
-### 16.1 Struktur layar
+### 16.1 Struktur layar — DUA TAMPILAN (28 Nov 2026)
 
-Header: judul "BATCH" + deskripsi "Pilih folder sumber, lalu
-jalankan master." + tombol "+ Tambah Folder". Di bawahnya dua
-panel: SOURCE (kiri) dan OUTPUT (kanan). Di bawah panel: footer
-tombol script + Refresh + Clear. Tidak ada folder → drop zone
-"DRAG FOLDERS HERE" (kartu ber-border, ikon + besar, "DRAG
-FOLDERS HERE" 16 Bold, "Drop source folders to begin batch
-processing" 12).
+BATCH punya dua tampilan (satu `BatchView` bersama, dipakai
+AppWindow embedded + BatchWindow terlepas):
+
+1. **Daftar Folder Reguler (tampilan awal).** Satu kolom,
+   sekolah-diutamakan: nama sekolah besar baris 1, bulan +
+   marketing kecil redup baris 2 (contoh: `12_PAUD TERPADU NUR
+   INDAH` / `02 Agustus 2026 · CIREBON (RANGGA)`); tanpa nomor
+   urut. Header padat: kotak cari paling menonjol
+   (filter-as-you-type; daftar bisa 3203 sekolah) + dropdown
+   bulan kecil + tombol Refresh ↻ + aksi (Pilih Folder /
+   Kelola… / ☰ Tugas / ⧉ Lepas). Baris path + deskripsi panjang
+   pindah ke Kelola. Klik satu kali baris sekolah = pilih
+   sekolah itu dan pindah ke treeview. Rapi di 520px (satu
+   kolom, nama kebaca penuh, tidak ada kolom kepotong).
+2. **Treeview (SOURCE/OUTPUT sekolah terpilih).** Di atas
+   treeview ada dropdown direktori (working set = sekolah yang
+   sudah dipilih dari Folder Reguler, max 20, terbaru dulu);
+   ganti dropdown = ganti sekolah di treeview. Tombol
+   "‹ Daftar" kembali ke daftar Folder Reguler. Header:
+   judul "BATCH" + deskripsi "Pilih sekolah, lalu jalankan
+   master." + dropdown working-set + "‹ Daftar" + "☰ Tugas".
+   Di bawahnya dua panel: SOURCE (kiri) dan OUTPUT (kanan).
+   Di bawah panel: indikator manifest + tombol Replace; di
+   bawahnya footer tombol script + Refresh + Clear.
+
+Responsif (`narrow` bila content-width < 1000px): header
+membungkus ke dua baris (baris 2 = aksi rata kanan di daftar,
+dropdown + aksi di treeview); semua tombol tetap terjangkau di
+1280×800, 960×640, dan 520px (terbukti 28 Nov 2026 — dulu
+"+ Tambah Folder" terpotong di 1280px, "Folder Reguler…" /
+"☰ Tugas" tak terjangkau di 520px, footer ↻/× tak terjangkau
+di 960×640 / 1280×790).
+
+Tinggi baris daftar = `preferred-height` VL dalam (eksplisit).
+Tanpa ini, Flickable meregangkan VL konten ke tinggi viewport
+dan Slint 1.19 membagi ruang ekstra ke semua baris sehingga
+tiap baris jadi ~163px (defect 28 Nov 2026). Daftar juga
+dibungkus `Rectangle { vertical-stretch: 1; clip: true; }`
+(pola panel tree) — Flickable sebagai anak langsung layout
+membuat konten tidak rata atas (daftar terdorong ke bawah).
+Nama sekolah satu baris elide (bukan wrap): `wrap` membuat
+Slint menghitung tinggi Text dari layout wrap yang salah.
 
 ### 16.2 Panel SOURCE — tree isi folder sekolah
 
@@ -1236,17 +1271,30 @@ nama subfolder baru (`newfolder-*`) tersedia di kedua panel.
 ### 16.4 Dua fase master
 
 Indikator manifest (● merah "Manifest: belum ada" / ● hijau
-"Manifest: ada") + tombol ghost "▶ Fase 1" (buat_master.py →
-`has-manifest = true`, toast: template dibuka di Photoshop,
-edit + SAVE) + tombol **"⧉ BUAT MASTER" — DI DALAM panel
-OUTPUT** (baris aksi di bawah tree OUTPUT, di samping tombol
-▤ placeholder Master File Browser yang ditunda).
+"Manifest: ada"). **TIDAK ADA tombol "▶ Fase 1"** (dihapus
+28 Nov 2026, per abeng 28 Nov 13:41 — fase 1 harus jalan
+otomatis seperti C#). Fase 1 = chip `buat_master` di footer
+(§16.6) — persis tombol footer C# (satu tombol per `.py` di
+Scripts/Master); klik chip = `ExecuteMaster` → `buat_master.py`
+→ `has-manifest = true`, template dibuka di Photoshop, edit +
+SAVE. Tombol **"⧉ BUAT MASTER" — DI DALAM panel OUTPUT**
+(baris aksi di bawah tree OUTPUT, di samping tombol ▤
+placeholder Master File Browser yang ditunda) = duplikat
+(`buat_master_duplikat.py`).
 
 - Bila `has-manifest` false → toast error "Manifest belum ada
-  — jalankan Fase 1 (buat_master.py) dulu." dan tidak lanjut.
+  — jalankan script buat_master dulu." dan tidak lanjut.
 - Bila true → isi tree OUTPUT + set gate output-ready.
 - Fase 2 sengaja manual ("agar tidak otomatis jadi kita tau
-  kapan diproses") — jangan pernah mengotomasi ulang.
+  kapan diproses") — jangan pernah mengotomasi ulang. C#
+  default mode buat_master.py juga MANUAL (bukan --auto);
+  Task Manager menampilkan "Menunggu save" + tombol
+  "Lanjutkan" untuk follow-up "BUAT MASTER (duplikat)" (§16.9).
+
+Catatan: indikator manifest direset (`has-manifest = false`)
+saat sekolah dibuka (ulang) — file manifest di disk tetap ada,
+tapi indikator sesi tidak membacanya ulang. Terbuka (minor,
+perilaku lama).
 
 ### 16.5 Replace
 
@@ -1261,18 +1309,28 @@ sama untuk mockup).
 
 ### 16.6 Footer — tombol script bernama
 
-Footer = 5 tombol kecil Btn (`small`, font 11px) bernama dari
-`scripts.json`: **buat_master, manasik, wisuda, pasfoto,
-profesi**. File berawalan `_` (helper) dan `enabled: false`
-tidak muncul; `buat_master_duplikat.py` TIDAK di footer
-(duplikat) — tombolnya sendiri ada di panel OUTPUT (§16.4).
-+ tombol Refresh ↻ IconBtn (scan ulang SOURCE & OUTPUT, toast)
+Footer = chip script dalam `Flickable` horizontal (scroll bila
+chip melebihi lebar; `content-width: chips-row.preferred-width`
++ `chips-row width: self.preferred-width` — mengikat
+`content-width` ke `width` baris menimbulkan binding loop) +
+tombol Refresh ↻ IconBtn (scan ulang SOURCE & OUTPUT, toast)
 + tombol Clear × merah IconBtn (kosongkan SEMUA folder →
-kembali ke drop zone; file tetap ada di disk).
+kembali ke daftar Folder Reguler; file tetap ada di disk).
+Chip: **buat_master, manasik, wisuda, pasfoto, profesi**
+(dari `scripts.json`, font 11px). File berawalan `_` (helper)
+dan `enabled: false` tidak muncul; `buat_master_duplikat.py`
+TIDAK di footer (duplikat) — tombolnya sendiri ada di panel
+OUTPUT (§16.4). ↻/× dipasang tetap di ujung kanan (tanpa
+spacer `Rectangle { horizontal-stretch: 1; }` sebelumnya —
+spacer telanjang itu menelan/menolkan tombol sesudahnya,
+sehingga ↻/× dan Replace tak terjangkau; gantinya elemen konten
+yang di-stretch atau `alignment: end`).
 
 Klik tombol script = ExecuteMaster: toast menyatakan proses
 **SEMUA** folder SOURCE (bukan hanya yang terpilih), lalu
-OUTPUT terisi + toast "[SUCCESS] Batch Selesai.".
+OUTPUT terisi + toast "[SUCCESS] Batch Selesai.". Chip
+`buat_master` = Fase 1 (§16.4) — tidak ada tombol Fase 1
+terpisah.
 
 **Kesenjangan vs ALUR §10 (terbuka):** urutan scripts.json
 lengkap punya 11 entri (PROFESI, C-REDAKSI, MANASIK, PAS FOTO,
@@ -1281,6 +1339,16 @@ DUPLIKAT PSD) — footer port saat ini hanya 5 script master
 Python; C-REDAKSI / FOOTNOTE / BUCIN / OPEN PSD / BUKA EDIT
 PSD belum ada di footer (ditanyakan ke abeng 26 Nov 16:04,
 belum dijawab — jangan tanya ulang).
+
+**Pelajaran Slint (28 Nov 2026):** `current-index` ComboBox
+(working-set + bulan) WAJIB ikatan dua arah `<=>`, bukan satu
+arah `:`. ComboBox menulis `current-index` sendiri saat user
+memilih (daftar internal), sehingga binding satu arah putus;
+saat Rust lalu memperbarui indeks (dan model diurut ulang —
+sekolah terpilih naik ke depan working set), indeks internal
+yang usang menunjuk item yang salah (dropdown menampilkan
+PAUD padahal treeview sudah SDN-A). Perbaikan: `<=>` di ketiga
+ComboBox BATCH (`ui/batch.slint`).
 
 ### 16.7 Master File Browser — DITUNDA
 
@@ -1291,18 +1359,39 @@ hanya placeholder toast ("Master File Browser akan hadir di
 side panel (bertahap)."). Lokasinya di side panel / Log Panel
 (lihat §20.5).
 
-### 16.8 Folder Reguler (tahap 4, 28 Nov 2026)
+### 16.8 Folder Reguler — daftar sebagai tampilan awal, cache + refresh inkremental, PILIHAN (28 Nov 2026)
 
 Sumber: studi master_creator (`~/workspace/master-creator-study/`,
-`open_folder_reguler_popup` + `_RegularScanWorker` + `_dir_manager_*`).
+`open_folder_reguler_popup` + `_RegularScanWorker` + `_dir_manager_*`
++ `_resolve_pilihan_dir` dari bytecode master_creator.exe yang
+abeng kirim langsung, dibaca dengan Python 3.13 + mc_dis_local.py).
 
-- **Kelola…** (header BATCH) membuka popup "Folder Reguler" (bukan
-  halaman baru). Isi: daftar direktori tersimpan (nama + status
-  berwarna + konteks output `dir → last_output` + ikon kunci + ×),
-  tombol "+ Tambah…", tabel sekolah (kolom BULAN / MARKETING /
-  SEKOLAH), kolom filter ketik ("Cari nama sekolah atau marketing…",
-  filter-as-you-type, substring case-insensitive atas nama sekolah
-  atau marketing), dropdown bulan, tombol "Jadikan Source" + "Tutup".
+**Dua tampilan (§16.1).** Tampilan awal = daftar Folder Reguler
+langsung (bukan drop zone, bukan popup). Tabel sekolah (BULAN /
+MARKETING / SEKOLAH) yang dulu di popup Kelola kini hidup di
+tampilan daftar utama: filter ketik ("Cari nama sekolah…",
+filter-as-you-type, substring case-insensitive atas nama sekolah
+atau marketing) + dropdown bulan + tombol Refresh ↻. Klik satu
+kali baris sekolah = jadikan SOURCE + pindah ke treeview (jalur
+cepat, seperti pilih direktori di master_creator). Folder dadakan
+di luar Folder Reguler: tombol kecil "Pilih Folder" di header
+daftar (jalan masuk sekunder; asumsi — abeng belum menolaknya).
+
+- **Working set.** Sekolah yang sudah dipilih tersimpan sebagai
+  working set (max 20, terbaru dulu, dedup path case-insensitive,
+  persist DB `Batch.WorkingSet` JSON). Dropdown di atas treeview
+  berisi working set ini; ganti dropdown = ganti sekolah di
+  treeview. Tombol "‹ Daftar" kembali ke daftar (SOURCE
+  dikosongkan, working set tetap). Dropdown header lama (seluruh
+  direktori sebagai SOURCE) + "Jadikan Source" + klik ganda
+  sudah DIHAPUS bersama popup tabel sekolah.
+- **Kelola… = MANAJEMEN DIREKTORI saja.** Popup "Folder Reguler"
+  kini hanya: daftar direktori tersimpan (nama + status berwarna
+  + ikon kunci + ×), tombol "+ Tambah…", hint, tombol "Tutup".
+  Tidak ada lagi tabel sekolah / filter / "Jadikan Source" di
+  popup (pindah ke tampilan daftar). Tinggi popup mengikuti
+  konten. Tutup popup: × / "Tutup" / klik di luar / klik kanan /
+  Esc (Esc menutup popup Kelola dulu sebelum yang lain).
 - **Status direktori** (`RegulerStatus`, prioritas tertinggi dulu):
   Hilang (path tidak ada) > Dipakai (root SOURCE sama/dibawahnya saat
   run aktif) > Terkunci > Siap / Kosong. Warna mengikuti token status
@@ -1311,19 +1400,57 @@ Sumber: studi master_creator (`~/workspace/master-creator-study/`,
   ditolak + toast); toggle lewat ikon gembok di baris; `locked`
   tersimpan di `Batch.FolderReguler` (JSON `[{path, locked,
   last_output}]`, migrasi otomatis dari format lama `Vec<String>`).
-- **Konteks output per direktori:** memilih direktori sebagai SOURCE
-  memulihkan `last_output`-nya menjadi `LocalOutput` (bila non-empty
-  dan berbeda) + persist ke `Paths.LocalOutput`; toast menyebutkannya.
-- **Scan latar:** pilih direktori → scan di thread latar (channel +
-  timer 250ms, pola `_sheets_inbox_timer`); UI tidak lag. Hasil scan
-  lama diabaikan bila user sudah pindah direktori. Heuristik scan:
-  anak folder bulan yang isinya HANYA subfolder (tanpa file) = kategori
-  (mis. "1. PAS FOTO") dan turun satu level; yang berisi file = sekolah.
+- **Konteks output per direktori (DIHAPUS 28 Nov 2026):** pemulihan
+  `last_output` saat memilih direktori sebagai SOURCE sudah tidak
+  ada — jalur itu ikut terhapus bersama dropdown header lama
+  (seluruh direktori sebagai SOURCE). `last_output` masih tersimpan
+  di JSON direktori tapi tidak lagi dibaca/dipulihkan.
+- **Scan latar + CACHE + REFRESH INKREMENTAL.** Kenapa
+  master_creator lambat tiap buka: `_refresh_scan` membuat
+  `_RegularScanWorker` BARU yang scan ulang penuh dari nol (root →
+  bulan → marketing → sekolah, `_subdirs_sorted` tiap level) +
+  `_fill_table` membangun ulang 3203 baris; yang disimpan cuma
+  pilihan bulan — hasil scan TIDAK pernah disimpan. Root-nya share
+  jaringan (UNC `//delapanmataair/...`) jadi tiap listing direktori
+  = satu round-trip SMB; ribuan round-trip = lama. Port
+  mengatasinya:
+  - (a) **Cache + tampil instan:** hasil scan terakhir disimpan di
+    DB (`Batch.FolderReguler.Cache`, JSON: baris bulan/marketing/
+    sekolah/path + fingerprint mtime tiap folder bulan + waktu
+    scan). Buka BATCH → daftar langsung tampil dari cache, tanpa
+    menunggu scan. Filter bulan + cari jalan di atas cache.
+  - (b) **Refresh inkremental di background:** sesudah tampil,
+    worker latar membandingkan daftar + mtime folder bulan saja
+    (murah, segelintir round-trip); hanya bulan yang mtime-nya
+    berubah / baru / hilang yang di-scan ulang; baris baru/hilang
+    diperbarui di tempat; selesai diam-diam, toast kecil hanya
+    kalau ada perubahan (mis. "diperbarui: 2 sekolah baru").
+    Jangan pakai FileSystemWatcher lewat SMB (event sering tidak
+    sampai) — bandingkan mtime seperti watcher Explorer (polling
+    2 detik) yang sudah ada di port. Fingerprint mtime dalam
+    **nanodetik epoch** (detik gagal mendeteksi perubahan dalam
+    satu detik yang sama). Cache lama (resolusi detik) memicu satu
+    kali scan ulang semua bulan saat pertama dibaca kode baru
+    (migrasi sekali jalan, lalu tersimpan nanodetik).
+  - (c) **Tombol Refresh (↻)** tetap ada untuk paksa scan penuh.
+  - Timer drain 250ms kini selalu mendorong hasil scan ke UI
+    (dulu hanya bila popup Kelola terbuka).
+- **Heuristik scan (TETAP, adaptasi layout C#):** anak folder bulan
+  yang isinya HANYA subfolder (tanpa file) = kategori (mis.
+  "1. PAS FOTO") dan turun satu level; yang berisi file = sekolah.
   Marketing dibaca dari `NOTE.txt` di folder sekolah (baris
-  `MARKETING:`). Bulan = nama folder bulan apa adanya ("07 Juli 2026").
+  `MARKETING:`). Bulan = nama folder bulan apa adanya ("07 Juli
+  2026"). Scan worker master_creator TERBUKTI jalan 3 tingkat murni
+  root → bulan → marketing → sekolah, TANPA filter nama (tiap
+  subfolder kedalaman 3 = satu baris); bila satu bulan dipilih
+  (`selected_month`), bulan lain dilewati seluruhnya; ada cek
+  `isInterruptionRequested` tiap level (worker lama dibatalkan saat
+  refresh baru); error → `failed_scan`. Port TIDAK mengubah walk
+  scan-nya jadi 3 tingkat kaku — bentuk kategori + sekolah-langsung
+  adalah adaptasi layout C#, dipertahankan.
 - **Filter bulan:** dropdown berisi "Semua bulan" + bulan-bulan unik
   dari hasil scan (urut natural); pilihan tersimpan di
-  `Batch.FolderReguler.Month` dan dipulihkan saat popup dibuka.
+  `Batch.FolderReguler.Month` dan dipulihkan saat daftar dibuka.
   Perbaikan 28 Nov 2026 (defect ComboBox — lihat PERUBAHAN.md):
   daftar bulan kini mendorong tabel ke bawah saat terbuka (bukan
   menumpuknya), jadi item bisa diklik. Akar masalah: layout Slint
@@ -1332,16 +1459,29 @@ Sumber: studi master_creator (`~/workspace/master-creator-study/`,
   visual dan klik item ditelan elemen di bawahnya (z-order).
   Perbaikan: `preferred-height` di komponen `ComboBox`
   (`ui/design.slint`) + hapus height tetap pada baris induk di
-  header BATCH dan baris filter popup ini. Efek samping yang sama:
-  dropdown Folder Reguler di header BATCH kini juga bisa memilih
-  item kedua (sebelumnya tertutup kartu SOURCE/OUTPUT).
-- **Dropdown header** ("Folder Reguler" di header BATCH) memakai daftar
-  yang sama; memilih direktori = memuatnya sebagai SOURCE (sama seperti
-  Pilih Folder). Klik ganda baris sekolah = jadikan SOURCE + tutup
-  popup; klik tunggal = tandai baris; "Jadikan Source" memakai baris
-  yang ditandai.
-- **Tutup popup:** × / "Tutup" / klik di luar / klik kanan / Esc
-  (Esc menutup popup Kelola dulu sebelum yang lain).
+  header BATCH dan baris filter popup ini.
+- **PILIHAN — urutan kandidat PERSIS dari bytecode
+  `_resolve_pilihan_dir(path_sekolah)`** (berhenti di yang pertama
+  ketemu; diterapkan saat sekolah dipilih):
+  1. `pp = normpath(str(path_sekolah).strip())`; kosong / bukan dir
+     → '' (missing).
+  2. `base = basename(pp.rstrip('\\/'))`; bila
+     `base.strip().upper() == 'PILIHAN'` → kembalikan `pp` apa adanya
+     (path itu sendiri sudah folder PILIHAN).
+  3. `cand = join(pp, 'PILIHAN')`; bila `isdir(cand)` → kembalikan
+     `normpath(cand)`.
+  4. Scan anak-anak `pp` satu-satu (`listdir`); yang namanya
+     `.strip().upper() == 'PILIHAN'` DAN `is_dir` → `cand2 =
+     join(pp, name)` → kembalikan `normpath(cand2)`. ('Pilihan' /
+     'pilihan' huruf apa pun diterima di langkah ini, tapi langkah 3
+     yang persis huruf besar dicek dulu.)
+  5. Bila tidak ada → '' (missing; `_add_selected` melaporkannya,
+     folder tidak ditambahkan).
+  Semua kegagalan (basename/listdir) ditangkap Exception → '' /
+  lanjut. Bila PILIHAN ada, jadikan itu SOURCE utama di treeview
+  (header tetap nama sekolah, bukan "PILIHAN"; output diarahkan ke
+  folder sekolah); bila tidak ada, pakai folder sekolah apa adanya
+  dan jangan gagal.
 
 ### 16.9 Task Manager — panel Tugas (tahap 5, 28 Nov 2026)
 

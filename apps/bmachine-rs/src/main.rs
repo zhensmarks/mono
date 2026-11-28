@@ -3261,19 +3261,24 @@ fn push_batch_to_ui_inner(ui: &AppWindow, st: &batch::BatchState) {
     ui.set_batch_out_pending(st.any_output_pending());
     ui.set_batch_sel_count(st.selection.ids.len() as i32);
     ui.set_has_manifest(st.has_manifest);
-    ui.set_batch_reguler_names(sheet_model(
-        st.reguler_dirs.iter().map(|d| d.display_name()).collect(),
+    // Working set (dropdown di atas treeview): nama sekolah/folder
+    // yang sudah dibuka; indeks = posisi SOURCE aktif di dalamnya
+    // (-1 = SOURCE bukan dari working set).
+    ui.set_batch_working_set_names(sheet_model(
+        st.working_set.iter().map(|e| e.name.clone()).collect(),
     ));
-    let idx = if st.reguler_active.is_empty() {
-        -1
-    } else {
-        st.reguler_dirs
-            .iter()
-            .position(|d| d.path == st.reguler_active)
-            .map(|i| i as i32)
-            .unwrap_or(-1)
-    };
-    ui.set_batch_reguler_idx(idx);
+    let ws_idx = st
+        .roots
+        .first()
+        .and_then(|r| {
+            let cur = r.source_path.to_string_lossy().to_ascii_lowercase();
+            st.working_set
+                .iter()
+                .position(|e| e.path.to_ascii_lowercase() == cur)
+                .map(|i| i as i32)
+        })
+        .unwrap_or(-1);
+    ui.set_batch_working_set_idx(ws_idx);
     push_tasks_to_ui(ui, st);
 }
 
@@ -3289,8 +3294,8 @@ fn sync_batch_window(w: &BatchWindow, ui: &AppWindow) {
     w.set_batch_out_pending(ui.get_batch_out_pending());
     w.set_batch_sel_count(ui.get_batch_sel_count());
     w.set_has_manifest(ui.get_has_manifest());
-    w.set_batch_reguler_names(ui.get_batch_reguler_names());
-    w.set_batch_reguler_idx(ui.get_batch_reguler_idx());
+    w.set_batch_working_set_names(ui.get_batch_working_set_names());
+    w.set_batch_working_set_idx(ui.get_batch_working_set_idx());
     w.set_newfolder_open(ui.get_newfolder_open());
     w.set_newfolder_panel(ui.get_newfolder_panel());
     w.set_newfolder_parent(ui.get_newfolder_parent());
@@ -3308,7 +3313,6 @@ fn sync_batch_window(w: &BatchWindow, ui: &AppWindow) {
     w.set_reguler_filter(ui.get_reguler_filter());
     w.set_reguler_months(ui.get_reguler_months());
     w.set_reguler_month_idx(ui.get_reguler_month_idx());
-    w.set_reguler_selected_row(ui.get_reguler_selected_row());
     w.set_batch_scripts(ui.get_batch_scripts());
     w.set_batch_running(ui.get_batch_running());
 }
@@ -3426,6 +3430,16 @@ fn persist_reguler_dirs(db: &Option<Arc<Mutex<DatabaseService>>>, dirs: &[batch:
     }
 }
 
+/// Simpan working set (dropdown treeview) ke DB `Batch.WorkingSet`.
+fn persist_working_set(db: &Option<Arc<Mutex<DatabaseService>>>, set: &[batch::WorkingSetEntry]) {
+    let Some(dbm) = db else { return };
+    if let Ok(mut g) = dbm.lock() {
+        if let Ok(json) = serde_json::to_string(set) {
+            let _ = g.set("Batch.WorkingSet", &json, "String");
+        }
+    }
+}
+
 /// State scan popup Kelola Folder Reguler (tahap 4).
 struct RegulerScanState {
     dir: String,
@@ -3451,23 +3465,185 @@ fn spawn_reguler_scan(
     });
 }
 
-/// Dorong state popup Kelola Folder Reguler ke Slint: daftar direktori
-/// (status warna + kunci + konteks output) + tabel sekolah hasil scan
-/// (sudah difilter) + daftar bulan + status scan.
-fn push_reguler_popup_to_ui(
+/// Muat cache scan Folder Reguler dari DB `Batch.FolderReguler.Cache`.
+fn load_reguler_cache(db: &Option<Arc<Mutex<DatabaseService>>>) -> Option<batch::RegulerCache> {
+    let dbm = db.as_ref()?;
+    let g = dbm.lock().ok()?;
+    let v = g.get("Batch.FolderReguler.Cache")?;
+    serde_json::from_str::<batch::RegulerCache>(v.as_str()).ok()
+}
+
+/// Simpan cache scan Folder Reguler ke DB.
+fn save_reguler_cache(
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+    cache: &batch::RegulerCache,
+) {
+    let Some(dbm) = db else { return };
+    if let Ok(mut g) = dbm.lock() {
+        if let Ok(json) = serde_json::to_string(cache) {
+            let _ = g.set("Batch.FolderReguler.Cache", &json, "String");
+        }
+    }
+}
+
+/// Refresh INKREMENTAL Folder Reguler (28 Nov 2026, temuan
+/// master_creator): daftar sudah tampil dari cache; worker latar
+/// membandingkan fingerprint murah (daftar + mtime folder bulan
+/// saja) dan hanya memindai ulang bulan yang berubah/baru;
+/// bulan hilang dibuang barisnya. Selesai diam-diam; toast kecil
+/// hanya kalau ada sekolah baru/hilang. Jangan tumpuk dengan scan
+/// penuh yang sedang jalan (guard `scanning`).
+#[allow(clippy::too_many_arguments)]
+fn spawn_reguler_incremental(
+    dir: String,
+    cache: batch::RegulerCache,
+    db: Option<Arc<Mutex<DatabaseService>>>,
+    st: Arc<Mutex<batch::BatchState>>,
+    scan_state: Arc<Mutex<RegulerScanState>>,
+    ui_weak: slint::Weak<AppWindow>,
+    batch_win: BatchWinCell,
+) {
+    // Weak (Send) — Rc di BatchWinCell tidak boleh masuk thread
+    // (pola sama seperti handler pick-folder).
+    let batch_w = batch_win.borrow().as_ref().map(|w| w.as_weak());
+    std::thread::spawn(move || {
+        {
+            let sc = scan_state.lock().unwrap();
+            if sc.scanning {
+                return;
+            }
+        }
+        let root = std::path::Path::new(&dir);
+        let new_fps = batch::reguler_month_fingerprints(root);
+        let (changed, removed) = batch::reguler_cache_diff(&cache, &new_fps);
+        if changed.is_empty() && removed.is_empty() {
+            eprintln!("[reguler-refresh] {}: tidak ada perubahan ({} bulan, {} baris dari cache)",
+                dir, cache.months.len(), cache.rows.len());
+            return;
+        }
+        eprintln!(
+            "[reguler-refresh] {}: bulan berubah/baru={:?} hilang={:?} — hanya bulan itu yang dipindai ulang",
+            dir, changed, removed
+        );
+        {
+            let mut sc = scan_state.lock().unwrap();
+            sc.scanning = true;
+        }
+        let mut fresh: Vec<batch::RegulerRow> = Vec::new();
+        for bulan in &changed {
+            fresh.extend(batch::scan_reguler_month(root, bulan, &root.join(bulan)));
+        }
+        let old_rows = cache.rows.clone();
+        let rows = batch::reguler_merge_rows(&old_rows, &changed, &removed, fresh);
+        let old_paths: std::collections::HashSet<&str> =
+            old_rows.iter().map(|r| r.path.as_str()).collect();
+        let new_paths: std::collections::HashSet<&str> =
+            rows.iter().map(|r| r.path.as_str()).collect();
+        let n_added = new_paths.difference(&old_paths).count();
+        let n_removed = old_paths.difference(&new_paths).count();
+        let new_cache = batch::RegulerCache {
+            dir: dir.clone(),
+            scanned_at: batch::now_unix(),
+            months: new_fps,
+            rows: rows.clone(),
+        };
+        save_reguler_cache(&db, &new_cache);
+        let toast = if n_added > 0 && n_removed > 0 {
+            format!(
+                "Folder Reguler diperbarui: {} sekolah baru, {} dihapus.",
+                n_added, n_removed
+            )
+        } else if n_added > 0 {
+            format!("Folder Reguler diperbarui: {} sekolah baru.", n_added)
+        } else if n_removed > 0 {
+            format!("Folder Reguler diperbarui: {} sekolah dihapus.", n_removed)
+        } else {
+            String::new()
+        };
+        let _ = ui_weak.upgrade_in_event_loop(move |ui| {
+            {
+                let mut sc = scan_state.lock().unwrap();
+                sc.all = rows;
+                sc.scanning = false;
+            }
+            let s = st.lock().unwrap();
+            let sc = scan_state.lock().unwrap();
+            push_reguler_to_ui_inner(&ui, &s, &sc, false);
+            if let Some(w) = batch_w.as_ref().and_then(|w| w.upgrade()) {
+                sync_batch_window(&w, &ui);
+            }
+            if !toast.is_empty() {
+                ui.set_toast(slint::SharedString::from(toast));
+            }
+        });
+    });
+}
+
+/// Jadikan satu folder sekolah sebagai SOURCE BATCH (jalur cepat
+/// daftar Folder Reguler / dropdown working set): resolusi PILIHAN
+/// dulu (master_creator `_resolve_pilihan_dir`) — kalau sekolah
+/// punya subfolder PILIHAN, sumbernya folder PILIHAN itu (treeview
+/// menampilkan isinya; output ke folder sekolah); kalau tidak ada,
+/// pakai folder sekolah apa adanya dan jangan gagal. Nama working
+/// set tetap nama sekolah yang dipilih user. Tutup popup Kelola
+/// bila terbuka; dorong UI + toast.
+#[allow(clippy::too_many_arguments)]
+fn load_school_as_source(
+    ui: &AppWindow,
+    st: &Arc<Mutex<batch::BatchState>>,
+    db: &Option<Arc<Mutex<DatabaseService>>>,
+    batch_win: &BatchWinCell,
+    path: &str,
+    school: &str,
+    active_dir: Option<&str>,
+) {
+    let msg = {
+        let mut s = st.lock().unwrap();
+        let p = std::path::PathBuf::from(path);
+        if !p.is_dir() {
+            format!("Folder sekolah tidak ditemukan: {}", path)
+        } else {
+            if let Some(dir) = active_dir {
+                s.reguler_active = dir.to_string();
+            }
+            let resolved = batch::resolve_pilihan_dir(&p).unwrap_or_else(|| p.clone());
+            s.add_folder_named(&resolved, school);
+            format!("Folder Reguler: {}", school)
+        }
+    };
+    if let Some(dir) = active_dir {
+        if let Some(dbm) = db {
+            if let Ok(mut g) = dbm.lock() {
+                let _ = g.set("Batch.FolderReguler.Active", dir, "String");
+            }
+        }
+    }
+    let ws = st.lock().unwrap().working_set.clone();
+    persist_working_set(db, &ws);
+    push_batch_to_ui(ui, &st.lock().unwrap(), batch_win);
+    ui.set_reguler_manage_open(false);
+    sync_batch_to_open_window(batch_win, ui);
+    ui.set_toast(slint::SharedString::from(msg));
+}
+
+/// Dorong state Folder Reguler ke Slint: daftar direktori (status
+/// warna + kunci + konteks output) + daftar sekolah hasil scan
+/// (sudah difilter — dibaca tampilan daftar BATCH dan popup Kelola)
+/// + daftar bulan + status scan.
+fn push_reguler_to_ui(
     ui: &AppWindow,
     st: &batch::BatchState,
     scan: &RegulerScanState,
     run_active: bool,
     batch_win: &BatchWinCell,
 ) {
-    push_reguler_popup_to_ui_inner(ui, st, scan, run_active);
+    push_reguler_to_ui_inner(ui, st, scan, run_active);
     sync_batch_to_open_window(batch_win, ui);
 }
 
-/// Isi push_reguler_popup_to_ui tanpa sinkronisasi window terlepas
+/// Isi push_reguler_to_ui tanpa sinkronisasi window terlepas
 /// (alasan sama seperti push_batch_to_ui_inner).
-fn push_reguler_popup_to_ui_inner(
+fn push_reguler_to_ui_inner(
     ui: &AppWindow,
     st: &batch::BatchState,
     scan: &RegulerScanState,
@@ -3542,7 +3718,6 @@ fn push_reguler_popup_to_ui_inner(
         format!("{} sekolah", filtered.len())
     };
     ui.set_reguler_scan_status(slint::SharedString::from(status.as_str()));
-    ui.set_reguler_selected_row(-1);
 }
 
 /// Dorong daftar tugas Task Manager ke Slint (dipanggil dari
@@ -3818,12 +3993,6 @@ fn ensure_batch_window(
             }
         });
         let ui_weak = ui.as_weak();
-        w.on_batch_phase1(move || {
-            if let Some(ui) = ui_weak.upgrade() {
-                ui.invoke_batch_phase1();
-            }
-        });
-        let ui_weak = ui.as_weak();
         w.on_batch_copy_master(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 ui.invoke_batch_copy_master();
@@ -3872,9 +4041,27 @@ fn ensure_batch_window(
             }
         });
         let ui_weak = ui.as_weak();
-        w.on_batch_reguler_load_selected(move || {
+        w.on_batch_list_open_school(move |a| {
             if let Some(ui) = ui_weak.upgrade() {
-                ui.invoke_batch_reguler_load_selected();
+                ui.invoke_batch_list_open_school(a);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_working_set_picked(move |a| {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_working_set_picked(a);
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_back_to_list(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_back_to_list();
+            }
+        });
+        let ui_weak = ui.as_weak();
+        w.on_batch_reguler_refresh(move || {
+            if let Some(ui) = ui_weak.upgrade() {
+                ui.invoke_batch_reguler_refresh();
             }
         });
         let ui_weak = ui.as_weak();
@@ -3938,12 +4125,6 @@ fn ensure_batch_window(
             }
         });
         let ui_weak = ui.as_weak();
-        w.on_batch_reguler_picked(move |a| {
-            if let Some(ui) = ui_weak.upgrade() {
-                ui.invoke_batch_reguler_picked(a);
-            }
-        });
-        let ui_weak = ui.as_weak();
         w.on_batch_reguler_remove(move |a| {
             if let Some(ui) = ui_weak.upgrade() {
                 ui.invoke_batch_reguler_remove(a);
@@ -3965,12 +4146,6 @@ fn ensure_batch_window(
         w.on_batch_reguler_month_picked(move |a| {
             if let Some(ui) = ui_weak.upgrade() {
                 ui.invoke_batch_reguler_month_picked(a);
-            }
-        });
-        let ui_weak = ui.as_weak();
-        w.on_batch_reguler_row_clicked(move |a| {
-            if let Some(ui) = ui_weak.upgrade() {
-                ui.invoke_batch_reguler_row_clicked(a);
             }
         });
         // OS x (chrome native) -> dock juga, bukan tutup proses.
@@ -4130,7 +4305,7 @@ fn batch_task_followup_ui(
         let has_manifest = st.lock().unwrap().has_manifest;
         if !has_manifest {
             ui.set_toast(slint::SharedString::from(
-                "Manifest belum ada — jalankan Fase 1 (buat_master.py) dulu.",
+                "Manifest belum ada — jalankan script buat_master dulu.",
             ));
             return;
         }
@@ -5422,6 +5597,15 @@ fn main() -> Result<(), slint::PlatformError> {
                 if let Some(v) = g.get("Batch.FolderReguler.Active") {
                     st.reguler_active = v.clone();
                 }
+                if let Some(v) = g.get("Batch.WorkingSet") {
+                    if let Ok(list) = serde_json::from_str::<Vec<batch::WorkingSetEntry>>(v.as_str()) {
+                        st.working_set = list
+                            .into_iter()
+                            .filter(|e| !e.path.trim().is_empty())
+                            .take(batch::WORKING_SET_MAX)
+                            .collect();
+                    }
+                }
             }
         }
     }
@@ -5493,6 +5677,61 @@ fn main() -> Result<(), slint::PlatformError> {
     let reguler_scan_rx: Arc<
         Mutex<Option<std::sync::mpsc::Receiver<(String, Vec<batch::RegulerRow>)>>>,
     > = Arc::new(Mutex::new(None));
+
+    // Daftar Folder Reguler = tampilan awal BATCH (28 Nov 2026):
+    // tampil INSTAN dari cache scan terakhir (DB), lalu worker latar
+    // refresh inkremental (hanya bulan yang mtime-nya berubah).
+    // Tanpa cache (baru pertama kali / ganti direktori) → scan penuh.
+    {
+        let dir = {
+            let s = batch_state.lock().unwrap();
+            if !s.reguler_active.is_empty()
+                && s.reguler_dirs.iter().any(|d| d.path == s.reguler_active)
+            {
+                s.reguler_active.clone()
+            } else {
+                s.reguler_dirs
+                    .first()
+                    .map(|d| d.path.clone())
+                    .unwrap_or_default()
+            }
+        };
+        if !dir.is_empty() && std::path::Path::new(&dir).is_dir() {
+            let cache = load_reguler_cache(&db);
+            let cache_hit = cache.as_ref().map(|c| c.dir == dir).unwrap_or(false);
+            if cache_hit {
+                let cache = cache.unwrap();
+                {
+                    let mut sc = reguler_scan_state.lock().unwrap();
+                    sc.dir = dir.clone();
+                    sc.all = cache.rows.clone();
+                    sc.scanning = false;
+                }
+                // Dorong daftar dari cache sekarang (tampil instan).
+                {
+                    let s = batch_state.lock().unwrap();
+                    let sc = reguler_scan_state.lock().unwrap();
+                    push_reguler_to_ui_inner(&ui, &s, &sc, false);
+                }
+                spawn_reguler_incremental(
+                    dir,
+                    cache,
+                    db.clone(),
+                    batch_state.clone(),
+                    reguler_scan_state.clone(),
+                    ui.as_weak(),
+                    batch_win_cell.clone(),
+                );
+            } else {
+                {
+                    let mut sc = reguler_scan_state.lock().unwrap();
+                    sc.dir = dir.clone();
+                    sc.scanning = true;
+                }
+                spawn_reguler_scan(&dir, &reguler_scan_rx);
+            }
+        }
+    }
 
     // Task Manager — window OS terpisah (tahap 5): cell + flag tampil,
     // pola sama seperti sheet_win / DynamicBarWindow (buka-ulang selalu
@@ -7021,9 +7260,11 @@ fn main() -> Result<(), slint::PlatformError> {
         let ui_weak = ui.as_weak();
         let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
+        let db_c = db.clone();
         ui.on_batch_pick_folder(move || {
             let ui_w = ui_weak.clone();
             let st_c = st.clone();
+            let db_cc = db_c.clone();
             // Weak (Send) — Rc di BatchWinCell tidak boleh masuk thread.
             let batch_w = batch_c.borrow().as_ref().map(|w| w.as_weak());
             std::thread::spawn(move || {
@@ -7050,6 +7291,10 @@ fn main() -> Result<(), slint::PlatformError> {
                                 )
                             }
                         };
+                        // Working set ikut berubah (add_folder mencatat
+                        // sumber baru) — klon SEBELUM st_c dipindah ke
+                        // closure event-loop di bawah.
+                        let ws = st_c.lock().unwrap().working_set.clone();
                         let _ = ui_w.upgrade_in_event_loop(move |ui| {
                             {
                                 let s = st_c.lock().unwrap();
@@ -7062,6 +7307,7 @@ fn main() -> Result<(), slint::PlatformError> {
                             }
                             ui.set_toast(slint::SharedString::from(msg));
                         });
+                        persist_working_set(&db_cc, &ws);
                     }
                     platform::PickResult::Cancelled => {}
                     platform::PickResult::Unavailable(e) => {
@@ -7081,6 +7327,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let ui_weak = ui.as_weak();
         let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
+        let db_c = db.clone();
         ui.on_batch_add_folder(move |path| {
             let p = std::path::PathBuf::from(path.to_string());
             let msg = {
@@ -7097,6 +7344,9 @@ fn main() -> Result<(), slint::PlatformError> {
                     )
                 }
             };
+            // Working set ikut berubah — simpan.
+            let ws = st.lock().unwrap().working_set.clone();
+            persist_working_set(&db_c, &ws);
             if let Some(ui) = ui_weak.upgrade() {
                 push_batch_to_ui(&ui, &st.lock().unwrap(), &batch_c);
                 ui.set_toast(slint::SharedString::from(msg));
@@ -7646,100 +7896,20 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     }
     {
-        // -- Folder Reguler: pilih dari dropdown → jadi SOURCE aktif. --
-        let ui_weak = ui.as_weak();
-        let batch_c = batch_win_cell.clone();
-        let st = batch_state.clone();
-        let db_c = db.clone();
-        ui.on_batch_reguler_picked(move |idx| {
-            let dir = {
-                let s = st.lock().unwrap();
-                s.reguler_dirs.get(idx as usize).cloned()
-            };
-            let Some(dir) = dir else {
-                return;
-            };
-            let path = dir.path.clone();
-            let p = std::path::PathBuf::from(&path);
-            let msg = {
-                let mut s = st.lock().unwrap();
-                if !p.is_dir() {
-                    format!("Folder Reguler tidak ditemukan: {}", path)
-                } else {
-                    s.reguler_active = path.clone();
-                    // Pulihkan konteks output direktori ini (bila ada) —
-                    // master_creator mengingat output per direktori.
-                    let mut restored = String::new();
-                    if !dir.last_output.trim().is_empty() && dir.last_output != s.local_output {
-                        restored = dir.last_output.clone();
-                        s.local_output = restored.clone();
-                    }
-                    s.add_folder(&p);
-                    let name = p
-                        .file_name()
-                        .map(|n| n.to_string_lossy().into_owned())
-                        .unwrap_or(path.clone());
-                    if restored.is_empty() {
-                        format!("Folder Reguler: {}", name)
-                    } else {
-                        format!("Folder Reguler: {} — Output: {}", name, restored)
-                    }
-                }
-            };
-            if let Some(ref dbm) = db_c {
-                if let Ok(mut g) = dbm.lock() {
-                    let _ = g.set("Batch.FolderReguler.Active", &path, "String");
-                    // Simpan juga LocalOutput bila dipulihkan dari dir ini.
-                    let lo = st.lock().unwrap().local_output.clone();
-                    if !lo.trim().is_empty() {
-                        let _ = g.set("Paths.LocalOutput", &lo, "String");
-                    }
-                }
-            }
-            if let Some(ui) = ui_weak.upgrade() {
-                push_batch_to_ui(&ui, &st.lock().unwrap(), &batch_c);
-                ui.set_toast(slint::SharedString::from(msg));
-            }
-        });
-    }
-    {
-        // -- Folder Reguler: buka popup Kelola (tahap 4). Scan direktori
-        // aktif (atau pertama) di thread latar; daftar + tabel sekolah
-        // didorong ke UI oleh push_reguler_popup_to_ui.
+        // -- Folder Reguler: buka popup Kelola (manajemen direktori
+        // saja — daftar sekolah sudah di tampilan utama, dari cache /
+        // scan latar; membuka popup TIDAK memindai ulang).
         let ui_weak = ui.as_weak();
         let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         let scan = reguler_scan_state.clone();
-        let rxh = reguler_scan_rx.clone();
         let handle = batch_run_handle.clone();
         ui.on_batch_reguler_manage(move || {
             let Some(ui) = ui_weak.upgrade() else {
                 return;
             };
-            let dir = {
-                let s = st.lock().unwrap();
-                if !s.reguler_active.is_empty()
-                    && s.reguler_dirs.iter().any(|d| d.path == s.reguler_active)
-                {
-                    s.reguler_active.clone()
-                } else {
-                    s.reguler_dirs
-                        .first()
-                        .map(|d| d.path.clone())
-                        .unwrap_or_default()
-                }
-            };
-            {
-                let mut sc = scan.lock().unwrap();
-                sc.dir = dir.clone();
-                sc.all.clear();
-                sc.scanning = !dir.is_empty();
-            }
-            if !dir.is_empty() {
-                spawn_reguler_scan(&dir, &rxh);
-            }
             let run_active = handle.is_running();
-            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active, &batch_c);
+            push_reguler_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active, &batch_c);
             ui.set_reguler_manage_open(true);
             sync_batch_to_open_window(&batch_c, &ui);
         });
@@ -7794,7 +7964,7 @@ fn main() -> Result<(), slint::PlatformError> {
                         };
                         let _ = ui_w.upgrade_in_event_loop(move |ui| {
                             let run_active = handle_c.is_running();
-                            push_reguler_popup_to_ui_inner(
+                            push_reguler_to_ui_inner(
                                 &ui,
                                 &st_c.lock().unwrap(),
                                 &scan_c.lock().unwrap(),
@@ -7847,7 +8017,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 }
             };
             let run_active = handle.is_running();
-            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active, &batch_c);
+            push_reguler_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active, &batch_c);
             push_batch_to_ui(&ui, &st.lock().unwrap(), &batch_c);
             ui.set_toast(slint::SharedString::from(msg));
         });
@@ -7872,14 +8042,16 @@ fn main() -> Result<(), slint::PlatformError> {
                 persist_reguler_dirs(&db_c, &s.reguler_dirs);
             }
             let run_active = handle.is_running();
-            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active, &batch_c);
+            push_reguler_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active, &batch_c);
         });
     }
     {
-        // -- Folder Reguler: pilih direktori → scan ulang latar.
+        // -- Folder Reguler: pilih direktori → tampil dari cache bila
+        // ada (lalu refresh inkremental), kalau tidak scan penuh.
         let ui_weak = ui.as_weak();
         let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
+        let db_c = db.clone();
         let scan = reguler_scan_state.clone();
         let rxh = reguler_scan_rx.clone();
         let handle = batch_run_handle.clone();
@@ -7897,15 +8069,38 @@ fn main() -> Result<(), slint::PlatformError> {
             if dir.is_empty() {
                 return;
             }
-            {
-                let mut sc = scan.lock().unwrap();
-                sc.dir = dir.clone();
-                sc.all.clear();
-                sc.scanning = true;
+            let cache = load_reguler_cache(&db_c);
+            let cache_hit = cache.as_ref().map(|c| c.dir == dir).unwrap_or(false);
+            if cache_hit {
+                let cache = cache.unwrap();
+                {
+                    let mut sc = scan.lock().unwrap();
+                    sc.dir = dir.clone();
+                    sc.all = cache.rows.clone();
+                    sc.scanning = false;
+                }
+                let run_active = handle.is_running();
+                push_reguler_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active, &batch_c);
+                spawn_reguler_incremental(
+                    dir,
+                    cache,
+                    db_c.clone(),
+                    st.clone(),
+                    scan.clone(),
+                    ui_weak.clone(),
+                    batch_c.clone(),
+                );
+            } else {
+                {
+                    let mut sc = scan.lock().unwrap();
+                    sc.dir = dir.clone();
+                    sc.all.clear();
+                    sc.scanning = true;
+                }
+                spawn_reguler_scan(&dir, &rxh);
+                let run_active = handle.is_running();
+                push_reguler_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active, &batch_c);
             }
-            spawn_reguler_scan(&dir, &rxh);
-            let run_active = handle.is_running();
-            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active, &batch_c);
         });
     }
     {
@@ -7924,7 +8119,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 sc.filter = text.to_string();
             }
             let run_active = handle.is_running();
-            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active, &batch_c);
+            push_reguler_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active, &batch_c);
         });
     }
     {
@@ -7959,111 +8154,97 @@ fn main() -> Result<(), slint::PlatformError> {
                 }
             }
             let run_active = handle.is_running();
-            push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active, &batch_c);
+            push_reguler_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active, &batch_c);
         });
     }
     {
-        // -- Folder Reguler: klik baris sekolah (klik ganda = jadikan
-        // SOURCE). Klik tunggal hanya menandai baris.
+        // -- Folder Reguler (daftar): klik satu kali pada baris sekolah
+        // = pilih sekolah itu dan pindah ke treeview (jalur cepat,
+        // seperti pilih direktori di master_creator). Resolusi PILIHAN
+        // di load_school_as_source.
         let ui_weak = ui.as_weak();
         let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         let db_c = db.clone();
         let scan = reguler_scan_state.clone();
-        ui.on_batch_reguler_row_clicked(move |idx| {
+        ui.on_batch_list_open_school(move |idx| {
             let Some(ui) = ui_weak.upgrade() else {
                 return;
             };
-            let (path, school) = {
+            let (path, school, dir) = {
                 let sc = scan.lock().unwrap();
                 let rows = batch::filter_reguler_rows(&sc.all, &sc.filter, &sc.month);
                 match rows.get(idx as usize) {
-                    Some(r) => (r.path.clone(), r.sekolah.clone()),
+                    Some(r) => (r.path.clone(), r.sekolah.clone(), sc.dir.clone()),
                     None => return,
                 }
             };
-            let is_dbl = batch::is_double_click(
-                &mut BATCH_LAST_CLICK.lock().unwrap(),
-                "REGULER",
-                &path,
-                std::time::Instant::now(),
-            );
-            if is_dbl {
-                let dir = scan.lock().unwrap().dir.clone();
-                let msg = {
-                    let mut s = st.lock().unwrap();
-                    let p = std::path::PathBuf::from(&path);
-                    if !p.is_dir() {
-                        format!("Folder sekolah tidak ditemukan: {}", path)
-                    } else {
-                        s.reguler_active = dir.clone();
-                        s.add_folder(&p);
-                        format!("Folder Reguler: {}", school)
-                    }
-                };
-                if let Some(ref dbm) = db_c {
-                    if let Ok(mut g) = dbm.lock() {
-                        let _ = g.set("Batch.FolderReguler.Active", &dir, "String");
-                    }
-                }
-                push_batch_to_ui(&ui, &st.lock().unwrap(), &batch_c);
-                ui.set_reguler_manage_open(false);
-                sync_batch_to_open_window(&batch_c, &ui);
-                ui.set_toast(slint::SharedString::from(msg));
-            } else {
-                ui.set_reguler_selected_row(idx);
-                sync_batch_to_open_window(&batch_c, &ui);
-            }
+            load_school_as_source(&ui, &st, &db_c, &batch_c, &path, &school, Some(&dir));
         });
     }
     {
-        // -- Folder Reguler: tombol "Jadikan Source" — baris sekolah
-        // terpilih jadi SOURCE BATCH, popup tertutup.
+        // -- Treeview: ganti sekolah via dropdown working set.
         let ui_weak = ui.as_weak();
         let batch_c = batch_win_cell.clone();
         let st = batch_state.clone();
         let db_c = db.clone();
-        let scan = reguler_scan_state.clone();
-        ui.on_batch_reguler_load_selected(move || {
+        ui.on_batch_working_set_picked(move |idx| {
             let Some(ui) = ui_weak.upgrade() else {
                 return;
             };
-            let idx = ui.get_reguler_selected_row();
-            if idx < 0 {
-                ui.set_toast(slint::SharedString::from(
-                    "Pilih satu baris sekolah dulu.",
-                ));
-                return;
-            }
-            let (path, school) = {
-                let sc = scan.lock().unwrap();
-                let rows = batch::filter_reguler_rows(&sc.all, &sc.filter, &sc.month);
-                match rows.get(idx as usize) {
-                    Some(r) => (r.path.clone(), r.sekolah.clone()),
-                    None => return,
-                }
+            let entry = {
+                let s = st.lock().unwrap();
+                s.working_set.get(idx as usize).cloned()
             };
-            let dir = scan.lock().unwrap().dir.clone();
-            let msg = {
+            let Some(entry) = entry else {
+                return;
+            };
+            load_school_as_source(&ui, &st, &db_c, &batch_c, &entry.path, &entry.name, None);
+        });
+    }
+    {
+        // -- Treeview: kembali ke daftar Folder Reguler (SOURCE
+        // dikosongkan; working set tetap tersimpan).
+        let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
+        let st = batch_state.clone();
+        ui.on_batch_back_to_list(move || {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            {
                 let mut s = st.lock().unwrap();
-                let p = std::path::PathBuf::from(&path);
-                if !p.is_dir() {
-                    format!("Folder sekolah tidak ditemukan: {}", path)
-                } else {
-                    s.reguler_active = dir.clone();
-                    s.add_folder(&p);
-                    format!("Folder Reguler: {}", school)
-                }
-            };
-            if let Some(ref dbm) = db_c {
-                if let Ok(mut g) = dbm.lock() {
-                    let _ = g.set("Batch.FolderReguler.Active", &dir, "String");
-                }
+                s.clear();
             }
             push_batch_to_ui(&ui, &st.lock().unwrap(), &batch_c);
-            ui.set_reguler_manage_open(false);
             sync_batch_to_open_window(&batch_c, &ui);
-            ui.set_toast(slint::SharedString::from(msg));
+        });
+    }
+    {
+        // -- Folder Reguler: tombol Refresh (↻) — paksa scan penuh
+        // direktori aktif (abaikan cache), lalu simpan cache baru.
+        let ui_weak = ui.as_weak();
+        let batch_c = batch_win_cell.clone();
+        let st = batch_state.clone();
+        let scan = reguler_scan_state.clone();
+        let rxh = reguler_scan_rx.clone();
+        let handle = batch_run_handle.clone();
+        ui.on_batch_reguler_refresh(move || {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            let dir = scan.lock().unwrap().dir.clone();
+            if dir.is_empty() {
+                ui.set_toast(slint::SharedString::from("Pilih direktori dulu (Kelola)."));
+                return;
+            }
+            {
+                let mut sc = scan.lock().unwrap();
+                sc.scanning = true;
+            }
+            spawn_reguler_scan(&dir, &rxh);
+            let run_active = handle.is_running();
+            push_reguler_to_ui(&ui, &st.lock().unwrap(), &scan.lock().unwrap(), run_active, &batch_c);
         });
     }
     {
@@ -8114,36 +8295,6 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     }
     {
-        // -- Fase 1 (DESIGN_SYSTEM.md §16.4): buat_master.py -> has-manifest.
-        // Sukses semua root = "Manifest: ada". --
-        let ui_weak = ui.as_weak();
-        let batch_c = batch_win_cell.clone();
-        let handle = batch_run_handle.clone();
-        let st = batch_state.clone();
-        let db_c = db.clone();
-        let pl = proc_log.clone();
-        let task_cell = task_win.clone();
-        let task_visible = task_win_visible.clone();
-        ui.on_batch_phase1(move || {
-            let Some(ui) = ui_weak.upgrade() else {
-                return;
-            };
-            if let Err(msg) = batch_start_run(
-                &ui,
-                &handle,
-                &db_c,
-                &st,
-                &pl,
-                &task_cell,
-                &task_visible,
-                "buat_master.py",
-                &batch_c,
-            ) {
-                ui.set_toast(slint::SharedString::from(msg));
-            }
-        });
-    }
-    {
         // -- Stop (C# KillProcess): bunuh tree wrapper + python. --
         let ui_weak = ui.as_weak();
         let handle = batch_run_handle.clone();
@@ -8178,7 +8329,7 @@ fn main() -> Result<(), slint::PlatformError> {
             let has_manifest = st.lock().unwrap().has_manifest;
             if !has_manifest {
                 ui.set_toast(slint::SharedString::from(
-                    "Manifest belum ada — jalankan Fase 1 (buat_master.py) dulu.",
+                    "Manifest belum ada — jalankan script buat_master dulu.",
                 ));
                 return;
             }
@@ -13611,8 +13762,9 @@ fn main() -> Result<(), slint::PlatformError> {
     );
 
     // Folder Reguler: kuras hasil scan latar tiap 250ms (pola
-    // _batch_exec_timer). Hasil scan masuk ke popup Kelola bila popup
-    // sedang terbuka; bulan dipilih ulang dari hasil scan.
+    // _batch_exec_timer). Hasil scan masuk ke daftar BATCH + popup
+    // Kelola; bulan dipilih ulang dari hasil scan. Scan penuh yang
+    // selesai juga menyimpan cache (DB) untuk buka instan berikutnya.
     let _reguler_scan_timer = slint::Timer::default();
     _reguler_scan_timer.start(
         slint::TimerMode::Repeated,
@@ -13624,13 +13776,14 @@ fn main() -> Result<(), slint::PlatformError> {
             let rxh = reguler_scan_rx.clone();
             let handle = batch_run_handle.clone();
             let batch_c = batch_win_cell.clone();
+            let db_c = db.clone();
             move || {
                 let Some(ui) = ui_weak.upgrade() else {
                     return;
                 };
-                if !ui.get_reguler_manage_open() {
-                    return;
-                }
+                // Hasil scan didorong SELALU (bukan hanya saat popup
+                // Kelola terbuka): daftar Folder Reguler di tampilan
+                // awal BATCH membaca baris yang sama (28 Nov 2026).
                 let mut rx_guard = rxh.lock().unwrap();
                 let Some(rx) = rx_guard.as_mut() else {
                     return;
@@ -13647,10 +13800,24 @@ fn main() -> Result<(), slint::PlatformError> {
                     if sc.dir != dir {
                         return;
                     }
-                    sc.all = rows;
+                    sc.all = rows.clone();
                     sc.scanning = false;
+                    // Simpan cache scan penuh (buka instan berikutnya).
+                    let cache = batch::RegulerCache {
+                        dir: dir.clone(),
+                        scanned_at: batch::now_unix(),
+                        months: batch::reguler_month_fingerprints(std::path::Path::new(&dir)),
+                        rows,
+                    };
+                    eprintln!(
+                        "[reguler-scan] {}: scan penuh selesai, {} baris, {} bulan — cache disimpan",
+                        dir,
+                        cache.rows.len(),
+                        cache.months.len()
+                    );
+                    save_reguler_cache(&db_c, &cache);
                     let run_active = handle.is_running();
-                    push_reguler_popup_to_ui(&ui, &st.lock().unwrap(), &sc, run_active, &batch_c);
+                    push_reguler_to_ui(&ui, &st.lock().unwrap(), &sc, run_active, &batch_c);
                 }
             }
         },
