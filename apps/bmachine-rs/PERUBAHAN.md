@@ -1,3 +1,12 @@
+## 2026-11-28 — Dex — Trello polish ronde 2 (item 5): label kartu dari API di-strip Markdown (chip tidak mentah)
+
+- Diubah:
+  - **`src/main.rs` — helper baru `trello_label_plain` + 6 titik pengisi label di `spawn_trello_sync` (EDITING/REVISION/LATE, label-1 + label-2):** nama label kini lewat `markdown::plain_first_line` sebelum masuk model — `**5 NOVEMBER 2026**` → `5 NOVEMBER 2026`. Berlaku di semua permukaan (chip atas detail, chip label bawah meta, CardListWindow — semuanya membaca model yang sama).
+  - **`DESIGN_SYSTEM.md` §15.2 (Markdown):** catatan strip label.
+- Alasan: label dari API Trello bisa mengandung sintaks Markdown; chip menampilkannya mentah.
+- Terverifikasi: `cargo build --offline` exit 0; `cargo test --offline` **192 passed**, 0 failed, 1 ignored (strip `**` sudah di-cover tes `plain_first_line_strips_markdown`). GUI Xvfb :98, APPDATA terisolasi `appdata-trello2` + mock port 18082 (label kartu-a `**5 NOVEMBER 2026**` + `JAKSEL 2 (ASRIL)`): detail menampilkan chip `5 NOVEMBER 2026` + `JAKSEL 2 (ASRIL)` tanpa `**` di kedua tempat chip muncul (`trello2-13-detail`).
+- Masih terbuka: belum diuji di PC Windows asli + data Trello asli.
+
 ## 2026-11-28 — Dex — Trello polish ronde 2 (item 2): klik-kanan di checkbox baris embedded = kembali ke dashboard
 
 - Diubah:

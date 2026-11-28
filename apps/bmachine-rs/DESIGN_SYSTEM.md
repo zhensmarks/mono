@@ -1141,7 +1141,10 @@ simpan ke `edited_descs` (Arc<Mutex<HashMap>>) yang menang
 atas deskripsi API di `spawn_trello_sync` + refresh
 berikutnya; komentar via toolbar + input multi-line di
 sub-panel Comments / CommentWindow (Enter = baris baru,
-kirim hanya tombol `→` / quick-reply). Berlaku di SEMUA
+kirim hanya tombol `→` / quick-reply). **Label kartu dari
+API di-strip Markdown-nya saat sync** (`trello_label_plain`
+→ `plain_first_line`) — chip label menampilkan teks polos,
+bukan sintaks mentah seperti `**5 NOVEMBER 2026**`. Berlaku di SEMUA
 tempat: detail embedded, detail CardListWindow, CommentWindow
 — CardListWindow punya salinan `card-desc`/`card-ids`/
 `card-urls`/`card-label1/2`/`card-atts` + callback

@@ -6913,6 +6913,22 @@ fn main() -> Result<(), slint::PlatformError> {
         }
     }
 
+    /// Nama label kartu Trello sebagai teks polos — nama label dari
+    /// API bisa mengandung sintaks Markdown (mis. "**5 NOVEMBER
+    /// 2026**"); chip label menampilkan teks polos, bukan sintaks
+    /// mentah (trello2, item 5).
+    fn trello_label_plain(
+        labels: &Option<Vec<trello_api::TrelloLabel>>,
+        idx: usize,
+    ) -> String {
+        let raw = labels
+            .as_ref()
+            .and_then(|l| l.get(idx))
+            .and_then(|l| l.name.clone())
+            .unwrap_or_default();
+        markdown::plain_first_line(&raw)
+    }
+
     // Deskripsi efektif kartu: hasil edit lokal (edited_descs) bila
     // ada, else deskripsi dari API Trello.
     fn trello_effective_desc(
@@ -7058,27 +7074,11 @@ fn main() -> Result<(), slint::PlatformError> {
                         // (ref trello-sidepanel-ref.jpg, 28 Nov 2026).
                         let label1s: Vec<slint::SharedString> = cards
                             .iter()
-                            .map(|c| {
-                                let n = c
-                                    .labels
-                                    .as_ref()
-                                    .and_then(|l| l.first())
-                                    .and_then(|l| l.name.clone())
-                                    .unwrap_or_default();
-                                slint::SharedString::from(n)
-                            })
+                            .map(|c| slint::SharedString::from(trello_label_plain(&c.labels, 0)))
                             .collect();
                         let label2s: Vec<slint::SharedString> = cards
                             .iter()
-                            .map(|c| {
-                                let n = c
-                                    .labels
-                                    .as_ref()
-                                    .and_then(|l| l.get(1))
-                                    .and_then(|l| l.name.clone())
-                                    .unwrap_or_default();
-                                slint::SharedString::from(n)
-                            })
+                            .map(|c| slint::SharedString::from(trello_label_plain(&c.labels, 1)))
                             .collect();
                         let atts: Vec<i32> = cards
                             .iter()
@@ -7194,27 +7194,11 @@ fn main() -> Result<(), slint::PlatformError> {
                         // (ref trello-sidepanel-ref.jpg, 28 Nov 2026).
                         let label1s: Vec<slint::SharedString> = cards
                             .iter()
-                            .map(|c| {
-                                let n = c
-                                    .labels
-                                    .as_ref()
-                                    .and_then(|l| l.first())
-                                    .and_then(|l| l.name.clone())
-                                    .unwrap_or_default();
-                                slint::SharedString::from(n)
-                            })
+                            .map(|c| slint::SharedString::from(trello_label_plain(&c.labels, 0)))
                             .collect();
                         let label2s: Vec<slint::SharedString> = cards
                             .iter()
-                            .map(|c| {
-                                let n = c
-                                    .labels
-                                    .as_ref()
-                                    .and_then(|l| l.get(1))
-                                    .and_then(|l| l.name.clone())
-                                    .unwrap_or_default();
-                                slint::SharedString::from(n)
-                            })
+                            .map(|c| slint::SharedString::from(trello_label_plain(&c.labels, 1)))
                             .collect();
                         let atts: Vec<i32> = cards
                             .iter()
@@ -7330,27 +7314,11 @@ fn main() -> Result<(), slint::PlatformError> {
                         // (ref trello-sidepanel-ref.jpg, 28 Nov 2026).
                         let label1s: Vec<slint::SharedString> = cards
                             .iter()
-                            .map(|c| {
-                                let n = c
-                                    .labels
-                                    .as_ref()
-                                    .and_then(|l| l.first())
-                                    .and_then(|l| l.name.clone())
-                                    .unwrap_or_default();
-                                slint::SharedString::from(n)
-                            })
+                            .map(|c| slint::SharedString::from(trello_label_plain(&c.labels, 0)))
                             .collect();
                         let label2s: Vec<slint::SharedString> = cards
                             .iter()
-                            .map(|c| {
-                                let n = c
-                                    .labels
-                                    .as_ref()
-                                    .and_then(|l| l.get(1))
-                                    .and_then(|l| l.name.clone())
-                                    .unwrap_or_default();
-                                slint::SharedString::from(n)
-                            })
+                            .map(|c| slint::SharedString::from(trello_label_plain(&c.labels, 1)))
                             .collect();
                         let atts: Vec<i32> = cards
                             .iter()
