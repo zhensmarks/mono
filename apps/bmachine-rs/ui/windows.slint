@@ -2,9 +2,9 @@
 // Sesuai arsitektur C# (SpreadsheetWindow.axaml & CardListWindow.axaml)
 // Dibuka saat pengguna mengklik tanda panah widget atau tombol "Buka Window Baru".
 
-import { Design, Btn, SvgIcon, TextField, WindowControls } from "design.slint";
+import { Design, Btn, IconBtn, SvgIcon, TextField, WindowControls, HSeparator } from "design.slint";
 import { SpreadsheetComponent } from "spreadsheet.slint";
-import { TrelloDetailPanel } from "trello-detail.slint";
+import { TrelloDetailPanel, CommentRow } from "trello-detail.slint";
 import { RadialMenuView } from "radial.slint";
 import { ToolboxView } from "modul.slint";
 
@@ -660,6 +660,16 @@ export component CardListWindow inherits Window {
     // (CompactThreshold 800 di C#) — daftar/detail TIDAK PERNAH
     // berdampingan di window ini.
     in-out property <int> selected-idx: -1;
+    // Komentar detail (in-out supaya Rust bisa membaca/menulis draft
+    // saat CommentWindow dibuka/ditutup — sinkronisasi bolak-balik,
+    // sama seperti AppWindow.detail-draft-*).
+    in-out property <int> detail-added-count: 0;
+    in-out property <string> detail-draft-1: "";
+    in-out property <string> detail-draft-2: "";
+    in-out property <string> detail-draft-3: "";
+    // Buka komentar kartu terpilih di CommentWindow (dari segmen
+    // panah split button Comment di detail).
+    callback open-comment-window();
 
     // Data Kartu Trello (kosong — diisi Rust saat sync Trello pertama).
     in-out property <[string]> card-titles: [];
@@ -951,9 +961,316 @@ export component CardListWindow inherits Window {
                     accent: root.category-accent;
                     done: root.card-done[root.selected-idx];
                     description: "Edit pas foto sekolah — crop, centering kepala di guide, logo terlihat rapi dan warna seimbang.";
+                    added-count <=> root.detail-added-count;
+                    draft-1 <=> root.detail-draft-1;
+                    draft-2 <=> root.detail-draft-2;
+                    draft-3 <=> root.detail-draft-3;
+                    open-comment-window => { root.open-comment-window(); }
                     close() => { root.selected-idx = -1; root.toast("Detail ditutup"); }
                 }
             }
+                }
+            }
+        }
+    }
+}
+
+// ============================================================
+// COMMENT WINDOW — Komentar kartu di window OS terpisah.
+// C# CommentWindow.axaml: 400×600, CenterScreen, Topmost, judul
+// "Comments". Dibuka dari segmen panah (▸) split button Comment
+// di detail kartu (C# OnOpenCommentWindowClicked: muat komentar
+// kartu yang diklik dulu, buka window, tutup panel inline).
+// Isi = CommentListView yang sama dengan panel Comments inline
+// (daftar + quick reply + input); state komentar DIBAGI dengan
+// detail pembuka — Rust mengisi added-count/draft-* saat dibuka
+// dan menulisnya balik saat ditutup (mockup; API Trello asli
+// Fase 6: fetch komentar + kirim via POST actions/comments).
+// ============================================================
+export component CommentWindow inherits Window {
+    title: "Comments";
+    width: 400px;
+    height: 600px;
+    background: Design.app-bg;
+    default-font-family: Design.font-family;
+    // C# Topmost=true.
+    always-on-top: true;
+    // Chrome window (lihat DESIGN_SYSTEM.md §23): "native" = chrome
+    // bawaan OS, lainnya frameless + titlebar kustom di bawah.
+    no-frame: root.chrome-style != "native";
+    in-out property <string> chrome-style: "custom";
+    in-out property <string> chrome-button-style: "icons";
+    in-out property <string> chrome-button-position: "right";
+
+    // Kartu yang komentarnya dibuka (diisi Rust saat dibuka).
+    in-out property <string> card-title: "";
+    in-out property <string> event-date: "";
+    // Nama + inisial user aktif (author komentar baru).
+    in-out property <string> user-name: "USER";
+    in-out property <string> user-initial: "U";
+    // Komentar tambahan (dibagi dengan detail pembuka; maks 3).
+    in-out property <int> added-count: 0;
+    in-out property <string> draft-1: "";
+    in-out property <string> draft-2: "";
+    in-out property <string> draft-3: "";
+    // Tampilkan aktivitas (C#: ToggleShowActivityCommand — di port
+    // hanya toggle + toast, belum ada data aktivitas).
+    in-out property <bool> show-activity: true;
+
+    callback close-window();
+    callback minimize-window();
+    callback maximize-window();
+    callback move-window(length, length);
+    callback toast(string);
+    callback send-comment();
+
+    property <string> comment-draft: "";
+
+    send-comment => {
+        if (root.comment-draft == "") {
+            root.toast("Tulis komentar dulu");
+        } else if (root.added-count == 0) {
+            root.draft-1 = root.comment-draft;
+            root.added-count = 1;
+            root.comment-draft = "";
+        } else if (root.added-count == 1) {
+            root.draft-2 = root.comment-draft;
+            root.added-count = 2;
+            root.comment-draft = "";
+        } else if (root.added-count == 2) {
+            root.draft-3 = root.comment-draft;
+            root.added-count = 3;
+            root.comment-draft = "";
+        } else {
+            root.toast("Maks 3 komentar tambahan (mockup)");
+        }
+    }
+
+    // Drag strip mode headless (tanpa titlebar): seret 28px teratas
+    // konten (di bawah elemen interaktif — header tetap menerima
+    // kliknya sendiri).
+    if root.chrome-style == "headless" : TouchArea {
+        x: 0; y: 0;
+        width: 100%;
+        height: 28px;
+        property <length> press-x: 0px;
+        property <length> press-y: 0px;
+        property <bool> dragging: false;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                self.press-x = self.mouse-x;
+                self.press-y = self.mouse-y;
+                self.dragging = true;
+            } else if (ev.kind == PointerEventKind.up) {
+                self.dragging = false;
+            } else if (ev.kind == PointerEventKind.move && self.dragging) {
+                root.move-window(self.mouse-x - self.press-x, self.mouse-y - self.press-y);
+            }
+        }
+    }
+
+    VerticalLayout {
+        padding: 0;
+        spacing: 0;
+
+        // Custom Titlebar (hanya saat chrome "custom" / "wrapped";
+        // saat "native" titlebar OS yang tampil, saat "headless"
+        // tidak ada titlebar sama sekali).
+        if root.chrome-style == "custom" || root.chrome-style == "wrapped" : Rectangle {
+            height: 38px;
+            background: Design.surface-elevated;
+            border-color: Design.separator;
+            border-width: 0.5px;
+
+            comment-drag := TouchArea {
+                x: root.chrome-button-position == "left" ? 130px : 0px;
+                y: 0;
+                width: parent.width - (root.chrome-button-position == "left" ? 130px : 108px);
+                height: 100%;
+                property <length> press-x: 0px;
+                property <length> press-y: 0px;
+                property <bool> dragging: false;
+                pointer-event(ev) => {
+                    if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                        self.press-x = self.mouse-x;
+                        self.press-y = self.mouse-y;
+                        self.dragging = true;
+                    } else if (ev.kind == PointerEventKind.up) {
+                        self.dragging = false;
+                    } else if (ev.kind == PointerEventKind.move && self.dragging) {
+                        root.move-window(self.mouse-x - self.press-x, self.mouse-y - self.press-y);
+                    }
+                }
+                double-clicked => { root.maximize-window(); }
+            }
+
+            HorizontalLayout {
+                padding-left: 14px;
+                padding-right: 14px;
+                spacing: 8px;
+
+                if root.chrome-button-position == "left" : WindowControls {
+                    y: (parent.height - self.height) / 2;
+                    button-style: root.chrome-button-style;
+                    minimize() => { root.minimize-window(); }
+                    maximize() => { root.maximize-window(); }
+                    close() => { root.close-window(); }
+                }
+
+                Text {
+                    text: "Comments";
+                    font-size: Design.font-body;
+                    font-weight: 800;
+                    color: Design.text-primary;
+                    vertical-alignment: center;
+                }
+
+                Rectangle { horizontal-stretch: 1; }
+
+                if root.chrome-button-position == "right" : WindowControls {
+                    y: (parent.height - self.height) / 2;
+                    button-style: root.chrome-button-style;
+                    minimize() => { root.minimize-window(); }
+                    maximize() => { root.maximize-window(); }
+                    close() => { root.close-window(); }
+                }
+            }
+        }
+
+        // Isi (margin 20 ala C#; inset 8px saat chrome "wrapped").
+        VerticalLayout {
+            vertical-stretch: 1;
+            padding: 20px;
+            padding-left: root.chrome-style == "wrapped" ? 28px : 20px;
+            padding-right: root.chrome-style == "wrapped" ? 28px : 20px;
+            spacing: 12px;
+
+            // Header: "Comments" + nama kartu + eye toggle + X.
+            HorizontalLayout {
+                height: 28px;
+                spacing: 8px;
+                Text {
+                    text: "Comments";
+                    font-size: 20px;
+                    font-weight: 600;
+                    color: Design.text-primary;
+                    vertical-alignment: center;
+                }
+                Text {
+                    text: root.card-title;
+                    font-size: 12px;
+                    color: Design.text-secondary;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                }
+                IconBtn {
+                    glyph: root.show-activity ? "◉" : "○";
+                    variant: "ghost";
+                    size: 28px;
+                    clicked => {
+                        root.show-activity = !root.show-activity;
+                        root.toast(root.show-activity ? "Aktivitas ditampilkan" : "Aktivitas disembunyikan");
+                    }
+                }
+                IconBtn {
+                    glyph: "×";
+                    variant: "ghost";
+                    size: 28px;
+                    clicked => { root.close-window(); }
+                }
+            }
+            // Chip tanggal event (C#: chip di bawah nama kartu, hanya
+            // bila kartu punya tanggal).
+            if root.event-date != "" && root.event-date != "—" : Rectangle {
+                height: 26px;
+                width: event-text.preferred-width + 20px;
+                background: Design.card-bg;
+                border-color: Design.separator;
+                border-width: 1px;
+                border-radius: 6px;
+                event-text := Text {
+                    text: root.event-date;
+                    font-size: 11px;
+                    font-weight: 600;
+                    color: Design.text-secondary;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    width: 100%;
+                    height: 100%;
+                }
+            }
+            HSeparator { }
+            // Daftar komentar (sama seperti panel Comments inline).
+            Rectangle {
+                vertical-stretch: 1;
+                clip: true;
+                comments-flick := Flickable {
+                    x: 0; y: 0; width: 100%; height: 100%;
+                    VerticalLayout {
+                        x: 0; width: parent.width;
+                        spacing: 12px;
+                        if root.added-count >= 1 : CommentRow {
+                            author: root.user-name;
+                            time: "baru saja";
+                            body: root.draft-1;
+                            initial: root.user-initial;
+                            avatar-bg: Design.accent;
+                        }
+                        if root.added-count >= 2 : CommentRow {
+                            author: root.user-name;
+                            time: "baru saja";
+                            body: root.draft-2;
+                            initial: root.user-initial;
+                            avatar-bg: Design.accent;
+                        }
+                        if root.added-count >= 3 : CommentRow {
+                            author: root.user-name;
+                            time: "baru saja";
+                            body: root.draft-3;
+                            initial: root.user-initial;
+                            avatar-bg: Design.accent;
+                        }
+                    }
+                }
+            }
+            // Balasan cepat (C#: Quick Replies).
+            HorizontalLayout {
+                height: 28px;
+                spacing: 8px;
+                Btn {
+                    label: "Siap, diperbaiki.";
+                    variant: "ghost";
+                    small: true;
+                    clicked => { root.comment-draft = "Siap, diperbaiki."; }
+                }
+                Btn {
+                    label: "Sudah dicek.";
+                    variant: "ghost";
+                    small: true;
+                    clicked => { root.comment-draft = "Sudah dicek."; }
+                }
+            }
+            HorizontalLayout {
+                height: 36px;
+                spacing: 8px;
+                TextField {
+                    horizontal-stretch: 1;
+                    placeholder: "Write a comment... (@mention)";
+                    text <=> root.comment-draft;
+                    accepted(text) => { root.send-comment(); }
+                }
+                IconBtn {
+                    glyph: "+";
+                    variant: "ghost";
+                    size: 36px;
+                    clicked => { root.toast("Lampirkan file ke komentar (mockup — Fase 6)"); }
+                }
+                IconBtn {
+                    glyph: "→";
+                    variant: "accent";
+                    size: 36px;
+                    clicked => { root.send-comment(); }
                 }
             }
         }

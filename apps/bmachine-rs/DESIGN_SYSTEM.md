@@ -1012,7 +1012,7 @@ Isi detail (C# CardDetailPanelHost): chip kategori + tanggal event
 → judul + × → meta WrapPanel (badge ID "ID: <DisplayId>" klik →
 toast spreadsheet; badge Attachments "Attachments: 0"; badge Due;
 ikon copy-link ⎘ + open-in-browser ↗ 30×30) → separator → baris
-aksi: Comment (split ▸) + Checklist + Move (sembunyi bila manual)
+aksi: Comment (split button C# — segmen kiri "Comment" buka panel Comments INLINE di panel samping, segmen kanan segitiga solid 9×10 lebar 16px buka CommentWindow 400×600 window OS terpisah; state komentar dibagi dengan detail pembuka, Rust isi saat dibuka + tulis balik saat ditutup) + Checklist + Move (sembunyi bila manual)
 + Unlink (HANYA bila manual) → separator → label "Description" +
 isi ("Edit pas foto sekolah — crop, centering kepala di guide,
 logo terlihat."). Kartu manual: chip tanggal "—", tanpa badge ID /

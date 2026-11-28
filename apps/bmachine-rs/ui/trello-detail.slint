@@ -26,7 +26,9 @@
 import { Design, Btn, IconBtn, TextField, HSeparator } from "design.slint";
 
 // Satu baris komentar: avatar bulat + nama + waktu + isi.
-component CommentRow inherits HorizontalLayout {
+// Di-export supaya CommentWindow (ui/windows.slint) memakai
+// komponen yang sama persis dengan panel Comments inline.
+export component CommentRow inherits HorizontalLayout {
     in property <string> author;
     in property <string> time;
     in property <string> body;
@@ -123,11 +125,20 @@ export component TrelloDetailPanel inherits Rectangle {
     callback show-toast(string);
     callback send-comment();
     callback open-url(string);
+    // Buka komentar kartu di CommentWindow (window OS terpisah) —
+    // segmen panah split button; di-host oleh AppWindow /
+    // CardListWindow (lihat ui/main.slint + ui/windows.slint).
+    callback open-comment-window();
 
     property <string> comment-draft: "";
-    property <string> draft-1: "";
-    property <string> draft-2: "";
-    property <string> draft-3: "";
+    // Draft komentar tambahan (in-out supaya Rust bisa membaca /
+    // menulisnya saat CommentWindow dibuka/ditutup — sinkronisasi
+    // bolak-balik dengan window komentar; rendering + penulisan
+    // slot digate `added-count`, jadi draft basi dari kartu
+    // sebelumnya tidak pernah bocor ke kartu lain).
+    in-out property <string> draft-1: "";
+    in-out property <string> draft-2: "";
+    in-out property <string> draft-3: "";
     property <bool> show-activity: true;
     property <string> move-board: "";
     property <string> move-list: "";
@@ -349,22 +360,74 @@ export component TrelloDetailPanel inherits Rectangle {
 
         HSeparator { }
 
-        // Baris aksi 32px: Comment (split ▸) + Checklist + Move/Unlink.
-        // Memakai Btn/IconBtn standar (menangani mode sempit via
-        // `small`). Catatan: sempat diganti inline karena klik pada
-        // kartu berjudul pendek dikira mati — ternyata itu salah
-        // ukur: baris aksi kartu 1 baris ada di y~295, bukan y~360
-        // (judul 2 baris + meta row 2 menggesernya ke bawah).
-        // Tombolnya tidak pernah rusak; yang salah koordinat kliknya.
+        // Baris aksi 32px: Comment (split button C#) + Checklist +
+        // Move/Unlink. Split button = SATU border luar (bg + border
+        // secondary, radius-sm): segmen kiri "Comment" → buka panel
+        // Comments INLINE di panel samping; segmen kanan segitiga
+        // solid 9×10 (lebar 16px, dipisah garis 1px) → buka
+        // CommentWindow (window OS terpisah). Sempat digabung jadi
+        // satu tombol "Comment ▸" (4e23d96) — dipisah lagi persis C#
+        // CardDetailPanelHost + koreksi abeng 28 Nov 09:42.
         HorizontalLayout {
             height: 32px;
             spacing: 8px;
-            Btn {
-                label: "Comment ▸";
-                variant: "secondary";
-                scale: 0.89;
-                small: root.is-narrow;
-                clicked => { root.sub-panel = "comments"; }
+            Rectangle {
+                height: 32px;
+                background: Design.btn-secondary-bg;
+                border-width: 1px;
+                border-color: Design.btn-secondary-border;
+                border-radius: Design.radius-sm;
+                clip: true;
+                HorizontalLayout {
+                    width: 100%;
+                    height: 100%;
+                    spacing: 0;
+                    comment-seg := Rectangle {
+                        width: comment-label.preferred-width + 24px;
+                        height: 100%;
+                        background: comment-seg-touch.has-hover ? Design.btn-secondary-bg-hover : transparent;
+                        comment-seg-touch := TouchArea {
+                            width: 100%; height: 100%;
+                            mouse-cursor: pointer;
+                            clicked => { root.sub-panel = "comments"; }
+                        }
+                        comment-label := Text {
+                            text: "Comment";
+                            font-size: 12px;
+                            font-weight: 600;
+                            color: Design.text-primary;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            width: 100%;
+                            height: 100%;
+                        }
+                    }
+                    Rectangle {
+                        width: 1px;
+                        height: 100%;
+                        background: Design.btn-secondary-border;
+                    }
+                    arrow-seg := Rectangle {
+                        width: 16px;
+                        height: 100%;
+                        background: arrow-seg-touch.has-hover ? Design.btn-secondary-bg-hover : transparent;
+                        arrow-seg-touch := TouchArea {
+                            width: 100%; height: 100%;
+                            mouse-cursor: pointer;
+                            clicked => { root.open-comment-window(); }
+                        }
+                        Text {
+                            text: "▸";
+                            font-size: 10px;
+                            font-weight: 600;
+                            color: Design.text-primary;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            width: 100%;
+                            height: 100%;
+                        }
+                    }
+                }
             }
             Btn {
                 label: "Checklist";

@@ -2658,6 +2658,17 @@ fn push_chrome_to_cardlist(w: &CardListWindow, ui: &AppWindow) {
     ));
 }
 
+fn push_chrome_to_comment(w: &CommentWindow, ui: &AppWindow) {
+    theme::sync_icons(&Design::get(ui), &Design::get(w));
+    w.set_chrome_style(slint::SharedString::from(ui.get_app_chrome()));
+    w.set_chrome_button_style(slint::SharedString::from(
+        ui.get_app_chrome_button_style(),
+    ));
+    w.set_chrome_button_position(slint::SharedString::from(
+        ui.get_app_chrome_button_position(),
+    ));
+}
+
 /// Sinkronkan gaya chrome ke window sekunder yang sedang tampil
 /// (dipakai handler appearance — tanpa ini window yang sudah
 /// terbuka ketinggalan gaya chrome baru; berlaku live tanpa restart).
@@ -2666,6 +2677,7 @@ fn sync_chrome_to_windows(
     sheet_cell: &std::rc::Rc<std::cell::RefCell<Option<SpreadsheetWindow>>>,
     toolbox_cell: &std::rc::Rc<std::cell::RefCell<Option<ToolboxWindow>>>,
     card_cell: &std::rc::Rc<std::cell::RefCell<Option<CardListWindow>>>,
+    comment_cell: &std::rc::Rc<std::cell::RefCell<Option<CommentWindow>>>,
 ) {
     if let Some(w) = sheet_cell.borrow().as_ref() {
         push_chrome_to_sheet(w, ui);
@@ -2675,6 +2687,141 @@ fn sync_chrome_to_windows(
     }
     if let Some(w) = card_cell.borrow().as_ref() {
         push_chrome_to_cardlist(w, ui);
+    }
+    if let Some(w) = comment_cell.borrow().as_ref() {
+        push_chrome_to_comment(w, ui);
+    }
+}
+
+/// Buat CommentWindow bila belum ada + pasang handler chrome /
+/// tutup (sekali per instans; dibuat baru tiap buka-ulang setelah
+/// tutup, pola sama seperti CardListWindow — hide→show reuse
+/// tidak andal di Linux). Saat ditutup, draft komentar ditulis
+/// balik ke host pembuka (AppWindow atau CardListWindow, sesuai
+/// `source`) — state komentar dibagi seperti C# (DataContext =
+/// VM yang sama untuk CommentWindow + CardDetailPanelHost).
+fn ensure_comment_window(
+    cell: &std::rc::Rc<std::cell::RefCell<Option<CommentWindow>>>,
+    vis: &std::rc::Rc<std::cell::Cell<bool>>,
+    source: &std::rc::Rc<std::cell::Cell<u8>>,
+    ui_weak: &slint::Weak<AppWindow>,
+    card_cell: &std::rc::Rc<std::cell::RefCell<Option<CardListWindow>>>,
+) {
+    let mut opt = cell.borrow_mut();
+    if !vis.get() {
+        *opt = None;
+    }
+    if opt.is_some() {
+        return;
+    }
+    if let Ok(w) = CommentWindow::new() {
+        let w_weak = w.as_weak();
+        let vis_close = vis.clone();
+        let source_close = source.clone();
+        let ui_weak_close = ui_weak.clone();
+        let card_cell_close = card_cell.clone();
+        w.on_close_window(move || {
+            // Sync-back draft ke host pembuka sebelum disembunyikan.
+            if let Some(w) = w_weak.upgrade() {
+                let added = w.get_added_count();
+                let d1 = w.get_draft_1();
+                let d2 = w.get_draft_2();
+                let d3 = w.get_draft_3();
+                if source_close.get() == 1 {
+                    if let Some(card) = card_cell_close.borrow().as_ref() {
+                        card.set_detail_added_count(added);
+                        card.set_detail_draft_1(d1);
+                        card.set_detail_draft_2(d2);
+                        card.set_detail_draft_3(d3);
+                    }
+                } else if let Some(ui) = ui_weak_close.upgrade() {
+                    ui.set_detail_added_count(added);
+                    ui.set_detail_draft_1(d1);
+                    ui.set_detail_draft_2(d2);
+                    ui.set_detail_draft_3(d3);
+                }
+            }
+            vis_close.set(false);
+            if let Some(w) = w_weak.upgrade() {
+                let _ = w.hide();
+            }
+        });
+        let ui_weak2 = ui_weak.clone();
+        w.on_toast(move |msg| {
+            if let Some(ui) = ui_weak2.upgrade() {
+                ui.set_toast(msg);
+            }
+        });
+        // Tombol kontrol chrome (min/max) + drag (titlebar kustom /
+        // strip headless) + gaya chrome awal dari AppWindow (lihat
+        // DESIGN_SYSTEM.md §23).
+        let w_weak_min = w.as_weak();
+        w.on_minimize_window(move || {
+            if let Some(w) = w_weak_min.upgrade() {
+                w.window().set_minimized(true);
+            }
+        });
+        let w_weak_max = w.as_weak();
+        w.on_maximize_window(move || {
+            if let Some(w) = w_weak_max.upgrade() {
+                let m = w.window().is_maximized();
+                w.window().set_maximized(!m);
+            }
+        });
+        let w_weak_move = w.as_weak();
+        w.on_move_window(move |dx, dy| {
+            if let Some(w) = w_weak_move.upgrade() {
+                let scale = w.window().scale_factor();
+                let pos = w.window().position();
+                w.window().set_position(slint::PhysicalPosition::new(
+                    pos.x + (dx * scale) as i32,
+                    pos.y + (dy * scale) as i32,
+                ));
+            }
+        });
+        if let Some(ui) = ui_weak.upgrade() {
+            push_chrome_to_comment(&w, &ui);
+        }
+        *opt = Some(w);
+    }
+}
+
+/// Isi + tampilkan CommentWindow untuk satu kartu (dipakai pembuka
+/// dari AppWindow maupun CardListWindow).
+#[allow(clippy::too_many_arguments)]
+fn show_comment_window(
+    cell: &std::rc::Rc<std::cell::RefCell<Option<CommentWindow>>>,
+    vis: &std::rc::Rc<std::cell::Cell<bool>>,
+    ui: &AppWindow,
+    title: slint::SharedString,
+    date: slint::SharedString,
+    user_name: slint::SharedString,
+    user_initial: slint::SharedString,
+    added: i32,
+    d1: slint::SharedString,
+    d2: slint::SharedString,
+    d3: slint::SharedString,
+) {
+    if let Some(w) = cell.borrow().as_ref() {
+        push_chrome_to_comment(w, ui);
+        w.set_card_title(title);
+        w.set_event_date(date);
+        w.set_user_name(user_name);
+        w.set_user_initial(user_initial);
+        w.set_added_count(added);
+        w.set_draft_1(d1);
+        w.set_draft_2(d2);
+        w.set_draft_3(d3);
+        // Tengah window utama (C# CenterScreen; 400x600 sesuai
+        // ukuran CommentWindow di .slint).
+        let (cx, cy) = center_over_main(ui, 400, 600);
+        w.window()
+            .set_position(slint::PhysicalPosition::new(cx, cy));
+        // Hide + show = naik ke depan (Slint tidak punya Activate).
+        // show() saja tidak andal di sini.
+        let _ = w.hide();
+        let _ = w.show();
+        vis.set(true);
     }
 }
 
@@ -4626,6 +4773,19 @@ fn main() -> Result<(), slint::PlatformError> {
         std::rc::Rc::new(std::cell::RefCell::new(None));
     let toolbox_win_cell: std::rc::Rc<std::cell::RefCell<Option<ToolboxWindow>>> =
         std::rc::Rc::new(std::cell::RefCell::new(None));
+    // CommentWindow (komentar kartu di window terpisah) — dibuat
+    // saat segmen panah split button Comment diklik; satu window
+    // dipakai ulang untuk semua kartu (dibuat baru tiap buka-ulang
+    // setelah tutup, pola sama seperti CardListWindow).
+    let comment_win_cell: std::rc::Rc<std::cell::RefCell<Option<CommentWindow>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(None));
+    let comment_visible: std::rc::Rc<std::cell::Cell<bool>> =
+        std::rc::Rc::new(std::cell::Cell::new(false));
+    // Asal pembuka CommentWindow (untuk sync-back draft saat
+    // ditutup): 0 = AppWindow (detail embedded / Trello window),
+    // 1 = CardListWindow.
+    let comment_source: std::rc::Rc<std::cell::Cell<u8>> =
+        std::rc::Rc::new(std::cell::Cell::new(0));
     // Waktu drag terakhir mode pet (wander tidak jalan 5 detik
     // setelah user selesai men-drag avatar).
     let pet_last_drag: Arc<Mutex<Instant>> =
@@ -5763,6 +5923,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let sheet_cell_sync = sheet_win_cell.clone();
         let toolbox_cell_sync = toolbox_win_cell.clone();
         let card_cell_sync = card_win_cell.clone();
+        let comment_cell_sync = comment_win_cell.clone();
         ui.on_apply_appearance(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 match theme::apply_appearance(&ui) {
@@ -5780,6 +5941,7 @@ fn main() -> Result<(), slint::PlatformError> {
                             &sheet_cell_sync,
                             &toolbox_cell_sync,
                             &card_cell_sync,
+                            &comment_cell_sync,
                         );
                     }
                     Err(msg) => {
@@ -5798,6 +5960,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let sheet_cell_sync = sheet_win_cell.clone();
         let toolbox_cell_sync = toolbox_win_cell.clone();
         let card_cell_sync = card_win_cell.clone();
+        let comment_cell_sync = comment_win_cell.clone();
         ui.on_reset_appearance(move || {
             if let Some(ui) = ui_weak.upgrade() {
                 ui.set_app_color_mode(slint::SharedString::from("dark"));
@@ -5836,6 +5999,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     &sheet_cell_sync,
                     &toolbox_cell_sync,
                     &card_cell_sync,
+                    &comment_cell_sync,
                 );
                 if let Some(ref db_mutex) = db_clone {
                     if let Ok(mut db_guard) = db_mutex.lock() {
@@ -8400,6 +8564,11 @@ fn main() -> Result<(), slint::PlatformError> {
         // Sama seperti sheet: buka-ulang setelah tutup selalu buat
         // window baru (hide->show reuse tidak andal di Linux).
         let card_visible = std::rc::Rc::new(std::cell::Cell::new(false));
+        // Untuk segmen panah split button Comment di detail CardList:
+        // buka CommentWindow (state dibagi — lihat ensure/show di atas).
+        let comment_cell = comment_win_cell.clone();
+        let comment_vis = comment_visible.clone();
+        let comment_src = comment_source.clone();
         let ui_weak = ui.as_weak();
         ui.on_open_new_card_window(move |cat| {
             let cat_str = cat.as_str().to_string();
@@ -8447,6 +8616,57 @@ fn main() -> Result<(), slint::PlatformError> {
                     if let Some(ui) = ui_weak.upgrade() {
                         push_chrome_to_cardlist(&w, &ui);
                     }
+                    // Segmen panah split button Comment di detail
+                    // kartu: buka komentar kartu terpilih di
+                    // CommentWindow (C# OnOpenCommentWindowClicked).
+                    let comment_cell_cw = comment_cell.clone();
+                    let comment_vis_cw = comment_vis.clone();
+                    let comment_src_cw = comment_src.clone();
+                    let ui_weak_cw = ui_weak.clone();
+                    let card_cell_cw = card_cell.clone();
+                    let card_weak_cw = w.as_weak();
+                    w.on_open_comment_window(move || {
+                        let Some(card) = card_weak_cw.upgrade() else {
+                            return;
+                        };
+                        let Some(ui) = ui_weak_cw.upgrade() else {
+                            return;
+                        };
+                        ensure_comment_window(
+                            &comment_cell_cw,
+                            &comment_vis_cw,
+                            &comment_src_cw,
+                            &ui_weak_cw,
+                            &card_cell_cw,
+                        );
+                        comment_src_cw.set(1);
+                        let idx = card.get_selected_idx() as usize;
+                        let titles = card.get_card_titles();
+                        let title = if idx < titles.row_count() {
+                            titles.row_data(idx).unwrap_or_default()
+                        } else {
+                            slint::SharedString::from("")
+                        };
+                        let dues = card.get_card_due();
+                        let date = if idx < dues.row_count() {
+                            dues.row_data(idx).unwrap_or_default()
+                        } else {
+                            slint::SharedString::from("")
+                        };
+                        show_comment_window(
+                            &comment_cell_cw,
+                            &comment_vis_cw,
+                            &ui,
+                            title,
+                            date,
+                            ui.get_app_user_name(),
+                            ui.get_app_user_initial(),
+                            card.get_detail_added_count(),
+                            card.get_detail_draft_1(),
+                            card.get_detail_draft_2(),
+                            card.get_detail_draft_3(),
+                        );
+                    });
                     *opt = Some(w);
                 }
             }
@@ -8490,6 +8710,60 @@ fn main() -> Result<(), slint::PlatformError> {
                 let _ = w.hide();
                 let _ = w.show();
                 card_visible.set(true);
+            }
+        });
+    }
+
+    // ---- CommentWindow: komentar kartu di window OS terpisah ----
+    // Segmen panah (▸) split button Comment di detail kartu (C#
+    // OnOpenCommentWindowClicked — muat komentar kartu yang diklik,
+    // buka window, tutup panel Comments inline).
+    {
+        let comment_cell = comment_win_cell.clone();
+        let comment_vis = comment_visible.clone();
+        let comment_src = comment_source.clone();
+        let card_cell = card_win_cell.clone();
+        let ui_weak = ui.as_weak();
+        ui.on_open_comment_window(move || {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            ensure_comment_window(
+                &comment_cell,
+                &comment_vis,
+                &comment_src,
+                &ui_weak,
+                &card_cell,
+            );
+            comment_src.set(0);
+            let title = ui.get_selected_card();
+            let idx = ui.get_selected_index() as usize;
+            let date = if ui.get_selected_is_manual() {
+                slint::SharedString::from("—")
+            } else {
+                let dues = ui.get_list_due();
+                if idx < dues.row_count() {
+                    dues.row_data(idx).unwrap_or_default()
+                } else {
+                    slint::SharedString::from("")
+                }
+            };
+            show_comment_window(
+                &comment_cell,
+                &comment_vis,
+                &ui,
+                title,
+                date,
+                ui.get_app_user_name(),
+                ui.get_app_user_initial(),
+                ui.get_detail_added_count(),
+                ui.get_detail_draft_1(),
+                ui.get_detail_draft_2(),
+                ui.get_detail_draft_3(),
+            );
+            // C#: tutup panel Comments inline saat window dibuka.
+            if ui.get_detail_panel() == "comments" {
+                ui.set_detail_panel(slint::SharedString::from(""));
             }
         });
     }
@@ -8970,6 +9244,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let sheet_cell = sheet_win_cell.clone();
         let toolbox_cell = toolbox_win_cell.clone();
         let card_cell = card_win_cell.clone();
+        let comment_cell = comment_win_cell.clone();
         let ui_weak = ui.as_weak();
         let db_clone = db.clone();
         ui.on_icon_pack_settings_changed(move || {
@@ -8987,7 +9262,7 @@ fn main() -> Result<(), slint::PlatformError> {
             sync_bar_theme(&ui, &bar_cell);
             sync_radial_theme(&ui, &radial_cell);
             sync_task_theme(&ui, &task_cell);
-            sync_chrome_to_windows(&ui, &sheet_cell, &toolbox_cell, &card_cell);
+            sync_chrome_to_windows(&ui, &sheet_cell, &toolbox_cell, &card_cell, &comment_cell);
         });
     }
 

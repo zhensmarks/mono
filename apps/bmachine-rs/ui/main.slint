@@ -15,7 +15,7 @@ import { TrelloDetailPanel } from "trello-detail.slint";
 import { RadialMenuView } from "radial.slint";
 import { SplashView } from "splash.slint";
 import { ExitConfirmDialog, UpdateDialog } from "dialog.slint";
-export { SpreadsheetWindow, CardListWindow, RadialMenuWindow, ToolboxWindow, ReportBugDialog, DynamicBarWindow } from "windows.slint";
+export { SpreadsheetWindow, CardListWindow, CommentWindow, RadialMenuWindow, ToolboxWindow, ReportBugDialog, DynamicBarWindow } from "windows.slint";
 
 // ===== BATCH — baris tree + menu konteks (model beneran, Rust) =====
 // Satu baris tree BATCH (flat row dari src/batch.rs): indentasi dari
@@ -723,6 +723,9 @@ export component AppWindow inherits Window {
     callback win-move(length, length);
     callback open-new-sheet-window();
     callback open-new-card-window(string);
+    // Buka komentar kartu terpilih di CommentWindow (window OS
+    // terpisah) — dari segmen panah split button Comment.
+    callback open-comment-window();
     callback refresh-leaderboard();
     // Dynamic Bar (floating mini-bar): buka/tutup dari flyout profil.
     callback open-dynamic-bar();
@@ -1144,6 +1147,14 @@ export component AppWindow inherits Window {
     // yang ditambahkan di panel Comments kartu yang sedang dibuka.
     // Direset ke 0 tiap kali kartu dibuka/ditutup.
     in-out property <int> detail-added-count: 0;
+    // detail-draft-1/2/3: isi komentar tambahan (in-out supaya Rust
+    // bisa membaca/menulisnya saat CommentWindow dibuka/ditutup —
+    // sinkronisasi bolak-balik dengan window komentar; rendering +
+    // penulisan slot digate detail-added-count, jadi draft basi dari
+    // kartu sebelumnya tidak pernah bocor ke kartu lain).
+    in-out property <string> detail-draft-1: "";
+    in-out property <string> detail-draft-2: "";
+    in-out property <string> detail-draft-3: "";
     // Lebar kolom detail Trello (C# UnifiedTrelloView: 400,
     // MinWidth 320, MaxWidth 650 — port: 400, clamp 320 saat sempit).
     property <length> trello-detail-w: root.content-width >= 726px ? 400px : 320px;
@@ -1254,7 +1265,9 @@ export component AppWindow inherits Window {
     // Kartu yang dipilih adalah kartu manual? Dihitung dari judul
     // (tidak perlu reset di tiap handler).
     property <int> selected-manual-index: root.selected-card != "" && root.selected-card == root.manual-titles[0] ? 0 : root.selected-card != "" && root.selected-card == root.manual-titles[1] ? 1 : root.selected-card != "" && root.selected-card == root.manual-titles[2] ? 2 : root.selected-card != "" && root.selected-card == root.manual-titles[3] ? 3 : root.selected-card != "" && root.selected-card == root.manual-titles[4] ? 4 : -1;
-    property <bool> selected-is-manual: root.selected-manual-index >= 0;
+    // in-out (bukan property biasa) supaya Rust bisa membacanya
+    // (dipakai handler open-comment-window untuk tanggal chip).
+    in-out property <bool> selected-is-manual: root.selected-manual-index >= 0;
     callback import-manual(string);
     callback remove-manual(int);
 
@@ -2273,14 +2286,18 @@ export component AppWindow inherits Window {
                     label-1: root.selected-is-manual ? "" : root.list-label1[root.selected-index];
                     label-2: root.selected-is-manual ? "" : root.list-label2[root.selected-index];
                     attachments-count: root.selected-is-manual ? 0 : root.list-atts[root.selected-index];
-                    sub-panel: root.detail-panel;
-                    added-count: root.detail-added-count;
+                    sub-panel <=> root.detail-panel;
+                    added-count <=> root.detail-added-count;
+                    draft-1 <=> root.detail-draft-1;
+                    draft-2 <=> root.detail-draft-2;
+                    draft-3 <=> root.detail-draft-3;
                     user-name: root.app-user-name;
                     user-initial: root.app-user-initial;
                     close => { root.selected-card = ""; root.detail-panel = ""; root.detail-added-count = 0; }
                     unlink => { root.remove-manual(root.selected-manual-index); root.selected-card = ""; root.detail-panel = ""; root.detail-added-count = 0; }
                     show-toast(text) => { root.toast = text; }
                     open-url(u) => { root.open-url(u); }
+                    open-comment-window => { root.open-comment-window(); }
                 }
             }
 
@@ -3529,14 +3546,18 @@ export component AppWindow inherits Window {
                             panel-margin: 24px;
                             title-size: 20px;
                             panel-bg: Design.surface-elevated;
-                            sub-panel: root.detail-panel;
-                            added-count: root.detail-added-count;
+                            sub-panel <=> root.detail-panel;
+                            added-count <=> root.detail-added-count;
+                            draft-1 <=> root.detail-draft-1;
+                            draft-2 <=> root.detail-draft-2;
+                            draft-3 <=> root.detail-draft-3;
                             user-name: root.app-user-name;
                             user-initial: root.app-user-initial;
                             close => { root.selected-card = ""; root.detail-panel = ""; root.detail-added-count = 0; }
                             unlink => { root.remove-manual(root.selected-manual-index); root.selected-card = ""; root.detail-panel = ""; root.detail-added-count = 0; }
                             show-toast(text) => { root.toast = text; }
                     open-url(u) => { root.open-url(u); }
+                    open-comment-window => { root.open-comment-window(); }
                         }
                     }
                 }
