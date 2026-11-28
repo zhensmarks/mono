@@ -5,6 +5,7 @@ mod batch_exec;
 mod db;
 mod doc_manager;
 mod executor;
+mod explorer;
 mod icons;
 mod local_update;
 mod petdex;
@@ -34,6 +35,7 @@ use std::time::Instant;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
+use std::path::{Path, PathBuf};
 
 // Versi aplikasi untuk footer flyout profil (C# AppVersion =
 // assembly ToString(2) — v15.15.3 -> "15.15"). BUKAN versi Cargo.
@@ -58,12 +60,6 @@ static BATCH_CTRL_HELD: AtomicBool = AtomicBool::new(false);
 static BATCH_LAST_CLICK: Mutex<Option<(String, String, std::time::Instant)>> =
     Mutex::new(None);
 
-// TABEL GLOBAL EXPLORER — digenerate tools/gen_explorer_data.py.
-// (folder-key, path, name, kind, ext, base, size, date, preview, loc)
-// Dipakai search (rekursif, substring case-insensitive) & type-ahead.
-// TABEL GLOBAL EXPLORER — digenerate tools/gen_explorer_data.py.
-// (folder-key, path, name, kind, ext, base, size, date, preview, loc)
-// Dipakai search (rekursif, substring case-insensitive) & type-ahead.
 // Radial menu global trigger config. The C# `ShortcutConfig` JSON shape is
 // mirrored here so the Rust port can read the same DB key without changing
 // the C# app's storage format.
@@ -2962,29 +2958,6 @@ mod dynamic_bar_tests {
     }
 }
 
-static EXPLORER_ITEMS: &[(&str, &str, &str, &str, &str, &str, &str, &str, &str, &str)] = &[
-];
-
-// Subtree tiap folder (search rekursif = folder ini + turunan).
-static EXPLORER_SUBTREE: &[(&str, &[&str])] = &[
-    ("root", &["root", "a", "b", "pf", "pfb", "gen"]),
-    ("a", &["a", "pf", "gen"]),
-    ("b", &["b", "pfb", "gen"]),
-    ("pf", &["pf", "gen"]),
-    ("pfb", &["pfb", "gen"]),
-    ("gen", &["gen"]),
-    ("master", &["master"]),
-];
-
-fn subtree_keys(key: &str) -> Vec<&str> {
-    for (k, sub) in EXPLORER_SUBTREE {
-        if *k == key {
-            return sub.to_vec();
-        }
-    }
-    vec![key]
-}
-
 use slint::Model;
 use slint::Global;
 
@@ -3648,11 +3621,11 @@ fn push_log_lines(ui: &AppWindow, pl: &Arc<Mutex<ProcessLogService>>) {
 fn batch_handle_double_click(
     ui_weak: &slint::Weak<AppWindow>,
     st: &Arc<Mutex<batch::BatchState>>,
-    pl: &Arc<Mutex<ProcessLogService>>,
+    _pl: &Arc<Mutex<ProcessLogService>>,
     panel: batch::BatchPanel,
     id: &str,
 ) {
-    let (is_dir, path, name) = {
+    let (is_dir, path, _name) = {
         let s = st.lock().unwrap();
         match batch::find_node(&s.roots, panel, id) {
             Some(n) => (n.is_dir, n.path.clone(), n.name.clone()),
@@ -3672,33 +3645,10 @@ fn batch_handle_double_click(
     if path.as_os_str().is_empty() {
         return;
     }
-    let text_ext = ["txt", "md", "log", "json", "xml", "csv", "ini", "cfg"];
-    let ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("")
-        .to_ascii_lowercase();
-    if text_ext.contains(&ext.as_str()) {
-        let content = std::fs::read_to_string(&path).unwrap_or_default();
-        {
-            let mut lg = pl.lock().unwrap();
-            lg.add_log(format!("── {} ──", name));
-            for line in content.lines().take(200) {
-                lg.add_log(line.to_string());
-            }
-        }
-        if let Some(ui) = ui_weak.upgrade() {
-            push_log_lines(&ui, pl);
-            ui.set_show_logpanel(true);
-            ui.set_logpanel_tab(slint::SharedString::from("LOG"));
-            ui.set_toast(slint::SharedString::from(format!(
-                "Dibuka di Log Panel: {}",
-                name
-            )));
-        }
-    } else {
-        let _ = platform::open_url(&path.to_string_lossy());
-    }
+    // File teks dulu dibuka isinya di tab LOG panel — tab LOG dihapus
+    // (keputusan abeng 28 Nov 07:05: tab LOG dihapus, FILES/MASTER/DOC
+    // tetap), jadi semua file kini dibuka di aplikasi default.
+    let _ = platform::open_url(&path.to_string_lossy());
 }
 
 /// Master template paths per jenis script (C# `ExecuteMaster`):
@@ -3891,6 +3841,635 @@ fn batch_start_run(
     Ok(())
 }
 
+// ---- Explorer nyata (src/explorer.rs): helper Rust <-> Slint ----
+// Dipakai callback ex-* di bawah + timer watcher (polling mtime).
+
+type ExDb = Option<Arc<Mutex<DatabaseService>>>;
+type ExState = Arc<Mutex<explorer::ExplorerState>>;
+
+fn ex_db_get(db: &ExDb, key: &str) -> String {
+    match db {
+        Some(m) => m.lock().ok().and_then(|g| g.get(key)).unwrap_or_default(),
+        None => String::new(),
+    }
+}
+
+fn ex_db_set(db: &ExDb, key: &str, value: &str) {
+    if let Some(m) = db {
+        if let Ok(mut g) = m.lock() {
+            let _ = g.set(key, value, "String");
+        }
+    }
+}
+
+fn ex_db_delete(db: &ExDb, key: &str) {
+    if let Some(m) = db {
+        if let Ok(mut g) = m.lock() {
+            let _ = g.delete(key);
+        }
+    }
+}
+
+/// Baca Vec<SharedString> dari model Slint (untuk callback ber-arg array).
+fn read_i32_model(m: slint::ModelRc<i32>) -> Vec<i32> {
+    m.iter().collect()
+}
+
+/// Pengaturan tampilan satu folder: per-folder (bila ada) else global.
+/// Mengembalikan (sort, desc, group, layout, local_only).
+fn ex_view_settings(db: &ExDb, path: &Path) -> (String, bool, String, String, bool) {
+    let local_key = format!(
+        "Configs.Explorer.FolderSettings.{}",
+        explorer::folder_settings_key(path)
+    );
+    let raw = ex_db_get(db, &local_key);
+    if !raw.is_empty() {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) {
+            let sort = v
+                .get("SortBy")
+                .and_then(|x| x.as_str())
+                .unwrap_or("Name")
+                .to_string();
+            let desc = v
+                .get("IsSortDescending")
+                .and_then(|x| x.as_bool())
+                .unwrap_or(false);
+            let layout = v
+                .get("LayoutMode")
+                .and_then(|x| x.as_str())
+                .unwrap_or("Vertical")
+                .to_string();
+            let group = v
+                .get("GroupBy")
+                .and_then(|x| x.as_str())
+                .unwrap_or("Date")
+                .to_string();
+            return (sort, desc, group, layout, true);
+        }
+    }
+    let sort = ex_db_get(db, "Configs.Explorer.SortBy");
+    let sort = if sort.is_empty() {
+        "Name".to_string()
+    } else {
+        sort
+    };
+    let desc = ex_db_get(db, "Configs.Explorer.IsSortDescending") == "true";
+    let group = ex_db_get(db, "Configs.Explorer.GroupBy");
+    let group = if group.is_empty() {
+        "Date".to_string()
+    } else {
+        group
+    };
+    let layout = ex_db_get(db, "Configs.Explorer.ViewMode");
+    let layout = if layout.is_empty() {
+        "Vertical".to_string()
+    } else {
+        layout
+    };
+    (sort, desc, group, layout, false)
+}
+
+/// Simpan pengaturan tampilan: per-folder bila local_only, else global
+/// (+ hapus override per-folder bila ada).
+fn ex_save_view_settings(
+    db: &ExDb,
+    path: &Path,
+    sort: &str,
+    desc: bool,
+    group: &str,
+    layout: &str,
+    local_only: bool,
+) {
+    let local_key = format!(
+        "Configs.Explorer.FolderSettings.{}",
+        explorer::folder_settings_key(path)
+    );
+    if local_only {
+        let dto = serde_json::json!({
+            "SortBy": sort,
+            "IsSortDescending": desc,
+            "LayoutMode": layout,
+            "GroupBy": group,
+        });
+        ex_db_set(db, &local_key, &dto.to_string());
+    } else {
+        ex_db_delete(db, &local_key);
+        ex_db_set(db, "Configs.Explorer.SortBy", sort);
+        ex_db_set(
+            db,
+            "Configs.Explorer.IsSortDescending",
+            if desc { "true" } else { "false" },
+        );
+        ex_db_set(db, "Configs.Explorer.GroupBy", group);
+        ex_db_set(db, "Configs.Explorer.ViewMode", layout);
+    }
+}
+
+fn ex_shared_vec(v: &[String]) -> Vec<slint::SharedString> {
+    v.iter().map(|s| slint::SharedString::from(s.as_str())).collect()
+}
+
+/// Dorong folder saat ini (state.items) + semua urutan + view settings
+/// + status root ke properti root ex-* (terikat ke ExplorerView).
+fn ex_push_folder(ui: &AppWindow, st: &explorer::ExplorerState, db: &ExDb) {
+    let items = &st.items;
+    let names: Vec<slint::SharedString> =
+        items.iter().map(|i| slint::SharedString::from(i.name.as_str())).collect();
+    let kinds: Vec<slint::SharedString> =
+        items.iter().map(|i| slint::SharedString::from(i.kind.as_str())).collect();
+    let exts: Vec<slint::SharedString> =
+        items.iter().map(|i| slint::SharedString::from(i.ext.as_str())).collect();
+    let bases: Vec<slint::SharedString> =
+        items.iter().map(|i| slint::SharedString::from(i.base.as_str())).collect();
+    let sizes: Vec<slint::SharedString> = items
+        .iter()
+        .map(|i| slint::SharedString::from(i.size_display.as_str()))
+        .collect();
+    let dates: Vec<slint::SharedString> = items
+        .iter()
+        .map(|i| slint::SharedString::from(i.date_display.as_str()))
+        .collect();
+    let previews: Vec<slint::SharedString> =
+        items.iter().map(|_| slint::SharedString::new()).collect();
+    let paths: Vec<slint::SharedString> = items
+        .iter()
+        .map(|i| slint::SharedString::from(i.path.to_string_lossy().into_owned()))
+        .collect();
+    let isdir: Vec<bool> = items.iter().map(|i| i.is_dir).collect();
+    let o = explorer::compute_orders(items);
+    ui.set_ex_it_names(slint::ModelRc::new(slint::VecModel::from_slice(&names)));
+    ui.set_ex_it_kinds(slint::ModelRc::new(slint::VecModel::from_slice(&kinds)));
+    ui.set_ex_it_exts(slint::ModelRc::new(slint::VecModel::from_slice(&exts)));
+    ui.set_ex_it_bases(slint::ModelRc::new(slint::VecModel::from_slice(&bases)));
+    ui.set_ex_it_sizes(slint::ModelRc::new(slint::VecModel::from_slice(&sizes)));
+    ui.set_ex_it_dates(slint::ModelRc::new(slint::VecModel::from_slice(&dates)));
+    ui.set_ex_it_previews(slint::ModelRc::new(slint::VecModel::from_slice(&previews)));
+    ui.set_ex_it_paths(slint::ModelRc::new(slint::VecModel::from_slice(&paths)));
+    ui.set_ex_it_isdir(slint::ModelRc::new(slint::VecModel::from_slice(&isdir)));
+    ui.set_ex_ord_name_asc(slint::ModelRc::new(slint::VecModel::from_slice(&o.name_asc)));
+    ui.set_ex_ord_name_desc(slint::ModelRc::new(slint::VecModel::from_slice(&o.name_desc)));
+    ui.set_ex_ord_date_asc(slint::ModelRc::new(slint::VecModel::from_slice(&o.date_asc)));
+    ui.set_ex_ord_date_desc(slint::ModelRc::new(slint::VecModel::from_slice(&o.date_desc)));
+    ui.set_ex_ord_type_asc(slint::ModelRc::new(slint::VecModel::from_slice(&o.type_asc)));
+    ui.set_ex_ord_type_desc(slint::ModelRc::new(slint::VecModel::from_slice(&o.type_desc)));
+    ui.set_ex_ord_grp_date(slint::ModelRc::new(slint::VecModel::from_slice(&o.grp_date)));
+    ui.set_ex_ord_grp_date_hdr(slint::ModelRc::new(slint::VecModel::from_slice(
+        &ex_shared_vec(&o.grp_date_hdr),
+    )));
+    ui.set_ex_ord_grp_type(slint::ModelRc::new(slint::VecModel::from_slice(&o.grp_type)));
+    ui.set_ex_ord_grp_type_hdr(slint::ModelRc::new(slint::VecModel::from_slice(
+        &ex_shared_vec(&o.grp_type_hdr),
+    )));
+    ui.set_ex_ord_split_l(slint::ModelRc::new(slint::VecModel::from_slice(&o.split_l)));
+    ui.set_ex_ord_split_r(slint::ModelRc::new(slint::VecModel::from_slice(&o.split_r)));
+    ui.set_ex_root_path(slint::SharedString::from(
+        st.root_path.to_string_lossy().into_owned(),
+    ));
+    ui.set_ex_root_missing(st.root_missing);
+    ui.set_ex_root_error(slint::SharedString::from(st.root_error.as_str()));
+    let can_up = !st.cur_path.as_os_str().is_empty()
+        && !st.root_path.as_os_str().is_empty()
+        && st.cur_path != st.root_path;
+    ui.set_ex_can_up(can_up);
+    let (sort, desc, group, layout, local_only) = ex_view_settings(db, &st.cur_path);
+    ui.set_ex_view_sort(slint::SharedString::from(sort));
+    ui.set_ex_view_desc(desc);
+    ui.set_ex_view_group(slint::SharedString::from(group));
+    ui.set_ex_view_layout(slint::SharedString::from(layout));
+    ui.set_ex_view_local_only(local_only);
+    ui.set_ex_preview_text(slint::SharedString::new());
+}
+
+/// Baca folder dari disk + dorong ke UI. Path kosong = resolve root.
+/// Mengembalikan true bila state berhasil didorong (termasuk empty state
+/// root-belum-disetting / root-hilang); false hanya bila path tidak ada
+/// di disk (Slint tidak jadi navigasi, toast sudah diset).
+fn ex_load_folder(ui: &AppWindow, st: &mut explorer::ExplorerState, db: &ExDb, path: &Path) -> bool {
+    let mut p = path.to_path_buf();
+    if p.as_os_str().is_empty() {
+        p = explorer::resolve_root(|k| ex_db_get(db, k));
+        if p.as_os_str().is_empty() {
+            st.root_path = PathBuf::new();
+            st.root_missing = true;
+            st.root_error = String::new();
+            st.cur_path = PathBuf::new();
+            st.items.clear();
+            st.cur_mtime = None;
+            ex_push_folder(ui, st, db);
+            ui.set_ex_cur_path(slint::SharedString::from(""));
+            return true;
+        }
+    }
+    if !p.is_dir() {
+        let is_root = !st.root_path.as_os_str().is_empty() && p == st.root_path;
+        if is_root {
+            st.root_missing = true;
+            st.root_error = format!("Folder tidak ditemukan: {}", p.display());
+            st.cur_path = p.clone();
+            st.items.clear();
+            st.cur_mtime = None;
+            ex_push_folder(ui, st, db);
+            ui.set_ex_cur_path(slint::SharedString::from(p.to_string_lossy().into_owned()));
+            return true;
+        }
+        ui.set_toast(slint::SharedString::from(format!(
+            "Folder tidak ditemukan: {}",
+            p.display()
+        )));
+        return false;
+    }
+    st.root_missing = false;
+    st.root_error = String::new();
+    if st.root_path.as_os_str().is_empty() {
+        st.root_path = explorer::resolve_root(|k| ex_db_get(db, k));
+    }
+    st.cur_path = p.clone();
+    st.items = explorer::read_folder(&p, st.show_hidden);
+    st.cur_mtime = std::fs::metadata(&p).and_then(|m| m.modified()).ok();
+    st.last_own_change = Some(std::time::Instant::now());
+    ex_push_folder(ui, st, db);
+    // Path saat ini (dipakai tab EXPLORER panel compact) — selalu
+    // diperbarui tiap load, supaya panel tidak ketinggalan overlay.
+    ui.set_ex_cur_path(slint::SharedString::from(p.to_string_lossy().into_owned()));
+    true
+}
+
+/// Baca ulang folder saat ini (dipakai task-poll + watcher + save settings).
+fn ex_reload_cur(ui: &AppWindow, st: &mut explorer::ExplorerState, db: &ExDb) {
+    let path = st.cur_path.clone();
+    if path.as_os_str().is_empty() {
+        return;
+    }
+    let _ = ex_load_folder(ui, st, db, &path);
+}
+
+/// Dorong Task Monitor ke properti root ex-tm-*.
+/// Urutan tampil ala C# (Insert(0) = terbaru dulu): 3 tugas TERBARU,
+/// bukan 3 tertua — kalau tidak, tugas baru tak pernah terlihat sampai
+/// yang lama dibersihkan. Daftar disimpan maks 50 (C# FileOperationManager).
+fn ex_push_tasks(ui: &AppWindow, st: &explorer::ExplorerState) {
+    let mut kinds = vec![String::new(); 3];
+    let mut names = vec![String::new(); 3];
+    let mut progs = vec![0i32; 3];
+    let mut statuses = vec![String::new(); 3];
+    let mut sizes = vec![String::new(); 3];
+    let mut speeds = vec![String::new(); 3];
+    let mut etas = vec![String::new(); 3];
+    let mut routes = vec![String::new(); 3];
+    let mut errors = vec![String::new(); 3];
+    let n = st.tasks.len();
+    let start = n.saturating_sub(3);
+    for (i, t) in st.tasks[start..].iter().rev().enumerate() {
+        kinds[i] = t.kind.to_uppercase();
+        names[i] = t.name.clone();
+        progs[i] = t.prog_pct();
+        statuses[i] = t.status();
+        sizes[i] = t.size_str();
+        speeds[i] = t.speed_str();
+        etas[i] = t.eta_str();
+        routes[i] = t.route_str();
+        errors[i] = t.error();
+    }
+    ui.set_ex_tm_kind(slint::ModelRc::new(slint::VecModel::from_slice(
+        &ex_shared_vec(&kinds),
+    )));
+    ui.set_ex_tm_name(slint::ModelRc::new(slint::VecModel::from_slice(
+        &ex_shared_vec(&names),
+    )));
+    ui.set_ex_tm_prog(slint::ModelRc::new(slint::VecModel::from_slice(&progs)));
+    ui.set_ex_tm_status(slint::ModelRc::new(slint::VecModel::from_slice(
+        &ex_shared_vec(&statuses),
+    )));
+    ui.set_ex_tm_size(slint::ModelRc::new(slint::VecModel::from_slice(
+        &ex_shared_vec(&sizes),
+    )));
+    ui.set_ex_tm_speed(slint::ModelRc::new(slint::VecModel::from_slice(
+        &ex_shared_vec(&speeds),
+    )));
+    ui.set_ex_tm_eta(slint::ModelRc::new(slint::VecModel::from_slice(
+        &ex_shared_vec(&etas),
+    )));
+    ui.set_ex_tm_route(slint::ModelRc::new(slint::VecModel::from_slice(
+        &ex_shared_vec(&routes),
+    )));
+    ui.set_ex_tm_error(slint::ModelRc::new(slint::VecModel::from_slice(
+        &ex_shared_vec(&errors),
+    )));
+    ui.set_ex_tm_visible(!st.tasks.is_empty());
+}
+
+/// Petakan indeks kartu tampil (0 = terbaru) ke indeks st.tasks.
+/// Kebalikan dari ex_push_tasks (rev + 3 terbaru).
+fn tm_task_idx(st: &explorer::ExplorerState, display_i: usize) -> Option<usize> {
+    let n = st.tasks.len();
+    if display_i >= 3 || display_i >= n {
+        return None;
+    }
+    Some(n - 1 - display_i)
+}
+
+/// Dorong Quick Access (maks 8) ke properti root ex-qa-*.
+fn ex_push_qa(ui: &AppWindow, st: &explorer::ExplorerState) {
+    let mut paths = vec![String::new(); 8];
+    let mut labels = vec![String::new(); 8];
+    for (i, (name, path)) in st.qa.iter().take(8).enumerate() {
+        paths[i] = path.clone();
+        labels[i] = name.clone();
+    }
+    ui.set_ex_qa_paths(slint::ModelRc::new(slint::VecModel::from_slice(
+        &ex_shared_vec(&paths),
+    )));
+    ui.set_ex_qa_labels(slint::ModelRc::new(slint::VecModel::from_slice(
+        &ex_shared_vec(&labels),
+    )));
+}
+
+/// Muat Quick Access + pinned tabs dari DB, dorong ke UI.
+/// Pinned tabs dipulihkan di depan; tab aktif = tab baru di belakangnya
+/// (tempat folder yang dibuka) — supaya path pin tidak tertimpa nav.
+/// Bila semua 4 tab ter-pin, tab aktif = 0 (pin pertama ikut nav).
+fn ex_load_qa_pins(ui: &AppWindow, st: &mut explorer::ExplorerState, db: &ExDb) {
+    st.qa.clear();
+    let raw = ex_db_get(db, "Configs.Explorer.QuickAccess");
+    if !raw.is_empty() {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) {
+            if let Some(arr) = v.as_array() {
+                for it in arr {
+                    let name = it
+                        .get("Name")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let path = it
+                        .get("Path")
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    if !path.is_empty() {
+                        st.qa.push((name, path));
+                    }
+                }
+            }
+        }
+    }
+    ex_push_qa(ui, st);
+
+    let mut paths = vec![String::new(); 4];
+    let mut names = vec![String::new(); 4];
+    let mut pinned = vec![false; 4];
+    let mut labels = vec![String::new(); 4];
+    let mut colors = vec![0i32; 4];
+    let mut saved = 0usize;
+    let raw = ex_db_get(db, "Explorer_PinnedTabs");
+    if !raw.is_empty() {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) {
+            let mut saved_paths: Vec<String> = Vec::new();
+            if let Some(arr) = v.get("PinnedPaths").and_then(|x| x.as_array()) {
+                for p in arr {
+                    if let Some(s) = p.as_str() {
+                        saved_paths.push(s.to_string());
+                    }
+                }
+            }
+            let saved_labels: Vec<String> = v
+                .get("CustomLabels")
+                .and_then(|x| x.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .map(|x| x.as_str().unwrap_or("").to_string())
+                        .collect()
+                })
+                .unwrap_or_default();
+            let saved_colors: Vec<i32> = v
+                .get("CustomColors")
+                .and_then(|x| x.as_array())
+                .map(|arr| arr.iter().map(|x| x.as_i64().unwrap_or(0) as i32).collect())
+                .unwrap_or_default();
+            for (i, p) in saved_paths.iter().take(4).enumerate() {
+                if p.is_empty() {
+                    continue;
+                }
+                paths[i] = p.clone();
+                let base = Path::new(p)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| p.clone());
+                names[i] = base.clone();
+                pinned[i] = true;
+                let lab = saved_labels.get(i).cloned().unwrap_or_default();
+                labels[i] = if lab.is_empty() {
+                    base.chars().take(2).collect::<String>().to_uppercase()
+                } else {
+                    lab
+                };
+                colors[i] = saved_colors.get(i).copied().unwrap_or(0);
+                saved += 1;
+            }
+        }
+    }
+    let count = if saved >= 4 { 4 } else { saved as i32 + 1 };
+    let active = if saved >= 4 { 0 } else { saved as i32 };
+    ui.set_ex_tabs_path(slint::ModelRc::new(slint::VecModel::from_slice(
+        &ex_shared_vec(&paths),
+    )));
+    ui.set_ex_tabs_name(slint::ModelRc::new(slint::VecModel::from_slice(
+        &ex_shared_vec(&names),
+    )));
+    ui.set_ex_tabs_pinned(slint::ModelRc::new(slint::VecModel::from_slice(&pinned)));
+    ui.set_ex_tabs_label(slint::ModelRc::new(slint::VecModel::from_slice(
+        &ex_shared_vec(&labels),
+    )));
+    ui.set_ex_tabs_color(slint::ModelRc::new(slint::VecModel::from_slice(&colors)));
+    ui.set_ex_tab_count(count);
+    ui.set_ex_active_tab(active);
+}
+
+/// Pekerja satu tugas file: copy (dedup "x - Copy") / move (merge bila
+/// tujuan sudah ada — C# MoveDirectoryAsync: Directory.Move bila tujuan
+/// belum ada, copy+delete = merge bila sudah ada; file ditimpa) /
+/// delete. Mengembalikan pasangan (dari, ke) untuk undo (copy/move);
+/// delete -> kosong.
+fn ex_run_file_task(
+    kind: &str,
+    srcs: &[PathBuf],
+    dst: &Path,
+    cancel: &AtomicBool,
+    paused: &AtomicBool,
+    progress: &Arc<Mutex<explorer::Progress>>,
+    status: &Arc<Mutex<String>>,
+) -> Result<Vec<(PathBuf, PathBuf)>, String> {
+    use std::sync::atomic::Ordering as AtomicOrdering;
+    let mut pairs: Vec<(PathBuf, PathBuf)> = Vec::new();
+    match kind {
+        "copy" => {
+            for src in srcs {
+                if cancel.load(AtomicOrdering::Relaxed) {
+                    return Err("cancelled".to_string());
+                }
+                let name = src
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                let is_dir = src.is_dir();
+                let (base, ext) = if is_dir {
+                    (name.clone(), String::new())
+                } else {
+                    (explorer::base_of(&name), explorer::ext_of(&name))
+                };
+                let target = dst.join(explorer::dedup_name(dst, &base, &ext));
+                explorer::copy_recursive(src, &target, cancel, paused, progress)?;
+                pairs.push((src.clone(), target));
+            }
+            Ok(pairs)
+        }
+        "move" => {
+            for src in srcs {
+                if cancel.load(AtomicOrdering::Relaxed) {
+                    return Err("cancelled".to_string());
+                }
+                let name = src
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                let target = dst.join(&name);
+                // Tujuan sudah ada + keduanya folder = merge (C#:
+                // status "Merging..." + copy+delete). move_one sendiri
+                // sudah merge (rename gagal -> copy_recursive yang
+                // create_dir_all + timpa file, lalu hapus sumber);
+                // di sini hanya tandai statusnya.
+                if target.exists() && src.is_dir() && target.is_dir() {
+                    if let Ok(mut s) = status.lock() {
+                        *s = "merging".to_string();
+                    }
+                }
+                explorer::move_one(src, &target, cancel, paused, progress)?;
+                pairs.push((src.clone(), target));
+            }
+            Ok(pairs)
+        }
+        "delete" => {
+            for src in srcs {
+                explorer::delete_recursive(src, cancel, paused, progress)?;
+            }
+            Ok(pairs)
+        }
+        _ => Err(format!("Jenis tugas tidak dikenal: {}", kind)),
+    }
+}
+
+/// Jalankan satu tugas file di thread pekerja (serial via task_gate).
+/// Daftar maks 50 ala C# (terlama non-berjalan digeser); tampil 3 terbaru.
+/// Bila semuanya berjalan (hanya mungkin 1 karena antrean serial),
+/// tolak (false).
+fn ex_spawn_task(
+    ex_state: &ExState,
+    kind: &str,
+    name: String,
+    srcs: Vec<PathBuf>,
+    dst: PathBuf,
+    is_cut: bool,
+    total: u64,
+) -> bool {
+    use std::sync::atomic::Ordering as AtomicOrdering;
+    let mut st = match ex_state.lock() {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+    if st.tasks.len() >= 50 {
+        if let Some(pos) = st
+            .tasks
+            .iter()
+            .position(|t| !matches!(t.status().as_str(), "run" | "merging" | "cancelling"))
+        {
+            st.tasks.remove(pos);
+        } else {
+            return false;
+        }
+    }
+    let task = explorer::FileTask::new(kind, name.clone(), srcs.clone(), dst.clone(), is_cut, total);
+    let status = task.status.clone();
+    let error = task.error.clone();
+    let progress = task.progress.clone();
+    let cancel = task.cancel.clone();
+    let paused = task.paused.clone();
+    let started = task.started.clone();
+    let gate = st.task_gate.clone();
+    let ex_state2 = ex_state.clone();
+    let kind_owned = kind.to_string();
+    st.tasks.push(task);
+    drop(st);
+    std::thread::spawn(move || {
+        // Serial: tunggu giliran (tugas lain selesai dulu). Waktu mulai
+        // dihitung dari sini, bukan dari spawn (kecepatan/ETA nyata).
+        let _guard = gate.lock().unwrap();
+        if let Ok(mut s) = started.lock() {
+            *s = Some(std::time::Instant::now());
+        }
+        let status_c = status.clone();
+        let res = ex_run_file_task(&kind_owned, &srcs, &dst, &cancel, &paused, &progress, &status_c);
+        match res {
+            Ok(pairs) => {
+                // Paksa progress 100% (add terakhir bisa tertahan throttle).
+                if let Ok(mut p) = progress.lock() {
+                    p.finish();
+                }
+                if !pairs.is_empty() && (kind_owned == "copy" || kind_owned == "move") {
+                    if let Ok(mut s2) = ex_state2.lock() {
+                        s2.push_undo(explorer::UndoEntry {
+                            kind: kind_owned.clone(),
+                            name: name.clone(),
+                            pairs,
+                        });
+                    }
+                }
+                if let Ok(mut s) = status.lock() {
+                    // Batal ditekan di detik terakhir: jangan klaim selesai.
+                    *s = if cancel.load(AtomicOrdering::Relaxed) {
+                        "cancelled".to_string()
+                    } else {
+                        "done".to_string()
+                    };
+                }
+            }
+            Err(e) if e == "cancelled" => {
+                if let Ok(mut s) = status.lock() {
+                    *s = "cancelled".to_string();
+                }
+            }
+            Err(e) => {
+                if let Ok(mut er) = error.lock() {
+                    *er = e;
+                }
+                if let Ok(mut s) = status.lock() {
+                    *s = "failed".to_string();
+                }
+            }
+        }
+    });
+    true
+}
+
+/// Nama tampil satu path (untuk toast / nama tugas).
+fn ex_display_name(p: &Path) -> String {
+    p.file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| p.to_string_lossy().into_owned())
+}
+
+/// Daftar path dari string gabungan "\n" (Slint sel-paths-joined).
+fn ex_split_joined(joined: &str) -> Vec<PathBuf> {
+    joined
+        .lines()
+        .filter(|s| !s.trim().is_empty())
+        .map(PathBuf::from)
+        .collect()
+}
+
+/// Nama file tidak boleh mengandung karakter ini (aturan Windows, C#).
+fn ex_bad_name(name: &str) -> bool {
+    name.contains(['/', '\\', ':', '*', '?', '"', '<', '>', '|'])
+}
+
 fn main() -> Result<(), slint::PlatformError> {
     let ui = AppWindow::new()?;
 
@@ -3980,6 +4559,53 @@ fn main() -> Result<(), slint::PlatformError> {
     // notifikasi). Dibuat di sini supaya blok load SQLite di bawah
     // bisa mengisi baseline poin + visibilitas tersimpan.
     let bar_store: BarStore = Arc::new(Mutex::new(BarState::default()));
+
+    // Explorer nyata (src/explorer.rs): state bersama — folder saat ini,
+    // clipboard, undo, tugas file, Quick Access. Dibuat awal supaya
+    // callback settings + timer watcher di bawah bisa memakainya.
+    let explorer_state: ExState = Arc::new(Mutex::new(explorer::ExplorerState::default()));
+
+    // Explorer Settings: muat dari DB ke properti root (sekali saat startup;
+    // ExplorerSettingsView terikat <=> ke sini).
+    {
+        let path = ex_db_get(&db, "Configs.Explorer.DefaultPath");
+        ui.set_ex_set_path(slint::SharedString::from(path));
+        let layout = ex_db_get(&db, "Configs.Explorer.ViewMode");
+        let view = match layout.as_str() {
+            "Horizontal" => "List",
+            "Thumbnail" => "Thumbnails",
+            "Tiles" => "Tiles",
+            "Split" => "Split",
+            _ => "Details",
+        };
+        ui.set_ex_set_view(slint::SharedString::from(view));
+        let sort = ex_db_get(&db, "Configs.Explorer.SortBy");
+        ui.set_ex_set_sort(slint::SharedString::from(if sort.is_empty() {
+            "Name".to_string()
+        } else {
+            sort
+        }));
+        let group = ex_db_get(&db, "Configs.Explorer.GroupBy");
+        ui.set_ex_set_group(slint::SharedString::from(if group.is_empty() {
+            "Date".to_string()
+        } else {
+            group
+        }));
+        ui.set_ex_set_hidden(ex_db_get(&db, "Configs.Explorer.ShowHiddenFiles") == "true");
+        let ext = ex_db_get(&db, "Configs.Explorer.ShowFileExtensions");
+        ui.set_ex_set_ext(ext != "false"); // default tampil
+        let zoom = ex_db_get(&db, "Configs.Explorer.ContentZoom")
+            .parse::<i32>()
+            .unwrap_or(100);
+        ui.set_ex_set_zoom(zoom.clamp(75, 200));
+        let showbar = ex_db_get(&db, "Configs.Explorer.ShowPathBar");
+        ui.set_ex_set_showbar(showbar != "false"); // default tampil
+        ui.set_ex_show_pathbar(showbar != "false");
+        let font = ex_db_get(&db, "Configs.Explorer.FontFamily");
+        let font = if font.is_empty() { "Inter".to_string() } else { font };
+        ui.set_ex_set_font(slint::SharedString::from(font.as_str()));
+        ui.set_ex_font(slint::SharedString::from(font.as_str()));
+    }
     // Window + flag tampil Dynamic Bar — dibuat awal supaya handler
     // tema (di bawah) bisa menyinkronkan token Design ke bar saat
     // tema berubah.
@@ -4724,6 +5350,51 @@ fn main() -> Result<(), slint::PlatformError> {
                                 )
                             })
                             .collect();
+                        let descs: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| {
+                                slint::SharedString::from(
+                                    c.desc.clone().unwrap_or_default(),
+                                )
+                            })
+                            .collect();
+                        // Label Trello kartu (nama label; maks 2 dipakai
+                        // detail: label-1 + label-2) + jumlah lampiran
+                        // (badges.attachments) — tampil di detail kartu
+                        // (ref trello-sidepanel-ref.jpg, 28 Nov 2026).
+                        let label1s: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| {
+                                let n = c
+                                    .labels
+                                    .as_ref()
+                                    .and_then(|l| l.first())
+                                    .and_then(|l| l.name.clone())
+                                    .unwrap_or_default();
+                                slint::SharedString::from(n)
+                            })
+                            .collect();
+                        let label2s: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| {
+                                let n = c
+                                    .labels
+                                    .as_ref()
+                                    .and_then(|l| l.get(1))
+                                    .and_then(|l| l.name.clone())
+                                    .unwrap_or_default();
+                                slint::SharedString::from(n)
+                            })
+                            .collect();
+                        let atts: Vec<i32> = cards
+                            .iter()
+                            .map(|c| {
+                                c.badges
+                                    .as_ref()
+                                    .and_then(|b| b.attachments)
+                                    .unwrap_or(0) as i32
+                            })
+                            .collect();
                         let _ = ui_weak.upgrade_in_event_loop(move |u| {
                             u.set_stat_editing(count.into());
                             u.set_editing_titles(slint::ModelRc::new(slint::VecModel::from(
@@ -4738,6 +5409,10 @@ fn main() -> Result<(), slint::PlatformError> {
                             u.set_editing_ids(slint::ModelRc::new(slint::VecModel::from(ids)));
                             u.set_editing_urls(slint::ModelRc::new(slint::VecModel::from(urls)));
                             u.set_editing_done(slint::ModelRc::new(slint::VecModel::from(dones)));
+                            u.set_editing_desc(slint::ModelRc::new(slint::VecModel::from(descs.clone())));
+                            u.set_editing_label1(slint::ModelRc::new(slint::VecModel::from(label1s.clone())));
+                            u.set_editing_label2(slint::ModelRc::new(slint::VecModel::from(label2s.clone())));
+                            u.set_editing_atts(slint::ModelRc::new(slint::VecModel::from(atts.clone())));
                             if u.get_list_category().as_str() == "EDITING"
                                 || u.get_trello_window_cat().as_str() == "EDITING"
                             {
@@ -4816,6 +5491,51 @@ fn main() -> Result<(), slint::PlatformError> {
                                 )
                             })
                             .collect();
+                        let descs: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| {
+                                slint::SharedString::from(
+                                    c.desc.clone().unwrap_or_default(),
+                                )
+                            })
+                            .collect();
+                        // Label Trello kartu (nama label; maks 2 dipakai
+                        // detail: label-1 + label-2) + jumlah lampiran
+                        // (badges.attachments) — tampil di detail kartu
+                        // (ref trello-sidepanel-ref.jpg, 28 Nov 2026).
+                        let label1s: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| {
+                                let n = c
+                                    .labels
+                                    .as_ref()
+                                    .and_then(|l| l.first())
+                                    .and_then(|l| l.name.clone())
+                                    .unwrap_or_default();
+                                slint::SharedString::from(n)
+                            })
+                            .collect();
+                        let label2s: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| {
+                                let n = c
+                                    .labels
+                                    .as_ref()
+                                    .and_then(|l| l.get(1))
+                                    .and_then(|l| l.name.clone())
+                                    .unwrap_or_default();
+                                slint::SharedString::from(n)
+                            })
+                            .collect();
+                        let atts: Vec<i32> = cards
+                            .iter()
+                            .map(|c| {
+                                c.badges
+                                    .as_ref()
+                                    .and_then(|b| b.attachments)
+                                    .unwrap_or(0) as i32
+                            })
+                            .collect();
                         let _ = ui_weak.upgrade_in_event_loop(move |u| {
                             u.set_stat_revision(count.into());
                             u.set_revision_titles(slint::ModelRc::new(slint::VecModel::from(
@@ -4830,6 +5550,10 @@ fn main() -> Result<(), slint::PlatformError> {
                             u.set_revision_ids(slint::ModelRc::new(slint::VecModel::from(ids)));
                             u.set_revision_urls(slint::ModelRc::new(slint::VecModel::from(urls)));
                             u.set_revision_done(slint::ModelRc::new(slint::VecModel::from(dones)));
+                            u.set_revision_desc(slint::ModelRc::new(slint::VecModel::from(descs.clone())));
+                            u.set_revision_label1(slint::ModelRc::new(slint::VecModel::from(label1s.clone())));
+                            u.set_revision_label2(slint::ModelRc::new(slint::VecModel::from(label2s.clone())));
+                            u.set_revision_atts(slint::ModelRc::new(slint::VecModel::from(atts.clone())));
                             if u.get_list_category().as_str() == "REVISION"
                                 || u.get_trello_window_cat().as_str() == "REVISION"
                             {
@@ -4908,6 +5632,51 @@ fn main() -> Result<(), slint::PlatformError> {
                                 )
                             })
                             .collect();
+                        let descs: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| {
+                                slint::SharedString::from(
+                                    c.desc.clone().unwrap_or_default(),
+                                )
+                            })
+                            .collect();
+                        // Label Trello kartu (nama label; maks 2 dipakai
+                        // detail: label-1 + label-2) + jumlah lampiran
+                        // (badges.attachments) — tampil di detail kartu
+                        // (ref trello-sidepanel-ref.jpg, 28 Nov 2026).
+                        let label1s: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| {
+                                let n = c
+                                    .labels
+                                    .as_ref()
+                                    .and_then(|l| l.first())
+                                    .and_then(|l| l.name.clone())
+                                    .unwrap_or_default();
+                                slint::SharedString::from(n)
+                            })
+                            .collect();
+                        let label2s: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| {
+                                let n = c
+                                    .labels
+                                    .as_ref()
+                                    .and_then(|l| l.get(1))
+                                    .and_then(|l| l.name.clone())
+                                    .unwrap_or_default();
+                                slint::SharedString::from(n)
+                            })
+                            .collect();
+                        let atts: Vec<i32> = cards
+                            .iter()
+                            .map(|c| {
+                                c.badges
+                                    .as_ref()
+                                    .and_then(|b| b.attachments)
+                                    .unwrap_or(0) as i32
+                            })
+                            .collect();
                         let _ = ui_weak.upgrade_in_event_loop(move |u| {
                             u.set_stat_late(count.into());
                             u.set_late_titles(slint::ModelRc::new(slint::VecModel::from(
@@ -4922,6 +5691,10 @@ fn main() -> Result<(), slint::PlatformError> {
                             u.set_late_ids(slint::ModelRc::new(slint::VecModel::from(ids)));
                             u.set_late_urls(slint::ModelRc::new(slint::VecModel::from(urls)));
                             u.set_late_done(slint::ModelRc::new(slint::VecModel::from(dones)));
+                            u.set_late_desc(slint::ModelRc::new(slint::VecModel::from(descs.clone())));
+                            u.set_late_label1(slint::ModelRc::new(slint::VecModel::from(label1s.clone())));
+                            u.set_late_label2(slint::ModelRc::new(slint::VecModel::from(label2s.clone())));
+                            u.set_late_atts(slint::ModelRc::new(slint::VecModel::from(atts.clone())));
                             if u.get_list_category().as_str() == "LATE"
                                 || u.get_trello_window_cat().as_str() == "LATE"
                             {
@@ -5367,10 +6140,70 @@ fn main() -> Result<(), slint::PlatformError> {
     }
     {
         let ui_weak = ui.as_weak();
+        let db_c = db.clone();
+        let ex_state = explorer_state.clone();
         ui.on_save_explorer_settings(move || {
-            if let Some(ui) = ui_weak.upgrade() {
-                ui.set_toast(slint::SharedString::from("Pengaturan Explorer disimpan"));
+            let Some(ui) = ui_weak.upgrade() else { return; };
+            let path = ui.get_ex_set_path().to_string();
+            let view = ui.get_ex_set_view().to_string();
+            let sort = ui.get_ex_set_sort().to_string();
+            let group = ui.get_ex_set_group().to_string();
+            let hidden = ui.get_ex_set_hidden();
+            let show_ext = ui.get_ex_set_ext();
+            let zoom = ui.get_ex_set_zoom();
+            let showbar = ui.get_ex_set_showbar();
+            let font = ui.get_ex_set_font().to_string();
+            ex_db_set(&db_c, "Configs.Explorer.DefaultPath", &path);
+            // Details->Vertical, List->Horizontal, Thumbnails->Thumbnail,
+            // Tiles->Tiles, Split->Split (C# ViewMode vs tampilan Settings).
+            let layout = match view.as_str() {
+                "List" => "Horizontal",
+                "Thumbnails" => "Thumbnail",
+                "Tiles" => "Tiles",
+                "Split" => "Split",
+                _ => "Vertical",
+            };
+            ex_db_set(&db_c, "Configs.Explorer.ViewMode", layout);
+            ex_db_set(&db_c, "Configs.Explorer.SortBy", &sort);
+            ex_db_set(&db_c, "Configs.Explorer.GroupBy", &group);
+            ex_db_set(
+                &db_c,
+                "Configs.Explorer.ShowHiddenFiles",
+                if hidden { "true" } else { "false" },
+            );
+            ex_db_set(
+                &db_c,
+                "Configs.Explorer.ShowFileExtensions",
+                if show_ext { "true" } else { "false" },
+            );
+            ex_db_set(&db_c, "Configs.Explorer.ContentZoom", &zoom.to_string());
+            ex_db_set(
+                &db_c,
+                "Configs.Explorer.ShowPathBar",
+                if showbar { "true" } else { "false" },
+            );
+            ex_db_set(
+                &db_c,
+                "Configs.Explorer.FontFamily",
+                if font.is_empty() { "Inter" } else { font.as_str() },
+            );
+            // Berlaku langsung tanpa restart: hidden files + root baru +
+            // path bar + font. Reload SELALU (dulu hanya bila overlay ==
+            // "EXPLORER" — dari EXPLORER-SETTINGS tidak pernah reload,
+            // jadi sort/group/layout baru tidak terlihat saat kembali).
+            ui.set_ex_show_pathbar(showbar);
+            ui.set_ex_font(slint::SharedString::from(
+                if font.is_empty() { "Inter" } else { font.as_str() },
+            ));
+            {
+                let mut st = ex_state.lock().unwrap();
+                st.show_hidden = hidden;
+                if !path.is_empty() {
+                    st.root_path = PathBuf::from(&path);
+                }
+                ex_reload_cur(&ui, &mut st, &db_c);
             }
+            ui.set_toast(slint::SharedString::from("Pengaturan Explorer disimpan"));
         });
     }
     {
@@ -5406,7 +6239,7 @@ fn main() -> Result<(), slint::PlatformError> {
                             "manasik" => ui.set_app_path_manasik(p.clone()),
                             "wisuda" => ui.set_app_path_wisuda(p.clone()),
                             "profesi" => ui.set_app_path_profesi(p.clone()),
-                            "explorer" => ui.set_ex_start_path(p.clone()),
+                            "explorer" => ui.set_ex_set_path(p.clone()),
                             _ => {}
                         }
                         if let Some(ref db_mutex) = db_c {
@@ -5420,6 +6253,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                     "manasik" => Some("Paths.Manasik"),
                                     "wisuda" => Some("Paths.Wisuda"),
                                     "profesi" => Some("Paths.Profesi"),
+                                    "explorer" => Some("Configs.Explorer.DefaultPath"),
                                     _ => None,
                                 };
                                 if let Some(k) = key {
@@ -8769,91 +9603,1353 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     }
 
+    // ---- Explorer nyata (src/explorer.rs) ----
+    // State bersama Explorer dibuat di awal main() (setelah bar_store);
+    // di sini hanya inisialisasi show-hidden dari DB.
+    {
+        let mut st = explorer_state.lock().unwrap();
+        st.show_hidden = ex_db_get(&db, "Configs.Explorer.ShowHiddenFiles") == "true";
+    }
+
     // ---- Search rekursif (substring case-insensitive, `*`/`?` literal) ----
+    // Jalan di thread latar; generasi membuang hasil basi (debounce 300ms
+    // di Slint me-restart search — hasil query lama tidak boleh menimpa).
     // Urutan hasil: folder dulu, lalu shortcut, lalu file (tiap kelompok
-    // name-asc, sesuai urutan kanonis tabel). Cap 5000 (spec §2.4).
+    // name-asc). Cap 5000 (spec §2.4).
     {
         let ui_weak = ui.as_weak();
-        ui.on_ex_search(move |query, folder_key| {
-            let ui = ui_weak.upgrade().unwrap();
-            let q = query.to_lowercase();
-            let keys = subtree_keys(&folder_key);
-            let mut hits: Vec<&(&str, &str, &str, &str, &str, &str, &str, &str, &str, &str)> =
-                Vec::new();
-            let mut truncated = false;
-            for item in EXPLORER_ITEMS {
-                if !keys.contains(&item.0) {
-                    continue;
-                }
-                if !item.2.to_lowercase().contains(&q) {
-                    continue;
-                }
-                hits.push(item);
-                if hits.len() >= 5000 {
-                    truncated = true;
-                    break;
-                }
-            }
-            // Kelompokkan: folder -> shortcut (.lnk) -> file.
-            let mut ordered: Vec<&&(&str, &str, &str, &str, &str, &str, &str, &str, &str, &str)> =
-                Vec::new();
-            for kind in ["folder", "link", "file"] {
-                for h in hits.iter().filter(|i| i.3 == kind) {
-                    ordered.push(h);
-                }
-            }
-            let names: Vec<slint::SharedString> = ordered.iter().map(|i| i.2.into()).collect();
-            let kinds: Vec<slint::SharedString> = ordered.iter().map(|i| i.3.into()).collect();
-            let exts: Vec<slint::SharedString> = ordered.iter().map(|i| i.4.into()).collect();
-            let bases: Vec<slint::SharedString> = ordered.iter().map(|i| i.5.into()).collect();
-            let sizes: Vec<slint::SharedString> = ordered.iter().map(|i| i.6.into()).collect();
-            let dates: Vec<slint::SharedString> = ordered.iter().map(|i| i.7.into()).collect();
-            let previews: Vec<slint::SharedString> = ordered.iter().map(|i| i.8.into()).collect();
-            let locs: Vec<slint::SharedString> = ordered.iter().map(|i| i.9.into()).collect();
-            let paths: Vec<slint::SharedString> = ordered
-                .iter()
-                .map(|i| {
-                    if i.1.is_empty() {
-                        slint::SharedString::from(i.2)
-                    } else {
-                        slint::SharedString::from(format!("{}\\{}", i.1, i.2))
+        let ex_state = explorer_state.clone();
+        ui.on_ex_search(move |query, path| {
+            let my_gen = {
+                let mut st = ex_state.lock().unwrap();
+                st.search_gen += 1;
+                st.search_gen
+            };
+            let ui_w2 = ui_weak.clone();
+            let ex2 = ex_state.clone();
+            let root = PathBuf::from(path.as_str());
+            let q = query.to_string();
+            let show_hidden = ex_state.lock().map(|s| s.show_hidden).unwrap_or(false);
+            std::thread::spawn(move || {
+                let (hits, truncated) = explorer::search_recursive(&root, &q, show_hidden);
+                let ui_w3 = ui_w2.clone();
+                let _ = slint::invoke_from_event_loop(move || {
+                    let Some(ui) = ui_w3.upgrade() else { return; };
+                    let Ok(mut st) = ex2.lock() else { return; };
+                    if st.search_gen != my_gen {
+                        return; // hasil basi — query baru sudah jalan
                     }
-                })
-                .collect();
-            let half = (names.len() + 1) / 2;
-            ui.set_ex_sr_names(slint::ModelRc::new(slint::VecModel::from_slice(&names)));
-            ui.set_ex_sr_kinds(slint::ModelRc::new(slint::VecModel::from_slice(&kinds)));
-            ui.set_ex_sr_exts(slint::ModelRc::new(slint::VecModel::from_slice(&exts)));
-            ui.set_ex_sr_bases(slint::ModelRc::new(slint::VecModel::from_slice(&bases)));
-            ui.set_ex_sr_sizes(slint::ModelRc::new(slint::VecModel::from_slice(&sizes)));
-            ui.set_ex_sr_dates(slint::ModelRc::new(slint::VecModel::from_slice(&dates)));
-            ui.set_ex_sr_previews(slint::ModelRc::new(slint::VecModel::from_slice(&previews)));
-            ui.set_ex_sr_locs(slint::ModelRc::new(slint::VecModel::from_slice(&locs)));
-            ui.set_ex_sr_paths(slint::ModelRc::new(slint::VecModel::from_slice(&paths)));
-            ui.set_ex_sr_half(half as i32);
-            ui.set_ex_sr_truncated(truncated);
+                    st.searching = false;
+                    let names: Vec<slint::SharedString> = hits
+                        .iter()
+                        .map(|h| slint::SharedString::from(h.name.as_str()))
+                        .collect();
+                    let kinds: Vec<slint::SharedString> = hits
+                        .iter()
+                        .map(|h| slint::SharedString::from(h.kind.as_str()))
+                        .collect();
+                    let exts: Vec<slint::SharedString> = hits
+                        .iter()
+                        .map(|h| slint::SharedString::from(h.ext.as_str()))
+                        .collect();
+                    let bases: Vec<slint::SharedString> = hits
+                        .iter()
+                        .map(|h| slint::SharedString::from(h.base.as_str()))
+                        .collect();
+                    let sizes: Vec<slint::SharedString> = hits
+                        .iter()
+                        .map(|h| slint::SharedString::from(h.size_display.as_str()))
+                        .collect();
+                    let dates: Vec<slint::SharedString> = hits
+                        .iter()
+                        .map(|h| slint::SharedString::from(h.date_display.as_str()))
+                        .collect();
+                    let previews: Vec<slint::SharedString> =
+                        hits.iter().map(|_| slint::SharedString::new()).collect();
+                    let locs: Vec<slint::SharedString> = hits
+                        .iter()
+                        .map(|h| slint::SharedString::from(h.loc.as_str()))
+                        .collect();
+                    let paths: Vec<slint::SharedString> = hits
+                        .iter()
+                        .map(|h| slint::SharedString::from(h.path.to_string_lossy().into_owned()))
+                        .collect();
+                    let half = (names.len() + 1) / 2;
+                    ui.set_ex_sr_names(slint::ModelRc::new(slint::VecModel::from_slice(&names)));
+                    ui.set_ex_sr_kinds(slint::ModelRc::new(slint::VecModel::from_slice(&kinds)));
+                    ui.set_ex_sr_exts(slint::ModelRc::new(slint::VecModel::from_slice(&exts)));
+                    ui.set_ex_sr_bases(slint::ModelRc::new(slint::VecModel::from_slice(&bases)));
+                    ui.set_ex_sr_sizes(slint::ModelRc::new(slint::VecModel::from_slice(&sizes)));
+                    ui.set_ex_sr_dates(slint::ModelRc::new(slint::VecModel::from_slice(&dates)));
+                    ui.set_ex_sr_previews(slint::ModelRc::new(slint::VecModel::from_slice(
+                        &previews,
+                    )));
+                    ui.set_ex_sr_locs(slint::ModelRc::new(slint::VecModel::from_slice(&locs)));
+                    ui.set_ex_sr_paths(slint::ModelRc::new(slint::VecModel::from_slice(&paths)));
+                    ui.set_ex_sr_half(half as i32);
+                    ui.set_ex_sr_truncated(truncated);
+                });
+            });
         });
     }
 
-    // ---- Type-ahead: indeks kanonis lokal pertama yang diawali buffer ----
+    // ---- Type-ahead: indeks kanonis pertama yang diawali buffer ----
     {
         let ui_weak = ui.as_weak();
-        ui.on_ex_typeahead(move |folder_key, buffer| {
-            let ui = ui_weak.upgrade().unwrap();
+        let ex_state = explorer_state.clone();
+        ui.on_ex_typeahead(move |path, buffer| {
+            let Some(ui) = ui_weak.upgrade() else { return; };
+            let st = ex_state.lock().unwrap();
             let b = buffer.to_lowercase();
-            let mut local: i32 = -1;
+            let p = PathBuf::from(path.as_str());
+            let items = if p == st.cur_path {
+                st.items.clone()
+            } else {
+                explorer::read_folder(&p, st.show_hidden)
+            };
             let mut idx: i32 = -1;
-            for item in EXPLORER_ITEMS {
-                if folder_key != item.0 {
-                    continue;
-                }
-                local += 1;
-                if item.2.to_lowercase().starts_with(&b) {
-                    idx = local;
+            for (i, it) in items.iter().enumerate() {
+                if it.name.to_lowercase().starts_with(&b) {
+                    idx = i as i32;
                     break;
                 }
             }
             ui.set_ex_ta_index(idx);
+        });
+    }
+
+    // ---- Navigasi: load folder / parent / base-name / is-dir / index ----
+    {
+        let ui_weak = ui.as_weak();
+        let ex_state = explorer_state.clone();
+        let db_c = db.clone();
+        // Clone untuk handler nav-up panel (closure di bawah me-move
+        // aslinya ke on_ex_load_folder).
+        let ui_weak_up = ui_weak.clone();
+        let ex_state_up = ex_state.clone();
+        let db_c_up = db_c.clone();
+        ui.on_ex_load_folder(move |path| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return false;
+            };
+            let mut st = ex_state.lock().unwrap();
+            ex_load_folder(&ui, &mut st, &db_c, Path::new(path.as_str()))
+        });
+        // Naik satu tingkat dari folder saat ini (panel compact) —
+        // tidak boleh di atas root Explorer (C# Up).
+        ui.on_ex_nav_up(move || {
+            let Some(ui) = ui_weak_up.upgrade() else {
+                return;
+            };
+            let mut st = ex_state_up.lock().unwrap();
+            let cur = st.cur_path.clone();
+            let root = st.root_path.clone();
+            if cur.as_os_str().is_empty() || cur == root {
+                return;
+            }
+            if let Some(par) = cur.parent() {
+                if !par.as_os_str().is_empty() {
+                    let par = par.to_path_buf();
+                    ex_load_folder(&ui, &mut st, &db_c_up, &par);
+                }
+            }
+        });
+    }
+    ui.on_ex_parent(move |path| {
+        let p = Path::new(path.as_str());
+        match p.parent() {
+            Some(par) if !par.as_os_str().is_empty() => {
+                slint::SharedString::from(par.to_string_lossy().into_owned())
+            }
+            _ => slint::SharedString::new(),
+        }
+    });
+    ui.on_ex_base_name(move |path| {
+        let p = Path::new(path.as_str());
+        match p.file_name() {
+            Some(n) => slint::SharedString::from(n.to_string_lossy().into_owned()),
+            None => slint::SharedString::from(path.as_str()),
+        }
+    });
+    ui.on_ex_is_dir(move |path| Path::new(path.as_str()).is_dir());
+    ui.on_ex_is_file(move |path| Path::new(path.as_str()).is_file());
+    {
+        let ex_state = explorer_state.clone();
+        ui.on_ex_index_of(move |name| {
+            let st = ex_state.lock().unwrap();
+            for (i, it) in st.items.iter().enumerate() {
+                if it.name == name.as_str() {
+                    return i as i32;
+                }
+            }
+            -1
+        });
+    }
+    {
+        let ex_state = explorer_state.clone();
+        ui.on_ex_name_exists(move |name| {
+            let st = ex_state.lock().unwrap();
+            std::fs::symlink_metadata(st.cur_path.join(name.as_str())).is_ok()
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_ex_preview(move |path| {
+            let Some(ui) = ui_weak.upgrade() else { return; };
+            let text = std::fs::read_to_string(path.as_str())
+                .map(|s| s.chars().take(4000).collect::<String>())
+                .unwrap_or_default();
+            ui.set_ex_preview_text(slint::SharedString::from(text));
+        });
+    }
+
+    // ---- Buat folder / file baru ----
+    {
+        let ui_weak = ui.as_weak();
+        let ex_state = explorer_state.clone();
+        let db_c = db.clone();
+        ui.on_ex_create_folder(move |dir, name| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return false;
+            };
+            let name = name.trim().to_string();
+            if name.is_empty() {
+                ui.set_toast(slint::SharedString::from("Nama tidak boleh kosong."));
+                return false;
+            }
+            if ex_bad_name(&name) {
+                ui.set_toast(slint::SharedString::from(
+                    "Nama tidak boleh mengandung / \\ : * ? \" < > |",
+                ));
+                return false;
+            }
+            let target = Path::new(dir.as_str()).join(&name);
+            if std::fs::symlink_metadata(&target).is_ok() {
+                ui.set_toast(slint::SharedString::from(format!("Nama sudah ada: {}", name)));
+                return false;
+            }
+            match std::fs::create_dir(&target) {
+                Ok(()) => {
+                    let mut st = ex_state.lock().unwrap();
+                    st.push_undo(explorer::UndoEntry {
+                        kind: "new".to_string(),
+                        name: format!("Buat folder {}", name),
+                        pairs: vec![(PathBuf::new(), target)],
+                    });
+                    st.last_own_change = Some(Instant::now());
+                    ex_reload_cur(&ui, &mut st, &db_c);
+                    ui.set_toast(slint::SharedString::from(format!("Folder dibuat: {}", name)));
+                    true
+                }
+                Err(e) => {
+                    ui.set_toast(slint::SharedString::from(format!(
+                        "Gagal membuat folder: {}",
+                        e
+                    )));
+                    false
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let ex_state = explorer_state.clone();
+        let db_c = db.clone();
+        ui.on_ex_create_file(move |dir, name| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return false;
+            };
+            let name = name.trim().to_string();
+            if name.is_empty() {
+                ui.set_toast(slint::SharedString::from("Nama tidak boleh kosong."));
+                return false;
+            }
+            if ex_bad_name(&name) {
+                ui.set_toast(slint::SharedString::from(
+                    "Nama tidak boleh mengandung / \\ : * ? \" < > |",
+                ));
+                return false;
+            }
+            let target = Path::new(dir.as_str()).join(&name);
+            if std::fs::symlink_metadata(&target).is_ok() {
+                ui.set_toast(slint::SharedString::from(format!("Nama sudah ada: {}", name)));
+                return false;
+            }
+            match std::fs::File::create(&target) {
+                Ok(_) => {
+                    let mut st = ex_state.lock().unwrap();
+                    st.push_undo(explorer::UndoEntry {
+                        kind: "new".to_string(),
+                        name: format!("Buat file {}", name),
+                        pairs: vec![(PathBuf::new(), target)],
+                    });
+                    st.last_own_change = Some(Instant::now());
+                    ex_reload_cur(&ui, &mut st, &db_c);
+                    ui.set_toast(slint::SharedString::from(format!("File dibuat: {}", name)));
+                    true
+                }
+                Err(e) => {
+                    ui.set_toast(slint::SharedString::from(format!("Gagal membuat file: {}", e)));
+                    false
+                }
+            }
+        });
+    }
+
+    // ---- Rename ----
+    {
+        let ui_weak = ui.as_weak();
+        let ex_state = explorer_state.clone();
+        let db_c = db.clone();
+        ui.on_ex_rename(move |old_path, new_name| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return false;
+            };
+            let old = PathBuf::from(old_path.as_str());
+            let new_name = new_name.trim().to_string();
+            let old_name = ex_display_name(&old);
+            if new_name.is_empty() {
+                ui.set_toast(slint::SharedString::from("Nama tidak boleh kosong."));
+                return false;
+            }
+            if ex_bad_name(&new_name) {
+                ui.set_toast(slint::SharedString::from(
+                    "Nama tidak boleh mengandung / \\ : * ? \" < > |",
+                ));
+                return false;
+            }
+            let new = old.with_file_name(&new_name);
+            if std::fs::symlink_metadata(&new).is_ok() {
+                ui.set_toast(slint::SharedString::from(format!(
+                    "Nama sudah ada: {}",
+                    new_name
+                )));
+                return false;
+            }
+            match std::fs::rename(&old, &new) {
+                Ok(()) => {
+                    let mut st = ex_state.lock().unwrap();
+                    st.push_undo(explorer::UndoEntry {
+                        kind: "rename".to_string(),
+                        name: format!("Rename {} → {}", old_name, new_name),
+                        pairs: vec![(old, new)],
+                    });
+                    st.last_own_change = Some(Instant::now());
+                    ex_reload_cur(&ui, &mut st, &db_c);
+                    ui.set_toast(slint::SharedString::from(format!(
+                        "Rename: {} → {}",
+                        old_name, new_name
+                    )));
+                    true
+                }
+                Err(e) => {
+                    ui.set_toast(slint::SharedString::from(format!("Gagal rename: {}", e)));
+                    false
+                }
+            }
+        });
+    }
+
+    // ---- Hapus (Recycle Bin sinkron; permanen via Task Monitor) ----
+    {
+        let ui_weak = ui.as_weak();
+        let ex_state = explorer_state.clone();
+        let db_c = db.clone();
+        ui.on_ex_delete(move |joined, permanent| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return false;
+            };
+            let paths = ex_split_joined(joined.as_str());
+            if paths.is_empty() {
+                ui.set_toast(slint::SharedString::from("Pilih item dulu."));
+                return false;
+            }
+            if permanent {
+                let total: u64 = paths.iter().map(|p| explorer::dir_size(p)).sum();
+                let name = if paths.len() == 1 {
+                    ex_display_name(&paths[0])
+                } else {
+                    format!("{} item", paths.len())
+                };
+                let ok = ex_spawn_task(
+                    &ex_state,
+                    "delete",
+                    name,
+                    paths,
+                    PathBuf::new(),
+                    false,
+                    total,
+                );
+                if ok {
+                    // Dorong TM langsung: task bisa selesai sebelum tick
+                    // poll pertama (300ms), kalau tidak TM tak pernah muncul.
+                    if let Ok(st) = ex_state.lock() {
+                        ex_push_tasks(&ui, &st);
+                    }
+                    ui.set_toast(slint::SharedString::from(
+                        "Menghapus permanen (lihat Task Monitor)…",
+                    ));
+                    true
+                } else {
+                    ui.set_toast(slint::SharedString::from("Task Monitor penuh (50 tugas)."));
+                    false
+                }
+            } else {
+                let mut done = 0usize;
+                let mut failed = String::new();
+                for p in &paths {
+                    match platform::move_to_trash(&p.to_string_lossy()) {
+                        Ok(()) => done += 1,
+                        Err(e) => failed = e,
+                    }
+                }
+                let mut st = ex_state.lock().unwrap();
+                st.push_undo(explorer::UndoEntry {
+                    kind: "recycle".to_string(),
+                    name: format!("Hapus {} item", done),
+                    pairs: vec![],
+                });
+                st.last_own_change = Some(Instant::now());
+                ex_reload_cur(&ui, &mut st, &db_c);
+                if done == paths.len() {
+                    ui.set_toast(slint::SharedString::from(format!(
+                        "Dipindahkan ke Recycle Bin: {} item.",
+                        done
+                    )));
+                    true
+                } else {
+                    ui.set_toast(slint::SharedString::from(format!(
+                        "Sebagian gagal dipindah ke Recycle Bin ({} dari {}): {}",
+                        done,
+                        paths.len(),
+                        failed
+                    )));
+                    done > 0
+                }
+            }
+        });
+    }
+
+    // ---- Duplikat (1–100 salinan, "x - Copy" berurutan) ----
+    {
+        let ui_weak = ui.as_weak();
+        let ex_state = explorer_state.clone();
+        ui.on_ex_duplicate(move |path, count| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return false;
+            };
+            let src = PathBuf::from(path.as_str());
+            let count = (count.max(1).min(100)) as usize;
+            let Some(parent) = src.parent().map(|p| p.to_path_buf()) else {
+                return false;
+            };
+            let name = ex_display_name(&src);
+            let total = explorer::dir_size(&src) * count as u64;
+            // srcs = src diulang N kali -> worker copy membuat N salinan
+            // berurutan dengan dedup ("x - Copy", "x - Copy (2)", ...).
+            let srcs = vec![src.clone(); count];
+            let ok = ex_spawn_task(
+                &ex_state,
+                "copy",
+                format!("Duplikat {} ({} salinan)", name, count),
+                srcs,
+                parent,
+                false,
+                total,
+            );
+            if ok {
+                // Dorong TM langsung (lihat delete: task cepat selesai
+                // sebelum tick poll pertama).
+                if let Ok(st) = ex_state.lock() {
+                    ex_push_tasks(&ui, &st);
+                }
+                ui.set_toast(slint::SharedString::from(format!(
+                    "Menduplikasi {} ({} salinan)…",
+                    name, count
+                )));
+                true
+            } else {
+                ui.set_toast(slint::SharedString::from("Task Monitor penuh (50 tugas)."));
+                false
+            }
+        });
+    }
+
+    // ---- Clipboard: copy / cut / paste ----
+    {
+        let ui_weak = ui.as_weak();
+        let ex_state = explorer_state.clone();
+        ui.on_ex_clipboard(move |joined, mode| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return false;
+            };
+            let paths = ex_split_joined(joined.as_str());
+            if paths.is_empty() {
+                ui.set_toast(slint::SharedString::from("Pilih item dulu."));
+                return false;
+            }
+            let mut st = ex_state.lock().unwrap();
+            st.clipboard_src = st.cur_path.clone();
+            st.clipboard = paths.clone();
+            st.clipboard_mode = mode.to_string();
+            ui.set_ex_cb_count(paths.len() as i32);
+            ui.set_toast(slint::SharedString::from(if mode.as_str() == "cut" {
+                format!("Dipotong: {} item.", paths.len())
+            } else {
+                format!("Disalin: {} item.", paths.len())
+            }));
+            true
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let ex_state = explorer_state.clone();
+        ui.on_ex_paste(move || {
+            let Some(ui) = ui_weak.upgrade() else {
+                return false;
+            };
+            let (srcs, mode, src_folder) = {
+                let st = ex_state.lock().unwrap();
+                (
+                    st.clipboard.clone(),
+                    st.clipboard_mode.clone(),
+                    st.clipboard_src.clone(),
+                )
+            };
+            if srcs.is_empty() {
+                ui.set_toast(slint::SharedString::from("Clipboard kosong."));
+                return false;
+            }
+            let dst = ex_state.lock().unwrap().cur_path.clone();
+            if dst.as_os_str().is_empty() {
+                ui.set_toast(slint::SharedString::from("Buka folder dulu."));
+                return false;
+            }
+            if mode == "cut" && src_folder == dst {
+                ui.set_toast(slint::SharedString::from("Sudah di folder ini"));
+                return false;
+            }
+            for s in &srcs {
+                if explorer::ExplorerState::is_inside(s, &dst) {
+                    ui.set_toast(slint::SharedString::from(
+                        "Tidak bisa paste folder ke dalam folder itu sendiri.",
+                    ));
+                    return false;
+                }
+            }
+            if mode == "cut" {
+                // C# MoveFileBackground: folder ke folder yang sudah ada =
+                // merge, file ke file yang sudah ada = timpa. Yang diblok
+                // hanya benturan jenis (folder vs file).
+                for s in &srcs {
+                    if let Some(n) = s.file_name() {
+                        let t = dst.join(n);
+                        if t.exists() {
+                            let both_dir = s.is_dir() && t.is_dir();
+                            let both_file = s.is_file() && t.is_file();
+                            if !both_dir && !both_file {
+                                ui.set_toast(slint::SharedString::from(format!(
+                                    "\"{}\" benturan jenis dengan yang ada di folder tujuan",
+                                    n.to_string_lossy()
+                                )));
+                                return false;
+                            }
+                        }
+                    }
+                }
+            }
+            let is_cut = mode == "cut";
+            let kind = if is_cut { "move" } else { "copy" };
+            let total: u64 = srcs.iter().map(|p| explorer::dir_size(p)).sum();
+            let name = if srcs.len() == 1 {
+                ex_display_name(&srcs[0])
+            } else {
+                format!("{} item", srcs.len())
+            };
+            let ok = ex_spawn_task(&ex_state, kind, name, srcs, dst, is_cut, total);
+            if ok {
+                // Dorong TM langsung (lihat delete: task cepat selesai
+                // sebelum tick poll pertama).
+                if let Ok(st) = ex_state.lock() {
+                    ex_push_tasks(&ui, &st);
+                }
+                ui.set_toast(slint::SharedString::from(if is_cut {
+                    "Memindahkan (lihat Task Monitor)…"
+                } else {
+                    "Menyalin (lihat Task Monitor)…"
+                }));
+                true
+            } else {
+                ui.set_toast(slint::SharedString::from("Task Monitor penuh (50 tugas)."));
+                false
+            }
+        });
+    }
+
+    // ---- Undo (maks 50, C# UndoStack) ----
+    {
+        let ui_weak = ui.as_weak();
+        let ex_state = explorer_state.clone();
+        let db_c = db.clone();
+        ui.on_ex_undo(move || {
+            let Some(ui) = ui_weak.upgrade() else {
+                return false;
+            };
+            let entry = {
+                let mut st = ex_state.lock().unwrap();
+                st.undo.pop()
+            };
+            let Some(entry) = entry else {
+                ui.set_toast(slint::SharedString::from("Tidak ada yang bisa di-undo."));
+                return false;
+            };
+            match entry.kind.as_str() {
+                "recycle" => {
+                    ui.set_toast(slint::SharedString::from(
+                        "Sudah di Recycle Bin — restore dari sana.",
+                    ));
+                    true
+                }
+                "new" | "copy" => {
+                    let mut ok = true;
+                    for (_, to) in &entry.pairs {
+                        let cancel = AtomicBool::new(false);
+                        let paused = AtomicBool::new(false);
+                        let prog = Arc::new(Mutex::new(explorer::Progress::new(0)));
+                        if explorer::delete_recursive(to, &cancel, &paused, &prog).is_err() {
+                            ok = false;
+                        }
+                    }
+                    let mut st = ex_state.lock().unwrap();
+                    st.last_own_change = Some(Instant::now());
+                    ex_reload_cur(&ui, &mut st, &db_c);
+                    ui.set_toast(slint::SharedString::from(format!(
+                        "Undo: {} {}.",
+                        entry.name,
+                        if ok { "dibatalkan" } else { "sebagian gagal" }
+                    )));
+                    ok
+                }
+                "rename" | "move" => {
+                    let mut ok = true;
+                    for (from, to) in &entry.pairs {
+                        if std::fs::rename(to, from).is_err() {
+                            ok = false;
+                        }
+                    }
+                    let mut st = ex_state.lock().unwrap();
+                    st.last_own_change = Some(Instant::now());
+                    ex_reload_cur(&ui, &mut st, &db_c);
+                    // Seleksi mengikuti item yang dipulihkan (nama asal);
+                    // view menyeleksi ulang via changed ex-undo-select.
+                    if ok {
+                        if let Some((from, _)) = entry.pairs.first() {
+                            ui.set_ex_undo_select(slint::SharedString::from(
+                                ex_display_name(from),
+                            ));
+                        }
+                    }
+                    ui.set_toast(slint::SharedString::from(format!(
+                        "Undo: {} {}.",
+                        entry.name,
+                        if ok { "dibatalkan" } else { "sebagian gagal" }
+                    )));
+                    ok
+                }
+                // Batch rename dibalikkan BERURUTAN TERBALIK (C# §2.7).
+                "batchrename" => {
+                    let mut ok = true;
+                    for (from, to) in entry.pairs.iter().rev() {
+                        if std::fs::rename(to, from).is_err() {
+                            ok = false;
+                        }
+                    }
+                    let mut st = ex_state.lock().unwrap();
+                    st.last_own_change = Some(Instant::now());
+                    ex_reload_cur(&ui, &mut st, &db_c);
+                    ui.set_toast(slint::SharedString::from(format!(
+                        "Undo: {} {}.",
+                        entry.name,
+                        if ok { "dibatalkan" } else { "sebagian gagal" }
+                    )));
+                    ok
+                }
+                _ => true,
+            }
+        });
+    }
+
+    // ---- Buka file (aplikasi default; .psd/.tif/.webp = Photoshop
+    // smart-open di C# — bridge Photoshop belum ada di port, jadi dibuka
+    // di aplikasi default + toast jujur) ----
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_ex_open_file(move |path, ext| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return false;
+            };
+            let name = ex_display_name(Path::new(path.as_str()));
+            // Panel compact memanggil dengan ext "" — turunkan dari path.
+            let ext = if ext.as_str().is_empty() {
+                Path::new(path.as_str())
+                    .extension()
+                    .map(|e| format!(".{}", e.to_string_lossy().to_lowercase()))
+                    .unwrap_or_default()
+            } else {
+                ext.to_lowercase()
+            };
+            match platform::open_path(path.as_str()) {
+                Ok(()) => {
+                    if matches!(ext.as_str(), ".psd" | ".tif" | ".tiff" | ".webp") {
+                        ui.set_toast(slint::SharedString::from(format!(
+                            "Photoshop smart-open belum tersedia — dibuka di aplikasi default: {}",
+                            name
+                        )));
+                    } else {
+                        ui.set_toast(slint::SharedString::from(format!(
+                            "Dibuka di aplikasi default: {}",
+                            name
+                        )));
+                    }
+                    true
+                }
+                Err(e) => {
+                    ui.set_toast(slint::SharedString::from(format!("Gagal membuka: {}", e)));
+                    false
+                }
+            }
+        });
+    }
+
+    // ---- Salin path (clipboard sistem, beneran) ----
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_ex_copy_path(move |text| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return false;
+            };
+            match platform::copy_to_clipboard(text.as_str()) {
+                Ok(()) => {
+                    ui.set_toast(slint::SharedString::from("Path disalin."));
+                    true
+                }
+                Err(e) => {
+                    ui.set_toast(slint::SharedString::from(format!(
+                        "Gagal menyalin path: {}",
+                        e
+                    )));
+                    false
+                }
+            }
+        });
+    }
+
+    // ---- Salin nama (clipboard sistem, beneran) ----
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_ex_copy_name(move |text| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return false;
+            };
+            match platform::copy_to_clipboard(text.as_str()) {
+                Ok(()) => {
+                    ui.set_toast(slint::SharedString::from("Nama disalin."));
+                    true
+                }
+                Err(e) => {
+                    ui.set_toast(slint::SharedString::from(format!(
+                        "Gagal menyalin nama: {}",
+                        e
+                    )));
+                    false
+                }
+            }
+        });
+    }
+
+    // ---- Paste Path (Ctrl+Shift+V, C# §2.7): navigasi ke path teks di
+    // clipboard; bila file -> folder induknya. Jalur dikirim lewat prop
+    // ex-paste-path, view menavigasi di changed (pola ex-undo-select).
+    {
+        let ui_weak = ui.as_weak();
+        ui.on_ex_paste_path_req(move || {
+            let Some(ui) = ui_weak.upgrade() else {
+                return;
+            };
+            match platform::paste_from_clipboard() {
+                Ok(text) => {
+                    let p = PathBuf::from(text.trim());
+                    if p.as_os_str().is_empty() {
+                        ui.set_toast(slint::SharedString::from("Clipboard kosong."));
+                        return;
+                    }
+                    let target = if p.is_file() {
+                        p.parent().map(|d| d.to_path_buf()).unwrap_or(p)
+                    } else if p.is_dir() {
+                        p
+                    } else {
+                        ui.set_toast(slint::SharedString::from(
+                            "Path di clipboard tidak ditemukan.",
+                        ));
+                        return;
+                    };
+                    ui.set_ex_paste_path(slint::SharedString::from(
+                        target.to_string_lossy().into_owned(),
+                    ));
+                }
+                Err(e) => {
+                    ui.set_toast(slint::SharedString::from(format!(
+                        "Gagal membaca clipboard: {}",
+                        e
+                    )));
+                }
+            }
+        });
+    }
+
+    // ---- Batch rename dari clipboard (C# §2.7): baca teks clipboard
+    // per baris; item terpilih diurutkan berdasarkan Nama (bukan urutan
+    // seleksi/tampilan); file: ekstensi asli dipertahankan bila nama baru
+    // belum punya ekstensi; entri undo "batchrename". Toast memakai
+    // jumlah yang BENAR-BENAR berhasil (jangan tiru bug C# yang memakai
+    // Min meski sebagian gagal — EXPLORER_SPEC §8.2).
+    {
+        let ui_weak = ui.as_weak();
+        let ex_state = explorer_state.clone();
+        let db_c = db.clone();
+        ui.on_ex_batch_rename(move |joined| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return false;
+            };
+            let names = match platform::paste_from_clipboard() {
+                Ok(t) => t
+                    .lines()
+                    .map(|l| l.trim().to_string())
+                    .filter(|l| !l.is_empty())
+                    .collect::<Vec<String>>(),
+                Err(e) => {
+                    ui.set_toast(slint::SharedString::from(format!(
+                        "Gagal membaca clipboard: {}",
+                        e
+                    )));
+                    return false;
+                }
+            };
+            if names.is_empty() {
+                ui.set_toast(slint::SharedString::from(
+                    "Clipboard kosong — salin daftar nama baru dulu.",
+                ));
+                return false;
+            }
+            let mut srcs = ex_split_joined(joined.as_str());
+            // Urut berdasarkan Nama (C#), bukan urutan seleksi.
+            srcs.sort_by(|a, b| {
+                batch::natural_cmp(
+                    &a.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
+                    &b.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
+                )
+            });
+            let mut pairs: Vec<(PathBuf, PathBuf)> = Vec::new();
+            let mut done = 0usize;
+            for (src, new_name) in srcs.iter().zip(names.iter()) {
+                if ex_bad_name(new_name) {
+                    continue;
+                }
+                let parent = match src.parent() {
+                    Some(p) => p.to_path_buf(),
+                    None => continue,
+                };
+                let target = if src.is_dir() {
+                    parent.join(new_name)
+                } else if new_name.contains('.') {
+                    // Nama baru sudah punya ekstensi -> pakai apa adanya.
+                    parent.join(new_name)
+                } else {
+                    // File + nama baru tanpa ekstensi -> ekstensi asli
+                    // dipertahankan (C#).
+                    let ext = src
+                        .extension()
+                        .map(|e| e.to_string_lossy().into_owned())
+                        .unwrap_or_default();
+                    if ext.is_empty() {
+                        parent.join(new_name)
+                    } else {
+                        parent.join(format!("{}.{}", new_name, ext))
+                    }
+                };
+                if target.exists() || std::fs::rename(src, &target).is_err() {
+                    continue;
+                }
+                pairs.push((src.clone(), target));
+                done += 1;
+            }
+            if done == 0 {
+                ui.set_toast(slint::SharedString::from(
+                    "Batch rename gagal — periksa nama di clipboard.",
+                ));
+                return false;
+            }
+            {
+                let mut st = ex_state.lock().unwrap();
+                st.push_undo(explorer::UndoEntry {
+                    kind: "batchrename".to_string(),
+                    name: format!("Batch rename {} item", done),
+                    pairs,
+                });
+                st.last_own_change = Some(Instant::now());
+                ex_reload_cur(&ui, &mut st, &db_c);
+            }
+            ui.set_toast(slint::SharedString::from(format!(
+                "Batch rename: {} item diganti.",
+                done
+            )));
+            true
+        });
+    }
+
+    // ---- Guard hapus: folder yang sedang dibuka (+ leluhurnya, root)
+    // tidak bisa dihapus (C#). Mengembalikan nama pemblokir, "" bila OK.
+    {
+        let ex_state = explorer_state.clone();
+        ui.on_ex_delete_blocked(move |joined, tabs_joined| {
+            let paths = ex_split_joined(joined.as_str());
+            let tabs = ex_split_joined(tabs_joined.as_str());
+            let st = ex_state.lock().unwrap();
+            let mut open: Vec<PathBuf> = vec![st.cur_path.clone()];
+            open.extend(tabs.iter().cloned());
+            if !st.root_path.as_os_str().is_empty() {
+                open.push(st.root_path.clone());
+            }
+            for p in &paths {
+                for o in &open {
+                    if o.as_os_str().is_empty() {
+                        continue;
+                    }
+                    if *p == *o || explorer::ExplorerState::is_inside(p, o) {
+                        return slint::SharedString::from(ex_display_name(p));
+                    }
+                }
+            }
+            slint::SharedString::new()
+        });
+    }
+
+    // ---- Task Monitor: poll / cancel / retry / remove / clear-done ----
+    {
+        let ui_weak = ui.as_weak();
+        let ex_state = explorer_state.clone();
+        let db_c = db.clone();
+        ui.on_ex_task_poll(move || {
+            let Some(ui) = ui_weak.upgrade() else { return; };
+            let mut st = match ex_state.lock() {
+                Ok(s) => s,
+                Err(_) => return,
+            };
+            let mut need_reload = false;
+            let mut clear_cut = false;
+            let mut msgs: Vec<String> = Vec::new();
+            for t in st.tasks.iter_mut() {
+                // Status terminal HANYA done/failed/cancelled — "merging"
+                // dan "cancelling" masih berjalan; kalau dianggap terminal
+                // di sini, notified keburu true dan toast+reload hilang.
+                let terminal =
+                    matches!(t.status().as_str(), "done" | "failed" | "cancelled");
+                if terminal && !t.notified {
+                    t.notified = true;
+                    match t.status().as_str() {
+                        "done" => {
+                            msgs.push(format!("Selesai: {}", t.name));
+                            need_reload = true;
+                            if t.is_cut {
+                                clear_cut = true;
+                            }
+                        }
+                        "failed" => {
+                            let e = t.error.lock().map(|e| e.clone()).unwrap_or_default();
+                            msgs.push(format!("Gagal: {} — {}", t.name, e));
+                            need_reload = true;
+                        }
+                        "cancelled" => {
+                            msgs.push(format!("Dibatalkan: {}", t.name));
+                            need_reload = true;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            if clear_cut {
+                st.clipboard.clear();
+                st.clipboard_mode.clear();
+                ui.set_ex_cb_count(0);
+            }
+            if need_reload {
+                st.last_own_change = Some(Instant::now());
+                ex_reload_cur(&ui, &mut st, &db_c);
+            }
+            ex_push_tasks(&ui, &st);
+            if !msgs.is_empty() {
+                ui.set_toast(slint::SharedString::from(msgs.join(" | ")));
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let ex_state = explorer_state.clone();
+        ui.on_ex_task_cancel(move |i| {
+            // C# CancelTask: status langsung "Cancelling…" + flag batal;
+            // pekerja mengubahnya jadi "Cancelled" saat berhenti.
+            let idx = {
+                let Ok(st) = ex_state.lock() else { return; };
+                tm_task_idx(&st, i as usize)
+            };
+            let Some(idx) = idx else { return };
+            let mut push = false;
+            if let Ok(st) = ex_state.lock() {
+                if let Some(t) = st.tasks.get(idx) {
+                    if matches!(t.status().as_str(), "run" | "merging") {
+                        if let Ok(mut s) = t.status.lock() {
+                            *s = "cancelling".to_string();
+                        }
+                        t.cancel.store(true, Ordering::Relaxed);
+                        push = true;
+                    }
+                }
+            }
+            if push {
+                if let Some(ui) = ui_weak.upgrade() {
+                    if let Ok(st) = ex_state.lock() {
+                        ex_push_tasks(&ui, &st);
+                    }
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let ex_state = explorer_state.clone();
+        ui.on_ex_task_pause(move |i| {
+            // Jeda (TeraCopy, disetujui abeng 28 Nov 2026 08:05): pekerja
+            // berhenti antar chunk; tugas menahan giliran antrean serial
+            // (thread tetap memegang gate) sampai lanjut/dibatalkan.
+            let idx = {
+                let Ok(st) = ex_state.lock() else { return; };
+                tm_task_idx(&st, i as usize)
+            };
+            let Some(idx) = idx else { return };
+            let mut push = false;
+            if let Ok(st) = ex_state.lock() {
+                if let Some(t) = st.tasks.get(idx) {
+                    let cur = t.status();
+                    if cur == "run" || cur == "merging" {
+                        if let Ok(mut pf) = t.paused_from.lock() {
+                            *pf = cur;
+                        }
+                        t.paused.store(true, Ordering::Relaxed);
+                        if let Ok(mut s) = t.status.lock() {
+                            *s = "paused".to_string();
+                        }
+                        push = true;
+                    }
+                }
+            }
+            if push {
+                if let Some(ui) = ui_weak.upgrade() {
+                    if let Ok(st) = ex_state.lock() {
+                        ex_push_tasks(&ui, &st);
+                    }
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let ex_state = explorer_state.clone();
+        ui.on_ex_task_resume(move |i| {
+            // Lanjutkan dari titik berhenti (BUKAN dari nol): pekerja
+            // hanya menunggu flag dicabut, posisi file sudah di tempat.
+            let idx = {
+                let Ok(st) = ex_state.lock() else { return; };
+                tm_task_idx(&st, i as usize)
+            };
+            let Some(idx) = idx else { return };
+            let mut push = false;
+            if let Ok(st) = ex_state.lock() {
+                if let Some(t) = st.tasks.get(idx) {
+                    if t.status() == "paused" {
+                        let back = t
+                            .paused_from
+                            .lock()
+                            .map(|s| s.clone())
+                            .unwrap_or_else(|_| "run".to_string());
+                        let back = if back.is_empty() { "run".to_string() } else { back };
+                        t.paused.store(false, Ordering::Relaxed);
+                        if let Ok(mut s) = t.status.lock() {
+                            *s = back;
+                        }
+                        push = true;
+                    }
+                }
+            }
+            if push {
+                if let Some(ui) = ui_weak.upgrade() {
+                    if let Ok(st) = ex_state.lock() {
+                        ex_push_tasks(&ui, &st);
+                    }
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let ex_state = explorer_state.clone();
+        ui.on_ex_task_retry(move |i| {
+            let params = {
+                let mut st = match ex_state.lock() {
+                    Ok(s) => s,
+                    Err(_) => return,
+                };
+                let Some(idx) = tm_task_idx(&st, i as usize) else {
+                    return;
+                };
+                let Some(t) = st.tasks.get(idx) else {
+                    return;
+                };
+                if matches!(
+                    t.status().as_str(),
+                    "run" | "merging" | "cancelling" | "paused"
+                ) {
+                    return;
+                }
+                let p = (
+                    t.kind.clone(),
+                    t.name.clone(),
+                    t.srcs.clone(),
+                    t.dst.clone(),
+                    t.is_cut,
+                    t.total,
+                );
+                st.tasks.remove(idx);
+                p
+            };
+            ex_spawn_task(
+                &ex_state, &params.0, params.1, params.2, params.3, params.4, params.5,
+            );
+            if let Some(ui) = ui_weak.upgrade() {
+                if let Ok(st) = ex_state.lock() {
+                    ex_push_tasks(&ui, &st);
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let ex_state = explorer_state.clone();
+        ui.on_ex_task_remove(move |i| {
+            let mut st = match ex_state.lock() {
+                Ok(s) => s,
+                Err(_) => return,
+            };
+            let Some(idx) = tm_task_idx(&st, i as usize) else {
+                return;
+            };
+            if let Some(t) = st.tasks.get(idx) {
+                if matches!(
+                    t.status().as_str(),
+                    "run" | "merging" | "cancelling" | "paused"
+                ) {
+                    return;
+                }
+                st.tasks.remove(idx);
+            }
+            drop(st);
+            if let Some(ui) = ui_weak.upgrade() {
+                if let Ok(st) = ex_state.lock() {
+                    ex_push_tasks(&ui, &st);
+                }
+            }
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let ex_state = explorer_state.clone();
+        ui.on_ex_task_clear_done(move || {
+            let mut st = match ex_state.lock() {
+                Ok(s) => s,
+                Err(_) => return,
+            };
+            st.tasks.retain(|t| t.status() == "run");
+            drop(st);
+            if let Some(ui) = ui_weak.upgrade() {
+                if let Ok(st) = ex_state.lock() {
+                    ex_push_tasks(&ui, &st);
+                }
+            }
+        });
+    }
+
+    // ---- Quick Access: tambah / hapus (DB Configs.Explorer.QuickAccess) ----
+    {
+        let ui_weak = ui.as_weak();
+        let ex_state = explorer_state.clone();
+        let db_c = db.clone();
+        ui.on_ex_qa_add(move |path| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return false;
+            };
+            let path = path.as_str();
+            if path.is_empty() {
+                return false;
+            }
+            let name = Path::new(path)
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_else(|| path.to_string());
+            let mut st = ex_state.lock().unwrap();
+            if st.qa.iter().any(|(_, p)| p == path) {
+                ui.set_toast(slint::SharedString::from("Sudah ada di Quick Access."));
+                return false;
+            }
+            if st.qa.len() >= 8 {
+                ui.set_toast(slint::SharedString::from("Quick Access penuh (8)."));
+                return false;
+            }
+            st.qa.push((name.clone(), path.to_string()));
+            let arr: Vec<serde_json::Value> = st
+                .qa
+                .iter()
+                .map(|(n, p)| {
+                    serde_json::json!({"Name": n, "Path": p, "IsDynamic": false, "Icon": ""})
+                })
+                .collect();
+            ex_db_set(
+                &db_c,
+                "Configs.Explorer.QuickAccess",
+                &serde_json::Value::Array(arr).to_string(),
+            );
+            ex_push_qa(&ui, &st);
+            ui.set_toast(slint::SharedString::from(format!(
+                "Ditambah ke Quick Access: {}",
+                name
+            )));
+            true
+        });
+    }
+    {
+        let ui_weak = ui.as_weak();
+        let ex_state = explorer_state.clone();
+        let db_c = db.clone();
+        ui.on_ex_qa_remove(move |i| {
+            let Some(ui) = ui_weak.upgrade() else {
+                return false;
+            };
+            let mut st = ex_state.lock().unwrap();
+            if (i as usize) >= st.qa.len() {
+                return false;
+            }
+            let (name, _) = st.qa.remove(i as usize);
+            let arr: Vec<serde_json::Value> = st
+                .qa
+                .iter()
+                .map(|(n, p)| {
+                    serde_json::json!({"Name": n, "Path": p, "IsDynamic": false, "Icon": ""})
+                })
+                .collect();
+            ex_db_set(
+                &db_c,
+                "Configs.Explorer.QuickAccess",
+                &serde_json::Value::Array(arr).to_string(),
+            );
+            ex_push_qa(&ui, &st);
+            ui.set_toast(slint::SharedString::from(format!(
+                "Pin dihapus: {}",
+                name
+            )));
+            true
+        });
+    }
+
+    // ---- Pinned tabs: simpan (DB Explorer_PinnedTabs) ----
+    {
+        let db_c = db.clone();
+        ui.on_ex_pins_save(move |paths, _names, pinned, labels, colors| {
+            let paths = read_str_model(paths);
+            let pinned = read_bool_model(pinned);
+            let labels = read_str_model(labels);
+            let colors = read_i32_model(colors);
+            let pinned_paths: Vec<String> = paths
+                .iter()
+                .zip(pinned.iter())
+                .filter(|(_, p)| **p)
+                .map(|(p, _)| p.to_string())
+                .collect();
+            let pinned_labels: Vec<String> = labels
+                .iter()
+                .zip(pinned.iter())
+                .filter(|(_, p)| **p)
+                .map(|(l, _)| l.to_string())
+                .collect();
+            let pinned_colors: Vec<i32> = colors
+                .iter()
+                .zip(pinned.iter())
+                .filter(|(_, p)| **p)
+                .map(|(c, _)| *c)
+                .collect();
+            let dto = serde_json::json!({
+                "PinnedPaths": pinned_paths,
+                "CustomLabels": pinned_labels,
+                "CustomColors": pinned_colors,
+            });
+            ex_db_set(&db_c, "Explorer_PinnedTabs", &dto.to_string());
+        });
+    }
+
+    // ---- View settings berubah (sort/desc/group/layout/local-only) ----
+    {
+        let ui_weak = ui.as_weak();
+        let ex_state = explorer_state.clone();
+        let db_c = db.clone();
+        ui.on_ex_view_changed(move || {
+            let Some(ui) = ui_weak.upgrade() else { return; };
+            let sort = ui.get_ex_view_sort().to_string();
+            let desc = ui.get_ex_view_desc();
+            let group = ui.get_ex_view_group().to_string();
+            let layout = ui.get_ex_view_layout().to_string();
+            let local_only = ui.get_ex_view_local_only();
+            let cur = ex_state.lock().map(|s| s.cur_path.clone()).unwrap_or_default();
+            ex_save_view_settings(&db_c, &cur, &sort, desc, &group, &layout, local_only);
+        });
+    }
+
+    // ---- Overlay dibuka: muat QA + pinned tabs dari DB ----
+    {
+        let ui_weak = ui.as_weak();
+        let ex_state = explorer_state.clone();
+        let db_c = db.clone();
+        ui.on_ex_open(move || {
+            let Some(ui) = ui_weak.upgrade() else { return; };
+            let mut st = ex_state.lock().unwrap();
+            st.root_path = explorer::resolve_root(|k| ex_db_get(&db_c, k));
+            st.show_hidden = ex_db_get(&db_c, "Configs.Explorer.ShowHiddenFiles") == "true";
+            ex_load_qa_pins(&ui, &mut st, &db_c);
+            // Panel compact (Ctrl+L) butuh folder termuat — muat root
+            // bila state belum pernah dimuat; jangan reset bila pengguna
+            // sudah bernavigasi di overlay.
+            if st.cur_path.as_os_str().is_empty() {
+                let root = st.root_path.clone();
+                ex_load_folder(&ui, &mut st, &db_c, &root);
+            }
+        });
+    }
+
+    // ---- Resolve root Explorer (dipakai open-explorer + tab baru) ----
+    {
+        let db_c = db.clone();
+        ui.on_ex_resolve_root(move || {
+            slint::SharedString::from(
+                explorer::resolve_root(|k| ex_db_get(&db_c, k))
+                    .to_string_lossy()
+                    .into_owned(),
+            )
         });
     }
 
@@ -8883,6 +10979,15 @@ fn main() -> Result<(), slint::PlatformError> {
             && ch.chars().next().map_or(false, |c| {
                 c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == '.'
             })
+    });
+
+    ui.on_ex_join_path(move |dir, name| {
+        slint::SharedString::from(
+            Path::new(dir.as_str())
+                .join(name.as_str())
+                .to_string_lossy()
+                .into_owned(),
+        )
     });
 
     // ---- Import kartu manual (C# ConfirmAddManualCard) ----
@@ -9188,6 +11293,7 @@ fn main() -> Result<(), slint::PlatformError> {
             let bar_cell = bar_win_cell.clone();
             let bar_store_timer = bar_store.clone();
             let db_timer = db.clone();
+            let explorer_state_timer = explorer_state.clone();
             move || {
                 let Some(ui) = ui_weak.upgrade() else {
                     return;
@@ -9224,6 +11330,48 @@ fn main() -> Result<(), slint::PlatformError> {
                 // Rasio gauge template widget — menyusul stat
                 // (timer ini juga yang menyalin stat ke bar).
                 update_gauge_ratios(&ui);
+
+                // Explorer watcher (polling mtime 2 detik — tidak ada
+                // crate notify di cache offline; C# FileSystemWatcher
+                // Created/Deleted/Renamed, debounce 400ms). Diam 3 detik
+                // setelah operasi kita sendiri (rename/buat/hapus/paste
+                // mengubah mtime folder) supaya tidak reload sendiri.
+                if ui.get_overlay_view() == "EXPLORER" {
+                    if let Ok(mut st) = explorer_state_timer.lock() {
+                        let recent_own = st
+                            .last_own_change
+                            .map(|t| t.elapsed() < std::time::Duration::from_secs(3))
+                            .unwrap_or(false);
+                        if !recent_own && !st.cur_path.as_os_str().is_empty() {
+                            let cur_mtime = std::fs::metadata(&st.cur_path)
+                                .and_then(|m| m.modified())
+                                .ok();
+                            if cur_mtime != st.cur_mtime {
+                                let path = st.cur_path.clone();
+                                if !ex_load_folder(&ui, &mut st, &db_timer, &path) {
+                                    // Folder saat ini dihapus di luar:
+                                    // naik ke induk (sampai root).
+                                    let mut p = path.clone();
+                                    while let Some(par) =
+                                        p.parent().map(|x| x.to_path_buf())
+                                    {
+                                        if par.as_os_str().is_empty() {
+                                            break;
+                                        }
+                                        if ex_load_folder(&ui, &mut st, &db_timer, &par) {
+                                            ui.set_toast(slint::SharedString::from(format!(
+                                                "Folder sudah tidak ada, kembali ke {}",
+                                                par.display()
+                                            )));
+                                            break;
+                                        }
+                                        p = par;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 let bar_borrow = bar_cell.borrow();
                 let Some(w) = bar_borrow.as_ref() else {
                     return;

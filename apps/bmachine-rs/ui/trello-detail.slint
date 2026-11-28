@@ -93,6 +93,15 @@ export component TrelloDetailPanel inherits Rectangle {
     // tidak mengembalikannya (tombol buka-link disembunyikan).
     in property <string> card-url-override: "";
     in property <string> category-label;
+    // Label Trello kartu (nama label dari API, maks 2) — chip atas
+    // detail mengikuti ref trello-sidepanel-ref.jpg: chip-1 = label
+    // pertama, chip-2 = label kedua (biasanya tanggal "**...**").
+    // Kosong bila kartu tanpa label → fallback ke category-label /
+    // event-date (perilaku lama).
+    in property <string> label-1: "";
+    in property <string> label-2: "";
+    // Jumlah lampiran dari badges.attachments API (bukan hardcode 0).
+    in property <int> attachments-count: 0;
     in property <color> accent;
     in property <bool> done;
     in property <string> description;
@@ -126,6 +135,9 @@ export component TrelloDetailPanel inherits Rectangle {
     property <bool> is-points: root.category-label == "POINTS";
     property <string> progress-text: root.done ? "3/3" : "1/3";
     property <string> card-url: root.is-manual ? root.manual-url : root.card-url-override;
+    // Teks chip atas: label kartu bila ada, fallback kategori/tanggal.
+    property <string> chip-1: root.label-1 != "" ? root.label-1 : root.category-label;
+    property <string> chip-2: root.label-2 != "" ? root.label-2 : root.event-date;
 
     send-comment => {
         if (root.comment-draft == "") {
@@ -176,7 +188,9 @@ export component TrelloDetailPanel inherits Rectangle {
         padding: root.panel-margin;
         spacing: 12px;
 
-        // Baris chip: CoverDisplayName + EventDateText (11px SemiBold).
+        // Baris chip: label-1 + label-2 (11px SemiBold) + tombol X
+        // tutup di kanan atas (ref trello-sidepanel-ref.jpg: X
+        // sejajar baris chip, judul di bawahnya).
         HorizontalLayout {
             height: 26px;
             spacing: 8px;
@@ -187,7 +201,7 @@ export component TrelloDetailPanel inherits Rectangle {
                 border-width: 1px;
                 border-radius: 6px;
                 cover-text := Text {
-                    text: root.category-label;
+                    text: root.chip-1;
                     font-size: 11px;
                     font-weight: 600;
                     color: Design.text-primary;
@@ -204,7 +218,7 @@ export component TrelloDetailPanel inherits Rectangle {
                 border-width: 1px;
                 border-radius: 6px;
                 date-text := Text {
-                    text: root.event-date;
+                    text: root.chip-2;
                     font-size: 11px;
                     font-weight: 600;
                     color: Design.text-primary;
@@ -214,40 +228,39 @@ export component TrelloDetailPanel inherits Rectangle {
                     height: 100%;
                 }
             }
-        }
-
-        // Judul + PanelClose (×).
-        HorizontalLayout {
-            spacing: 12px;
-            Text {
-                text: root.card-title;
-                font-size: root.title-size;
-                font-weight: 700;
-                color: Design.text-primary;
-                wrap: word-wrap;
-                // Lebar EKSPLISIT (bukan horizontal-stretch): Slint
-                // menghitung preferred-height Text pembungkus SEBELUM
-                // lebar dari layout ditetapkan, sehingga untuk judul
-                // PENDEK tingginya mengembang (seolah membungkus pada
-                // lebar ~0) dan mengacaukan hit-test tombol di bawahnya
-                // (baris aksi + × tidak bisa diklik — hanya kartu
-                // berjudul pendek: TK ASSALAM, kartu manual, REVISI).
-                // Judul panjang "kebetulan" jalan karena membungkus
-                // ke 2 baris. Lebar eksplisit = lebar isi - tombol ×
-                // (32px) - spacing (12px); sama persis dengan yang
-                // diberikan stretch, tapi diketahui SEBELUM layout.
-                width: root.width - 2 * root.panel-margin - 44px;
-                vertical-alignment: top;
-            }
+            Rectangle { horizontal-stretch: 1; }
             IconBtn {
                 glyph: "×";
                 variant: "ghost";
-                size: 32px;
+                size: 26px;
                 clicked => { root.close(); }
             }
         }
 
-        // Meta baris 1: ID + Attachments + Due (bila muat).
+        // Judul (× sudah pindah ke baris chip, sejajar ref).
+        Text {
+            text: root.card-title;
+            font-size: root.title-size;
+            font-weight: 700;
+            color: Design.text-primary;
+            wrap: word-wrap;
+            // Lebar EKSPLISIT (bukan horizontal-stretch): Slint
+            // menghitung preferred-height Text pembungkus SEBELUM
+            // lebar dari layout ditetapkan, sehingga untuk judul
+            // PENDEK tingginya mengembang (seolah membungkus pada
+            // lebar ~0) dan mengacaukan hit-test tombol di bawahnya
+            // (baris aksi tidak bisa diklik — hanya kartu berjudul
+            // pendek: TK ASSALAM, kartu manual, REVISI). Judul
+            // panjang "kebetulan" jalan karena membungkus ke 2
+            // baris. Lebar eksplisit = lebar isi; sama persis dengan
+            // yang diberikan stretch, tapi diketahui SEBELUM layout.
+            width: root.width - 2 * root.panel-margin;
+            vertical-alignment: top;
+        }
+
+        // Meta baris 1: ID + Attachments (jumlah nyata dari API) +
+        // tombol salin-link + buka-di-browser (ref: sebaris dengan ID).
+        // Chip Due tidak ada lagi — tanggal sudah jadi chip atas.
         HorizontalLayout {
             height: 30px;
             spacing: 8px;
@@ -280,7 +293,7 @@ export component TrelloDetailPanel inherits Rectangle {
                 border-width: 1px;
                 border-radius: 6px;
                 att-text := Text {
-                    text: "Attachments: 0";
+                    text: "Attachments: " + root.attachments-count;
                     font-size: 11px;
                     font-weight: 600;
                     color: Design.text-primary;
@@ -293,47 +306,6 @@ export component TrelloDetailPanel inherits Rectangle {
                     width: 100%; height: 100%;
                     mouse-cursor: pointer;
                     clicked => { root.sub-panel = "attachments"; }
-                }
-            }
-            if root.due-text != "" && !root.is-narrow : Rectangle {
-                width: due-text-1.preferred-width + 20px;
-                background: Design.card-bg;
-                border-color: Design.separator;
-                border-width: 1px;
-                border-radius: 6px;
-                due-text-1 := Text {
-                    text: root.due-text;
-                    font-size: 11px;
-                    font-weight: 600;
-                    color: Design.text-primary;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    width: 100%;
-                    height: 100%;
-                }
-            }
-        }
-
-        // Meta baris 2: Due (saat sempit) + copy-link + open-in-browser.
-        // C# memakai WrapPanel — baris ini meniru hasil wrap-nya.
-        if (root.due-text != "" && root.is-narrow) || root.is-manual || root.display-id != "" : HorizontalLayout {
-            height: 30px;
-            spacing: 8px;
-            if root.due-text != "" && root.is-narrow : Rectangle {
-                width: due-text-2.preferred-width + 20px;
-                background: Design.card-bg;
-                border-color: Design.separator;
-                border-width: 1px;
-                border-radius: 6px;
-                due-text-2 := Text {
-                    text: root.due-text;
-                    font-size: 11px;
-                    font-weight: 600;
-                    color: Design.text-primary;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    width: 100%;
-                    height: 100%;
                 }
             }
             if root.card-url != "" : HorizontalLayout {
@@ -353,6 +325,28 @@ export component TrelloDetailPanel inherits Rectangle {
             }
         }
 
+        // Chip label lagi di bawah meta (ref: "JAKSEL 2 (ASRIL)"
+        // muncul kedua kalinya di bawah baris ID). Hanya bila kartu
+        // punya label nyata (bukan fallback kategori).
+        if root.label-1 != "" : Rectangle {
+            height: 26px;
+            width: label2-text.preferred-width + 20px;
+            background: Design.card-bg;
+            border-color: Design.separator;
+            border-width: 1px;
+            border-radius: 6px;
+            label2-text := Text {
+                text: root.label-1;
+                font-size: 11px;
+                font-weight: 600;
+                color: Design.text-primary;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                width: 100%;
+                height: 100%;
+            }
+        }
+
         HSeparator { }
 
         // Baris aksi 32px: Comment (split ▸) + Checklist + Move/Unlink.
@@ -365,21 +359,12 @@ export component TrelloDetailPanel inherits Rectangle {
         HorizontalLayout {
             height: 32px;
             spacing: 8px;
-            HorizontalLayout {
-                spacing: 0px;
-                Btn {
-                    label: "Comment";
-                    variant: "secondary";
-                    scale: 0.89;
-                    small: root.is-narrow;
-                    clicked => { root.sub-panel = "comments"; }
-                }
-                IconBtn {
-                    glyph: "▸";
-                    variant: "ghost";
-                    size: 32px;
-                    clicked => { root.sub-panel = "comments"; }
-                }
+            Btn {
+                label: "Comment ▸";
+                variant: "secondary";
+                scale: 0.89;
+                small: root.is-narrow;
+                clicked => { root.sub-panel = "comments"; }
             }
             Btn {
                 label: "Checklist";

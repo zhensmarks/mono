@@ -75,6 +75,8 @@ export component ExplorerSettingsView inherits Rectangle {
     in-out property <bool> exp-hidden: false;
     in-out property <bool> exp-ext: true;
     in-out property <int> exp-zoom: 100;
+    in-out property <bool> exp-showbar: true;
+    in-out property <string> exp-font: "Inter";
     // Gaya toggle on/off ("classic" | "pill" | "outline") — diikat
     // dari AppWindow (app-toggle-style), lihat DESIGN_SYSTEM.md §5.2.
     in-out property <string> toggle-style: "classic";
@@ -125,7 +127,7 @@ export component ExplorerSettingsView inherits Rectangle {
                             text: root.exp-path;
                             placeholder: "Pilih folder…";
                             edited(text) => { root.exp-path = text; }
-                            accepted(text) => { root.toast("Disimpan: Default Explorer Path"); }
+                            accepted(text) => { root.save-explorer-settings(); }
                         }
                         Btn {
                             label: "Browse";
@@ -143,13 +145,13 @@ export component ExplorerSettingsView inherits Rectangle {
                             label: "Details";
                             horizontal-stretch: 1;
                             selected: root.exp-view == "Details";
-                            clicked => { root.exp-view = "Details"; root.toast("Disimpan: View Mode Details"); }
+                            clicked => { root.exp-view = "Details"; root.save-explorer-settings(); }
                         }
                         OptionChip {
                             label: "List";
                             horizontal-stretch: 1;
                             selected: root.exp-view == "List";
-                            clicked => { root.exp-view = "List"; root.toast("Disimpan: View Mode List"); }
+                            clicked => { root.exp-view = "List"; root.save-explorer-settings(); }
                         }
                     }
                     HorizontalLayout {
@@ -158,13 +160,22 @@ export component ExplorerSettingsView inherits Rectangle {
                             label: "Thumbnails";
                             horizontal-stretch: 1;
                             selected: root.exp-view == "Thumbnails";
-                            clicked => { root.exp-view = "Thumbnails"; root.toast("Disimpan: View Mode Thumbnails"); }
+                            clicked => { root.exp-view = "Thumbnails"; root.save-explorer-settings(); }
                         }
                         OptionChip {
                             label: "Tiles";
                             horizontal-stretch: 1;
                             selected: root.exp-view == "Tiles";
-                            clicked => { root.exp-view = "Tiles"; root.toast("Disimpan: View Mode Tiles"); }
+                            clicked => { root.exp-view = "Tiles"; root.save-explorer-settings(); }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 6px;
+                        OptionChip {
+                            label: "Split";
+                            horizontal-stretch: 1;
+                            selected: root.exp-view == "Split";
+                            clicked => { root.exp-view = "Split"; root.save-explorer-settings(); }
                         }
                     }
                 }
@@ -177,19 +188,19 @@ export component ExplorerSettingsView inherits Rectangle {
                             label: "Name";
                             horizontal-stretch: 1;
                             selected: root.exp-sort == "Name";
-                            clicked => { root.exp-sort = "Name"; root.toast("Disimpan: Sort Name"); }
+                            clicked => { root.exp-sort = "Name"; root.save-explorer-settings(); }
                         }
                         OptionChip {
                             label: "Date";
                             horizontal-stretch: 1;
                             selected: root.exp-sort == "Date";
-                            clicked => { root.exp-sort = "Date"; root.toast("Disimpan: Sort Date"); }
+                            clicked => { root.exp-sort = "Date"; root.save-explorer-settings(); }
                         }
                         OptionChip {
                             label: "Type";
                             horizontal-stretch: 1;
                             selected: root.exp-sort == "Type";
-                            clicked => { root.exp-sort = "Type"; root.toast("Disimpan: Sort Type"); }
+                            clicked => { root.exp-sort = "Type"; root.save-explorer-settings(); }
                         }
                     }
                 }
@@ -202,19 +213,19 @@ export component ExplorerSettingsView inherits Rectangle {
                             label: "None";
                             horizontal-stretch: 1;
                             selected: root.exp-group == "None";
-                            clicked => { root.exp-group = "None"; root.toast("Disimpan: Group None"); }
+                            clicked => { root.exp-group = "None"; root.save-explorer-settings(); }
                         }
                         OptionChip {
                             label: "Date";
                             horizontal-stretch: 1;
                             selected: root.exp-group == "Date";
-                            clicked => { root.exp-group = "Date"; root.toast("Disimpan: Group Date"); }
+                            clicked => { root.exp-group = "Date"; root.save-explorer-settings(); }
                         }
                         OptionChip {
                             label: "Type";
                             horizontal-stretch: 1;
                             selected: root.exp-group == "Type";
-                            clicked => { root.exp-group = "Type"; root.toast("Disimpan: Group Type"); }
+                            clicked => { root.exp-group = "Type"; root.save-explorer-settings(); }
                         }
                     }
                 }
@@ -224,7 +235,7 @@ export component ExplorerSettingsView inherits Rectangle {
                     Toggle {
                         toggle-style: root.toggle-style;
                         checked: root.exp-hidden;
-                        toggled(checked) => { root.exp-hidden = checked; root.toast(checked ? "Disimpan: File tersembunyi ditampilkan" : "Disimpan: File tersembunyi disembunyikan"); }
+                        toggled(checked) => { root.exp-hidden = checked; root.save-explorer-settings(); }
                     }
                 }
                 VerticalLayout {
@@ -233,7 +244,26 @@ export component ExplorerSettingsView inherits Rectangle {
                     Toggle {
                         toggle-style: root.toggle-style;
                         checked: root.exp-ext;
-                        toggled(checked) => { root.exp-ext = checked; root.toast(checked ? "Disimpan: Ekstensi file ditampilkan" : "Disimpan: Ekstensi file disembunyikan"); }
+                        toggled(checked) => { root.exp-ext = checked; root.save-explorer-settings(); }
+                    }
+                }
+                VerticalLayout {
+                    spacing: 6px;
+                    FieldLabel { title: "Show path bar"; desc: "Tampilkan baris navigasi (Back/Forward/Up + address bar)"; }
+                    Toggle {
+                        toggle-style: root.toggle-style;
+                        checked: root.exp-showbar;
+                        toggled(checked) => { root.exp-showbar = checked; root.save-explorer-settings(); }
+                    }
+                }
+                VerticalLayout {
+                    spacing: 6px;
+                    FieldLabel { title: "Explorer Font"; desc: "Font teks Explorer (default Inter)"; }
+                    TextField {
+                        text: root.exp-font;
+                        placeholder: "Inter";
+                        edited(text) => { root.exp-font = text; }
+                        accepted(text) => { root.save-explorer-settings(); }
                     }
                 }
                 VerticalLayout {
@@ -244,7 +274,7 @@ export component ExplorerSettingsView inherits Rectangle {
                         Btn {
                             label: "−";
                             variant: "secondary";
-                            clicked => { root.exp-zoom = max(75, root.exp-zoom - 25); }
+                            clicked => { root.exp-zoom = max(75, root.exp-zoom - 25); root.save-explorer-settings(); }
                         }
                         Text {
                             width: 56px;
@@ -258,7 +288,7 @@ export component ExplorerSettingsView inherits Rectangle {
                         Btn {
                             label: "+";
                             variant: "secondary";
-                            clicked => { root.exp-zoom = min(200, root.exp-zoom + 25); }
+                            clicked => { root.exp-zoom = min(200, root.exp-zoom + 25); root.save-explorer-settings(); }
                         }
                     }
                 }

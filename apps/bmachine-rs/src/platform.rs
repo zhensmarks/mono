@@ -223,3 +223,181 @@ pub fn copy_to_clipboard(text: &str) -> Result<(), String> {
         ))
     }
 }
+
+/// Baca teks dari clipboard sistem (kebalikan copy_to_clipboard —
+/// untuk Paste Path + Batch Rename dari clipboard, C# §2.7).
+/// - Windows: PowerShell `Get-Clipboard -Raw`.
+/// - Linux: `xclip -o` → `xsel -o` → `wl-paste` (yang pertama ada).
+pub fn paste_from_clipboard() -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    {
+        let out = Command::new("powershell")
+            .args(["-NoProfile", "-Command", "Get-Clipboard -Raw"])
+            .output()
+            .map_err(|e| format!("Gagal menjalankan powershell: {}", e))?;
+        if out.status.success() {
+            Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+        } else {
+            Err("Get-Clipboard gagal".to_string())
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let attempts: &[(&str, &[&str])] = &[
+            ("xclip", &["-selection", "clipboard", "-o"]),
+            ("xsel", &["--clipboard", "--output"]),
+            ("wl-paste", &[]),
+        ];
+        let mut last_err = String::new();
+        for (prog, args) in attempts {
+            match Command::new(prog).args(*args).output() {
+                Ok(out) if out.status.success() => {
+                    return Ok(String::from_utf8_lossy(&out.stdout).trim().to_string());
+                }
+                Ok(out) => {
+                    last_err = format!("{} exit {}", prog, out.status.code().unwrap_or(-1));
+                }
+                Err(e) => {
+                    last_err = format!("{} tidak ada: {}", prog, e);
+                }
+            }
+        }
+        Err(format!(
+            "Clipboard tidak tersedia (xclip/xsel/wl-paste): {}",
+            last_err
+        ))
+    }
+}
+
+/// Buka path dengan aplikasi default OS (C# `Process.Start(path)`):
+/// folder -> Explorer, file -> aplikasi default.
+/// - Windows: `cmd /c start`.
+/// - Linux: `xdg-open`.
+pub fn open_path(path: &str) -> Result<(), String> {
+    let p = path.trim();
+    if p.is_empty() {
+        return Err("Path kosong".to_string());
+    }
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("cmd")
+            .args(["/c", "start", "", p])
+            .spawn()
+            .map_err(|e| format!("Gagal membuka {}: {}", p, e))?;
+        Ok(())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Command::new("xdg-open")
+            .arg(p)
+            .spawn()
+            .map_err(|e| format!("Gagal membuka {}: {}", p, e))?;
+        Ok(())
+    }
+}
+
+/// Pindah path ke Recycle Bin / Trash (C# `Microsoft.VisualBasic.
+/// FileIO.FileSystem.DeleteFile(path, RecycleOption.SendToRecycleBin)`).
+/// - Windows: COM `Shell.Application` `NameSpace(0xA).MoveHere`.
+/// - Linux: freedesktop Trash (`~/.local/share/Trash/files` +
+///   `.trashinfo`); tanpa crate `trash` (tidak ada di cache offline).
+/// Mengembalikan Ok(()) bila berhasil; Err(pesan) bila gagal — pemanggil
+/// memutuskan fallback (hapus permanen dengan konfirmasi).
+/// Salin satu path rekursif tanpa progress (untuk fallback trash lintas
+/// filesystem). Symlink disalin sebagai symlink, bukan mengikuti target.
+#[cfg(not(target_os = "windows"))]
+fn copy_tree_plain(src: &std::path::Path, dst: &std::path::Path) -> Result<(), String> {
+    let md = std::fs::symlink_metadata(src).map_err(|e| e.to_string())?;
+    if md.file_type().is_symlink() {
+        let target = std::fs::read_link(src).map_err(|e| e.to_string())?;
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&target, dst).map_err(|e| e.to_string())?;
+        #[cfg(not(unix))]
+        std::fs::copy(src, dst).map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+    if md.is_dir() {
+        std::fs::create_dir_all(dst).map_err(|e| e.to_string())?;
+        for ent in std::fs::read_dir(src).map_err(|e| e.to_string())? {
+            let ent = ent.map_err(|e| e.to_string())?;
+            copy_tree_plain(&ent.path(), &dst.join(ent.file_name()))?;
+        }
+        Ok(())
+    } else {
+        std::fs::copy(src, dst).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+}
+
+pub fn move_to_trash(path: &str) -> Result<(), String> {
+    let p = std::path::Path::new(path);
+    if !p.exists() && std::fs::symlink_metadata(p).is_err() {
+        return Err(format!("{} tidak ditemukan", path));
+    }
+    #[cfg(target_os = "windows")]
+    {
+        // PowerShell COM; path di-escape untuk single-quote.
+        let esc = path.replace('\'', "''");
+        let script = format!(
+            "$s = New-Object -ComObject Shell.Application; \
+             $s.NameSpace(0xA).MoveHere('{}')",
+            esc
+        );
+        let out = Command::new("powershell")
+            .args(["-NoProfile", "-Command", &script])
+            .output()
+            .map_err(|e| format!("Gagal menjalankan PowerShell: {}", e))?;
+        if out.status.success() {
+            Ok(())
+        } else {
+            Err(format!(
+                "Gagal memindahkan ke Recycle Bin: {}",
+                String::from_utf8_lossy(&out.stderr).trim()
+            ))
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let home = std::env::var("HOME").map_err(|_| "HOME tidak disetting".to_string())?;
+        let trash_files = std::path::Path::new(&home).join(".local/share/Trash/files");
+        let trash_info = std::path::Path::new(&home).join(".local/share/Trash/info");
+        std::fs::create_dir_all(&trash_files).map_err(|e| e.to_string())?;
+        std::fs::create_dir_all(&trash_info).map_err(|e| e.to_string())?;
+        let name = p
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "item".to_string());
+        let mut dest = trash_files.join(&name);
+        let mut n = 2;
+        while dest.exists() || std::fs::symlink_metadata(&dest).is_ok() {
+            dest = trash_files.join(format!("{} {}", name, n));
+            n += 1;
+        }
+        // Path asal absolut untuk .trashinfo (spec freedesktop: Path =
+        // lokasi asal, bukan lokasi di Trash) — dihitung SEBELUM pindah.
+        let orig_abs = std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+        match std::fs::rename(p, &dest) {
+            Ok(()) => {}
+            // Lintas filesystem (mis. /tmp tmpfs vs /home): rename gagal
+            // EXDEV — spec freedesktop: salin lalu hapus.
+            Err(e) if e.kind() == std::io::ErrorKind::CrossesDevices => {
+                copy_tree_plain(p, &dest)?;
+                if p.is_dir() && !p.is_symlink() {
+                    std::fs::remove_dir_all(p).map_err(|e| e.to_string())?;
+                } else {
+                    std::fs::remove_file(p).map_err(|e| e.to_string())?;
+                }
+            }
+            Err(e) => return Err(e.to_string()),
+        }
+        // File .trashinfo (spec freedesktop): Path absolut asal + tanggal hapus.
+        let info_name = format!(
+            "{}.trashinfo",
+            dest.file_name().unwrap().to_string_lossy()
+        );
+        let now = chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string();
+        let content = format!("[Trash Info]\nPath={}\nDeletionDate={}\n", orig_abs.display(), now);
+        let _ = std::fs::write(trash_info.join(info_name), content);
+        Ok(())
+    }
+}

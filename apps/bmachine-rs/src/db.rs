@@ -47,6 +47,14 @@ impl DatabaseService {
         Ok(())
     }
 
+    /// Hapus satu kunci (mis. override view per-folder Explorer saat
+    /// "This Folder Only" dimatikan — C# `DeleteAsync`).
+    pub fn delete(&mut self, key: &str) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM KeyValueStore WHERE Key = ?1", params![key])?;
+        Ok(())
+    }
+
     /// Catat satu aktivitas (mis. laporan bug dari ReportBugDialog).
     pub fn insert_activity(
         &mut self,

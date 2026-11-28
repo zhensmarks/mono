@@ -17,6 +17,18 @@ pub struct TrelloListItem {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[allow(dead_code)]
+pub struct TrelloLabel {
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
+pub struct TrelloBadges {
+    pub attachments: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct TrelloCardItem {
     pub id: String,
     pub name: String,
@@ -24,6 +36,8 @@ pub struct TrelloCardItem {
     pub due: Option<String>,
     #[serde(rename = "shortUrl")]
     pub short_url: Option<String>,
+    pub labels: Option<Vec<TrelloLabel>>,
+    pub badges: Option<TrelloBadges>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -297,7 +311,7 @@ impl TrelloApiService {
             .map_err(|e| e.to_string())?;
 
         let url = format!(
-            "{}?key={}&token={}&fields=name,desc,due,id,shortUrl",
+            "{}?key={}&token={}&fields=name,desc,due,id,shortUrl,labels,badges",
             endpoint(base_url, &format!("/lists/{}/cards", list_id.trim())),
             api_key.trim(),
             token.trim()

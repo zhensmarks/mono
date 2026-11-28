@@ -439,6 +439,58 @@ component TaskCard inherits Card {
 // 2026 — kartu menyusut tapi panel tak terlihat). Dibuka otomatis saat
 // run dimulai; × menutup; "☰ Tugas" membuka lagi. Memakai TaskCard
 // yang sama dengan panel dalam-layout (dihapus).
+// Tab papan Trello (C# TrelloBoardTab + CompactTab, Styles/
+// TrelloNavigation.axaml): aktif = pill accent-subtle + indikator
+// accent 14x3 di bawah (PART_Indicator); tidak aktif = transparan
+// + teks sekunder. Warna mengikuti accent aktif (aturan C#) —
+// merah di ref trello-sidepanel-ref.jpg = accent merah saat
+// screenshot diambil; di tema default port (accent biru #3b82f6,
+// sama seperti C# default AccentBlue) tab aktif tampil biru.
+component TrelloTab inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    in property <float> scale: 1;
+    callback clicked();
+
+    height: 36px * scale;
+    background: selected ? Design.accent-subtle : (tab-touch.has-hover ? Design.bg-hover : transparent);
+    border-radius: Design.radius-sm;
+
+    tab-touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    // Label di tengah (padding ala C# CompactTab 12,5 — lebar tab =
+    // teks + padding).
+    HorizontalLayout {
+        width: 100%;
+        height: 100%;
+        padding-left: 12px * scale;
+        padding-right: 12px * scale;
+        alignment: center;
+        Text {
+            text: root.label;
+            font-size: 11px * scale;
+            font-weight: 800;
+            letter-spacing: 0.5px * scale;
+            color: root.selected ? Design.text-primary : Design.text-secondary;
+            vertical-alignment: center;
+        }
+    }
+
+    // Indikator aktif (C# PART_Indicator: 14x3, accent, bawah).
+    Rectangle {
+        x: (parent.width - 14px * scale) / 2;
+        y: parent.height - 3px * scale;
+        width: 14px * scale;
+        height: 3px * scale;
+        background: Design.accent;
+        border-radius: 1.5px * scale;
+        visible: root.selected;
+    }
+}
+
 export component TaskManagerWindow inherits Window {
     title: "Tugas — BATCH";
     width: 340px;
@@ -815,11 +867,19 @@ export component AppWindow inherits Window {
     // panel. BUKAN Ctrl+L. Lebar + state buka/tutup tersimpan ke DB
     // (Dashboard.LogPanelWidth / Dashboard.IsLogPanelOpen, C#).
     in-out property <bool> show-logpanel: false;
+    // Panel dibuka (Ctrl+L / saklar Terminal) → muat state Explorer
+    // (root + QA + pin + folder) supaya tab compact langsung berisi
+    // daftar folder nyata, bukan kosong. Simpan state buka/tutup ke DB
+    // (C# Dashboard.IsLogPanelOpen) — watcher ini menangkap semua
+    // jalur toggle (flyout, × panel, Ctrl+L).
+    changed show-logpanel => {
+        root.save-logpanel-open(root.show-logpanel);
+        if (root.show-logpanel) { root.ex-open(); }
+    }
     in-out property <length> log-panel-width: 288px;
-    // Simpan state buka/tutup ke DB (C# Dashboard.IsLogPanelOpen) —
-    // watcher ini menangkap semua jalur toggle (flyout, × panel, Ctrl+L).
-    changed show-logpanel => { root.save-logpanel-open(root.show-logpanel); }
-    property <length> content-width: root.width - (root.show-logpanel ? root.log-panel-width + 6px : 0px);
+    // Lebar kolom dashboard = lebar window − margin luar 16px −
+    // (panel + celah 8px bila panel terbuka).
+    property <length> content-width: root.width - 16px - (root.show-logpanel ? root.log-panel-width + 8px : 0px);
     callback save-logpanel-width(length);
     callback save-logpanel-open(bool);
 
@@ -912,7 +972,8 @@ export component AppWindow inherits Window {
     // Default "MantraNama" = tab pertama Toolbox.
     in-out property <string> toolbox-tab: "MantraNama";
     // Tab aktif Log Panel — Ctrl+L membukanya dengan tab EXPLORER.
-    in-out property <string> logpanel-tab: "LOG";
+    // (Tab LOG dihapus 28 Nov 2026, keputusan abeng 07:05.)
+    in-out property <string> logpanel-tab: "EXPLORER";
 
     // Explorer (overlay "EXPLORER"): path awal + hasil search /
     // type-ahead dari Rust (lihat src/main.rs). start-path berubah ->
@@ -941,6 +1002,114 @@ export component AppWindow inherits Window {
     callback ex-split-ext(string) -> string;
     callback ex-name-base(string) -> string;
     callback ex-is-typeahead-char(string) -> bool;
+
+    // ----- Explorer: isi folder + urutan (didorong Rust) -----
+    in-out property <[string]> ex-it-names: [];
+    in-out property <[string]> ex-it-kinds: [];
+    in-out property <[string]> ex-it-exts: [];
+    in-out property <[string]> ex-it-bases: [];
+    in-out property <[string]> ex-it-sizes: [];
+    in-out property <[string]> ex-it-dates: [];
+    in-out property <[string]> ex-it-previews: [];
+    in-out property <[string]> ex-it-paths: [];
+    in-out property <[bool]> ex-it-isdir: [];
+    in-out property <[int]> ex-ord-name-asc: [];
+    in-out property <[int]> ex-ord-name-desc: [];
+    in-out property <[int]> ex-ord-date-asc: [];
+    in-out property <[int]> ex-ord-date-desc: [];
+    in-out property <[int]> ex-ord-type-asc: [];
+    in-out property <[int]> ex-ord-type-desc: [];
+    in-out property <[int]> ex-ord-grp-date: [];
+    in-out property <[string]> ex-ord-grp-date-hdr: [];
+    in-out property <[int]> ex-ord-grp-type: [];
+    in-out property <[string]> ex-ord-grp-type-hdr: [];
+    in-out property <[int]> ex-ord-split-l: [];
+    in-out property <[int]> ex-ord-split-r: [];
+    in-out property <string> ex-root-path: "";
+    in-out property <bool> ex-root-missing: false;
+    in-out property <string> ex-root-error: "";
+    // Path folder Explorer saat ini (diperbarui Rust tiap load —
+    // dipakai tab EXPLORER panel compact supaya tetap sinkron
+    // dengan overlay Explorer).
+    in-out property <string> ex-cur-path: "";
+    in-out property <string> ex-preview-text: "";
+    in-out property <string> ex-undo-select: "";
+    in-out property <int> ex-cb-count: 0;
+    in-out property <[string]> ex-qa-paths: [];
+    in-out property <[string]> ex-qa-labels: [];
+    in-out property <[string]> ex-tabs-path: [];
+    in-out property <[string]> ex-tabs-name: [];
+    in-out property <[bool]> ex-tabs-pinned: [];
+    in-out property <[string]> ex-tabs-label: [];
+    in-out property <[int]> ex-tabs-color: [];
+    in-out property <int> ex-tab-count: 1;
+    in-out property <int> ex-active-tab: 0;
+    in-out property <[string]> ex-tm-kind: [];
+    in-out property <[string]> ex-tm-name: [];
+    in-out property <[int]> ex-tm-prog: [];
+    in-out property <[string]> ex-tm-status: [];
+    in-out property <[string]> ex-tm-size: [];
+    in-out property <[string]> ex-tm-speed: [];
+    in-out property <[string]> ex-tm-eta: [];
+    in-out property <[string]> ex-tm-route: [];
+    in-out property <[string]> ex-tm-error: [];
+    in-out property <bool> ex-tm-visible: false;
+    in-out property <string> ex-view-sort: "Name";
+    in-out property <bool> ex-view-desc: false;
+    in-out property <string> ex-view-group: "Date";
+    in-out property <string> ex-view-layout: "Vertical";
+    in-out property <bool> ex-view-local-only: false;
+    in-out property <bool> ex-can-up: false;
+    // ----- Explorer Settings (didorong Rust saat startup) -----
+    in-out property <string> ex-set-path: "";
+    in-out property <string> ex-set-view: "Details";
+    in-out property <string> ex-set-sort: "Name";
+    in-out property <string> ex-set-group: "Date";
+    in-out property <bool> ex-set-hidden: false;
+    in-out property <bool> ex-set-ext: true;
+    in-out property <int> ex-set-zoom: 100;
+    in-out property <bool> ex-set-showbar: true;
+    in-out property <string> ex-set-font: "Inter";
+    in-out property <bool> ex-show-pathbar: true;
+    in-out property <string> ex-font: "Inter";
+    in-out property <string> ex-paste-path: "";
+    callback ex-load-folder(string) -> bool;
+    callback ex-nav-up();
+    callback ex-parent(string) -> string;
+    callback ex-base-name(string) -> string;
+    callback ex-is-dir(string) -> bool;
+    callback ex-is-file(string) -> bool;
+    callback ex-index-of(string) -> int;
+    callback ex-name-exists(string) -> bool;
+    callback ex-preview(string);
+    callback ex-create-folder(string, string) -> bool;
+    callback ex-create-file(string, string) -> bool;
+    callback ex-rename(string, string) -> bool;
+    callback ex-delete(string, bool) -> bool;
+    callback ex-duplicate(string, int) -> bool;
+    callback ex-clipboard(string, string) -> bool;
+    callback ex-paste() -> bool;
+    callback ex-undo() -> bool;
+    callback ex-open-file(string, string) -> bool;
+    callback ex-copy-path(string) -> bool;
+    callback ex-copy-name(string) -> bool;
+    callback ex-paste-path-req();
+    callback ex-batch-rename(string) -> bool;
+    callback ex-delete-blocked(string, string) -> string;
+    callback ex-task-poll();
+    callback ex-task-cancel(int);
+    callback ex-task-pause(int);
+    callback ex-task-resume(int);
+    callback ex-task-retry(int);
+    callback ex-task-remove(int);
+    callback ex-task-clear-done();
+    callback ex-qa-add(string) -> bool;
+    callback ex-qa-remove(int) -> bool;
+    callback ex-pins-save([string], [string], [bool], [string], [int]);
+    callback ex-view-changed();
+    callback ex-open();
+    callback ex-resolve-root() -> string;
+    callback ex-join-path(string, string) -> string;
 
     // SETTING: gaya latar widget dashboard — nanti dipilih user di
     // Settings (fitur penuh: user bisa ganti background widgetnya
@@ -980,6 +1149,12 @@ export component AppWindow inherits Window {
     property <length> trello-detail-w: root.content-width >= 726px ? 400px : 320px;
     // Kolom detail/add-manual sedang terbuka (daftar menyusut).
     property <bool> trello-panel-open: root.selected-card != "" || root.add-manual-open;
+    // Single view Trello (keputusan abeng 28 Nov 08:14): saat lebar
+    // window mencapai minimum (520px), daftar dan panel detail TIDAK
+    // tampil berdampingan — hanya satu tampilan (daftar ATAU detail).
+    // Di atas 520 kembali split. (C# CompactThreshold = 800 sebagai
+    // pembanding — aturan abeng yang menang: 520.)
+    property <bool> trello-single-view: root.width <= 520px;
     // Lebar detail window Trello (panel 760×600, padding 16 → isi
     // 728 ≥ 726 = 400; saat window utama sempit, isi < 726 = 320).
     property <length> tw-detail-w: min(760px, root.width - 40px) - 32px >= 726px ? 400px : 320px;
@@ -1014,6 +1189,22 @@ export component AppWindow inherits Window {
     in-out property <[string]> editing-ids: [];
     in-out property <[string]> revision-ids: [];
     in-out property <[string]> late-ids: [];
+    // Deskripsi penuh + label + jumlah lampiran tiap kartu (C#
+    // CardDetailPanelHost: desc dari API, label dari Trello,
+    // Attachments dari badges.attachments — ref
+    // trello-sidepanel-ref.jpg 28 Nov 2026). Diisi Rust saat sync.
+    in-out property <[string]> editing-desc: [];
+    in-out property <[string]> revision-desc: [];
+    in-out property <[string]> late-desc: [];
+    in-out property <[string]> editing-label1: [];
+    in-out property <[string]> revision-label1: [];
+    in-out property <[string]> late-label1: [];
+    in-out property <[string]> editing-label2: [];
+    in-out property <[string]> revision-label2: [];
+    in-out property <[string]> late-label2: [];
+    in-out property <[int]> editing-atts: [];
+    in-out property <[int]> revision-atts: [];
+    in-out property <[int]> late-atts: [];
     // Link web tiap kartu dari API (`shortUrl`) — detail kartu
     // membukanya di browser; "" bila server tidak mengembalikannya.
     // Diisi Rust saat sync (sama seperti editing-ids); mockup di bawah
@@ -1037,6 +1228,11 @@ export component AppWindow inherits Window {
     // Link web kartu aktif (sejajar list-ids) — dipakai detail kartu
     // untuk tombol buka di browser (dari `shortUrl` API).
     property <[string]> list-urls: root.trello-window-cat == "EDITING" ? root.editing-urls : root.trello-window-cat == "REVISION" ? root.revision-urls : root.trello-window-cat == "LATE" ? root.late-urls : root.list-category == "EDITING" ? root.editing-urls : root.list-category == "REVISION" ? root.revision-urls : root.list-category == "LATE" ? root.late-urls : [];
+    // Deskripsi/label/lampiran kartu aktif (sejajar list-ids).
+    property <[string]> list-desc: root.trello-window-cat == "EDITING" ? root.editing-desc : root.trello-window-cat == "REVISION" ? root.revision-desc : root.trello-window-cat == "LATE" ? root.late-desc : root.list-category == "EDITING" ? root.editing-desc : root.list-category == "REVISION" ? root.revision-desc : root.list-category == "LATE" ? root.late-desc : [];
+    property <[string]> list-label1: root.trello-window-cat == "EDITING" ? root.editing-label1 : root.trello-window-cat == "REVISION" ? root.revision-label1 : root.trello-window-cat == "LATE" ? root.late-label1 : root.list-category == "EDITING" ? root.editing-label1 : root.list-category == "REVISION" ? root.revision-label1 : root.list-category == "LATE" ? root.late-label1 : [];
+    property <[string]> list-label2: root.trello-window-cat == "EDITING" ? root.editing-label2 : root.trello-window-cat == "REVISION" ? root.revision-label2 : root.trello-window-cat == "LATE" ? root.late-label2 : root.list-category == "EDITING" ? root.editing-label2 : root.list-category == "REVISION" ? root.revision-label2 : root.list-category == "LATE" ? root.late-label2 : [];
+    property <[int]> list-atts: root.trello-window-cat == "EDITING" ? root.editing-atts : root.trello-window-cat == "REVISION" ? root.revision-atts : root.trello-window-cat == "LATE" ? root.late-atts : root.list-category == "EDITING" ? root.editing-atts : root.list-category == "REVISION" ? root.revision-atts : root.list-category == "LATE" ? root.late-atts : [];
 
     // Bar status Trello (C# UnifiedTrelloView Row 0 / Row 3):
     // dot status + "Dimuat N card" + tombol + (EDITING saja)
@@ -1309,15 +1505,32 @@ export component AppWindow inherits Window {
         border-radius: 12px;
     }
 
-    // Dashboard (pill nav + konten) — disembunyikan saat overlay
-    // layar penuh terbuka (overlay-view != "").
-    VerticalLayout {
-        x: root.chrome-wrapped ? 8px : 0px;
-        y: root.chrome-content-y;
-        width: root.width - (root.chrome-wrapped ? 16px : 0px);
-        height: root.height - root.chrome-content-y - root.chrome-content-bottom;
+    // Dashboard + Log Panel — DUA KARTU rounded terpisah dengan CELAH
+    // (ref sidepanel-separator-ref.jpg, 28 Nov 2026): dashboard satu
+    // kartu, panel satu kartu, background window terlihat di celah.
+    // BUKAN garis pemisah 1px. Panel full-height atas-bawah (07:19 +
+    // 08:11), tidak kepotong nav. Disembunyikan saat overlay layar
+    // penuh terbuka (overlay-view != "").
+    HorizontalLayout {
+        x: 8px;
+        y: root.chrome-content-y + (root.chrome-wrapped ? 0px : 8px);
+        width: root.width - 16px;
+        height: root.height - root.chrome-content-y - (root.chrome-wrapped ? root.chrome-content-bottom : 16px);
         visible: root.overlay-view == "";
-        spacing: 0;
+        // --- Kartu dashboard (nav + konten). Mode wrapped: datar
+        // (panel wrapped luar sudah jadi kartu — "bungkus di dalam
+        // bungkus" dilarang abeng 27 Nov 22:03).
+        dash-card := Rectangle {
+            width: root.content-width;
+            background: root.chrome-wrapped ? transparent : Design.card-bg;
+            border-color: Design.separator;
+            border-width: root.chrome-wrapped ? 0px : 1px;
+            border-radius: root.chrome-wrapped ? 0px : Design.radius-lg;
+            clip: true;
+            VerticalLayout {
+                width: 100%;
+                height: 100%;
+                spacing: 0;
 
         // Nav rata tengah (abeng 27 Nov 20:04 — koreksi: kelompok di
         // kiri itu "aneh"): avatar → gap 12px → kapsul HOME/BATCH
@@ -1412,23 +1625,17 @@ export component AppWindow inherits Window {
             // pemicu radial yang tersisa hanya hotkey global (rdev).
         }
 
-        // ===== Area konten + Log Panel: HorizontalLayout — konten
-        // (lebar content-width, menyusut saat Log Panel terbuka) +
-        // handle resize 6px + Log Panel (log-panel-width saat terbuka,
-        // 0px saat tertutup).
+        // ===== Area konten (di dalam kartu dashboard).
         // Konten-konten menumpuk di dalam Rectangle (posisi absolut,
         // masing-masing 100% x 100%, hanya yang aktif yang visible —
         // jadi tidak saling makan ruang). =====
-        HorizontalLayout {
-            vertical-stretch: 1;
-
-            Rectangle {
-                width: root.content-width;
-                // Tinggi eksplisit (window − nav), BUKAN height: 100%:
-                // rantai persentase di sini pernah membuat tinggi konten
-                // jatuh ke preferred-height (~1080px) dan mendorong isi
-                // Settings ke bawah (layout gap, 26 Nov).
-                height: root.height - 68px * root.ui-scale;
+        Rectangle {
+            width: 100%;
+            // Tinggi eksplisit (kolom − nav), BUKAN height: 100%:
+            // rantai persentase di sini pernah membuat tinggi konten
+            // jatuh ke preferred-height (~1080px) dan mendorong isi
+            // Settings ke bawah (layout gap, 26 Nov).
+            height: root.height - root.chrome-content-y - (root.chrome-wrapped ? root.chrome-content-bottom : 16px) - 68px * root.ui-scale;
 
             // Shift + middle click di latar dashboard DIHAPUS (keputusan
             // abeng 27 Nov 2026 16:54). Pemicu radial yang tersisa hanya
@@ -1566,10 +1773,12 @@ export component AppWindow inherits Window {
             // klik kanan di baris ditangani list-touch di bawah.
             Rectangle {
                 x: 0; y: 0;
-                width: root.trello-panel-open ? parent.width - root.trello-detail-w - 6px : parent.width; height: 100%;
+                width: root.trello-single-view && root.trello-panel-open ? 0px : (root.trello-panel-open ? parent.width - root.trello-detail-w - 6px : parent.width); height: 100%;
                 // Daftar TETAP tampil (menyempit) saat detail maupun
                 // Add Manual terbuka di kolom kanan — sama seperti C#.
-                visible: root.current-tab == "HOME" && root.list-category != "";
+                // Single view (lebar 520): daftar sembunyi saat kolom
+                // kanan terbuka — hanya satu tampilan (08:14).
+                visible: root.current-tab == "HOME" && root.list-category != "" && !(root.trello-single-view && root.trello-panel-open);
                 list-back-touch := TouchArea {
                     width: 100%; height: 100%;
                     pointer-event(ev) => {
@@ -1675,48 +1884,63 @@ export component AppWindow inherits Window {
                 }
 
                 // Tab Trello (UnifiedTrelloView C#: EDITING / REVISI /
-                // SUSULAN). Klik tab = ganti daftar (isi ulang array
-                // dari data tunggal); tab aktif = kategori kini.
+                // SUSULAN — wadah kartu bordered + padding 4, di tengah;
+                // tab aktif = pill accent-subtle + underline accent).
+                // Klik tab = ganti daftar; tab aktif = kategori kini.
+                // Nama tab ikut data board Trello (bukan hardcode):
+                // label tampil REVISI/SUSULAN untuk kategori
+                // REVISION/LATE (nama list dari API tetap EDITING/
+                // REVISION/LATE di Rust).
                 HorizontalLayout {
-                    height: 32px * root.ui-scale;
-                    spacing: 2px * root.ui-scale;
-                    NavTab {
-                        label: "EDITING";
-                        scale: root.ui-scale;
-                        selected: root.list-category == "EDITING";
-                        clicked => {
-                            root.list-titles = root.editing-titles;
-                            root.list-subs = root.editing-subs;
-                            root.list-due = root.editing-due;
-                            root.selected-card = "";
-                            root.list-category = "EDITING";
-                            root.toast = "Daftar EDITING — 6 kartu";
-                        }
-                    }
-                    NavTab {
-                        label: "REVISI";
-                        scale: root.ui-scale;
-                        selected: root.list-category == "REVISION";
-                        clicked => {
-                            root.list-titles = root.revision-titles;
-                            root.list-subs = root.revision-subs;
-                            root.list-due = root.revision-due;
-                            root.selected-card = "";
-                            root.list-category = "REVISION";
-                            root.toast = "Daftar REVISI — 5 kartu";
-                        }
-                    }
-                    NavTab {
-                        label: "SUSULAN";
-                        scale: root.ui-scale;
-                        selected: root.list-category == "LATE";
-                        clicked => {
-                            root.list-titles = root.late-titles;
-                            root.list-subs = root.late-subs;
-                            root.list-due = root.late-due;
-                            root.selected-card = "";
-                            root.list-category = "LATE";
-                            root.toast = "Daftar SUSULAN — 3 kartu";
+                    height: 44px * root.ui-scale;
+                    alignment: center;
+                    Rectangle {
+                        background: Design.card-bg;
+                        border-color: Design.separator;
+                        border-width: 1px;
+                        border-radius: Design.radius-md;
+                        HorizontalLayout {
+                            padding: 4px * root.ui-scale;
+                            spacing: 2px * root.ui-scale;
+                            TrelloTab {
+                                label: "EDITING";
+                                scale: root.ui-scale;
+                                selected: root.list-category == "EDITING";
+                                clicked => {
+                                    root.list-titles = root.editing-titles;
+                                    root.list-subs = root.editing-subs;
+                                    root.list-due = root.editing-due;
+                                    root.selected-card = "";
+                                    root.list-category = "EDITING";
+                                    root.toast = "Daftar EDITING — " + root.list-titles.length + " kartu";
+                                }
+                            }
+                            TrelloTab {
+                                label: "REVISI";
+                                scale: root.ui-scale;
+                                selected: root.list-category == "REVISION";
+                                clicked => {
+                                    root.list-titles = root.revision-titles;
+                                    root.list-subs = root.revision-subs;
+                                    root.list-due = root.revision-due;
+                                    root.selected-card = "";
+                                    root.list-category = "REVISION";
+                                    root.toast = "Daftar REVISI — " + root.list-titles.length + " kartu";
+                                }
+                            }
+                            TrelloTab {
+                                label: "SUSULAN";
+                                scale: root.ui-scale;
+                                selected: root.list-category == "LATE";
+                                clicked => {
+                                    root.list-titles = root.late-titles;
+                                    root.list-subs = root.late-subs;
+                                    root.list-due = root.late-due;
+                                    root.selected-card = "";
+                                    root.list-category = "LATE";
+                                    root.toast = "Daftar SUSULAN — " + root.list-titles.length + " kartu";
+                                }
+                            }
                         }
                     }
                 }
@@ -1736,8 +1960,20 @@ export component AppWindow inherits Window {
                         for t[index] in root.list-titles:
                             Rectangle {
                                 height: 48px * root.ui-scale;
-                                background: list-touch.has-hover ? Design.bg-hover : transparent;
+                                background: root.selected-card == t ? Design.status-danger.with-alpha(0.08) : (list-touch.has-hover ? Design.bg-hover : transparent);
+                                border-color: root.selected-card == t ? Design.status-danger : Design.row-border-idle;
+                                border-width: 1px;
                                 border-radius: Design.radius-sm;
+                                // Aksen merah di kiri baris terpilih
+                                // (ref trello-sidepanel-ref.jpg).
+                                Rectangle {
+                                    x: 1px; y: 6px * root.ui-scale;
+                                    width: 3px * root.ui-scale;
+                                    height: parent.height - 12px * root.ui-scale;
+                                    background: Design.status-danger;
+                                    border-radius: 1.5px * root.ui-scale;
+                                    visible: root.selected-card == t;
+                                }
                                 list-touch := TouchArea {
                                     mouse-cursor: pointer;
                                     clicked => {
@@ -1864,8 +2100,18 @@ export component AppWindow inherits Window {
                                 height: root.list-category == "EDITING" && mi < root.manual-count ? 64px * root.ui-scale : 0px;
                                 visible: root.list-category == "EDITING" && mi < root.manual-count;
                                 clip: true;
-                                background: m-list-touch.has-hover ? Design.bg-hover : transparent;
+                                background: root.selected-card == root.manual-titles[mi] ? Design.status-danger.with-alpha(0.08) : (m-list-touch.has-hover ? Design.bg-hover : transparent);
+                                border-color: root.selected-card == root.manual-titles[mi] ? Design.status-danger : Design.row-border-idle;
+                                border-width: 1px;
                                 border-radius: Design.radius-sm;
+                                Rectangle {
+                                    x: 1px; y: 6px * root.ui-scale;
+                                    width: 3px * root.ui-scale;
+                                    height: parent.height - 12px * root.ui-scale;
+                                    background: Design.status-danger;
+                                    border-radius: 1.5px * root.ui-scale;
+                                    visible: root.selected-card == root.manual-titles[mi];
+                                }
                                 m-list-touch := TouchArea {
                                     mouse-cursor: pointer;
                                     clicked => {
@@ -1998,12 +2244,21 @@ export component AppWindow inherits Window {
             // klik kanan sub-panel = kembali ke detail, × = tutup.
             // Double klik kanan = kembali ke dashboard: klik pertama
             // detail→daftar, klik kedua (di daftar) daftar→dashboard.
+            // Detail kartu = kartu kedua (dua kartu + celah 6px, desain
+            // panel samping 08:12/08:14). Single view (lebar 520):
+            // detail selebar penuh, daftar sembunyi.
             Rectangle {
-                x: parent.width - root.trello-detail-w; y: 0;
-                width: root.trello-detail-w; height: 100%;
+                x: root.trello-single-view ? 0px : parent.width - root.trello-detail-w; y: 0;
+                width: root.trello-single-view ? parent.width : root.trello-detail-w; height: 100%;
                 visible: root.current-tab == "HOME" && root.selected-card != "";
+                background: Design.card-bg;
+                border-color: Design.separator;
+                border-width: 1px;
+                border-radius: Design.radius-lg;
+                clip: true;
                 TrelloDetailPanel {
                     x: 0; y: 0; width: 100%; height: 100%;
+                    panel-bg: transparent;
                     card-title: root.selected-card;
                     event-date: root.selected-is-manual ? "—" : root.list-due[root.selected-index];
                     display-id: root.selected-is-manual ? "" : root.list-ids[root.selected-index];
@@ -2014,7 +2269,10 @@ export component AppWindow inherits Window {
                     category-label: root.list-category == "REVISION" ? "REVISI" : root.list-category == "LATE" ? "SUSULAN" : root.list-category;
                     accent: root.list-accent;
                     done: root.selected-is-manual ? root.manual-done[root.selected-manual-index] : root.list-done[root.selected-index];
-                    description: "Edit pas foto sekolah — crop, centering kepala di guide, logo terlihat.";
+                    description: root.selected-is-manual ? "" : root.list-desc[root.selected-index];
+                    label-1: root.selected-is-manual ? "" : root.list-label1[root.selected-index];
+                    label-2: root.selected-is-manual ? "" : root.list-label2[root.selected-index];
+                    attachments-count: root.selected-is-manual ? 0 : root.list-atts[root.selected-index];
                     sub-panel: root.detail-panel;
                     added-count: root.detail-added-count;
                     user-name: root.app-user-name;
@@ -2034,9 +2292,14 @@ export component AppWindow inherits Window {
             // Ukuran C# tetap (tanpa ui-scale): header 16px,
             // input 200px, tombol Import 38px.
             Rectangle {
-                x: parent.width - root.trello-detail-w; y: 0;
-                width: root.trello-detail-w; height: 100%;
+                x: root.trello-single-view ? 0px : parent.width - root.trello-detail-w; y: 0;
+                width: root.trello-single-view ? parent.width : root.trello-detail-w; height: 100%;
                 visible: root.current-tab == "HOME" && root.add-manual-open;
+                background: Design.card-bg;
+                border-color: Design.separator;
+                border-width: 1px;
+                border-radius: Design.radius-lg;
+                clip: true;
                 add-manual-back-touch := TouchArea {
                     width: 100%; height: 100%;
                     pointer-event(ev) => {
@@ -2703,20 +2966,21 @@ export component AppWindow inherits Window {
                 }
             }
             }
+            // Tutup kolom dashboard (VerticalLayout + kartu).
+            }
+        }
 
-            // ----- RESIZE HANDLE Log Panel (C# DashboardView.axaml:
-            // Border 6px + garis 2px di tengah, drag SizeWestEast;
-            // lebar disimpan ke DB Dashboard.LogPanelWidth saat drag
-            // dilepas; MinWidth 180, maks = lebar window − 200px) -----
+            // ----- CELAH + HANDLE RESIZE Log Panel (tanpa garis —
+            // ref sidepanel-separator-ref.jpg: pemisah = celah antar
+            // kartu, bukan garis 1px. Zona drag 8px tak terlihat di
+            // celah; lebar disimpan ke DB Dashboard.LogPanelWidth
+            // saat drag dilepas; MinWidth 180, maks = lebar window
+            // − 200px; kursor ew-resize saat hover) -----
             log-resize-handle := Rectangle {
-                width: root.show-logpanel ? 6px : 0px;
-                height: root.height - 68px * root.ui-scale;
+                width: root.show-logpanel ? 8px : 0px;
+                height: 100%;
                 visible: root.show-logpanel;
-                background: handle-touch.has-hover || handle-touch.dragging ? #663b82f6 : transparent;
-                Rectangle {
-                    x: 2px; y: 0; width: 2px; height: 100%;
-                    background: Design.separator;
-                }
+                background: transparent;
                 handle-touch := TouchArea {
                     mouse-cursor: ew-resize;
                     property <length> press-x: 0px;
@@ -2743,20 +3007,33 @@ export component AppWindow inherits Window {
             // visible:false tetap makan ruang jadi lebar yang mengatur) -----
             log-panel := LogPanelView {
                 width: root.show-logpanel ? root.log-panel-width : 0px;
-                height: root.height - 68px * root.ui-scale;
+                height: 100%;
                 visible: root.show-logpanel;
+                flat: root.chrome-wrapped;
                 panel-tab: root.logpanel-tab;
-                log-lines: root.log-lines;
-                log-status: root.log-status;
-                log-progress: root.log-progress;
-                log-progress-label: root.log-progress-label;
+                ex-cur-path: root.ex-cur-path;
+                ex-it-names: root.ex-it-names;
+                ex-it-kinds: root.ex-it-kinds;
+                ex-it-sizes: root.ex-it-sizes;
+                ex-it-dates: root.ex-it-dates;
+                ex-it-paths: root.ex-it-paths;
+                ex-it-isdir: root.ex-it-isdir;
+                ex-root-error: root.ex-root-error;
+                ex-nav(path) => { root.ex-load-folder(path); }
+                ex-nav-up() => { root.ex-nav-up(); }
+                ex-open-file(path) => { root.ex-open-file(path, ""); }
+                ex-send-batch(path) => {
+                    root.batch-add-folder(path);
+                    // Seperti send-to-batch overlay: pindah ke tab BATCH
+                    // (panel tetap terbuka — sidebar, bukan overlay).
+                    root.current-tab = "BATCH";
+                }
                 toast(text) => { root.toast = text; }
                 close() => { root.show-logpanel = false; }
-                clear-log() => { root.clear-log(); }
-                copy-log() => { root.copy-log(); }
-                stop-log() => { root.stop-log(); }
                 open-explorer(path) => {
-                    root.ex-start-path = path;
+                    // ex-open(): resolve root + muat Quick Access + pin tab.
+                    root.ex-open();
+                    root.ex-start-path = path == "" ? root.ex-resolve-root() : path;
                     root.overlay-view = "EXPLORER";
                     root.show-logpanel = false;
                     explorer-view.focus-list();
@@ -2764,7 +3041,6 @@ export component AppWindow inherits Window {
                 doc-tab-add() => { }
                 doc-tab-close() => { }
             }
-        }
     }
 
     // ===== Overlay layar penuh — pill nav disembunyikan saat salah
@@ -2916,6 +3192,15 @@ export component AppWindow inherits Window {
         x: root.chrome-wrapped ? 8px : 0px; y: root.chrome-overlay-y;
         width: root.width - (root.chrome-wrapped ? 16px : 0px); height: root.height - root.chrome-overlay-y - root.chrome-content-bottom;
         visible: root.overlay-view == "EXPLORER-SETTINGS";
+        exp-path <=> root.ex-set-path;
+        exp-view <=> root.ex-set-view;
+        exp-sort <=> root.ex-set-sort;
+        exp-group <=> root.ex-set-group;
+        exp-hidden <=> root.ex-set-hidden;
+        exp-ext <=> root.ex-set-ext;
+        exp-zoom <=> root.ex-set-zoom;
+        exp-showbar <=> root.ex-set-showbar;
+        exp-font <=> root.ex-set-font;
         toggle-style <=> root.app-toggle-style;
         save-explorer-settings() => { root.save-explorer-settings(); }
         browse-path(k) => { root.browse-path(k); }
@@ -3269,6 +3554,7 @@ export component AppWindow inherits Window {
         width: root.width - (root.chrome-wrapped ? 16px : 0px); height: root.height - root.chrome-overlay-y - root.chrome-content-bottom;
         visible: root.overlay-view == "EXPLORER";
         start-path: root.ex-start-path;
+        resolved-path: root.ex-cur-path;
         sr-names: root.ex-sr-names;
         sr-kinds: root.ex-sr-kinds;
         sr-exts: root.ex-sr-exts;
@@ -3281,6 +3567,60 @@ export component AppWindow inherits Window {
         sr-half: root.ex-sr-half;
         sr-truncated: root.ex-sr-truncated;
         ta-index: root.ex-ta-index;
+        it-names: root.ex-it-names;
+        it-kinds: root.ex-it-kinds;
+        it-exts: root.ex-it-exts;
+        it-bases: root.ex-it-bases;
+        it-sizes: root.ex-it-sizes;
+        it-dates: root.ex-it-dates;
+        it-previews: root.ex-it-previews;
+        it-paths: root.ex-it-paths;
+        it-isdir: root.ex-it-isdir;
+        ord-name-asc: root.ex-ord-name-asc;
+        ord-name-desc: root.ex-ord-name-desc;
+        ord-date-asc: root.ex-ord-date-asc;
+        ord-date-desc: root.ex-ord-date-desc;
+        ord-type-asc: root.ex-ord-type-asc;
+        ord-type-desc: root.ex-ord-type-desc;
+        ord-grp-date: root.ex-ord-grp-date;
+        ord-grp-date-hdr: root.ex-ord-grp-date-hdr;
+        ord-grp-type: root.ex-ord-grp-type;
+        ord-grp-type-hdr: root.ex-ord-grp-type-hdr;
+        ord-split-l: root.ex-ord-split-l;
+        ord-split-r: root.ex-ord-split-r;
+        ex-root-path: root.ex-root-path;
+        ex-root-error: root.ex-root-error;
+        ex-preview-text: root.ex-preview-text;
+        ex-show-pathbar: root.ex-show-pathbar;
+        ex-font: root.ex-font;
+        ex-paste-path <=> root.ex-paste-path;
+        ex-undo-select <=> root.ex-undo-select;
+        cb-count: root.ex-cb-count;
+        qa-paths: root.ex-qa-paths;
+        qa-labels: root.ex-qa-labels;
+        tabs-path <=> root.ex-tabs-path;
+        tabs-name <=> root.ex-tabs-name;
+        tabs-pinned <=> root.ex-tabs-pinned;
+        tabs-label <=> root.ex-tabs-label;
+        tabs-color <=> root.ex-tabs-color;
+        tab-count <=> root.ex-tab-count;
+        active-tab <=> root.ex-active-tab;
+        tm-kind: root.ex-tm-kind;
+        tm-name: root.ex-tm-name;
+        tm-prog: root.ex-tm-prog;
+        tm-status: root.ex-tm-status;
+        tm-size: root.ex-tm-size;
+        tm-speed: root.ex-tm-speed;
+        tm-eta: root.ex-tm-eta;
+        tm-route: root.ex-tm-route;
+        tm-error: root.ex-tm-error;
+        tm-visible <=> root.ex-tm-visible;
+        ex-sort <=> root.ex-view-sort;
+        ex-desc <=> root.ex-view-desc;
+        ex-group <=> root.ex-view-group;
+        layout <=> root.ex-view-layout;
+        local-only <=> root.ex-view-local-only;
+        ex-can-up: root.ex-can-up;
         toast(text) => { root.toast = text; }
         close() => { root.overlay-view = ""; }
         // Kirim folder ke BATCH (toolbar "Kirim ke BATCH"): SOURCE
@@ -3314,6 +3654,41 @@ export component AppWindow inherits Window {
         split-ext(name) => { root.ex-split-ext(name) }
         name-base(name) => { root.ex-name-base(name) }
         is-typeahead-char(ch) => { root.ex-is-typeahead-char(ch) }
+        load-folder-req(path) => { root.ex-load-folder(path) }
+        parent-path(path) => { root.ex-parent(path) }
+        base-name(path) => { root.ex-base-name(path) }
+        is-dir(path) => { root.ex-is-dir(path) }
+        is-file(path) => { root.ex-is-file(path) }
+        index-of(name) => { root.ex-index-of(name) }
+        name-exists-req(name) => { root.ex-name-exists(name) }
+        preview-req(path) => { root.ex-preview(path) }
+        create-folder-req(dir, name) => { root.ex-create-folder(dir, name) }
+        create-file-req(dir, name) => { root.ex-create-file(dir, name) }
+        rename-req(old-path, new-name) => { root.ex-rename(old-path, new-name) }
+        delete-req(joined, permanent) => { root.ex-delete(joined, permanent) }
+        duplicate-req(path, count) => { root.ex-duplicate(path, count) }
+        copy-req(joined, mode) => { root.ex-clipboard(joined, mode) }
+        paste-req() => { root.ex-paste() }
+        undo-req() => { root.ex-undo() }
+        open-file-req(path, ext) => { root.ex-open-file(path, ext) }
+        copy-path-req(text) => { root.ex-copy-path(text) }
+        copy-name-req(text) => { root.ex-copy-name(text) }
+        paste-path-req() => { root.ex-paste-path-req() }
+        batch-rename-req(joined) => { root.ex-batch-rename(joined) }
+        delete-blocked-req(joined, tabs-joined) => { root.ex-delete-blocked(joined, tabs-joined) }
+        task-poll-req() => { root.ex-task-poll() }
+        task-cancel-req(i) => { root.ex-task-cancel(i) }
+        task-pause-req(i) => { root.ex-task-pause(i) }
+        task-resume-req(i) => { root.ex-task-resume(i) }
+        task-retry-req(i) => { root.ex-task-retry(i) }
+        task-remove-req(i) => { root.ex-task-remove(i) }
+        task-clear-done-req() => { root.ex-task-clear-done() }
+        qa-add-req(path) => { root.ex-qa-add(path) }
+        qa-remove-req(i) => { root.ex-qa-remove(i) }
+        pins-save-req(paths, names, pinned, labels, colors) => { root.ex-pins-save(paths, names, pinned, labels, colors) }
+        view-changed-req() => { root.ex-view-changed() }
+        resolve-root-req() => { root.ex-resolve-root() }
+        join-path(dir, name) => { root.ex-join-path(dir, name) }
     }
 
     // ===== Flyout profil (overlay, di bawah tombol profil) =====
