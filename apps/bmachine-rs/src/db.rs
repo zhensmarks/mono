@@ -55,6 +55,26 @@ impl DatabaseService {
         Ok(())
     }
 
+    /// Semua pasangan (Key, Value) yang kuncinya berawalan `prefix`
+    /// (trello2, item 3: muat override deskripsi
+    /// `Trello.DescOverride.*` saat startup ke `edited_descs`).
+    /// Urutan kunci naik; prefix dicocokkan persis (bukan LIKE).
+    pub fn keys_with_prefix(&self, prefix: &str) -> Vec<(String, String)> {
+        let mut stmt = match self.conn.prepare(
+            "SELECT Key, Value FROM KeyValueStore WHERE substr(Key, 1, length(?1)) = ?1 ORDER BY Key",
+        ) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+        let rows = stmt.query_map(params![prefix], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        });
+        match rows {
+            Ok(mapped) => mapped.filter_map(|r| r.ok()).collect(),
+            Err(_) => Vec::new(),
+        }
+    }
+
     /// Catat satu aktivitas (mis. laporan bug dari ReportBugDialog).
     pub fn insert_activity(
         &mut self,
@@ -278,6 +298,27 @@ mod tests {
         } else {
             None
         }
+    }
+
+    #[test]
+    fn keys_with_prefix_returns_matching_pairs() {
+        let dir = test_dir("prefix");
+        let mut db = open_test_db(&dir.join("live.db"));
+        db.set("Trello.DescOverride.47276395", "desc satu", "String")
+            .unwrap();
+        db.set("Trello.DescOverride.48328499", "desc dua", "String")
+            .unwrap();
+        db.set("Trello.ApiKey", "bukan-override", "String").unwrap();
+        db.set("Trello.DescOverrideX", "prefix mirip tapi beda", "String")
+            .unwrap();
+        let rows = db.keys_with_prefix("Trello.DescOverride.");
+        assert_eq!(rows.len(), 2, "hanya 2 kunci berawalan persis: {:?}", rows);
+        assert_eq!(rows[0].0, "Trello.DescOverride.47276395");
+        assert_eq!(rows[0].1, "desc satu");
+        assert_eq!(rows[1].0, "Trello.DescOverride.48328499");
+        // Prefix lain tidak ikut.
+        assert!(db.keys_with_prefix("Tidak.Ada.").is_empty());
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

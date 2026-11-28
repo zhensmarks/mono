@@ -722,6 +722,10 @@ export component CardListWindow inherits Window {
     // masih mock hardcode).
     in-out property <[string]> card-desc: [];
     in-out property <[string]> card-ids: [];
+    // ID API Trello asli tiap kartu (`c.id` — dipakai PUT deskripsi +
+    // komentar ke API; sejajar card-ids yang berisi display id).
+    // Diisi Rust saat window dibuka dari model AppWindow.
+    in-out property <[string]> card-api-ids: [];
     in-out property <[string]> card-urls: [];
     in-out property <[string]> card-label1: [];
     in-out property <[string]> card-label2: [];
@@ -1087,6 +1091,7 @@ export component CardListWindow inherits Window {
                     card-title: root.card-titles[root.selected-idx];
                     event-date: root.card-due[root.selected-idx];
                     display-id: root.card-ids[root.selected-idx];
+                    card-id: root.card-api-ids[root.selected-idx];
                     due-text: "Due: " + root.card-due[root.selected-idx];
                     is-manual: false;
                     card-url-override: root.card-urls[root.selected-idx];

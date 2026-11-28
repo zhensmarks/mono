@@ -1139,7 +1139,20 @@ multi-line + pratinjau live saat mengetik; deskripsi lewat
 tombol "Edit" kecil di label Description (Simpan/Batal) —
 simpan ke `edited_descs` (Arc<Mutex<HashMap>>) yang menang
 atas deskripsi API di `spawn_trello_sync` + refresh
-berikutnya; komentar via toolbar + input multi-line di
+berikutnya, lalu PUT ke API Trello (`PUT /cards/{id}?desc=...`
+via `TrelloApiService::update_card_desc`, id asli `c.id` dari
+model `editing-card-ids`/`revision-card-ids`/`late-card-ids`
+yang sejajar display id — panel membaca `card-id` dari derived
+`list-card-ids` / `card-api-ids` CardListWindow) di thread:
+sukses toast "Deskripsi disimpan ke Trello" + hapus override
+lokal; gagal (server tidak mendukung PUT / token tanpa tulis /
+offline) → tulis override `Trello.DescOverride.<display-id>`
+ke DB + toast "Tersimpan lokal — Trello tidak mendukung simpan
+deskripsi" (jujur, tidak pura-pura tersimpan); override dimuat
+kembali ke `edited_descs` saat startup (`keys_with_prefix`) dan
+menang atas deskripsi API. Tanpa id API (model belum terisi)
+→ simpan lokal saja + override + toast "Deskripsi disimpan
+(lokal saja)"; komentar via toolbar + input multi-line di
 sub-panel Comments / CommentWindow (Enter = baris baru,
 kirim hanya tombol `→` / quick-reply). **Label kartu dari
 API di-strip Markdown-nya saat sync** (`trello_label_plain`

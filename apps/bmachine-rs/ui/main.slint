@@ -1198,6 +1198,12 @@ export component AppWindow inherits Window {
     in-out property <[string]> editing-ids: [];
     in-out property <[string]> revision-ids: [];
     in-out property <[string]> late-ids: [];
+    // ID API Trello asli tiap kartu (`c.id` — dipakai PUT deskripsi +
+    // komentar ke API; sejajar editing-ids yang berisi display id).
+    // Diisi Rust saat sync.
+    in-out property <[string]> editing-card-ids: [];
+    in-out property <[string]> revision-card-ids: [];
+    in-out property <[string]> late-card-ids: [];
     // Deskripsi penuh + label + jumlah lampiran tiap kartu (C#
     // CardDetailPanelHost: desc dari API, label dari Trello,
     // Attachments dari badges.attachments — ref
@@ -1234,6 +1240,9 @@ export component AppWindow inherits Window {
     // ID badge detail (sejajar list-done: window pakai trello-window-cat,
     // embedded pakai list-category).
     property <[string]> list-ids: root.trello-window-cat == "EDITING" ? root.editing-ids : root.trello-window-cat == "REVISION" ? root.revision-ids : root.trello-window-cat == "LATE" ? root.late-ids : root.list-category == "EDITING" ? root.editing-ids : root.list-category == "REVISION" ? root.revision-ids : root.list-category == "LATE" ? root.late-ids : [];
+    // ID API kartu aktif (sejajar list-ids) — dipakai PUT deskripsi +
+    // komentar ke API (trello2, item 3/4).
+    property <[string]> list-card-ids: root.trello-window-cat == "EDITING" ? root.editing-card-ids : root.trello-window-cat == "REVISION" ? root.revision-card-ids : root.trello-window-cat == "LATE" ? root.late-card-ids : root.list-category == "EDITING" ? root.editing-card-ids : root.list-category == "REVISION" ? root.revision-card-ids : root.list-category == "LATE" ? root.late-card-ids : [];
     // Link web kartu aktif (sejajar list-ids) — dipakai detail kartu
     // untuk tombol buka di browser (dari `shortUrl` API).
     property <[string]> list-urls: root.trello-window-cat == "EDITING" ? root.editing-urls : root.trello-window-cat == "REVISION" ? root.revision-urls : root.trello-window-cat == "LATE" ? root.late-urls : root.list-category == "EDITING" ? root.editing-urls : root.list-category == "REVISION" ? root.revision-urls : root.list-category == "LATE" ? root.late-urls : [];
@@ -2326,6 +2335,9 @@ export component AppWindow inherits Window {
                     card-title: root.selected-card;
                     event-date: root.selected-is-manual ? "—" : root.list-due[root.selected-index];
                     display-id: root.selected-is-manual ? "" : root.list-ids[root.selected-index];
+                    // ID API Trello asli (c.id) — dipakai PUT deskripsi +
+                    // komentar ke API (trello2, item 3/4); "" bila manual.
+                    card-id: root.selected-is-manual ? "" : root.list-card-ids[root.selected-index];
                     due-text: root.selected-is-manual ? "" : "Due: " + root.list-due[root.selected-index];
                     is-manual: root.selected-is-manual;
                     manual-url: root.selected-is-manual ? root.manual-urls[root.selected-manual-index] : "";
@@ -3183,6 +3195,9 @@ export component AppWindow inherits Window {
                             card-title: root.selected-card;
                             event-date: root.selected-is-manual ? "—" : root.list-due[root.selected-index];
                             display-id: root.selected-is-manual ? "" : root.list-ids[root.selected-index];
+                            // ID API Trello asli (c.id) — dipakai PUT deskripsi +
+                            // komentar ke API (trello2, item 3/4); "" bila manual.
+                            card-id: root.selected-is-manual ? "" : root.list-card-ids[root.selected-index];
                             due-text: root.selected-is-manual ? "" : "Due: " + root.list-due[root.selected-index];
                             is-manual: root.selected-is-manual;
                             manual-url: root.selected-is-manual ? root.manual-urls[root.selected-manual-index] : "";

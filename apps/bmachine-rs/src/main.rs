@@ -2822,6 +2822,11 @@ fn md_parse_model(text: slint::SharedString, width: f32) -> slint::ModelRc<MdLin
 /// property — getter-nya privat di Rust), tulis ke `edited_descs`,
 /// update model desc + subs AppWindow supaya langsung ter-render
 /// (refresh Trello berikutnya memakai edited_descs yang sama).
+/// Kembalikan `(display_key, real_id)`: display key = kunci
+/// edited_descs (display id) untuk override DB lokal; real id =
+/// `c.id` API Trello (None bila model api-id belum terisi — pemanggil
+/// lalu hanya menyimpan lokal). Toast BUKAN di sini — pemanggil
+/// men-toast hasil PUT (trello2, item 3).
 /// Dipakai AppWindow.on_save_desc + CardListWindow.on_save_desc.
 fn save_trello_desc(
     ui: &AppWindow,
@@ -2831,31 +2836,48 @@ fn save_trello_desc(
     cat: &str,
     idx: usize,
     text: slint::SharedString,
-) {
-    let (desc_model, subs_model, ids_model, fallback) = match cat {
+) -> (Option<String>, Option<String>) {
+    let (desc_model, subs_model, ids_model, api_model, fallback) = match cat {
         "REVISION" => (
             ui.get_revision_desc(),
             ui.get_revision_subs(),
             ui.get_revision_ids(),
+            ui.get_revision_card_ids(),
             "Revisi",
         ),
-        "LATE" => (ui.get_late_desc(), ui.get_late_subs(), ui.get_late_ids(), "Susulan"),
+        "LATE" => (
+            ui.get_late_desc(),
+            ui.get_late_subs(),
+            ui.get_late_ids(),
+            ui.get_late_card_ids(),
+            "Susulan",
+        ),
         _ => (
             ui.get_editing_desc(),
             ui.get_editing_subs(),
             ui.get_editing_ids(),
+            ui.get_editing_card_ids(),
             "Trello Card",
         ),
     };
     if idx >= ids_model.row_count() {
-        return;
+        return (None, None);
     }
     let Some(key) = ids_model.row_data(idx) else {
-        return;
+        return (None, None);
     };
     let key = key.to_string();
+    // ID API asli (c.id) — "" bila model belum terisi.
+    let real_id: Option<String> = if idx < api_model.row_count() {
+        api_model
+            .row_data(idx)
+            .map(|s| s.to_string())
+            .filter(|s| !s.is_empty())
+    } else {
+        None
+    };
     if let Ok(mut g) = edited_descs.lock() {
-        g.insert(key, text.to_string());
+        g.insert(key.clone(), text.to_string());
     }
     // Subtitle satu-baris = baris pertama TANPA sintaks Markdown.
     let sub = {
@@ -2889,8 +2911,63 @@ fn save_trello_desc(
                 ui.set_editing_subs(slint::ModelRc::new(slint::VecModel::from(subs)));
             }
         }
-        ui.set_toast(slint::SharedString::from("Deskripsi disimpan"));
     }
+    (Some(key), real_id)
+}
+
+/// Kirim deskripsi kartu ke API Trello di thread latar (trello2,
+/// item 3): PUT `/cards/{id}?desc=...` via
+/// `TrelloApiService::update_card_desc`.
+/// Sukses -> toast "Deskripsi disimpan ke Trello" + hapus override
+/// lokal `Trello.DescOverride.<display_key>` bila ada (server kini
+/// sumber kebenaran); gagal (server tidak mendukung PUT / token
+/// tanpa tulis / offline) -> tulis override ke DB + toast
+/// "Tersimpan lokal — ..." (jujur: tidak pura-pura tersimpan di
+/// Trello). Override dimuat kembali ke `edited_descs` saat startup.
+fn spawn_trello_desc_put(
+    ui_weak: slint::Weak<AppWindow>,
+    db: Option<std::sync::Arc<std::sync::Mutex<DatabaseService>>>,
+    base_url: String,
+    api_key: String,
+    token: String,
+    card_id: String,
+    display_key: String,
+    text: String,
+) {
+    std::thread::spawn(move || {
+        let res = trello_api::TrelloApiService::update_card_desc(
+            &base_url, &api_key, &token, &card_id, &text,
+        );
+        match res {
+            Ok(()) => {
+                if let Some(ref db_mutex) = db {
+                    if let Ok(mut g) = db_mutex.lock() {
+                        let _ = g.delete(&format!("Trello.DescOverride.{}", display_key));
+                    }
+                }
+                let _ = ui_weak.upgrade_in_event_loop(move |u| {
+                    u.set_toast(slint::SharedString::from("Deskripsi disimpan ke Trello"));
+                });
+            }
+            Err(e) => {
+                if let Some(ref db_mutex) = db {
+                    if let Ok(mut g) = db_mutex.lock() {
+                        let _ = g.set(
+                            &format!("Trello.DescOverride.{}", display_key),
+                            &text,
+                            "String",
+                        );
+                    }
+                }
+                eprintln!("[trello] update_card_desc gagal: {}", e);
+                let _ = ui_weak.upgrade_in_event_loop(move |u| {
+                    u.set_toast(slint::SharedString::from(
+                        "Tersimpan lokal — Trello tidak mendukung simpan deskripsi",
+                    ));
+                });
+            }
+        }
+    });
 }
 
 /// VM yang sama untuk CommentWindow + CardDetailPanelHost).
@@ -6150,12 +6227,31 @@ fn main() -> Result<(), slint::PlatformError> {
     // kartu) — kunci = display-id-atau-id-penuh (lihat
     // trello_card_desc_key); diterapkan saat membangun model
     // desc/subs di spawn_trello_sync supaya edit bertahan melewati
-    // refresh Trello (hanya sesi ini — belum ada persistensi DB).
+    // refresh Trello. Persistensi: edit yang PUT-nya ke Trello
+    // gagal tersimpan sebagai override `Trello.DescOverride.<key>`
+    // di DB (trello2, item 3) dan dimuat kembali di bawah ini —
+    // override menang atas deskripsi API, sama seperti edit sesi.
     // Arc<Mutex<...>> (bukan Rc<RefCell>) karena spawn_trello_sync
     // memindahkannya ke thread sinkronisasi (harus Send).
     let edited_descs: std::sync::Arc<
         std::sync::Mutex<std::collections::HashMap<String, String>>,
     > = std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new()));
+    // Muat override deskripsi dari DB (trello2, item 3).
+    if let Some(ref db_mutex) = db {
+        let overrides: Vec<(String, String)> = match db_mutex.lock() {
+            Ok(g) => g.keys_with_prefix("Trello.DescOverride."),
+            Err(_) => Vec::new(),
+        };
+        if !overrides.is_empty() {
+            if let Ok(mut m) = edited_descs.lock() {
+                for (k, v) in overrides {
+                    if let Some(display_key) = k.strip_prefix("Trello.DescOverride.") {
+                        m.insert(display_key.to_string(), v);
+                    }
+                }
+            }
+        }
+    }
     // BatchWindow terlepas (tear-off BATCH, 28 Nov 2026) — dibuat saat
     // tab BATCH diseret keluar; None = BATCH masih embedded di dashboard.
     let batch_win_cell: BatchWinCell =
@@ -7061,6 +7157,12 @@ fn main() -> Result<(), slint::PlatformError> {
                                 })
                             })
                             .collect();
+                        // ID API asli (c.id) — dipakai PUT deskripsi +
+                        // komentar ke API (trello2, item 3/4).
+                        let card_ids: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| slint::SharedString::from(c.id.as_str()))
+                            .collect();
                         let dones: Vec<bool> = vec![false; cards.len()];
                         // Link web kartu dari API (`shortUrl`) — detail
                         // kartu membukanya di browser; kosong bila server
@@ -7110,6 +7212,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                 dues.clone(),
                             )));
                             u.set_editing_ids(slint::ModelRc::new(slint::VecModel::from(ids)));
+                            u.set_editing_card_ids(slint::ModelRc::new(slint::VecModel::from(card_ids)));
                             u.set_editing_urls(slint::ModelRc::new(slint::VecModel::from(urls)));
                             u.set_editing_done(slint::ModelRc::new(slint::VecModel::from(dones)));
                             u.set_editing_desc(slint::ModelRc::new(slint::VecModel::from(descs.clone())));
@@ -7190,6 +7293,12 @@ fn main() -> Result<(), slint::PlatformError> {
                             .iter()
                             .map(|c| slint::SharedString::from(extract_card_display_id(&c.name)))
                             .collect();
+                        // ID API asli (c.id) — dipakai PUT deskripsi +
+                        // komentar ke API (trello2, item 3/4).
+                        let card_ids: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| slint::SharedString::from(c.id.as_str()))
+                            .collect();
                         let dones: Vec<bool> = vec![false; cards.len()];
                         let urls: Vec<slint::SharedString> = cards
                             .iter()
@@ -7236,6 +7345,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                 dues.clone(),
                             )));
                             u.set_revision_ids(slint::ModelRc::new(slint::VecModel::from(ids)));
+                            u.set_revision_card_ids(slint::ModelRc::new(slint::VecModel::from(card_ids)));
                             u.set_revision_urls(slint::ModelRc::new(slint::VecModel::from(urls)));
                             u.set_revision_done(slint::ModelRc::new(slint::VecModel::from(dones)));
                             u.set_revision_desc(slint::ModelRc::new(slint::VecModel::from(descs.clone())));
@@ -7316,6 +7426,12 @@ fn main() -> Result<(), slint::PlatformError> {
                             .iter()
                             .map(|c| slint::SharedString::from(extract_card_display_id(&c.name)))
                             .collect();
+                        // ID API asli (c.id) — dipakai PUT deskripsi +
+                        // komentar ke API (trello2, item 3/4).
+                        let card_ids: Vec<slint::SharedString> = cards
+                            .iter()
+                            .map(|c| slint::SharedString::from(c.id.as_str()))
+                            .collect();
                         let dones: Vec<bool> = vec![false; cards.len()];
                         let urls: Vec<slint::SharedString> = cards
                             .iter()
@@ -7362,6 +7478,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                 dues.clone(),
                             )));
                             u.set_late_ids(slint::ModelRc::new(slint::VecModel::from(ids)));
+                            u.set_late_card_ids(slint::ModelRc::new(slint::VecModel::from(card_ids)));
                             u.set_late_urls(slint::ModelRc::new(slint::VecModel::from(urls)));
                             u.set_late_done(slint::ModelRc::new(slint::VecModel::from(dones)));
                             u.set_late_desc(slint::ModelRc::new(slint::VecModel::from(descs.clone())));
@@ -9330,6 +9447,7 @@ fn main() -> Result<(), slint::PlatformError> {
     {
         let ui_weak = ui.as_weak();
         let edited_descs_save = edited_descs.clone();
+        let db_save = db.clone();
         ui.on_save_desc(move |text| {
             let Some(ui) = ui_weak.upgrade() else {
                 return;
@@ -9352,7 +9470,39 @@ fn main() -> Result<(), slint::PlatformError> {
                     ui.get_list_category().to_string()
                 }
             };
-            save_trello_desc(&ui, &edited_descs_save, &cat, idx, text);
+            let (display_key, real_id) =
+                save_trello_desc(&ui, &edited_descs_save, &cat, idx, text.clone());
+            let Some(display_key) = display_key else {
+                return;
+            };
+            match real_id {
+                Some(card_id) => {
+                    spawn_trello_desc_put(
+                        ui_weak.clone(),
+                        db_save.clone(),
+                        ui.get_trello_base_url().to_string(),
+                        ui.get_trello_api_key().to_string(),
+                        ui.get_trello_token().to_string(),
+                        card_id,
+                        display_key,
+                        text.to_string(),
+                    );
+                }
+                None => {
+                    // Tanpa id API (model belum terisi) — simpan lokal
+                    // saja + override DB supaya bertahan restart.
+                    if let Some(ref db_mutex) = db_save {
+                        if let Ok(mut g) = db_mutex.lock() {
+                            let _ = g.set(
+                                &format!("Trello.DescOverride.{}", display_key),
+                                text.as_str(),
+                                "String",
+                            );
+                        }
+                    }
+                    ui.set_toast(slint::SharedString::from("Deskripsi disimpan (lokal saja)"));
+                }
+            }
         });
     }
     {
@@ -10209,6 +10359,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let comment_vis = comment_visible.clone();
         let comment_src = comment_source.clone();
         let edited_descs_cw = edited_descs.clone();
+        let db_cw = db.clone();
         let ui_weak = ui.as_weak();
         ui.on_open_new_card_window(move |cat| {
             let cat_str = cat.as_str().to_string();
@@ -10250,6 +10401,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     {
                         let ui_weak_save = ui_weak.clone();
                         let edited_descs_save = edited_descs_cw.clone();
+                        let db_save = db_cw.clone();
                         let w_weak_save = w.as_weak();
                         w.on_save_desc(move |text| {
                             let Some(ui) = ui_weak_save.upgrade() else {
@@ -10260,7 +10412,43 @@ fn main() -> Result<(), slint::PlatformError> {
                             };
                             let cat = card.get_category().to_string();
                             let idx = card.get_selected_idx() as usize;
-                            save_trello_desc(&ui, &edited_descs_save, &cat, idx, text);
+                            let (display_key, real_id) = save_trello_desc(
+                                &ui,
+                                &edited_descs_save,
+                                &cat,
+                                idx,
+                                text.clone(),
+                            );
+                            if let Some(card_id) = real_id {
+                                if let Some(display_key) = display_key {
+                                    spawn_trello_desc_put(
+                                        ui_weak_save.clone(),
+                                        db_save.clone(),
+                                        ui.get_trello_base_url().to_string(),
+                                        ui.get_trello_api_key().to_string(),
+                                        ui.get_trello_token().to_string(),
+                                        card_id,
+                                        display_key,
+                                        text.to_string(),
+                                    );
+                                }
+                            } else if let Some(display_key) = display_key {
+                                if let Some(ref db_mutex) = db_save {
+                                    if let Ok(mut g) = db_mutex.lock() {
+                                        let _ = g.set(
+                                            &format!(
+                                                "Trello.DescOverride.{}",
+                                                display_key
+                                            ),
+                                            text.as_str(),
+                                            "String",
+                                        );
+                                    }
+                                }
+                                ui.set_toast(slint::SharedString::from(
+                                    "Deskripsi disimpan (lokal saja)",
+                                ));
+                            }
                             // Segarkan salinan card-desc + card-subs
                             // window dari model AppWindow (sudah
                             // ter-update helper).
@@ -10375,6 +10563,7 @@ fn main() -> Result<(), slint::PlatformError> {
                         w.set_card_done(main_ui.get_editing_done());
                         w.set_card_desc(main_ui.get_editing_desc());
                         w.set_card_ids(main_ui.get_editing_ids());
+                        w.set_card_api_ids(main_ui.get_editing_card_ids());
                         w.set_card_urls(main_ui.get_editing_urls());
                         w.set_card_label1(main_ui.get_editing_label1());
                         w.set_card_label2(main_ui.get_editing_label2());
@@ -10387,6 +10576,7 @@ fn main() -> Result<(), slint::PlatformError> {
                         w.set_card_done(main_ui.get_revision_done());
                         w.set_card_desc(main_ui.get_revision_desc());
                         w.set_card_ids(main_ui.get_revision_ids());
+                        w.set_card_api_ids(main_ui.get_revision_card_ids());
                         w.set_card_urls(main_ui.get_revision_urls());
                         w.set_card_label1(main_ui.get_revision_label1());
                         w.set_card_label2(main_ui.get_revision_label2());
@@ -10399,6 +10589,7 @@ fn main() -> Result<(), slint::PlatformError> {
                         w.set_card_done(main_ui.get_late_done());
                         w.set_card_desc(main_ui.get_late_desc());
                         w.set_card_ids(main_ui.get_late_ids());
+                        w.set_card_api_ids(main_ui.get_late_card_ids());
                         w.set_card_urls(main_ui.get_late_urls());
                         w.set_card_label1(main_ui.get_late_label1());
                         w.set_card_label2(main_ui.get_late_label2());

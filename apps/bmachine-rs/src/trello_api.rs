@@ -47,6 +47,39 @@ pub struct TrelloMember {
     pub username: String,
 }
 
+/// Satu komentar kartu dari Trello asli (`GET /cards/{id}/actions?
+/// filter=commentCard` — action `commentCard`; `data.text` isi
+/// komentar, `memberCreator` penulis, `date` waktu ISO-8601).
+/// Semua field `default` supaya server kantor yang tidak
+/// mengembalikan salah satunya tidak membuat parse gagal total.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrelloComment {
+    #[serde(default)]
+    pub id: String,
+    #[serde(rename = "type", default)]
+    pub action_type: String,
+    #[serde(default)]
+    pub data: TrelloCommentData,
+    #[serde(rename = "memberCreator", default)]
+    pub member_creator: TrelloMemberCreator,
+    #[serde(default)]
+    pub date: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TrelloCommentData {
+    #[serde(default)]
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TrelloMemberCreator {
+    #[serde(rename = "fullName", default)]
+    pub full_name: Option<String>,
+    #[serde(default)]
+    pub username: String,
+}
+
 /// Base URL bawaan: API Trello asli. Trello kantor diganti lewat
 /// Settings (key DB `Trello.BaseUrl`) — cukup ganti base URL + API
 /// Key + Token, tanpa rombak dan tanpa rebuild (lihat
@@ -361,6 +394,72 @@ impl TrelloApiService {
         }
         Ok(())
     }
+
+    /// Simpan deskripsi kartu ke Trello (`PUT /cards/{id}?key=&token=
+    /// &desc=...`, API Trello asli; `desc` di-encode reqwest via
+    /// `.query()` — teks bebas boleh berisi spasi, baris baru, `&`,
+    /// `=`). Server kantor mungkin tidak mengimplementasikan endpoint
+    /// ini (di luar 5 endpoint spek) — pemanggil harus menangani
+    /// error dengan fallback lokal (lihat `save_trello_desc`).
+    pub fn update_card_desc(
+        base_url: &str,
+        api_key: &str,
+        token: &str,
+        card_id: &str,
+        desc: &str,
+    ) -> Result<(), String> {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .map_err(|e| e.to_string())?;
+        let url = endpoint(base_url, &format!("/cards/{}", card_id.trim()));
+        let res = client
+            .put(&url)
+            .query(&[
+                ("key", api_key.trim()),
+                ("token", token.trim()),
+                ("desc", desc),
+            ])
+            .send()
+            .map_err(|e| format!("HTTP request gagal: {}", e))?;
+        if !res.status().is_success() {
+            return Err(format!("Gagal simpan deskripsi: {}", res.status()));
+        }
+        Ok(())
+    }
+
+    /// Muat komentar kartu dari Trello asli (`GET /cards/{id}/actions?
+    /// filter=commentCard`). Server kantor mungkin 404 (di luar 5
+    /// endpoint spek) — pemanggil menampilkan catatan, bukan error
+    /// keras. Hanya action `commentCard` yang dipakai; yang lain
+    /// (mis. `updateCard`) dilewat pemanggil.
+    pub fn fetch_comments(
+        base_url: &str,
+        api_key: &str,
+        token: &str,
+        card_id: &str,
+    ) -> Result<Vec<TrelloComment>, String> {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .map_err(|e| e.to_string())?;
+        let url = format!(
+            "{}?key={}&token={}&filter=commentCard",
+            endpoint(base_url, &format!("/cards/{}/actions", card_id.trim())),
+            api_key.trim(),
+            token.trim()
+        );
+        let res = client
+            .get(&url)
+            .send()
+            .map_err(|e| format!("HTTP request gagal: {}", e))?;
+        if !res.status().is_success() {
+            return Err(format!("Gagal muat komentar: {}", res.status()));
+        }
+        let comments: Vec<TrelloComment> =
+            res.json().map_err(|e| format!("JSON parse error: {}", e))?;
+        Ok(comments)
+    }
 }
 
 #[cfg(test)]
@@ -545,6 +644,109 @@ mod tests {
             req.contains("text=halo+mock"),
             "body form salah: {}",
             req
+        );
+    }
+
+    #[test]
+    fn update_card_desc_puts_to_custom_base_url() {
+        // PUT /cards/{id}?key=&token=&desc=... ke base custom.
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let base = format!("http://127.0.0.1:{}/api", port);
+
+        let handle = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                .unwrap();
+            let mut buf = Vec::new();
+            let mut chunk = [0u8; 1024];
+            loop {
+                let n = stream.read(&mut chunk).unwrap();
+                if n == 0 {
+                    break;
+                }
+                buf.extend_from_slice(&chunk[..n]);
+                if buf.windows(4).position(|w| w == b"\r\n\r\n").is_some() {
+                    break;
+                }
+            }
+            let req = String::from_utf8_lossy(&buf).to_string();
+            let resp =
+                b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}";
+            let _ = stream.write_all(resp);
+            req
+        });
+
+        let r = TrelloApiService::update_card_desc(&base, "kunci", "token", "card-9", "desc-baru");
+        assert!(r.is_ok(), "update_card_desc gagal: {:?}", r.err());
+        let req = handle.join().unwrap();
+        assert!(
+            req.starts_with("PUT /api/cards/card-9?key=kunci&token=token&desc=desc-baru "),
+            "request line salah: {}",
+            req.lines().next().unwrap_or("")
+        );
+    }
+
+    #[test]
+    fn fetch_comments_parses_comment_actions() {
+        // GET /cards/{id}/actions?filter=commentCard -> array action;
+        // pemanggil menyaring type == "commentCard".
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let base = format!("http://127.0.0.1:{}/api", port);
+        let body = r#"[{"id":"act-1","type":"commentCard","data":{"text":"Komentar satu"},"memberCreator":{"fullName":"Budi Santoso","username":"budi"},"date":"2026-11-28T10:00:00.000Z"},{"id":"act-2","type":"updateCard","data":{},"memberCreator":{"fullName":"Siti","username":"siti"},"date":"2026-11-28T11:00:00.000Z"}]"#;
+
+        let handle = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                .unwrap();
+            let mut buf = Vec::new();
+            let mut chunk = [0u8; 1024];
+            loop {
+                let n = stream.read(&mut chunk).unwrap();
+                if n == 0 {
+                    break;
+                }
+                buf.extend_from_slice(&chunk[..n]);
+                if buf.windows(4).position(|w| w == b"\r\n\r\n").is_some() {
+                    break;
+                }
+            }
+            let req = String::from_utf8_lossy(&buf).to_string();
+            let resp = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            let _ = stream.write_all(resp.as_bytes());
+            req
+        });
+
+        let r = TrelloApiService::fetch_comments(&base, "kunci", "token", "card-9");
+        assert!(r.is_ok(), "fetch_comments gagal: {:?}", r.err());
+        let comments = r.unwrap();
+        assert_eq!(comments.len(), 2);
+        assert_eq!(comments[0].action_type, "commentCard");
+        assert_eq!(comments[0].data.text, "Komentar satu");
+        assert_eq!(
+            comments[0].member_creator.full_name.as_deref(),
+            Some("Budi Santoso")
+        );
+        assert_eq!(comments[0].date, "2026-11-28T10:00:00.000Z");
+        assert_eq!(comments[1].action_type, "updateCard");
+        let req = handle.join().unwrap();
+        assert!(
+            req.starts_with("GET /api/cards/card-9/actions?key=kunci&token=token&filter=commentCard "),
+            "request line salah: {}",
+            req.lines().next().unwrap_or("")
         );
     }
 }

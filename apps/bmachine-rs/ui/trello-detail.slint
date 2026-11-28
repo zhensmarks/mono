@@ -276,6 +276,10 @@ export component TrelloDetailPanel inherits Rectangle {
     in property <string> card-title;
     in property <string> event-date;
     in property <string> display-id;
+    // ID API Trello asli (`c.id` — dipakai PUT deskripsi + komentar
+    // ke API; "" bila kartu manual / tanpa id). Diisi pemakai panel
+    // dari list-card-ids / card-api-ids (trello2, item 3/4).
+    in property <string> card-id: "";
     in property <string> due-text;
     in property <bool> is-manual;
     in property <string> manual-url;
