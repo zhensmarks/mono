@@ -2643,11 +2643,14 @@ fn sync_task_theme(ui: &AppWindow, cell: &std::rc::Rc<std::cell::RefCell<Option<
     }
 }
 
-/// Dorong gaya chrome (style + gaya/posisi tombol) ke satu window
-/// sekunder ber-chrome. Dipakai saat window dibuat (nilai awal dari
-/// AppWindow) dan saat pengaturan chrome berubah.
+/// Dorong gaya chrome (style + gaya/posisi tombol) + token tema ke
+/// satu window sekunder ber-chrome. Dipakai saat window dibuat
+/// (nilai awal dari AppWindow) dan saat pengaturan chrome/tema
+/// berubah. Token tema ikut di sini (bukan hanya ikon) supaya window
+/// yang dibuka SETELAH ganti tema langsung memakai tema aktif —
+/// celah tema #13 (window sekunder tetap gelap saat mode Terang).
 fn push_chrome_to_sheet(w: &SpreadsheetWindow, ui: &AppWindow) {
-    theme::sync_icons(&Design::get(ui), &Design::get(w));
+    theme::sync_design_to_sheet(ui, w);
     w.set_chrome_style(slint::SharedString::from(ui.get_app_chrome()));
     w.set_chrome_button_style(slint::SharedString::from(
         ui.get_app_chrome_button_style(),
@@ -2658,7 +2661,7 @@ fn push_chrome_to_sheet(w: &SpreadsheetWindow, ui: &AppWindow) {
 }
 
 fn push_chrome_to_toolbox(w: &ToolboxWindow, ui: &AppWindow) {
-    theme::sync_icons(&Design::get(ui), &Design::get(w));
+    theme::sync_design_to_toolbox(ui, w);
     w.set_chrome_style(slint::SharedString::from(ui.get_app_chrome()));
     w.set_chrome_button_style(slint::SharedString::from(
         ui.get_app_chrome_button_style(),
@@ -2675,7 +2678,7 @@ fn push_toggle_style_to_toolbox(w: &ToolboxWindow, ui: &AppWindow) {
 }
 
 fn push_chrome_to_cardlist(w: &CardListWindow, ui: &AppWindow) {
-    theme::sync_icons(&Design::get(ui), &Design::get(w));
+    theme::sync_design_to_cardlist(ui, w);
     w.set_chrome_style(slint::SharedString::from(ui.get_app_chrome()));
     w.set_chrome_button_style(slint::SharedString::from(
         ui.get_app_chrome_button_style(),
@@ -2686,7 +2689,7 @@ fn push_chrome_to_cardlist(w: &CardListWindow, ui: &AppWindow) {
 }
 
 fn push_chrome_to_batch(w: &BatchWindow, ui: &AppWindow) {
-    theme::sync_icons(&Design::get(ui), &Design::get(w));
+    theme::sync_design_to_batch(ui, w);
     w.set_chrome_style(slint::SharedString::from(ui.get_app_chrome()));
     w.set_chrome_button_style(slint::SharedString::from(
         ui.get_app_chrome_button_style(),
@@ -2697,7 +2700,7 @@ fn push_chrome_to_batch(w: &BatchWindow, ui: &AppWindow) {
 }
 
 fn push_chrome_to_doc(w: &DocWindow, ui: &AppWindow) {
-    theme::sync_icons(&Design::get(ui), &Design::get(w));
+    theme::sync_design_to_doc(ui, w);
     w.set_chrome_style(slint::SharedString::from(ui.get_app_chrome()));
     w.set_chrome_button_style(slint::SharedString::from(
         ui.get_app_chrome_button_style(),
@@ -2708,7 +2711,7 @@ fn push_chrome_to_doc(w: &DocWindow, ui: &AppWindow) {
 }
 
 fn push_chrome_to_comment(w: &CommentWindow, ui: &AppWindow) {
-    theme::sync_icons(&Design::get(ui), &Design::get(w));
+    theme::sync_design_to_comment(ui, w);
     w.set_chrome_style(slint::SharedString::from(ui.get_app_chrome()));
     w.set_chrome_button_style(slint::SharedString::from(
         ui.get_app_chrome_button_style(),
@@ -7549,6 +7552,12 @@ fn main() -> Result<(), slint::PlatformError> {
         let bar_cell_sync = bar_win_cell.clone();
         let radial_cell_sync = radial_win_cell.clone();
         let task_cell_sync = task_win.clone();
+        let sheet_cell_sync = sheet_win_cell.clone();
+        let toolbox_cell_sync = toolbox_win_cell.clone();
+        let card_cell_sync = card_win_cell.clone();
+        let comment_cell_sync = comment_win_cell.clone();
+        let batch_cell_sync = batch_win_cell.clone();
+        let doc_cell_sync = doc_win_cell.clone();
         ui.on_apply_theme_preset(move |id| {
             if let Some(ui) = ui_weak.upgrade() {
                 match theme::apply_preset(&ui, id.as_str()) {
@@ -7561,6 +7570,19 @@ fn main() -> Result<(), slint::PlatformError> {
                         sync_bar_theme(&ui, &bar_cell_sync);
                         sync_radial_theme(&ui, &radial_cell_sync);
                         sync_task_theme(&ui, &task_cell_sync);
+                        // Tema + chrome ke window sekunder yang sedang
+                        // terbuka (push_chrome_to_* kini ikut dorong
+                        // token tema — celah tema #13; dulu preset
+                        // hanya sampai ke bar/radial/task).
+                        sync_chrome_to_windows(
+                            &ui,
+                            &sheet_cell_sync,
+                            &toolbox_cell_sync,
+                            &card_cell_sync,
+                            &comment_cell_sync,
+                            &batch_cell_sync,
+                            &doc_cell_sync,
+                        );
                         // Sakuga (§22.1): ganti ke preset Sakuga =
                         // burst "SAKUGA!" di tengah window.
                         if id.as_str() == "sakuga" {
@@ -7630,6 +7652,12 @@ fn main() -> Result<(), slint::PlatformError> {
         let bar_cell_sync = bar_win_cell.clone();
         let radial_cell_sync = radial_win_cell.clone();
         let task_cell_sync = task_win.clone();
+        let sheet_cell_sync = sheet_win_cell.clone();
+        let toolbox_cell_sync = toolbox_win_cell.clone();
+        let card_cell_sync = card_win_cell.clone();
+        let comment_cell_sync = comment_win_cell.clone();
+        let batch_cell_sync = batch_win_cell.clone();
+        let doc_cell_sync = doc_win_cell.clone();
         ui.on_apply_user_theme(move |id| {
             if let Some(ui) = ui_weak.upgrade() {
                 let found: Option<theme::ThemePalette> = (|| {
@@ -7652,6 +7680,17 @@ fn main() -> Result<(), slint::PlatformError> {
                                 sync_bar_theme(&ui, &bar_cell_sync);
                                 sync_radial_theme(&ui, &radial_cell_sync);
                                 sync_task_theme(&ui, &task_cell_sync);
+                                // Sama seperti preset: tema ke window
+                                // sekunder yang sedang terbuka (celah #13).
+                                sync_chrome_to_windows(
+                                    &ui,
+                                    &sheet_cell_sync,
+                                    &toolbox_cell_sync,
+                                    &card_cell_sync,
+                                    &comment_cell_sync,
+                                    &batch_cell_sync,
+                                    &doc_cell_sync,
+                                );
                                 ui.set_toast(slint::SharedString::from(format!(
                                     "Tema {} diterapkan",
                                     name

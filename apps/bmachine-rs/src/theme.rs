@@ -1,5 +1,8 @@
 use crate::db::DatabaseService;
-use crate::{AppWindow, Design, DynamicBarWindow, RadialMenuWindow, TaskManagerWindow};
+use crate::{
+    AppWindow, BatchWindow, CardListWindow, CommentWindow, Design, DocWindow,
+    DynamicBarWindow, RadialMenuWindow, SpreadsheetWindow, TaskManagerWindow, ToolboxWindow,
+};
 use serde::{Deserialize, Serialize};
 use slint::{Color, ComponentHandle, Global, SharedString, VecModel};
 
@@ -718,102 +721,158 @@ pub fn apply_appearance(ui: &AppWindow) -> Result<(), String> {
     Ok(())
 }
 
-/// Salin token Design yang dipakai Dynamic Bar dari window utama ke
-/// window bar. Slint memberi tiap window OS instance Design
-/// SENDIRI (terbukti 27 Nov 2026: SpreadsheetWindow tetap warna
-/// BMachine Dark setelah ganti tema Spider — dan bar yang sama).
-/// Jadi token harus disalin eksplisit saat bar dibuka + setiap kali
-/// tema berubah; mengandalkan "global bersama" tidak berlaku untuk
-/// window OS terpisah. Hanya token yang dibaca DynamicBarWindow
-/// yang disalin (bukan seluruh Design).
-pub fn sync_design_to_bar(ui: &AppWindow, bar: &DynamicBarWindow) {
-    let src = Design::get(ui);
-    let dst = Design::get(bar);
+/// Salin SEMUA token Design yang bisa berubah lewat Appearance dari
+/// satu window ke window lain. Slint memberi tiap window OS instance
+/// Design SENDIRI (terbukti 27 Nov 2026: SpreadsheetWindow tetap
+/// warna BMachine Dark setelah ganti tema Spider — dan bar yang sama).
+/// Dulu tiap `sync_design_to_*` menyalin SUBSET token yang dibaca
+/// window itu — subset itu ketinggalan tiap ada token baru, dan
+/// window Spreadsheet/Toolbox/CardList/Comment/Batch/Doc TIDAK
+/// disalin sama sekali (celah tema #13: dibuka saat mode Terang,
+/// window tetap gelap). Sekarang satu fungsi menyalin semua token
+/// yang diturunkan `apply_appearance()` (warna, radius, spacing,
+/// font, density, nav) + paket ikon — jadi window apa pun yang
+/// dibuka/diubah temanya langsung sama dengan window utama.
+/// TIDAK disalin: `anim-*` + `window-min-width` (statis, tidak
+/// pernah diubah `apply_appearance`, default-nya sama di semua
+/// window).
+pub fn sync_design_tokens(src: &Design, dst: &Design) {
+    // Warna dasar + permukaan.
+    dst.set_app_bg(src.get_app_bg());
+    dst.set_card_bg(src.get_card_bg());
     dst.set_surface_elevated(src.get_surface_elevated());
     dst.set_separator(src.get_separator());
     dst.set_text_primary(src.get_text_primary());
     dst.set_text_secondary(src.get_text_secondary());
     dst.set_text_muted(src.get_text_muted());
     dst.set_accent(src.get_accent());
+    dst.set_accent_subtle(src.get_accent_subtle());
     dst.set_bg_hover(src.get_bg_hover());
+    dst.set_bg_input(src.get_bg_input());
+    dst.set_border_default(src.get_border_default());
+    dst.set_border_hover(src.get_border_hover());
+    dst.set_border_focus(src.get_border_focus());
+    dst.set_ghost_hover(src.get_ghost_hover());
+    dst.set_ghost_pressed(src.get_ghost_pressed());
+    dst.set_toggle_off_bg(src.get_toggle_off_bg());
+    // Status + kategori kartu.
     dst.set_status_danger(src.get_status_danger());
+    dst.set_status_success(src.get_status_success());
+    dst.set_status_warning(src.get_status_warning());
     dst.set_cat_editing(src.get_cat_editing());
     dst.set_cat_revision(src.get_cat_revision());
     dst.set_cat_late(src.get_cat_late());
     dst.set_cat_points(src.get_cat_points());
-    dst.set_radius_sm(src.get_radius_sm());
-    dst.set_radius_md(src.get_radius_md());
-    dst.set_font_family(src.get_font_family());
-    sync_icons(&src, &dst);
-}
-
-/// Sama seperti `sync_design_to_bar`, untuk window radial (OS window
-/// 320×320): salin SEMUA token yang dipakai `ui/radial.slint`
-/// (aksen, permukaan, teks, overlay) supaya segmen radial mengikuti
-/// preset tema aktif. Dipanggil saat radial dibuka + tiap handler tema.
-pub fn sync_design_to_radial(ui: &AppWindow, radial: &RadialMenuWindow) {
-    let src = Design::get(ui);
-    let dst = Design::get(radial);
-    dst.set_app_bg(src.get_app_bg());
-    dst.set_card_bg(src.get_card_bg());
-    dst.set_surface_elevated(src.get_surface_elevated());
-    dst.set_separator(src.get_separator());
-    dst.set_text_primary(src.get_text_primary());
-    dst.set_text_secondary(src.get_text_secondary());
-    dst.set_text_muted(src.get_text_muted());
-    dst.set_accent(src.get_accent());
-    dst.set_accent_subtle(src.get_accent_subtle());
-    dst.set_bg_hover(src.get_bg_hover());
+    // Baris tugas selesai.
+    dst.set_done_row_bg(src.get_done_row_bg());
+    dst.set_done_row_border(src.get_done_row_border());
+    dst.set_done_text(src.get_done_text());
+    dst.set_done_text_alt(src.get_done_text_alt());
+    dst.set_row_border_idle(src.get_row_border_idle());
+    dst.set_row_text_dim(src.get_row_text_dim());
+    dst.set_row_text_alt(src.get_row_text_alt());
+    // Overlay + medali.
+    dst.set_overlay_dim(src.get_overlay_dim());
     dst.set_overlay_solid(src.get_overlay_solid());
-    dst.set_status_danger(src.get_status_danger());
-    dst.set_radius_sm(src.get_radius_sm());
-    dst.set_radius_md(src.get_radius_md());
-    dst.set_font_family(src.get_font_family());
-    sync_icons(&src, &dst);
-}
-
-/// Sama seperti `sync_design_to_bar`, untuk TaskManagerWindow (OS window
-/// 340×600, tahap 5): salin token yang dipakai TaskCard + Btn di panel
-/// tugas (latar, teks, aksen, status, tombol) supaya panel mengikuti
-/// preset tema aktif. Dipanggil saat panel dibuka + tiap handler tema.
-pub fn sync_design_to_task(ui: &AppWindow, task: &TaskManagerWindow) {
-    let src = Design::get(ui);
-    let dst = Design::get(task);
-    dst.set_app_bg(src.get_app_bg());
-    dst.set_card_bg(src.get_card_bg());
-    dst.set_surface_elevated(src.get_surface_elevated());
-    dst.set_separator(src.get_separator());
-    dst.set_text_primary(src.get_text_primary());
-    dst.set_text_secondary(src.get_text_secondary());
-    dst.set_text_muted(src.get_text_muted());
-    dst.set_accent(src.get_accent());
-    dst.set_accent_subtle(src.get_accent_subtle());
-    dst.set_bg_hover(src.get_bg_hover());
-    dst.set_ghost_hover(src.get_ghost_hover());
-    dst.set_ghost_pressed(src.get_ghost_pressed());
-    dst.set_status_success(src.get_status_success());
-    dst.set_status_warning(src.get_status_warning());
-    dst.set_status_danger(src.get_status_danger());
+    dst.set_medal_bronze(src.get_medal_bronze());
+    // Nav pill.
+    dst.set_nav_pill_bg(src.get_nav_pill_bg());
+    dst.set_nav_pill_border(src.get_nav_pill_border());
+    dst.set_nav_pill_radius(src.get_nav_pill_radius());
+    dst.set_nav_gap(src.get_nav_gap());
+    dst.set_nav_selected_bg(src.get_nav_selected_bg());
+    dst.set_nav_selected_fg(src.get_nav_selected_fg());
+    dst.set_nav_unselected_fg(src.get_nav_unselected_fg());
+    // Tombol.
+    dst.set_btn_primary_bg(src.get_btn_primary_bg());
+    dst.set_btn_primary_bg_hover(src.get_btn_primary_bg_hover());
+    dst.set_btn_primary_bg_pressed(src.get_btn_primary_bg_pressed());
+    dst.set_btn_primary_fg(src.get_btn_primary_fg());
     dst.set_btn_secondary_bg(src.get_btn_secondary_bg());
     dst.set_btn_secondary_bg_hover(src.get_btn_secondary_bg_hover());
     dst.set_btn_secondary_bg_pressed(src.get_btn_secondary_bg_pressed());
     dst.set_btn_secondary_fg(src.get_btn_secondary_fg());
     dst.set_btn_secondary_border(src.get_btn_secondary_border());
-    dst.set_btn_primary_bg(src.get_btn_primary_bg());
-    dst.set_btn_primary_bg_hover(src.get_btn_primary_bg_hover());
-    dst.set_btn_primary_bg_pressed(src.get_btn_primary_bg_pressed());
-    dst.set_btn_primary_fg(src.get_btn_primary_fg());
     dst.set_btn_danger_bg(src.get_btn_danger_bg());
     dst.set_btn_danger_bg_hover(src.get_btn_danger_bg_hover());
     dst.set_btn_danger_fg(src.get_btn_danger_fg());
     dst.set_btn_danger_border(src.get_btn_danger_border());
+    // Radius + spacing + font + density.
+    dst.set_radius_xxs(src.get_radius_xxs());
+    dst.set_radius_xs(src.get_radius_xs());
     dst.set_radius_sm(src.get_radius_sm());
     dst.set_radius_md(src.get_radius_md());
+    dst.set_radius_lg(src.get_radius_lg());
+    dst.set_radius_xl(src.get_radius_xl());
+    dst.set_radius_pill(src.get_radius_pill());
+    dst.set_space_xs(src.get_space_xs());
     dst.set_space_sm(src.get_space_sm());
     dst.set_space_md(src.get_space_md());
+    dst.set_space_lg(src.get_space_lg());
+    dst.set_space_xl(src.get_space_xl());
     dst.set_font_family(src.get_font_family());
+    dst.set_density_scale(src.get_density_scale());
+    dst.set_font_caption(src.get_font_caption());
     dst.set_font_button(src.get_font_button());
-    sync_icons(&src, &dst);
+    dst.set_font_body(src.get_font_body());
+    dst.set_font_h3(src.get_font_h3());
+    dst.set_font_h2(src.get_font_h2());
+    dst.set_font_h1(src.get_font_h1());
+    // Paket ikon (model icon-paths ikut dibagikan).
+    sync_icons(src, dst);
+}
+
+/// Salin token Design yang dipakai Dynamic Bar dari window utama ke
+/// window bar (lihat `sync_design_tokens` — dulu subset, sekarang
+/// semua token, supaya pill + panel island mengikuti tema apa pun).
+/// Dipanggil saat bar dibuka + setiap kali tema berubah.
+pub fn sync_design_to_bar(ui: &AppWindow, bar: &DynamicBarWindow) {
+    sync_design_tokens(&Design::get(ui), &Design::get(bar));
+}
+
+/// Sama seperti `sync_design_to_bar`, untuk window radial (OS window
+/// 320×320). Dipanggil saat radial dibuka + tiap handler tema.
+pub fn sync_design_to_radial(ui: &AppWindow, radial: &RadialMenuWindow) {
+    sync_design_tokens(&Design::get(ui), &Design::get(radial));
+}
+
+/// Sama seperti `sync_design_to_bar`, untuk TaskManagerWindow (OS window
+/// 340×600, tahap 5). Dipanggil saat panel dibuka + tiap handler tema.
+pub fn sync_design_to_task(ui: &AppWindow, task: &TaskManagerWindow) {
+    sync_design_tokens(&Design::get(ui), &Design::get(task));
+}
+
+/// Sama seperti `sync_design_to_bar`, untuk SpreadsheetWindow
+/// (1000×600). Dipanggil saat window dibuat/dibuka-ulang (via
+/// `push_chrome_to_sheet` di main.rs) + tiap handler tema — menutup
+/// celah tema #13 (window sekunder tidak ikut ganti tema).
+pub fn sync_design_to_sheet(ui: &AppWindow, w: &SpreadsheetWindow) {
+    sync_design_tokens(&Design::get(ui), &Design::get(w));
+}
+
+/// Sama seperti `sync_design_to_sheet`, untuk ToolboxWindow.
+pub fn sync_design_to_toolbox(ui: &AppWindow, w: &ToolboxWindow) {
+    sync_design_tokens(&Design::get(ui), &Design::get(w));
+}
+
+/// Sama seperti `sync_design_to_sheet`, untuk CardListWindow.
+pub fn sync_design_to_cardlist(ui: &AppWindow, w: &CardListWindow) {
+    sync_design_tokens(&Design::get(ui), &Design::get(w));
+}
+
+/// Sama seperti `sync_design_to_sheet`, untuk CommentWindow.
+pub fn sync_design_to_comment(ui: &AppWindow, w: &CommentWindow) {
+    sync_design_tokens(&Design::get(ui), &Design::get(w));
+}
+
+/// Sama seperti `sync_design_to_sheet`, untuk BatchWindow (tear-off).
+pub fn sync_design_to_batch(ui: &AppWindow, w: &BatchWindow) {
+    sync_design_tokens(&Design::get(ui), &Design::get(w));
+}
+
+/// Sama seperti `sync_design_to_sheet`, untuk DocWindow (tear-off).
+pub fn sync_design_to_doc(ui: &AppWindow, w: &DocWindow) {
+    sync_design_tokens(&Design::get(ui), &Design::get(w));
 }
 
 /// Salin properti paket ikon dari satu Design ke Design lain

@@ -1,3 +1,14 @@
+## 2026-11-28 — Dex — Ronde perbaikan Windows (1/5): tema live ke SEMUA window (celah tema #13 ditutup)
+
+- Diubah:
+  - **`src/theme.rs` — `sync_design_tokens()` (BARU) + 6 `sync_design_to_*` baru:** satu fungsi menyalin SEMUA token Design yang diturunkan `apply_appearance()` (warna, radius, spacing, font, density, nav, tombol, status, cat-*, overlay) + paket ikon dari window utama ke window lain. `sync_design_to_bar/radial/task` yang dulu menyalin subset kini delegasi ke fungsi ini; baru: `sync_design_to_sheet/toolbox/cardlist/comment/batch/doc`. Tidak disalin: `anim-*` + `window-min-width` (statis, default sama di semua window).
+  - **`src/main.rs` — `push_chrome_to_*` kini ikut dorong tema:** tiap push (sheet/toolbox/cardlist/comment/batch/doc) memanggil `sync_design_to_*` — jadi window yang dibuka SETELAH ganti tema langsung memakai tema aktif. `sync_chrome_to_windows` (dipanggil `on_apply_appearance`, `on_reset_appearance`, `on_icon_pack_settings_changed`) otomatis ikut mendorong tema ke window yang sedang terbuka.
+  - **`src/main.rs` — `on_apply_theme_preset` + `on_apply_user_theme`:** kini memanggil `sync_chrome_to_windows` juga (dulu preset/tema-user hanya sampai ke bar/radial/task — ganti preset tidak menjalar ke window sekunder).
+- Alasan: temuan tes Windows 28 Nov 18:09–18:53 (abeng, demo F5 HEAD 0c61b8b): pilih Terang tersimpan + dashboard terang setelah restart, TAPI window sekunder (CardList dll.) tetap gelap dan notch tidak ikut tema. Akar: tiap window OS punya instance Design sendiri; hanya bar/radial/task yang disalin tokennya.
+- Terverifikasi: `cargo build --offline` exit 0 (warning lama saja). GUI Xvfb :98, APPDATA terisolasi `appdata-fixwin` (DB asli abeng TIDAK disentuh), screenshot `fixwin-*.png`: **persistensi** — restart → dashboard langsung Terang (`fixwin-20`); **buka-ulang** — Settings → Appearance menampilkan Terang terpilih (`fixwin-22`); **buka saat Terang** — CardList dibuka putih (`fixwin-21`); **live** — CardList yang sedang terbuka ikut Gelap saat tema diganti di Settings, tanpa restart (`fixwin-23`, toast "Tema Gelap diterapkan").
+- Masih terbuka: (1) "Tampilan basi Gelap saat Settings dibuka ulang" dari laporan Windows TIDAK tereproduksi di HEAD ini (Terang tetap terpilih saat dibuka ulang, `fixwin-11/22`) — kemungkinan pengamatan di demo PC (HEAD 0c61b8b) atau saat overlay masih menutupi dashboard; perlu konfirmasi Dex di PC Windows setelah push. (2) Pill notch tetap hitam di mode Terang (item 2 ronde ini, belum dikerjakan). (3) Belum diuji di PC Windows asli.
+- Catatan harness: `xdotool click 1` instan TIDAK tembus ke TouchArea di dalam Flickable (sidebar Settings) — pakai `click --delay 100 1`; tahan-tombol 0,5 dtk malah ditelan Flickable sebagai awal drag-scroll. Koordinat klik wajib diukur dari piksel (baris Appearance di y≈196, bukan 222).
+
 ## 2026-11-28 — Dex — Tema spesial Sakuga: preset ke-9 + animasi spring + burst asap/kristal + onomatopoeia
 
 - Diubah:

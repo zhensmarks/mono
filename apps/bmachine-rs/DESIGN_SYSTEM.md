@@ -3057,7 +3057,19 @@ ringan, sekali klik ubah seluruh aplikasi secara konsisten.
   Settings, Trello, spreadsheet, dialog, radial, log panel, splash
   dan flyout membaca token yang sama — tidak ada warna hardcode
   per permukaan. Preset mengatur juga 4 warna widget
-  (`Design.cat-editing/revision/late/points`).
+  (`Design.cat-editing/revision/late/points`). **Sinkronisasi
+  antar-window (28 Nov 2026, celah tema #13 ditutup):** tiap window
+  OS punya instance `Design` sendiri, jadi token disalin eksplisit
+  lewat `theme::sync_design_tokens()` (semua token yang diturunkan
+  `apply_appearance()` + paket ikon) — dipanggil saat window
+  sekunder dibuat/dibuka-ulang (di dalam `push_chrome_to_*`) DAN
+  tiap handler tema (`on_apply_appearance`,
+  `on_reset_appearance`, `on_apply_theme_preset`,
+  `on_apply_user_theme` → `sync_chrome_to_windows`); bar/radial/
+  task punya `sync_design_to_bar/radial/task` sendiri. Tanpa ini
+  window yang sudah terbuka (atau baru dibuka) ketinggalan tema
+  aktif — terverifikasi GUI: CardList ikut Terang saat dibuka dan
+  ikut Gelap secara live saat tema diganti.
 - **Picker di grup Appearance** (`ui/settings.slint`): tiap preset
   satu `ThemeRow` + preview 4 titik (aksen, revisi, bg, fg) +
   ✓ saat aktif. Di bawahnya: **Tema saya** (tema buatan user),
